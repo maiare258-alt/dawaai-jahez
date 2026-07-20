@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>دوائي جاهز | توفر الأدوية في الصيدليات</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: 'Tahoma', 'Segoe UI', sans-serif;
+    background: #f5f4ef;
+    color: #2c2c2a;
+    margin: 0;
+    padding: 20px;
+  }
+  .container { max-width: 640px; margin: 0 auto; }
+  h1 { font-size: 22px; font-weight: 500; margin-bottom: 4px; }
+  p.subtitle { color: #5f5e5a; font-size: 14px; margin-bottom: 24px; }
+  .tabs { display: flex; gap: 8px; margin-bottom: 20px; }
+  .tabs button {
+    flex: 1; padding: 10px; border: 1px solid #d3d1c7; border-radius: 8px;
+    background: white; cursor: pointer; font-size: 14px;
+  }
+  .tabs button.active { border-color: #185fa5; color: #185fa5; font-weight: 500; }
+  input, select {
+    width: 100%; padding: 10px; border: 1px solid #d3d1c7; border-radius: 8px;
+    font-size: 14px; margin-bottom: 16px; font-family: inherit;
+  }
+  .card {
+    background: white; border: 1px solid #e5e3da; border-radius: 12px;
+    padding: 16px 18px; margin-bottom: 12px;
+  }
+  .card h3 { margin: 0 0 4px; font-size: 15px; font-weight: 500; }
+  .card .generic { font-size: 13px; color: #5f5e5a; margin-bottom: 10px; }
+  .pharmacy-row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 8px 0; border-top: 1px solid #eee;
+  }
+  .badge {
+    font-size: 12px; padding: 4px 10px; border-radius: 6px;
+  }
+  .badge.yes { background: #eaf3de; color: #27500a; }
+  .badge.no { background: #fcebeb; color: #501313; }
+  .toggle-btn {
+    font-size: 12px; padding: 5px 12px; border-radius: 6px; cursor: pointer; border: 1px solid;
+  }
+  .toggle-btn.yes { background: #eaf3de; color: #27500a; border-color: #97c459; }
+  .toggle-btn.no { background: #fcebeb; color: #501313; border-color: #f09595; }
+  .muted { color: #888780; font-size: 14px; }
+  .auth-box { background: white; border: 1px solid #e5e3da; border-radius: 12px; padding: 20px; }
+  .auth-box button.primary {
+    width: 100%; padding: 10px; background: #185fa5; color: white; border: none;
+    border-radius: 8px; font-size: 14px; cursor: pointer;
+  }
+  .link-btn { background: none; border: none; color: #185fa5; cursor: pointer; font-size: 13px; text-decoration: underline; padding: 0; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>دوائي جاهز</h1>
+  <p class="subtitle">اعرف فوراً أي صيدلية يتوفر فيها دواؤك</p>
+
+  <div class="tabs">
+    <button id="tab-patient" class="active" onclick="showView('patient')">واجهة المريض</button>
+    <button id="tab-pharmacist" onclick="showView('pharmacist')">لوحة الصيدلي</button>
+  </div>
+
+  <div id="view-patient">
+    <input id="search" type="text" placeholder="ابحث عن دواء... مثال: بنادول" oninput="onSearch()">
+    <div id="results"></div>
+  </div>
+
+  <div id="view-pharmacist" style="display:none;">
+    <div id="auth-section"></div>
+    <div id="dashboard-section" style="display:none;">
+      <div class="muted" id="pharmacy-label" style="display:flex; align-items:center; margin-bottom:12px;"></div>
+      <div id="stock-list"></div>
+    </div>
+  </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>

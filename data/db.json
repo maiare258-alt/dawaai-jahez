@@ -1,0 +1,295 @@
+{
+  "nextMedicineId": 29,
+  "nextPharmacyId": 3,
+  "medicines": [
+    {
+      "id": 1,
+      "name": "بنادول",
+      "generic_name": "باراسيتامول",
+      "alt_names": [
+        "بندول",
+        "panadol",
+        "paracetamol"
+      ]
+    },
+    {
+      "id": 2,
+      "name": "سيتامول",
+      "generic_name": "باراسيتامول",
+      "alt_names": [
+        "paracetamol",
+        "panadol"
+      ]
+    },
+    {
+      "id": 3,
+      "name": "بروسبان",
+      "generic_name": "مستخلص أوراق اللبلاب",
+      "alt_names": [
+        "bruspan",
+        "شراب سعال"
+      ]
+    },
+    {
+      "id": 4,
+      "name": "أوجمنتين",
+      "generic_name": "أموكسيسيلين + كلافولانيك",
+      "alt_names": [
+        "augmentin"
+      ]
+    },
+    {
+      "id": 5,
+      "name": "فولتارين",
+      "generic_name": "ديكلوفيناك",
+      "alt_names": [
+        "voltaren"
+      ]
+    },
+    {
+      "id": 6,
+      "name": "بروفين",
+      "generic_name": "إيبوبروفين",
+      "alt_names": [
+        "brufen",
+        "ibuprofen"
+      ]
+    },
+    {
+      "id": 7,
+      "name": "كاتافلام",
+      "generic_name": "ديكلوفيناك",
+      "alt_names": [
+        "cataflam"
+      ]
+    },
+    {
+      "id": 8,
+      "name": "أموكسيل",
+      "generic_name": "أموكسيسيلين",
+      "alt_names": [
+        "amoxil",
+        "amoxicillin"
+      ]
+    },
+    {
+      "id": 9,
+      "name": "كلاسيد",
+      "generic_name": "كلاريثروميسين",
+      "alt_names": [
+        "klacid",
+        "clarithromycin"
+      ]
+    },
+    {
+      "id": 10,
+      "name": "فلاجيل",
+      "generic_name": "ميترونيدازول",
+      "alt_names": [
+        "flagyl",
+        "metronidazole"
+      ]
+    },
+    {
+      "id": 11,
+      "name": "توسيران",
+      "generic_name": "ديكستروميثورفان",
+      "alt_names": [
+        "tosseran"
+      ]
+    },
+    {
+      "id": 12,
+      "name": "كولدريكس",
+      "generic_name": "باراسيتامول + مضاد احتقان",
+      "alt_names": [
+        "coldrex"
+      ]
+    },
+    {
+      "id": 13,
+      "name": "زيرتك",
+      "generic_name": "سيتريزين",
+      "alt_names": [
+        "zyrtec",
+        "cetirizine"
+      ]
+    },
+    {
+      "id": 14,
+      "name": "كلاريتين",
+      "generic_name": "لوراتادين",
+      "alt_names": [
+        "claritine",
+        "loratadine"
+      ]
+    },
+    {
+      "id": 15,
+      "name": "نيكسيوم",
+      "generic_name": "إيزوميبرازول",
+      "alt_names": [
+        "nexium",
+        "esomeprazole"
+      ]
+    },
+    {
+      "id": 16,
+      "name": "زانتاك",
+      "generic_name": "رانيتيدين",
+      "alt_names": [
+        "zantac",
+        "ranitidine"
+      ]
+    },
+    {
+      "id": 17,
+      "name": "إيموديوم",
+      "generic_name": "لوبيراميد",
+      "alt_names": [
+        "imodium",
+        "loperamide"
+      ]
+    },
+    {
+      "id": 18,
+      "name": "فينتولين",
+      "generic_name": "سالبوتامول",
+      "alt_names": [
+        "ventolin",
+        "salbutamol"
+      ]
+    },
+    {
+      "id": 19,
+      "name": "كونكور",
+      "generic_name": "بيسوبرولول",
+      "alt_names": [
+        "concor",
+        "bisoprolol"
+      ]
+    },
+    {
+      "id": 20,
+      "name": "كابوتين",
+      "generic_name": "كابتوبريل",
+      "alt_names": [
+        "capoten",
+        "captopril"
+      ]
+    },
+    {
+      "id": 21,
+      "name": "غلوكوفاج",
+      "generic_name": "ميتفورمين",
+      "alt_names": [
+        "glucophage",
+        "metformin"
+      ]
+    },
+    {
+      "id": 22,
+      "name": "أماريل",
+      "generic_name": "غليميبيريد",
+      "alt_names": [
+        "amaryl",
+        "glimepiride"
+      ]
+    },
+    {
+      "id": 23,
+      "name": "فيتامين سي",
+      "generic_name": "حمض الأسكوربيك",
+      "alt_names": [
+        "vitamin c"
+      ]
+    },
+    {
+      "id": 24,
+      "name": "فيروجلوبين",
+      "generic_name": "حديد وفيتامينات",
+      "alt_names": [
+        "feroglobin"
+      ]
+    },
+    {
+      "id": 25,
+      "name": "أسبرين",
+      "generic_name": "حمض أسيتيل ساليسيليك",
+      "alt_names": [
+        "aspirin"
+      ]
+    },
+    {
+      "id": 26,
+      "name": "بيتادين",
+      "generic_name": "بوفيدون آيودين",
+      "alt_names": [
+        "betadine"
+      ]
+    },
+    {
+      "id": 27,
+      "name": "فيوسيدين",
+      "generic_name": "فوسيديك أسيد",
+      "alt_names": [
+        "fucidin"
+      ]
+    },
+    {
+      "id": 28,
+      "name": "أدول",
+      "generic_name": "باراسيتامول",
+      "alt_names": [
+        "adol",
+        "paracetamol"
+      ]
+    }
+  ],
+  "pharmacies": [
+    {
+      "id": 1,
+      "name": "عمك",
+      "address": "سلمية",
+      "phone": "5566774433",
+      "owner_username": "رونالدو",
+      "owner_password_hash": "$2a$10$2k4EdFRMbrsY9KCbLVBBQOpl3CCRsW54huPVv8fMKHEP1KeEmwqtG"
+    },
+    {
+      "id": 2,
+      "name": "تجربه ",
+      "address": "سلمية",
+      "phone": "8872341",
+      "owner_username": "تجربه",
+      "owner_password_hash": "$2a$10$ufW2PgV7AsXWY0u2gc8ZDOfV140mVYlH0trPIFslxudLsOOIbZJAu"
+    }
+  ],
+  "stock": {
+    "1": {
+      "1": true,
+      "2": true,
+      "3": true,
+      "4": true,
+      "5": true,
+      "6": true,
+      "7": true,
+      "8": true,
+      "9": true,
+      "17": true,
+      "23": true,
+      "27": true
+    },
+    "2": {
+      "1": true,
+      "2": true,
+      "3": true,
+      "6": true,
+      "8": true,
+      "10": true,
+      "12": true,
+      "19": true,
+      "24": true,
+      "27": true
+    }
+  }
+}
