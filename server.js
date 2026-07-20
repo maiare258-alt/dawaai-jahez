@@ -14,7 +14,7 @@ app.use(cors());
 app.use(express.json());
 
 // تقديم واجهة الموقع الثابتة
-app.use(express.static(path.join(__dirname, '../frontend')));
+app.use(express.static(path.join(__dirname, 'frontend')));
 
 // مسارات API
 app.use('/api/medicines', medicinesRoutes);
