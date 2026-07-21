@@ -47,6 +47,16 @@ function getAllMedicines() {
   return readDb().medicines;
 }
 
+function deleteMedicine(medicineId) {
+  const db = readDb();
+  const id = Number(medicineId);
+  db.medicines = db.medicines.filter(m => m.id !== id);
+  Object.keys(db.stock).forEach(pharmacyId => {
+    delete db.stock[pharmacyId][id];
+  });
+  writeDb(db);
+}
+
 // ---------- الصيدليات ----------
 
 function getAllPharmacies() {
@@ -74,6 +84,14 @@ function addPharmacy({ name, address, phone, username, passwordHash }) {
   db.stock[pharmacy.id] = {};
   writeDb(db);
   return pharmacy;
+}
+
+function deletePharmacy(pharmacyId) {
+  const db = readDb();
+  const id = Number(pharmacyId);
+  db.pharmacies = db.pharmacies.filter(p => p.id !== id);
+  delete db.stock[id];
+  writeDb(db);
 }
 
 // ---------- المخزون ----------
@@ -111,9 +129,11 @@ module.exports = {
   searchMedicines,
   addMedicine,
   getAllMedicines,
+  deleteMedicine,
   getAllPharmacies,
   findPharmacyByUsername,
   addPharmacy,
+  deletePharmacy,
   getAvailability,
   getStockForPharmacy,
   setStock
