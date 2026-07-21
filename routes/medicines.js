@@ -33,4 +33,16 @@ router.post('/', (req, res) => {
   }
 });
 
+// حذف دواء من قائمة الأدوية العامة
+// DELETE /api/medicines/:id
+router.delete('/:id', (req, res) => {
+  try {
+    db.deleteMedicine(req.params.id);
+    res.json({ success: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'حدث خطأ أثناء حذف الدواء' });
+  }
+});
+
 module.exports = router;
