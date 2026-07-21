@@ -56,4 +56,16 @@ router.post('/login', async (req, res) => {
   }
 });
 
+// حذف صيدلية
+// DELETE /api/pharmacies/:id
+router.delete('/:id', (req, res) => {
+  try {
+    db.deletePharmacy(req.params.id);
+    res.json({ success: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'حدث خطأ أثناء حذف الصيدلية' });
+  }
+});
+
 module.exports = router;
