@@ -141,11 +141,47 @@ async function refreshStock() {
   document.getElementById('stock-list').innerHTML = data.map(m => `
     <div class="pharmacy-row">
       <span>${m.name}</span>
-      <button class="toggle-btn ${m.available ? 'yes' : 'no'}" onclick="toggleStock(${m.medicine_id}, ${!m.available})">
-        ${m.available ? 'متوفر' : 'غير متوفر'}
-      </button>
+      <div style="display:flex; gap:8px; align-items:center;">
+        <button class="toggle-btn ${m.available ? 'yes' : 'no'}" onclick="toggleStock(${m.medicine_id}, ${!m.available})">
+          ${m.available ? 'متوفر' : 'غير متوفر'}
+        </button>
+        <button class="link-btn" style="color:#a33;" onclick="deleteMedicine(${m.medicine_id}, '${m.name}')">حذف</button>
+      </div>
     </div>
   `).join('');
+  renderPharmacyManagement();
+}
+
+async function deleteMedicine(medicineId, name) {
+  if (!confirm(`متأكد إنك بدك تحذف "${name}" من قائمة الأدوية بالكامل؟ هذا الإجراء لا يمكن التراجع عنه.`)) return;
+  await fetch(`${API}/medicines/${medicineId}`, { method: 'DELETE' });
+  refreshStock();
+}
+
+async function renderPharmacyManagement() {
+  const res = await fetch(`${API}/pharmacies`);
+  const pharmacies = await res.json();
+  const container = document.getElementById('pharmacy-management');
+  if (!container) return;
+  container.innerHTML = `
+    <h3 style="margin-top:32px;">إدارة الصيدليات المسجّلة</h3>
+    ${pharmacies.map(p => `
+      <div class="pharmacy-row">
+        <span>${p.name} ${p.id === currentPharmacy.id ? '(صيدليتك)' : ''}</span>
+        <button class="link-btn" style="color:#a33;" onclick="deletePharmacy(${p.id}, '${p.name}')">حذف</button>
+      </div>
+    `).join('')}
+  `;
+}
+
+async function deletePharmacy(pharmacyId, name) {
+  if (!confirm(`متأكد إنك بدك تحذف صيدلية "${name}" بالكامل؟ هذا الإجراء لا يمكن التراجع عنه.`)) return;
+  await fetch(`${API}/pharmacies/${pharmacyId}`, { method: 'DELETE' });
+  if (pharmacyId === currentPharmacy.id) {
+    logout();
+  } else {
+    renderPharmacyManagement();
+  }
 }
 
 async function toggleStock(medicineId, newValue) {
