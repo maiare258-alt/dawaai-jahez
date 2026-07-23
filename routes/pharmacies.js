@@ -2,10 +2,11 @@ const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcryptjs');
 const db = require('../db');
+const adminAuth = require('../middleware/adminAuth');
 
-// عرض كل الصيدليات
+// عرض كل الصيدليات (للإدارة فقط)
 // GET /api/pharmacies
-router.get('/', (req, res) => {
+router.get('/', adminAuth, (req, res) => {
   try {
     res.json(db.getAllPharmacies());
   } catch (err) {
@@ -14,9 +15,9 @@ router.get('/', (req, res) => {
   }
 });
 
-// تسجيل صيدلية جديدة
+// تسجيل صيدلية جديدة (للإدارة فقط - المريض العادي لا يقدر يسجل نفسه كصيدلي)
 // POST /api/pharmacies/register  { name, address, phone, username, password }
-router.post('/register', async (req, res) => {
+router.post('/register', adminAuth, async (req, res) => {
   const { name, address, phone, username, password } = req.body;
   if (!name || !username || !password) {
     return res.status(400).json({ error: 'الاسم واسم المستخدم وكلمة المرور مطلوبة' });
@@ -35,7 +36,7 @@ router.post('/register', async (req, res) => {
   }
 });
 
-// تسجيل دخول الصيدلي
+// تسجيل دخول الصيدلي (متاح للجميع - كل صيدلية تدخل بحسابها الخاص)
 // POST /api/pharmacies/login  { username, password }
 router.post('/login', async (req, res) => {
   const { username, password } = req.body;
@@ -56,9 +57,31 @@ router.post('/login', async (req, res) => {
   }
 });
 
-// حذف صيدلية
+// حذف الصيدلي لحسابه الخاص فقط (يتطلب تأكيد اسم المستخدم وكلمة المرور)
+// DELETE /api/pharmacies/self  { username, password }
+router.delete('/self', async (req, res) => {
+  const { username, password } = req.body;
+  if (!username || !password) {
+    return res.status(400).json({ error: 'بيانات الدخول مطلوبة لتأكيد الحذف' });
+  }
+  try {
+    const pharmacy = db.findPharmacyByUsername(username);
+    if (!pharmacy) return res.status(401).json({ error: 'بيانات الدخول غير صحيحة' });
+
+    const valid = await bcrypt.compare(password, pharmacy.owner_password_hash);
+    if (!valid) return res.status(401).json({ error: 'بيانات الدخول غير صحيحة' });
+
+    db.deletePharmacy(pharmacy.id);
+    res.json({ success: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'حدث خطأ أثناء حذف الحساب' });
+  }
+});
+
+// حذف أي صيدلية (للإدارة فقط)
 // DELETE /api/pharmacies/:id
-router.delete('/:id', (req, res) => {
+router.delete('/:id', adminAuth, (req, res) => {
   try {
     db.deletePharmacy(req.params.id);
     res.json({ success: true });
