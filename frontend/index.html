@@ -15,6 +15,7 @@
   }
   .container { max-width: 640px; margin: 0 auto; }
   h1 { font-size: 22px; font-weight: 500; margin-bottom: 4px; }
+  h3 { font-size: 15px; margin-top: 28px; }
   p.subtitle { color: #5f5e5a; font-size: 14px; margin-bottom: 24px; }
   .tabs { display: flex; gap: 8px; margin-bottom: 20px; }
   .tabs button {
@@ -22,23 +23,21 @@
     background: white; cursor: pointer; font-size: 14px;
   }
   .tabs button.active { border-color: #185fa5; color: #185fa5; font-weight: 500; }
-  input, select {
+  input {
     width: 100%; padding: 10px; border: 1px solid #d3d1c7; border-radius: 8px;
-    font-size: 14px; margin-bottom: 16px; font-family: inherit;
+    font-size: 14px; margin-bottom: 12px; font-family: inherit;
   }
   .card {
     background: white; border: 1px solid #e5e3da; border-radius: 12px;
     padding: 16px 18px; margin-bottom: 12px;
   }
-  .card h3 { margin: 0 0 4px; font-size: 15px; font-weight: 500; }
+  .card h3 { margin: 0 0 4px; font-size: 15px; font-weight: 500; margin-top: 0; }
   .card .generic { font-size: 13px; color: #5f5e5a; margin-bottom: 10px; }
-  .pharmacy-row {
+  .row {
     display: flex; justify-content: space-between; align-items: center;
     padding: 8px 0; border-top: 1px solid #eee;
   }
-  .badge {
-    font-size: 12px; padding: 4px 10px; border-radius: 6px;
-  }
+  .badge { font-size: 12px; padding: 4px 10px; border-radius: 6px; }
   .badge.yes { background: #eaf3de; color: #27500a; }
   .badge.no { background: #fcebeb; color: #501313; }
   .toggle-btn {
@@ -48,11 +47,13 @@
   .toggle-btn.no { background: #fcebeb; color: #501313; border-color: #f09595; }
   .muted { color: #888780; font-size: 14px; }
   .auth-box { background: white; border: 1px solid #e5e3da; border-radius: 12px; padding: 20px; }
-  .auth-box button.primary {
+  .auth-box button.primary, button.primary {
     width: 100%; padding: 10px; background: #185fa5; color: white; border: none;
-    border-radius: 8px; font-size: 14px; cursor: pointer;
+    border-radius: 8px; font-size: 14px; cursor: pointer; margin-top: 4px;
   }
   .link-btn { background: none; border: none; color: #185fa5; cursor: pointer; font-size: 13px; text-decoration: underline; padding: 0; }
+  .danger-btn { background: none; border: none; color: #a33; cursor: pointer; font-size: 13px; text-decoration: underline; padding: 0; }
+  .box { background: white; border: 1px solid #e5e3da; border-radius: 12px; padding: 16px 18px; margin-top: 8px; }
 </style>
 </head>
 <body>
@@ -63,6 +64,7 @@
   <div class="tabs">
     <button id="tab-patient" class="active" onclick="showView('patient')">واجهة المريض</button>
     <button id="tab-pharmacist" onclick="showView('pharmacist')">لوحة الصيدلي</button>
+    <button id="tab-admin" onclick="showView('admin')">الإدارة</button>
   </div>
 
   <div id="view-patient">
@@ -71,12 +73,19 @@
   </div>
 
   <div id="view-pharmacist" style="display:none;">
-    <div id="auth-section"></div>
-    <div id="dashboard-section" style="display:none;">
-      <div class="muted" id="pharmacy-label" style="display:flex; align-items:center; margin-bottom:12px;"></div>
+    <div id="pharmacist-auth-section"></div>
+    <div id="pharmacist-dashboard" style="display:none;">
+      <div class="muted" id="pharmacy-label" style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;"></div>
       <div id="stock-list"></div>
-      <div id="pharmacy-management"></div>
+      <p style="margin-top:32px;">
+        <button class="danger-btn" onclick="deleteMyAccount()">حذف حسابي نهائياً</button>
+      </p>
     </div>
+  </div>
+
+  <div id="view-admin" style="display:none;">
+    <div id="admin-auth-section"></div>
+    <div id="admin-panel" style="display:none;"></div>
   </div>
 </div>
 
