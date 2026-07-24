@@ -23,7 +23,7 @@
     background: white; cursor: pointer; font-size: 14px;
   }
   .tabs button.active { border-color: #185fa5; color: #185fa5; font-weight: 500; }
-  input {
+  input, select {
     width: 100%; padding: 10px; border: 1px solid #d3d1c7; border-radius: 8px;
     font-size: 14px; margin-bottom: 12px; font-family: inherit;
   }
@@ -68,6 +68,7 @@
   </div>
 
   <div id="view-patient">
+    <div id="on-duty-section"></div>
     <input id="search" type="text" placeholder="ابحث عن دواء... مثال: بنادول" oninput="onSearch()">
     <div id="results"></div>
   </div>
@@ -76,6 +77,22 @@
     <div id="pharmacist-auth-section"></div>
     <div id="pharmacist-dashboard" style="display:none;">
       <div class="muted" id="pharmacy-label" style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;"></div>
+      <div class="box" style="margin-bottom:20px;">
+        <h3 style="margin-top:0;">حالة المناوبة</h3>
+        <label style="display:flex; align-items:center; gap:8px; font-size:14px; margin-bottom:12px;">
+          <input type="checkbox" id="duty-checkbox" onchange="onDutyToggle()"> صيدليتي مناوبة اليوم
+        </label>
+        <select id="duty-day" disabled>
+          <option value="الأحد">الأحد</option>
+          <option value="الاثنين">الاثنين</option>
+          <option value="الثلاثاء">الثلاثاء</option>
+          <option value="الأربعاء">الأربعاء</option>
+          <option value="الخميس">الخميس</option>
+          <option value="الجمعة">الجمعة</option>
+          <option value="السبت">السبت</option>
+        </select>
+        <button class="primary" onclick="saveDuty()">حفظ حالة المناوبة</button>
+      </div>
       <div id="stock-list"></div>
       <p style="margin-top:32px;">
         <button class="danger-btn" onclick="deleteMyAccount()">حذف حسابي نهائياً</button>
