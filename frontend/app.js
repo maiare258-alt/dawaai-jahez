@@ -1,13 +1,19 @@
 const API = '/api';
 let currentPharmacy = null;
+let adminPassword = null;
 
 function showView(view) {
   document.getElementById('view-patient').style.display = view === 'patient' ? 'block' : 'none';
   document.getElementById('view-pharmacist').style.display = view === 'pharmacist' ? 'block' : 'none';
+  document.getElementById('view-admin').style.display = view === 'admin' ? 'block' : 'none';
   document.getElementById('tab-patient').classList.toggle('active', view === 'patient');
   document.getElementById('tab-pharmacist').classList.toggle('active', view === 'pharmacist');
-  if (view === 'pharmacist' && !currentPharmacy) renderAuthForm();
+  document.getElementById('tab-admin').classList.toggle('active', view === 'admin');
+  if (view === 'pharmacist' && !currentPharmacy) renderPharmacyAuthForm();
+  if (view === 'admin' && !adminPassword) renderAdminAuthForm();
 }
+
+// ---------- واجهة المريض ----------
 
 let searchTimeout;
 function onSearch() {
@@ -34,7 +40,7 @@ async function runSearch() {
         <h3>${item.medicine.name}</h3>
         <div class="generic">المادة الفعالة: ${item.medicine.generic_name || '-'}</div>
         ${item.availability.map(a => `
-          <div class="pharmacy-row">
+          <div class="row">
             <span>${a.pharmacy_name}</span>
             <span class="badge ${a.available ? 'yes' : 'no'}">${a.available ? 'متوفر' : 'غير متوفر'}</span>
           </div>
@@ -42,38 +48,21 @@ async function runSearch() {
       </div>
     `).join('');
   } catch (err) {
-    container.innerHTML = '<p class="muted">تعذر الاتصال بالخادم. تأكد من تشغيل الخادم وقاعدة البيانات.</p>';
+    container.innerHTML = '<p class="muted">تعذر الاتصال بالخادم.</p>';
   }
 }
 
-function renderAuthForm() {
-  document.getElementById('dashboard-section').style.display = 'none';
-  document.getElementById('auth-section').innerHTML = `
+// ---------- لوحة الصيدلي ----------
+
+function renderPharmacyAuthForm() {
+  document.getElementById('pharmacist-dashboard').style.display = 'none';
+  document.getElementById('pharmacist-auth-section').innerHTML = `
     <div class="auth-box">
-      <h3>دخول الصيدلي</h3>
+      <h3 style="margin-top:0;">دخول الصيدلي</h3>
+      <p class="muted" style="margin-top:-8px;">إذا لم يكن لديك حساب بعد، تواصل مع فريق دوائي جاهز لتسجيل صيدليتك.</p>
       <input id="login-username" type="text" placeholder="اسم المستخدم">
       <input id="login-password" type="password" placeholder="كلمة المرور">
       <button class="primary" onclick="login()">دخول</button>
-      <p style="text-align:center; margin-top:12px;">
-        صيدلية جديدة؟ <button class="link-btn" onclick="renderRegisterForm()">سجّل صيدليتك</button>
-      </p>
-    </div>
-  `;
-}
-
-function renderRegisterForm() {
-  document.getElementById('auth-section').innerHTML = `
-    <div class="auth-box">
-      <h3>تسجيل صيدلية جديدة</h3>
-      <input id="reg-name" type="text" placeholder="اسم الصيدلية">
-      <input id="reg-address" type="text" placeholder="العنوان">
-      <input id="reg-phone" type="text" placeholder="رقم الهاتف">
-      <input id="reg-username" type="text" placeholder="اسم مستخدم">
-      <input id="reg-password" type="password" placeholder="كلمة المرور">
-      <button class="primary" onclick="register()">تسجيل</button>
-      <p style="text-align:center; margin-top:12px;">
-        لديك حساب؟ <button class="link-btn" onclick="renderAuthForm()">دخول</button>
-      </p>
     </div>
   `;
 }
@@ -89,99 +78,40 @@ async function login() {
     });
     const data = await res.json();
     if (!res.ok) { alert(data.error); return; }
-    currentPharmacy = data;
+    currentPharmacy = { ...data, username, password };
     loadDashboard();
   } catch (err) {
     alert('تعذر الاتصال بالخادم');
   }
 }
 
-async function register() {
-  const body = {
-    name: document.getElementById('reg-name').value,
-    address: document.getElementById('reg-address').value,
-    phone: document.getElementById('reg-phone').value,
-    username: document.getElementById('reg-username').value,
-    password: document.getElementById('reg-password').value,
-  };
-  try {
-    const res = await fetch(`${API}/pharmacies/register`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body)
-    });
-    const data = await res.json();
-    if (!res.ok) { alert(data.error); return; }
-    alert('تم التسجيل بنجاح، يمكنك تسجيل الدخول الآن');
-    renderAuthForm();
-  } catch (err) {
-    alert('تعذر الاتصال بالخادم');
-  }
-}
-
 function loadDashboard() {
-  document.getElementById('auth-section').innerHTML = '';
-  document.getElementById('dashboard-section').style.display = 'block';
+  document.getElementById('pharmacist-auth-section').innerHTML = '';
+  document.getElementById('pharmacist-dashboard').style.display = 'block';
   document.getElementById('pharmacy-label').innerHTML = `
     <span>صيدلية: ${currentPharmacy.name}</span>
-    <button class="link-btn" style="margin-right:16px;" onclick="logout()">تسجيل الخروج</button>
+    <button class="link-btn" onclick="logout()">تسجيل الخروج</button>
   `;
   refreshStock();
 }
 
 function logout() {
   currentPharmacy = null;
-  document.getElementById('dashboard-section').style.display = 'none';
-  renderAuthForm();
+  document.getElementById('pharmacist-dashboard').style.display = 'none';
+  renderPharmacyAuthForm();
 }
 
 async function refreshStock() {
   const res = await fetch(`${API}/stock/${currentPharmacy.id}`);
   const data = await res.json();
   document.getElementById('stock-list').innerHTML = data.map(m => `
-    <div class="pharmacy-row">
+    <div class="row">
       <span>${m.name}</span>
-      <div style="display:flex; gap:8px; align-items:center;">
-        <button class="toggle-btn ${m.available ? 'yes' : 'no'}" onclick="toggleStock(${m.medicine_id}, ${!m.available})">
-          ${m.available ? 'متوفر' : 'غير متوفر'}
-        </button>
-        <button class="link-btn" style="color:#a33;" onclick="deleteMedicine(${m.medicine_id}, '${m.name}')">حذف</button>
-      </div>
+      <button class="toggle-btn ${m.available ? 'yes' : 'no'}" onclick="toggleStock(${m.medicine_id}, ${!m.available})">
+        ${m.available ? 'متوفر' : 'غير متوفر'}
+      </button>
     </div>
   `).join('');
-  renderPharmacyManagement();
-}
-
-async function deleteMedicine(medicineId, name) {
-  if (!confirm(`متأكد إنك بدك تحذف "${name}" من قائمة الأدوية بالكامل؟ هذا الإجراء لا يمكن التراجع عنه.`)) return;
-  await fetch(`${API}/medicines/${medicineId}`, { method: 'DELETE' });
-  refreshStock();
-}
-
-async function renderPharmacyManagement() {
-  const res = await fetch(`${API}/pharmacies`);
-  const pharmacies = await res.json();
-  const container = document.getElementById('pharmacy-management');
-  if (!container) return;
-  container.innerHTML = `
-    <h3 style="margin-top:32px;">إدارة الصيدليات المسجّلة</h3>
-    ${pharmacies.map(p => `
-      <div class="pharmacy-row">
-        <span>${p.name} ${p.id === currentPharmacy.id ? '(صيدليتك)' : ''}</span>
-        <button class="link-btn" style="color:#a33;" onclick="deletePharmacy(${p.id}, '${p.name}')">حذف</button>
-      </div>
-    `).join('')}
-  `;
-}
-
-async function deletePharmacy(pharmacyId, name) {
-  if (!confirm(`متأكد إنك بدك تحذف صيدلية "${name}" بالكامل؟ هذا الإجراء لا يمكن التراجع عنه.`)) return;
-  await fetch(`${API}/pharmacies/${pharmacyId}`, { method: 'DELETE' });
-  if (pharmacyId === currentPharmacy.id) {
-    logout();
-  } else {
-    renderPharmacyManagement();
-  }
 }
 
 async function toggleStock(medicineId, newValue) {
@@ -193,4 +123,134 @@ async function toggleStock(medicineId, newValue) {
   refreshStock();
 }
 
+async function deleteMyAccount() {
+  if (!confirm('متأكد إنك بدك تحذف حسابك نهائياً؟ هذا الإجراء لا يمكن التراجع عنه.')) return;
+  const res = await fetch(`${API}/pharmacies/self`, {
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username: currentPharmacy.username, password: currentPharmacy.password })
+  });
+  const data = await res.json();
+  if (!res.ok) { alert(data.error); return; }
+  alert('تم حذف حسابك بنجاح');
+  logout();
+}
+
+// ---------- لوحة الإدارة ----------
+
+function renderAdminAuthForm() {
+  document.getElementById('admin-panel').style.display = 'none';
+  document.getElementById('admin-auth-section').innerHTML = `
+    <div class="auth-box">
+      <input id="admin-password-input" type="password" placeholder="كلمة مرور الإدارة">
+      <button class="primary" onclick="checkAdminPassword()">دخول</button>
+    </div>
+  `;
+}
+
+async function checkAdminPassword() {
+  const password = document.getElementById('admin-password-input').value;
+  const res = await fetch(`${API}/pharmacies`, { headers: { 'x-admin-password': password } });
+  if (!res.ok) { alert('كلمة المرور غير صحيحة'); return; }
+  adminPassword = password;
+  document.getElementById('admin-auth-section').innerHTML = '';
+  document.getElementById('admin-panel').style.display = 'block';
+  renderAdminPanel();
+}
+
+function adminHeaders() {
+  return { 'Content-Type': 'application/json', 'x-admin-password': adminPassword };
+}
+
+async function renderAdminPanel() {
+  const [pharmacies, medicines] = await Promise.all([
+    fetch(`${API}/pharmacies`, { headers: adminHeaders() }).then(r => r.json()),
+    fetch(`${API}/medicines`, { headers: adminHeaders() }).then(r => r.json())
+  ]);
+
+  document.getElementById('admin-panel').innerHTML = `
+    <h3>إضافة صيدلية جديدة</h3>
+    <div class="box">
+      <input id="ph-name" placeholder="اسم الصيدلية">
+      <input id="ph-address" placeholder="العنوان">
+      <input id="ph-phone" placeholder="رقم الهاتف">
+      <input id="ph-username" placeholder="اسم مستخدم">
+      <input id="ph-password" placeholder="كلمة مرور">
+      <button class="primary" onclick="addPharmacy()">إضافة الصيدلية</button>
+    </div>
+
+    <h3>الصيدليات المسجّلة (${pharmacies.length})</h3>
+    <div class="box">
+      ${pharmacies.length === 0 ? '<p class="muted">لا يوجد صيدليات مسجّلة بعد.</p>' : pharmacies.map(p => `
+        <div class="row">
+          <span>${p.name} <span class="muted">(${p.owner_username})</span></span>
+          <button class="danger-btn" onclick="deletePharmacyAdmin(${p.id}, '${p.name}')">حذف</button>
+        </div>
+      `).join('')}
+    </div>
+
+    <h3>إضافة دواء جديد</h3>
+    <div class="box">
+      <input id="med-name" placeholder="اسم الدواء">
+      <input id="med-generic" placeholder="المادة الفعالة">
+      <input id="med-alt" placeholder="أسماء بديلة (افصل بفاصلة)">
+      <button class="primary" onclick="addMedicineAdmin()">إضافة الدواء</button>
+    </div>
+
+    <h3>الأدوية المسجّلة (${medicines.length})</h3>
+    <div class="box">
+      ${medicines.map(m => `
+        <div class="row">
+          <span>${m.name}</span>
+          <button class="danger-btn" onclick="deleteMedicineAdmin(${m.id}, '${m.name}')">حذف</button>
+        </div>
+      `).join('')}
+    </div>
+  `;
+}
+
+async function addPharmacy() {
+  const body = {
+    name: document.getElementById('ph-name').value,
+    address: document.getElementById('ph-address').value,
+    phone: document.getElementById('ph-phone').value,
+    username: document.getElementById('ph-username').value,
+    password: document.getElementById('ph-password').value,
+  };
+  const res = await fetch(`${API}/pharmacies/register`, {
+    method: 'POST', headers: adminHeaders(), body: JSON.stringify(body)
+  });
+  const data = await res.json();
+  if (!res.ok) { alert(data.error); return; }
+  renderAdminPanel();
+}
+
+async function deletePharmacyAdmin(id, name) {
+  if (!confirm(`متأكد إنك بدك تحذف صيدلية "${name}"؟`)) return;
+  await fetch(`${API}/pharmacies/${id}`, { method: 'DELETE', headers: adminHeaders() });
+  renderAdminPanel();
+}
+
+async function addMedicineAdmin() {
+  const alt_names = document.getElementById('med-alt').value.split(',').map(s => s.trim()).filter(Boolean);
+  const body = {
+    name: document.getElementById('med-name').value,
+    generic_name: document.getElementById('med-generic').value,
+    alt_names
+  };
+  const res = await fetch(`${API}/medicines`, {
+    method: 'POST', headers: adminHeaders(), body: JSON.stringify(body)
+  });
+  const data = await res.json();
+  if (!res.ok) { alert(data.error); return; }
+  renderAdminPanel();
+}
+
+async function deleteMedicineAdmin(id, name) {
+  if (!confirm(`متأكد إنك بدك تحذف دواء "${name}" نهائياً؟`)) return;
+  await fetch(`${API}/medicines/${id}`, { method: 'DELETE', headers: adminHeaders() });
+  renderAdminPanel();
+}
+
+showView('patient');
 runSearch();
