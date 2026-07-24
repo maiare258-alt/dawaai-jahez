@@ -69,6 +69,11 @@ function findPharmacyByUsername(username) {
   return db.pharmacies.find(p => p.owner_username === username);
 }
 
+function getPharmacyById(pharmacyId) {
+  const db = readDb();
+  return db.pharmacies.find(p => p.id === Number(pharmacyId));
+}
+
 function addPharmacy({ name, address, phone, username, passwordHash }) {
   const db = readDb();
   const pharmacy = {
@@ -92,6 +97,26 @@ function deletePharmacy(pharmacyId) {
   db.pharmacies = db.pharmacies.filter(p => p.id !== id);
   delete db.stock[id];
   writeDb(db);
+}
+
+// تحديث حالة مناوبة صيدلية معينة
+function setDutyStatus(pharmacyId, onDuty, day) {
+  const db = readDb();
+  const id = Number(pharmacyId);
+  const pharmacy = db.pharmacies.find(p => p.id === id);
+  if (!pharmacy) return null;
+  pharmacy.on_duty = !!onDuty;
+  pharmacy.on_duty_day = onDuty ? (day || null) : null;
+  writeDb(db);
+  return pharmacy;
+}
+
+// عرض كل الصيدليات المناوبة حالياً (متاح للجميع - واجهة المريض)
+function getOnDutyPharmacies() {
+  const db = readDb();
+  return db.pharmacies
+    .filter(p => p.on_duty)
+    .map(({ owner_password_hash, ...rest }) => rest);
 }
 
 // ---------- المخزون ----------
@@ -132,8 +157,11 @@ module.exports = {
   deleteMedicine,
   getAllPharmacies,
   findPharmacyByUsername,
+  getPharmacyById,
   addPharmacy,
   deletePharmacy,
+  setDutyStatus,
+  getOnDutyPharmacies,
   getAvailability,
   getStockForPharmacy,
   setStock
