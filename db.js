@@ -1,156 +1,182 @@
-// طبقة تخزين بسيطة تعتمد على ملف JSON بدل قاعدة بيانات منفصلة
-// كل البيانات محفوظة بملف data/db.json على جهازك
-// لاحقاً يمكن استبدال هذا الملف بالكامل بقاعدة بيانات حقيقية (PostgreSQL مثلاً) دون تغيير باقي الكود كثيراً
+// طبقة تخزين تعتمد على قاعدة بيانات PostgreSQL حقيقية
+// البيانات هون دائمة ولا تُفقد عند إعادة تشغيل الخادم (بعكس ملف JSON السابق)
 
-const fs = require('fs');
-const path = require('path');
+const { Pool } = require('pg');
 
-const DB_PATH = path.join(__dirname, 'data', 'db.json');
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: process.env.DATABASE_URL && process.env.DATABASE_URL.includes('localhost')
+    ? false
+    : { rejectUnauthorized: false }
+});
 
-function readDb() {
-  const raw = fs.readFileSync(DB_PATH, 'utf-8');
-  return JSON.parse(raw);
-}
+// ينشئ الجداول تلقائياً إذا لم تكن موجودة، ويضيف الأدوية الافتراضية أول مرة فقط
+async function initDb() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS medicines (
+      id SERIAL PRIMARY KEY,
+      name TEXT NOT NULL,
+      generic_name TEXT,
+      alt_names TEXT[] DEFAULT '{}'
+    );
+  `);
 
-function writeDb(data) {
-  fs.writeFileSync(DB_PATH, JSON.stringify(data, null, 2), 'utf-8');
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS pharmacies (
+      id SERIAL PRIMARY KEY,
+      name TEXT NOT NULL,
+      address TEXT,
+      phone TEXT,
+      owner_username TEXT UNIQUE NOT NULL,
+      owner_password_hash TEXT NOT NULL,
+      on_duty BOOLEAN DEFAULT false,
+      on_duty_day TEXT
+    );
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS stock (
+      pharmacy_id INTEGER REFERENCES pharmacies(id) ON DELETE CASCADE,
+      medicine_id INTEGER REFERENCES medicines(id) ON DELETE CASCADE,
+      available BOOLEAN DEFAULT false,
+      PRIMARY KEY (pharmacy_id, medicine_id)
+    );
+  `);
+
+  const { rows } = await pool.query('SELECT COUNT(*) FROM medicines');
+  if (Number(rows[0].count) === 0) {
+    const defaults = [
+      ['بنادول', 'باراسيتامول', ['بندول', 'panadol', 'paracetamol']],
+      ['سيتامول', 'باراسيتامول', ['paracetamol', 'panadol']],
+      ['بروسبان', 'مستخلص أوراق اللبلاب', ['bruspan', 'شراب سعال']],
+      ['أوجمنتين', 'أموكسيسيلين + كلافولانيك', ['augmentin']],
+      ['فولتارين', 'ديكلوفيناك', ['voltaren']]
+    ];
+    for (const [name, generic_name, alt_names] of defaults) {
+      await pool.query(
+        'INSERT INTO medicines (name, generic_name, alt_names) VALUES ($1, $2, $3)',
+        [name, generic_name, alt_names]
+      );
+    }
+  }
 }
 
 // ---------- الأدوية ----------
 
-function searchMedicines(query) {
-  const db = readDb();
+async function searchMedicines(query) {
   const q = query.trim().toLowerCase();
   if (!q) return [];
-  return db.medicines.filter(m =>
-    m.name.toLowerCase().includes(q) ||
-    (m.generic_name || '').toLowerCase().includes(q) ||
-    (m.alt_names || []).some(a => a.toLowerCase().includes(q))
+  const { rows } = await pool.query(
+    `SELECT * FROM medicines
+     WHERE LOWER(name) LIKE $1
+        OR LOWER(COALESCE(generic_name, '')) LIKE $1
+        OR EXISTS (SELECT 1 FROM unnest(alt_names) a WHERE LOWER(a) LIKE $1)`,
+    [`%${q}%`]
   );
+  return rows;
 }
 
-function addMedicine({ name, generic_name, alt_names }) {
-  const db = readDb();
-  const medicine = {
-    id: db.nextMedicineId,
-    name,
-    generic_name: generic_name || null,
-    alt_names: alt_names || []
-  };
-  db.medicines.push(medicine);
-  db.nextMedicineId += 1;
-  writeDb(db);
-  return medicine;
+async function addMedicine({ name, generic_name, alt_names }) {
+  const { rows } = await pool.query(
+    'INSERT INTO medicines (name, generic_name, alt_names) VALUES ($1, $2, $3) RETURNING *',
+    [name, generic_name || null, alt_names || []]
+  );
+  return rows[0];
 }
 
-function getAllMedicines() {
-  return readDb().medicines;
+async function getAllMedicines() {
+  const { rows } = await pool.query('SELECT * FROM medicines ORDER BY id');
+  return rows;
 }
 
-function deleteMedicine(medicineId) {
-  const db = readDb();
-  const id = Number(medicineId);
-  db.medicines = db.medicines.filter(m => m.id !== id);
-  Object.keys(db.stock).forEach(pharmacyId => {
-    delete db.stock[pharmacyId][id];
-  });
-  writeDb(db);
+async function deleteMedicine(medicineId) {
+  await pool.query('DELETE FROM medicines WHERE id = $1', [medicineId]);
 }
 
 // ---------- الصيدليات ----------
 
-function getAllPharmacies() {
-  const db = readDb();
-  return db.pharmacies.map(({ owner_password_hash, ...rest }) => rest);
+async function getAllPharmacies() {
+  const { rows } = await pool.query(
+    'SELECT id, name, address, phone, owner_username, on_duty, on_duty_day FROM pharmacies ORDER BY id'
+  );
+  return rows;
 }
 
-function findPharmacyByUsername(username) {
-  const db = readDb();
-  return db.pharmacies.find(p => p.owner_username === username);
+async function findPharmacyByUsername(username) {
+  const { rows } = await pool.query('SELECT * FROM pharmacies WHERE owner_username = $1', [username]);
+  return rows[0];
 }
 
-function getPharmacyById(pharmacyId) {
-  const db = readDb();
-  return db.pharmacies.find(p => p.id === Number(pharmacyId));
+async function getPharmacyById(pharmacyId) {
+  const { rows } = await pool.query('SELECT * FROM pharmacies WHERE id = $1', [pharmacyId]);
+  return rows[0];
 }
 
-function addPharmacy({ name, address, phone, username, passwordHash }) {
-  const db = readDb();
-  const pharmacy = {
-    id: db.nextPharmacyId,
-    name,
-    address: address || null,
-    phone: phone || null,
-    owner_username: username,
-    owner_password_hash: passwordHash
-  };
-  db.pharmacies.push(pharmacy);
-  db.nextPharmacyId += 1;
-  db.stock[pharmacy.id] = {};
-  writeDb(db);
-  return pharmacy;
+async function addPharmacy({ name, address, phone, username, passwordHash }) {
+  const { rows } = await pool.query(
+    `INSERT INTO pharmacies (name, address, phone, owner_username, owner_password_hash)
+     VALUES ($1, $2, $3, $4, $5) RETURNING *`,
+    [name, address || null, phone || null, username, passwordHash]
+  );
+  return rows[0];
 }
 
-function deletePharmacy(pharmacyId) {
-  const db = readDb();
-  const id = Number(pharmacyId);
-  db.pharmacies = db.pharmacies.filter(p => p.id !== id);
-  delete db.stock[id];
-  writeDb(db);
+async function deletePharmacy(pharmacyId) {
+  await pool.query('DELETE FROM pharmacies WHERE id = $1', [pharmacyId]);
 }
 
-// تحديث حالة مناوبة صيدلية معينة
-function setDutyStatus(pharmacyId, onDuty, day) {
-  const db = readDb();
-  const id = Number(pharmacyId);
-  const pharmacy = db.pharmacies.find(p => p.id === id);
-  if (!pharmacy) return null;
-  pharmacy.on_duty = !!onDuty;
-  pharmacy.on_duty_day = onDuty ? (day || null) : null;
-  writeDb(db);
-  return pharmacy;
+async function setDutyStatus(pharmacyId, onDuty, day) {
+  const { rows } = await pool.query(
+    'UPDATE pharmacies SET on_duty = $1, on_duty_day = $2 WHERE id = $3 RETURNING *',
+    [!!onDuty, onDuty ? (day || null) : null, pharmacyId]
+  );
+  return rows[0];
 }
 
-// عرض كل الصيدليات المناوبة حالياً (متاح للجميع - واجهة المريض)
-function getOnDutyPharmacies() {
-  const db = readDb();
-  return db.pharmacies
-    .filter(p => p.on_duty)
-    .map(({ owner_password_hash, ...rest }) => rest);
+async function getOnDutyPharmacies() {
+  const { rows } = await pool.query(
+    'SELECT id, name, address, phone, on_duty, on_duty_day FROM pharmacies WHERE on_duty = true ORDER BY id'
+  );
+  return rows;
 }
 
 // ---------- المخزون ----------
 
-function getAvailability(medicineId) {
-  const db = readDb();
-  return db.pharmacies.map(ph => ({
-    pharmacy_id: ph.id,
-    pharmacy_name: ph.name,
-    address: ph.address,
-    phone: ph.phone,
-    available: !!(db.stock[ph.id] && db.stock[ph.id][medicineId])
-  }));
+async function getAvailability(medicineId) {
+  const { rows } = await pool.query(
+    `SELECT p.id AS pharmacy_id, p.name AS pharmacy_name, p.address, p.phone,
+            COALESCE(s.available, false) AS available
+     FROM pharmacies p
+     LEFT JOIN stock s ON s.pharmacy_id = p.id AND s.medicine_id = $1
+     ORDER BY p.name`,
+    [medicineId]
+  );
+  return rows;
 }
 
-function getStockForPharmacy(pharmacyId) {
-  const db = readDb();
-  const pharmacyStock = db.stock[pharmacyId] || {};
-  return db.medicines.map(m => ({
-    medicine_id: m.id,
-    name: m.name,
-    generic_name: m.generic_name,
-    available: !!pharmacyStock[m.id]
-  }));
+async function getStockForPharmacy(pharmacyId) {
+  const { rows } = await pool.query(
+    `SELECT m.id AS medicine_id, m.name, m.generic_name,
+            COALESCE(s.available, false) AS available
+     FROM medicines m
+     LEFT JOIN stock s ON s.medicine_id = m.id AND s.pharmacy_id = $1
+     ORDER BY m.name`,
+    [pharmacyId]
+  );
+  return rows;
 }
 
-function setStock(pharmacyId, medicineId, available) {
-  const db = readDb();
-  if (!db.stock[pharmacyId]) db.stock[pharmacyId] = {};
-  db.stock[pharmacyId][medicineId] = !!available;
-  writeDb(db);
+async function setStock(pharmacyId, medicineId, available) {
+  await pool.query(
+    `INSERT INTO stock (pharmacy_id, medicine_id, available)
+     VALUES ($1, $2, $3)
+     ON CONFLICT (pharmacy_id, medicine_id) DO UPDATE SET available = $3`,
+    [pharmacyId, medicineId, !!available]
+  );
 }
 
 module.exports = {
+  initDb,
   searchMedicines,
   addMedicine,
   getAllMedicines,
