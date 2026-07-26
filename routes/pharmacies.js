@@ -6,9 +6,9 @@ const adminAuth = require('../middleware/adminAuth');
 
 // عرض الصيدليات المناوبة حالياً (متاح للجميع - واجهة المريض)
 // GET /api/pharmacies/on-duty
-router.get('/on-duty', (req, res) => {
+router.get('/on-duty', async (req, res) => {
   try {
-    res.json(db.getOnDutyPharmacies());
+    res.json(await db.getOnDutyPharmacies());
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'حدث خطأ أثناء جلب الصيدليات المناوبة' });
@@ -17,16 +17,16 @@ router.get('/on-duty', (req, res) => {
 
 // عرض كل الصيدليات (للإدارة فقط)
 // GET /api/pharmacies
-router.get('/', adminAuth, (req, res) => {
+router.get('/', adminAuth, async (req, res) => {
   try {
-    res.json(db.getAllPharmacies());
+    res.json(await db.getAllPharmacies());
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'حدث خطأ أثناء جلب الصيدليات' });
   }
 });
 
-// تسجيل صيدلية جديدة (للإدارة فقط - المريض العادي لا يقدر يسجل نفسه كصيدلي)
+// تسجيل صيدلية جديدة (للإدارة فقط)
 // POST /api/pharmacies/register  { name, address, phone, username, password }
 router.post('/register', adminAuth, async (req, res) => {
   const { name, address, phone, username, password } = req.body;
@@ -34,11 +34,11 @@ router.post('/register', adminAuth, async (req, res) => {
     return res.status(400).json({ error: 'الاسم واسم المستخدم وكلمة المرور مطلوبة' });
   }
   try {
-    if (db.findPharmacyByUsername(username)) {
+    if (await db.findPharmacyByUsername(username)) {
       return res.status(409).json({ error: 'اسم المستخدم مستخدم مسبقاً' });
     }
     const passwordHash = await bcrypt.hash(password, 10);
-    const pharmacy = db.addPharmacy({ name, address, phone, username, passwordHash });
+    const pharmacy = await db.addPharmacy({ name, address, phone, username, passwordHash });
     const { owner_password_hash, ...safePharmacy } = pharmacy;
     res.status(201).json(safePharmacy);
   } catch (err) {
@@ -47,7 +47,7 @@ router.post('/register', adminAuth, async (req, res) => {
   }
 });
 
-// تسجيل دخول الصيدلي (متاح للجميع - كل صيدلية تدخل بحسابها الخاص)
+// تسجيل دخول الصيدلي
 // POST /api/pharmacies/login  { username, password }
 router.post('/login', async (req, res) => {
   const { username, password } = req.body;
@@ -55,7 +55,7 @@ router.post('/login', async (req, res) => {
     return res.status(400).json({ error: 'اسم المستخدم وكلمة المرور مطلوبان' });
   }
   try {
-    const pharmacy = db.findPharmacyByUsername(username);
+    const pharmacy = await db.findPharmacyByUsername(username);
     if (!pharmacy) return res.status(401).json({ error: 'بيانات الدخول غير صحيحة' });
 
     const valid = await bcrypt.compare(password, pharmacy.owner_password_hash);
@@ -74,7 +74,7 @@ router.post('/login', async (req, res) => {
   }
 });
 
-// حذف الصيدلي لحسابه الخاص فقط (يتطلب تأكيد اسم المستخدم وكلمة المرور)
+// حذف الصيدلي لحسابه الخاص فقط
 // DELETE /api/pharmacies/self  { username, password }
 router.delete('/self', async (req, res) => {
   const { username, password } = req.body;
@@ -82,13 +82,13 @@ router.delete('/self', async (req, res) => {
     return res.status(400).json({ error: 'بيانات الدخول مطلوبة لتأكيد الحذف' });
   }
   try {
-    const pharmacy = db.findPharmacyByUsername(username);
+    const pharmacy = await db.findPharmacyByUsername(username);
     if (!pharmacy) return res.status(401).json({ error: 'بيانات الدخول غير صحيحة' });
 
     const valid = await bcrypt.compare(password, pharmacy.owner_password_hash);
     if (!valid) return res.status(401).json({ error: 'بيانات الدخول غير صحيحة' });
 
-    db.deletePharmacy(pharmacy.id);
+    await db.deletePharmacy(pharmacy.id);
     res.json({ success: true });
   } catch (err) {
     console.error(err);
@@ -96,7 +96,7 @@ router.delete('/self', async (req, res) => {
   }
 });
 
-// تحديث حالة المناوبة لصيدلية معينة (الصيدلي لحسابه هو فقط)
+// تحديث حالة المناوبة (الصيدلي لحسابه هو فقط)
 // PUT /api/pharmacies/self/duty  { username, password, on_duty, on_duty_day }
 router.put('/self/duty', async (req, res) => {
   const { username, password, on_duty, on_duty_day } = req.body;
@@ -104,13 +104,13 @@ router.put('/self/duty', async (req, res) => {
     return res.status(400).json({ error: 'بيانات الدخول مطلوبة' });
   }
   try {
-    const pharmacy = db.findPharmacyByUsername(username);
+    const pharmacy = await db.findPharmacyByUsername(username);
     if (!pharmacy) return res.status(401).json({ error: 'بيانات الدخول غير صحيحة' });
 
     const valid = await bcrypt.compare(password, pharmacy.owner_password_hash);
     if (!valid) return res.status(401).json({ error: 'بيانات الدخول غير صحيحة' });
 
-    const updated = db.setDutyStatus(pharmacy.id, on_duty, on_duty_day);
+    const updated = await db.setDutyStatus(pharmacy.id, on_duty, on_duty_day);
     res.json({ on_duty: updated.on_duty, on_duty_day: updated.on_duty_day });
   } catch (err) {
     console.error(err);
@@ -120,9 +120,9 @@ router.put('/self/duty', async (req, res) => {
 
 // حذف أي صيدلية (للإدارة فقط)
 // DELETE /api/pharmacies/:id
-router.delete('/:id', adminAuth, (req, res) => {
+router.delete('/:id', adminAuth, async (req, res) => {
   try {
-    db.deletePharmacy(req.params.id);
+    await db.deletePharmacy(req.params.id);
     res.json({ success: true });
   } catch (err) {
     console.error(err);
