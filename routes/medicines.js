@@ -5,14 +5,14 @@ const adminAuth = require('../middleware/adminAuth');
 
 // البحث عن دواء وعرض توفره في كل الصيدليات (متاح للجميع - واجهة المريض)
 // GET /api/medicines/search?q=بنادول
-router.get('/search', (req, res) => {
+router.get('/search', async (req, res) => {
   const q = req.query.q || '';
   try {
-    const medicines = db.searchMedicines(q);
-    const results = medicines.map(medicine => ({
+    const medicines = await db.searchMedicines(q);
+    const results = await Promise.all(medicines.map(async medicine => ({
       medicine,
-      availability: db.getAvailability(medicine.id)
-    }));
+      availability: await db.getAvailability(medicine.id)
+    })));
     res.json(results);
   } catch (err) {
     console.error(err);
@@ -22,9 +22,9 @@ router.get('/search', (req, res) => {
 
 // عرض كل الأدوية (للإدارة فقط)
 // GET /api/medicines
-router.get('/', adminAuth, (req, res) => {
+router.get('/', adminAuth, async (req, res) => {
   try {
-    res.json(db.getAllMedicines());
+    res.json(await db.getAllMedicines());
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'حدث خطأ أثناء جلب الأدوية' });
@@ -33,11 +33,11 @@ router.get('/', adminAuth, (req, res) => {
 
 // إضافة دواء جديد (للإدارة فقط)
 // POST /api/medicines  { name, generic_name, alt_names: [] }
-router.post('/', adminAuth, (req, res) => {
+router.post('/', adminAuth, async (req, res) => {
   const { name, generic_name, alt_names } = req.body;
   if (!name) return res.status(400).json({ error: 'اسم الدواء مطلوب' });
   try {
-    const medicine = db.addMedicine({ name, generic_name, alt_names });
+    const medicine = await db.addMedicine({ name, generic_name, alt_names });
     res.status(201).json(medicine);
   } catch (err) {
     console.error(err);
@@ -47,9 +47,9 @@ router.post('/', adminAuth, (req, res) => {
 
 // حذف دواء (للإدارة فقط)
 // DELETE /api/medicines/:id
-router.delete('/:id', adminAuth, (req, res) => {
+router.delete('/:id', adminAuth, async (req, res) => {
   try {
-    db.deleteMedicine(req.params.id);
+    await db.deleteMedicine(req.params.id);
     res.json({ success: true });
   } catch (err) {
     console.error(err);
