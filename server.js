@@ -3,6 +3,7 @@ const cors = require('cors');
 const path = require('path');
 require('dotenv').config();
 
+const db = require('./db');
 const medicinesRoutes = require('./routes/medicines');
 const pharmaciesRoutes = require('./routes/pharmacies');
 const stockRoutes = require('./routes/stock');
@@ -23,6 +24,13 @@ app.use('/api/stock', stockRoutes);
 
 app.get('/health', (req, res) => res.json({ status: 'ok' }));
 
-app.listen(PORT, () => {
-  console.log(`الخادم يعمل على http://localhost:${PORT}`);
-});
+db.initDb()
+  .then(() => {
+    app.listen(PORT, () => {
+      console.log(`الخادم يعمل على http://localhost:${PORT}`);
+    });
+  })
+  .catch(err => {
+    console.error('فشل الاتصال بقاعدة البيانات:', err);
+    process.exit(1);
+  });
