@@ -1,5 +1,5 @@
 // طبقة تخزين تعتمد على قاعدة بيانات PostgreSQL حقيقية
-// البيانات هون دائمة ولا تُفقد عند إعادة تشغيل الخادم (بعكس ملف JSON السابق)
+// البيانات هون دائمة ولا تُفقد عند إعادة تشغيل الخادم
 
 const { Pool } = require('pg');
 
@@ -30,9 +30,13 @@ async function initDb() {
       owner_username TEXT UNIQUE NOT NULL,
       owner_password_hash TEXT NOT NULL,
       on_duty BOOLEAN DEFAULT false,
-      on_duty_day TEXT
+      on_duty_day TEXT,
+      on_duty_shift TEXT
     );
   `);
+
+  // ترحيل آمن: يضيف عمود الفترة إذا كانت قاعدة البيانات منشأة من نسخة سابقة
+  await pool.query(`ALTER TABLE pharmacies ADD COLUMN IF NOT EXISTS on_duty_shift TEXT;`);
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS stock (
@@ -97,7 +101,7 @@ async function deleteMedicine(medicineId) {
 
 async function getAllPharmacies() {
   const { rows } = await pool.query(
-    'SELECT id, name, address, phone, owner_username, on_duty, on_duty_day FROM pharmacies ORDER BY id'
+    'SELECT id, name, address, phone, owner_username, on_duty, on_duty_day, on_duty_shift FROM pharmacies ORDER BY id'
   );
   return rows;
 }
@@ -125,17 +129,17 @@ async function deletePharmacy(pharmacyId) {
   await pool.query('DELETE FROM pharmacies WHERE id = $1', [pharmacyId]);
 }
 
-async function setDutyStatus(pharmacyId, onDuty, day) {
+async function setDutyStatus(pharmacyId, onDuty, day, shift) {
   const { rows } = await pool.query(
-    'UPDATE pharmacies SET on_duty = $1, on_duty_day = $2 WHERE id = $3 RETURNING *',
-    [!!onDuty, onDuty ? (day || null) : null, pharmacyId]
+    'UPDATE pharmacies SET on_duty = $1, on_duty_day = $2, on_duty_shift = $3 WHERE id = $4 RETURNING *',
+    [!!onDuty, onDuty ? (day || null) : null, onDuty ? (shift || 'طوال اليوم') : null, pharmacyId]
   );
   return rows[0];
 }
 
 async function getOnDutyPharmacies() {
   const { rows } = await pool.query(
-    'SELECT id, name, address, phone, on_duty, on_duty_day FROM pharmacies WHERE on_duty = true ORDER BY id'
+    'SELECT id, name, address, phone, on_duty, on_duty_day, on_duty_shift FROM pharmacies WHERE on_duty = true ORDER BY on_duty_shift, id'
   );
   return rows;
 }
