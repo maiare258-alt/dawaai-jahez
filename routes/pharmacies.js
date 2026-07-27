@@ -66,7 +66,8 @@ router.post('/login', async (req, res) => {
       name: pharmacy.name,
       address: pharmacy.address,
       on_duty: !!pharmacy.on_duty,
-      on_duty_day: pharmacy.on_duty_day || null
+      on_duty_day: pharmacy.on_duty_day || null,
+      on_duty_shift: pharmacy.on_duty_shift || null
     });
   } catch (err) {
     console.error(err);
@@ -97,9 +98,9 @@ router.delete('/self', async (req, res) => {
 });
 
 // تحديث حالة المناوبة (الصيدلي لحسابه هو فقط)
-// PUT /api/pharmacies/self/duty  { username, password, on_duty, on_duty_day }
+// PUT /api/pharmacies/self/duty  { username, password, on_duty, on_duty_day, on_duty_shift }
 router.put('/self/duty', async (req, res) => {
-  const { username, password, on_duty, on_duty_day } = req.body;
+  const { username, password, on_duty, on_duty_day, on_duty_shift } = req.body;
   if (!username || !password) {
     return res.status(400).json({ error: 'بيانات الدخول مطلوبة' });
   }
@@ -110,8 +111,8 @@ router.put('/self/duty', async (req, res) => {
     const valid = await bcrypt.compare(password, pharmacy.owner_password_hash);
     if (!valid) return res.status(401).json({ error: 'بيانات الدخول غير صحيحة' });
 
-    const updated = await db.setDutyStatus(pharmacy.id, on_duty, on_duty_day);
-    res.json({ on_duty: updated.on_duty, on_duty_day: updated.on_duty_day });
+    const updated = await db.setDutyStatus(pharmacy.id, on_duty, on_duty_day, on_duty_shift);
+    res.json({ on_duty: updated.on_duty, on_duty_day: updated.on_duty_day, on_duty_shift: updated.on_duty_shift });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'حدث خطأ أثناء تحديث حالة المناوبة' });
