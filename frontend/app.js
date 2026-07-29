@@ -43,7 +43,44 @@ async function loadOnDuty() {
 let searchTimeout;
 function onSearch() {
   clearTimeout(searchTimeout);
-  searchTimeout = setTimeout(runSearch, 300);
+  searchTimeout = setTimeout(() => {
+    runSearch();
+    loadSuggestions();
+  }, 300);
+}
+
+async function loadSuggestions() {
+  const q = document.getElementById('search').value.trim();
+  const box = document.getElementById('suggestions');
+  if (!q) {
+    box.classList.remove('show');
+    box.innerHTML = '';
+    return;
+  }
+  try {
+    const res = await fetch(`${API}/medicines/suggest?q=${encodeURIComponent(q)}`);
+    const data = await res.json();
+    if (data.length === 0) {
+      box.classList.remove('show');
+      box.innerHTML = '';
+      return;
+    }
+    box.innerHTML = data.map(m => `
+      <div class="suggestion-item" onclick="pickSuggestion('${m.name}')">
+        هل تقصد <strong>${m.name}</strong>؟
+        ${m.generic_name ? `<span class="generic-hint"> (${m.generic_name})</span>` : ''}
+      </div>
+    `).join('');
+    box.classList.add('show');
+  } catch (err) {
+    box.classList.remove('show');
+  }
+}
+
+function pickSuggestion(name) {
+  document.getElementById('search').value = name;
+  document.getElementById('suggestions').classList.remove('show');
+  runSearch();
 }
 
 async function runSearch() {
@@ -56,10 +93,29 @@ async function runSearch() {
   try {
     const res = await fetch(`${API}/medicines/search?q=${encodeURIComponent(q)}`);
     const data = await res.json();
+
     if (data.length === 0) {
-      container.innerHTML = '<p class="muted">لم يتم العثور على دواء بهذا الاسم.</p>';
+      let html = '<p class="muted">لم يتم العثور على دواء بهذا الاسم.</p>';
+      try {
+        const sugRes = await fetch(`${API}/medicines/suggest?q=${encodeURIComponent(q)}`);
+        const suggestions = await sugRes.json();
+        if (suggestions.length > 0) {
+          html += `
+            <div class="box">
+              <p class="muted" style="margin-top:0;">هل تقصد أحد هذه الأدوية؟</p>
+              ${suggestions.map(m => `
+                <div style="cursor:pointer; color:#185fa5; padding:6px 0;" onclick="pickSuggestion('${m.name}')">
+                  ${m.name}${m.generic_name ? ' - ' + m.generic_name : ''}
+                </div>
+              `).join('')}
+            </div>`;
+        }
+      } catch (err) { /* تجاهل فشل الاقتراحات، النتيجة الأساسية أهم */ }
+      container.innerHTML = html;
       return;
     }
+
+    document.getElementById('suggestions').classList.remove('show');
     container.innerHTML = data.map(item => `
       <div class="card">
         <h3>${item.medicine.name}</h3>
@@ -317,6 +373,14 @@ async function deleteMedicineAdmin(id, name) {
   await fetch(`${API}/medicines/${id}`, { method: 'DELETE', headers: adminHeaders() });
   renderAdminPanel();
 }
+
+document.addEventListener('click', (e) => {
+  const box = document.getElementById('suggestions');
+  const input = document.getElementById('search');
+  if (box && !box.contains(e.target) && e.target !== input) {
+    box.classList.remove('show');
+  }
+});
 
 showView('patient');
 runSearch();
