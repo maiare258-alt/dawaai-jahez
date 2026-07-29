@@ -65,6 +65,27 @@ async function initDb() {
   }
 }
 
+// ---------- أدوات مساعدة للتشابه الإملائي ----------
+
+// تحسب "مسافة التحرير" بين كلمتين: أقل عدد تعديلات (إضافة/حذف/استبدال حرف)
+// لتحويل كلمة لأخرى. كل ما كانت الرقم أصغر، كل ما كانت الكلمتين أقرب لبعض
+function levenshtein(a, b) {
+  const m = a.length, n = b.length;
+  const dp = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));
+  for (let i = 0; i <= m; i++) dp[i][0] = i;
+  for (let j = 0; j <= n; j++) dp[0][j] = j;
+  for (let i = 1; i <= m; i++) {
+    for (let j = 1; j <= n; j++) {
+      if (a[i - 1] === b[j - 1]) {
+        dp[i][j] = dp[i - 1][j - 1];
+      } else {
+        dp[i][j] = 1 + Math.min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1]);
+      }
+    }
+  }
+  return dp[m][n];
+}
+
 // ---------- الأدوية ----------
 
 async function searchMedicines(query) {
@@ -91,6 +112,34 @@ async function addMedicine({ name, generic_name, alt_names }) {
 async function getAllMedicines() {
   const { rows } = await pool.query('SELECT * FROM medicines ORDER BY id');
   return rows;
+}
+
+// تقترح أدوية قريبة إملائياً من كلمة البحث (تتحمل خطأ حرف أو حرفين)
+async function suggestMedicines(query) {
+  const q = query.trim().toLowerCase();
+  if (q.length < 2) return [];
+
+  const medicines = await getAllMedicines();
+  const maxDistance = q.length <= 3 ? 1 : (q.length <= 6 ? 2 : 3);
+
+  const scored = [];
+  for (const m of medicines) {
+    const candidates = [m.name, ...(m.alt_names || [])];
+    let bestDistance = Infinity;
+    for (const candidate of candidates) {
+      const c = candidate.toLowerCase();
+      const distanceFull = levenshtein(q, c);
+      const distancePartial = levenshtein(q, c.slice(0, q.length));
+      const distance = Math.min(distanceFull, distancePartial);
+      if (distance < bestDistance) bestDistance = distance;
+    }
+    if (bestDistance <= maxDistance && bestDistance > 0) {
+      scored.push({ id: m.id, name: m.name, generic_name: m.generic_name, distance: bestDistance });
+    }
+  }
+
+  scored.sort((a, b) => a.distance - b.distance);
+  return scored.slice(0, 5).map(({ distance, ...rest }) => rest);
 }
 
 async function deleteMedicine(medicineId) {
@@ -184,6 +233,7 @@ module.exports = {
   searchMedicines,
   addMedicine,
   getAllMedicines,
+  suggestMedicines,
   deleteMedicine,
   getAllPharmacies,
   findPharmacyByUsername,
