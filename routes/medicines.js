@@ -20,6 +20,19 @@ router.get('/search', async (req, res) => {
   }
 });
 
+// اقتراح أدوية متشابهة إملائياً (متاح للجميع - واجهة المريض)
+// GET /api/medicines/suggest?q=بندول
+router.get('/suggest', async (req, res) => {
+  const q = req.query.q || '';
+  try {
+    const suggestions = await db.suggestMedicines(q);
+    res.json(suggestions);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'حدث خطأ أثناء جلب الاقتراحات' });
+  }
+});
+
 // عرض كل الأدوية (للإدارة فقط)
 // GET /api/medicines
 router.get('/', adminAuth, async (req, res) => {
