@@ -54,6 +54,18 @@
   .link-btn { background: none; border: none; color: #185fa5; cursor: pointer; font-size: 13px; text-decoration: underline; padding: 0; }
   .danger-btn { background: none; border: none; color: #a33; cursor: pointer; font-size: 13px; text-decoration: underline; padding: 0; }
   .box { background: white; border: 1px solid #e5e3da; border-radius: 12px; padding: 16px 18px; margin-top: 8px; }
+  #suggestions {
+    position: absolute; top: 100%; right: 0; left: 0; z-index: 10;
+    background: white; border: 1px solid #d3d1c7; border-radius: 8px;
+    margin-top: -8px; overflow: hidden; display: none;
+  }
+  #suggestions.show { display: block; }
+  #suggestions .suggestion-item {
+    padding: 10px 14px; cursor: pointer; font-size: 14px; border-top: 1px solid #eee;
+  }
+  #suggestions .suggestion-item:first-child { border-top: none; }
+  #suggestions .suggestion-item:hover { background: #f5f4ef; }
+  #suggestions .suggestion-item .generic-hint { color: #888780; font-size: 12px; }
 </style>
 </head>
 <body>
@@ -69,7 +81,10 @@
 
   <div id="view-patient">
     <div id="on-duty-section"></div>
-    <input id="search" type="text" placeholder="ابحث عن دواء... مثال: بنادول" oninput="onSearch()">
+    <div style="position:relative;">
+      <input id="search" type="text" placeholder="ابحث عن دواء... مثال: بنادول" oninput="onSearch()" autocomplete="off">
+      <div id="suggestions"></div>
+    </div>
     <div id="results"></div>
   </div>
 
