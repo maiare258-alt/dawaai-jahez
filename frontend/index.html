@@ -66,6 +66,17 @@
   #suggestions .suggestion-item:first-child { border-top: none; }
   #suggestions .suggestion-item:hover { background: #f5f4ef; }
   #suggestions .suggestion-item .generic-hint { color: #888780; font-size: 12px; }
+  .password-field {
+    display: flex; align-items: center; gap: 6px;
+    border: 1px solid #d3d1c7; border-radius: 8px; margin-bottom: 12px; padding: 0 10px;
+  }
+  .password-field input {
+    border: none; flex: 1; padding: 10px 0; margin-bottom: 0; font-size: 14px; font-family: inherit;
+  }
+  .password-field input:focus { outline: none; }
+  .password-field .toggle-password {
+    background: none; border: none; cursor: pointer; font-size: 16px; color: #888780; padding: 4px;
+  }
 </style>
 </head>
 <body>
