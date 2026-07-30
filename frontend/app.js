@@ -13,6 +13,17 @@ function showView(view) {
   if (view === 'admin' && !adminPassword) renderAdminAuthForm();
 }
 
+function togglePassword(inputId, btn) {
+  const input = document.getElementById(inputId);
+  if (input.type === 'password') {
+    input.type = 'text';
+    btn.textContent = '🙈';
+  } else {
+    input.type = 'password';
+    btn.textContent = '👁';
+  }
+}
+
 // ---------- واجهة المريض ----------
 
 async function loadOnDuty() {
@@ -142,7 +153,10 @@ function renderPharmacyAuthForm() {
       <h3 style="margin-top:0;">دخول الصيدلي</h3>
       <p class="muted" style="margin-top:-8px;">إذا لم يكن لديك حساب بعد، تواصل مع فريق دوائي جاهز لتسجيل صيدليتك.</p>
       <input id="login-username" type="text" placeholder="اسم المستخدم">
-      <input id="login-password" type="password" placeholder="كلمة المرور">
+      <div class="password-field">
+        <input id="login-password" type="password" placeholder="كلمة المرور">
+        <button type="button" class="toggle-password" onclick="togglePassword('login-password', this)">👁</button>
+      </div>
       <button class="primary" onclick="login()">دخول</button>
     </div>
   `;
@@ -264,7 +278,10 @@ function renderAdminAuthForm() {
   document.getElementById('admin-panel').style.display = 'none';
   document.getElementById('admin-auth-section').innerHTML = `
     <div class="auth-box">
-      <input id="admin-password-input" type="password" placeholder="كلمة مرور الإدارة">
+      <div class="password-field">
+        <input id="admin-password-input" type="password" placeholder="كلمة مرور الإدارة">
+        <button type="button" class="toggle-password" onclick="togglePassword('admin-password-input', this)">👁</button>
+      </div>
       <button class="primary" onclick="checkAdminPassword()">دخول</button>
     </div>
   `;
@@ -297,7 +314,10 @@ async function renderAdminPanel() {
       <input id="ph-address" placeholder="العنوان">
       <input id="ph-phone" placeholder="رقم الهاتف">
       <input id="ph-username" placeholder="اسم مستخدم">
-      <input id="ph-password" placeholder="كلمة مرور">
+      <div class="password-field">
+        <input id="ph-password" type="password" placeholder="كلمة مرور">
+        <button type="button" class="toggle-password" onclick="togglePassword('ph-password', this)">👁</button>
+      </div>
       <button class="primary" onclick="addPharmacy()">إضافة الصيدلية</button>
     </div>
 
