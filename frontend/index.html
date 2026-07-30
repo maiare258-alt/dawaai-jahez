@@ -77,6 +77,14 @@
   .password-field .toggle-password {
     background: none; border: none; cursor: pointer; font-size: 16px; color: #888780; padding: 4px;
   }
+  .btn-outline {
+    display: inline-block; padding: 10px 20px; border-radius: 8px; border: 1px solid;
+    background: white; cursor: pointer; font-size: 14px; font-weight: 500; font-family: inherit;
+  }
+  .btn-outline.blue { border-color: #185fa5; color: #185fa5; }
+  .btn-outline.blue:hover { background: #eef4fa; }
+  .btn-outline.red { border-color: #a33; color: #a33; }
+  .btn-outline.red:hover { background: #fbeeee; }
 </style>
 </head>
 <body>
@@ -126,7 +134,7 @@
       </div>
       <div id="stock-list"></div>
       <p style="margin-top:32px;">
-        <button class="danger-btn" onclick="deleteMyAccount()">حذف حسابي نهائياً</button>
+        <button class="btn-outline red" onclick="deleteMyAccount()">حذف حسابي نهائياً</button>
       </p>
     </div>
   </div>
