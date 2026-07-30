@@ -184,8 +184,8 @@ function loadDashboard() {
   document.getElementById('pharmacist-auth-section').innerHTML = '';
   document.getElementById('pharmacist-dashboard').style.display = 'block';
   document.getElementById('pharmacy-label').innerHTML = `
-    <span>صيدلية: ${currentPharmacy.name}</span>
-    <button class="link-btn" onclick="logout()">تسجيل الخروج</button>
+    <span style="font-weight:500; font-size:16px;">صيدلية: ${currentPharmacy.name}</span>
+    <button class="btn-outline blue" onclick="logout()">تسجيل الخروج</button>
   `;
   document.getElementById('duty-checkbox').checked = !!currentPharmacy.on_duty;
   document.getElementById('duty-day').disabled = !currentPharmacy.on_duty;
