@@ -1,6 +1,7 @@
 const API = '/api';
 let currentPharmacy = null;
 let adminPassword = null;
+let cart = JSON.parse(localStorage.getItem('cart') || '[]');
 
 function showView(view) {
   document.getElementById('view-patient').style.display = view === 'patient' ? 'block' : 'none';
@@ -22,6 +23,64 @@ function togglePassword(inputId, btn) {
     input.type = 'password';
     btn.textContent = '👁';
   }
+}
+
+// ---------- عربة المشتريات ----------
+
+function saveCart() {
+  localStorage.setItem('cart', JSON.stringify(cart));
+  updateCartCount();
+}
+
+function updateCartCount() {
+  const el = document.getElementById('cart-count');
+  if (el) el.textContent = cart.length;
+}
+
+function addToCart(medicineName, genericName, pharmacyName, pharmacyId) {
+  const exists = cart.some(item => item.medicineName === medicineName && item.pharmacyId === pharmacyId);
+  if (exists) {
+    alert('هذا الدواء موجود أصلاً بعربتك من نفس الصيدلية.');
+    return;
+  }
+  cart.push({ medicineName, genericName, pharmacyName, pharmacyId });
+  saveCart();
+  renderCart();
+}
+
+function removeFromCart(index) {
+  cart.splice(index, 1);
+  saveCart();
+  renderCart();
+}
+
+function toggleCart() {
+  const section = document.getElementById('cart-section');
+  if (section.style.display === 'none') {
+    renderCart();
+    section.style.display = 'block';
+  } else {
+    section.style.display = 'none';
+  }
+}
+
+function renderCart() {
+  const container = document.getElementById('cart-section');
+  if (cart.length === 0) {
+    container.innerHTML = '<div class="box"><p class="muted" style="margin:0;">عربتك فارغة حالياً. أضف أي دواء متوفر من نتائج البحث.</p></div>';
+    return;
+  }
+  container.innerHTML = `
+    <div class="box">
+      <h3 style="margin-top:0;">مشترياتي</h3>
+      ${cart.map((item, i) => `
+        <div class="row">
+          <span>${item.medicineName}${item.genericName ? ` <span class="muted">(${item.genericName})</span>` : ''} <span class="muted">- ${item.pharmacyName}</span></span>
+          <button class="btn-outline red" style="padding:4px 12px; font-size:12px;" onclick="removeFromCart(${i})">حذف</button>
+        </div>
+      `).join('')}
+    </div>
+  `;
 }
 
 // ---------- واجهة المريض ----------
@@ -134,7 +193,10 @@ async function runSearch() {
         ${item.availability.map(a => `
           <div class="row">
             <span>${a.pharmacy_name}</span>
-            <span class="badge ${a.available ? 'yes' : 'no'}">${a.available ? 'متوفر' : 'غير متوفر'}</span>
+            <div style="display:flex; align-items:center; gap:8px;">
+              <span class="badge ${a.available ? 'yes' : 'no'}">${a.available ? 'متوفر' : 'غير متوفر'}</span>
+              ${a.available ? `<button class="btn-outline blue" style="padding:4px 10px; font-size:12px;" onclick="addToCart('${item.medicine.name}', '${item.medicine.generic_name || ''}', '${a.pharmacy_name}', ${a.pharmacy_id})">أضف للعربة</button>` : ''}
+            </div>
           </div>
         `).join('')}
       </div>
@@ -405,3 +467,4 @@ document.addEventListener('click', (e) => {
 showView('patient');
 runSearch();
 loadOnDuty();
+updateCartCount();
