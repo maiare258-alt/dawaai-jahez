@@ -100,6 +100,8 @@
 
   <div id="view-patient">
     <div id="on-duty-section"></div>
+    <button class="btn-outline blue" onclick="toggleCart()" style="margin-bottom:16px;">🛒 عربة المشتريات (<span id="cart-count">0</span>)</button>
+    <div id="cart-section" style="display:none; margin-bottom:16px;"></div>
     <div style="position:relative;">
       <input id="search" type="text" placeholder="ابحث عن دواء... مثال: بنادول" oninput="onSearch()" autocomplete="off">
       <div id="suggestions"></div>
