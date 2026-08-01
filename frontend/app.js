@@ -14,17 +14,6 @@ function showView(view) {
   if (view === 'admin' && !adminPassword) renderAdminAuthForm();
 }
 
-function togglePassword(inputId, btn) {
-  const input = document.getElementById(inputId);
-  if (input.type === 'password') {
-    input.type = 'text';
-    btn.textContent = '🙈';
-  } else {
-    input.type = 'password';
-    btn.textContent = '👁';
-  }
-}
-
 // ---------- عربة المشتريات ----------
 
 function saveCart() {
@@ -330,6 +319,33 @@ function logout() {
   renderPharmacyAuthForm();
 }
 
+async function addMedicineSelf() {
+  const name = document.getElementById('pharm-med-name').value.trim();
+  const generic_name = document.getElementById('pharm-med-generic').value.trim();
+  const alt_names = document.getElementById('pharm-med-alt').value.split(',').map(s => s.trim()).filter(Boolean);
+  if (!name) { alert('اسم الدواء مطلوب'); return; }
+  try {
+    const res = await fetch(`${API}/medicines/self`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        username: currentPharmacy.username,
+        password: currentPharmacy.password,
+        name, generic_name, alt_names
+      })
+    });
+    const data = await res.json();
+    if (!res.ok) { alert(data.error); return; }
+    document.getElementById('pharm-med-name').value = '';
+    document.getElementById('pharm-med-generic').value = '';
+    document.getElementById('pharm-med-alt').value = '';
+    alert('تمت إضافة الدواء بنجاح. فعّل حالة توفره من القائمة تحت.');
+    refreshStock();
+  } catch (err) {
+    alert('تعذر الاتصال بالخادم');
+  }
+}
+
 async function refreshStock() {
   const res = await fetch(`${API}/stock/${currentPharmacy.id}`);
   const data = await res.json();
@@ -485,6 +501,17 @@ async function deleteMedicineAdmin(id, name) {
   if (!confirm(`متأكد إنك بدك تحذف دواء "${name}" نهائياً؟`)) return;
   await fetch(`${API}/medicines/${id}`, { method: 'DELETE', headers: adminHeaders() });
   renderAdminPanel();
+}
+
+function togglePassword(inputId, btn) {
+  const input = document.getElementById(inputId);
+  if (input.type === 'password') {
+    input.type = 'text';
+    btn.textContent = '🙈';
+  } else {
+    input.type = 'password';
+    btn.textContent = '👁';
+  }
 }
 
 document.addEventListener('click', (e) => {
