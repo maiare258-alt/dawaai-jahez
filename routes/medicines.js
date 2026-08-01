@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const bcrypt = require('bcryptjs');
 const db = require('../db');
 const adminAuth = require('../middleware/adminAuth');
 
@@ -50,6 +51,29 @@ router.post('/', adminAuth, async (req, res) => {
   const { name, generic_name, alt_names } = req.body;
   if (!name) return res.status(400).json({ error: 'اسم الدواء مطلوب' });
   try {
+    const medicine = await db.addMedicine({ name, generic_name, alt_names });
+    res.status(201).json(medicine);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'حدث خطأ أثناء إضافة الدواء' });
+  }
+});
+
+// إضافة دواء جديد من قبل الصيدلي نفسه (يتطلب تأكيد اسم المستخدم وكلمة المرور، بدون كلمة مرور الإدارة)
+// POST /api/medicines/self  { username, password, name, generic_name, alt_names }
+router.post('/self', async (req, res) => {
+  const { username, password, name, generic_name, alt_names } = req.body;
+  if (!username || !password) {
+    return res.status(400).json({ error: 'بيانات الدخول مطلوبة' });
+  }
+  if (!name) return res.status(400).json({ error: 'اسم الدواء مطلوب' });
+  try {
+    const pharmacy = await db.findPharmacyByUsername(username);
+    if (!pharmacy) return res.status(401).json({ error: 'بيانات الدخول غير صحيحة' });
+
+    const valid = await bcrypt.compare(password, pharmacy.owner_password_hash);
+    if (!valid) return res.status(401).json({ error: 'بيانات الدخول غير صحيحة' });
+
     const medicine = await db.addMedicine({ name, generic_name, alt_names });
     res.status(201).json(medicine);
   } catch (err) {
