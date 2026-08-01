@@ -34,16 +34,40 @@ function saveCart() {
 
 function updateCartCount() {
   const el = document.getElementById('cart-count');
-  if (el) el.textContent = cart.length;
+  if (el) el.textContent = cart.reduce((sum, item) => sum + item.quantity, 0);
 }
 
 function addToCart(medicineName, genericName, pharmacyName, pharmacyId) {
-  const exists = cart.some(item => item.medicineName === medicineName && item.pharmacyId === pharmacyId);
-  if (exists) {
-    alert('هذا الدواء موجود أصلاً بعربتك من نفس الصيدلية.');
-    return;
+  const existing = cart.find(item => item.medicineName === medicineName && item.pharmacyId === pharmacyId);
+  if (existing) {
+    if (existing.quantity >= 3) {
+      const wantsMore = confirm(`لقد أضفت ${existing.quantity} من ${medicineName} من ${pharmacyName} إلى عربتك. هل تريد إضافة المزيد؟`);
+      if (!wantsMore) return;
+    }
+    existing.quantity += 1;
+  } else {
+    cart.push({ medicineName, genericName, pharmacyName, pharmacyId, quantity: 1 });
   }
-  cart.push({ medicineName, genericName, pharmacyName, pharmacyId });
+  saveCart();
+  renderCart();
+}
+
+function increaseQuantity(index) {
+  const item = cart[index];
+  if (item.quantity >= 3) {
+    const wantsMore = confirm(`لقد أضفت ${item.quantity} من ${item.medicineName} من ${item.pharmacyName} إلى عربتك. هل تريد إضافة المزيد؟`);
+    if (!wantsMore) return;
+  }
+  item.quantity += 1;
+  saveCart();
+  renderCart();
+}
+
+function decreaseQuantity(index) {
+  cart[index].quantity -= 1;
+  if (cart[index].quantity <= 0) {
+    cart.splice(index, 1);
+  }
   saveCart();
   renderCart();
 }
@@ -76,7 +100,14 @@ function renderCart() {
       ${cart.map((item, i) => `
         <div class="row">
           <span>${item.medicineName}${item.genericName ? ` <span class="muted">(${item.genericName})</span>` : ''} <span class="muted">- ${item.pharmacyName}</span></span>
-          <button class="btn-outline red" style="padding:4px 12px; font-size:12px;" onclick="removeFromCart(${i})">حذف</button>
+          <div style="display:flex; align-items:center; gap:10px;">
+            <div style="display:flex; align-items:center; gap:6px;">
+              <button class="btn-outline blue" style="padding:2px 10px; font-size:14px;" onclick="decreaseQuantity(${i})">-</button>
+              <span style="min-width:16px; text-align:center;">${item.quantity}</span>
+              <button class="btn-outline blue" style="padding:2px 10px; font-size:14px;" onclick="increaseQuantity(${i})">+</button>
+            </div>
+            <button class="btn-outline red" style="padding:4px 12px; font-size:12px;" onclick="removeFromCart(${i})">حذف</button>
+          </div>
         </div>
       `).join('')}
     </div>
