@@ -134,6 +134,14 @@
         </select>
         <button class="primary" onclick="saveDuty()">حفظ حالة المناوبة</button>
       </div>
+      <div class="box" style="margin-bottom:20px;">
+        <h3 style="margin-top:0;">إضافة دواء غير موجود بالقائمة</h3>
+        <p class="muted" style="margin-top:-8px;">إذا عندك دواء بالصيدلية ومو موجود بالقائمة تحت، ضيفه هون مباشرة.</p>
+        <input id="pharm-med-name" placeholder="اسم الدواء">
+        <input id="pharm-med-generic" placeholder="المادة الفعالة (اختياري)">
+        <input id="pharm-med-alt" placeholder="أسماء بديلة، افصل بينها بفاصلة (اختياري)">
+        <button class="primary" onclick="addMedicineSelf()">إضافة الدواء</button>
+      </div>
       <div id="stock-list"></div>
       <p style="margin-top:32px;">
         <button class="btn-outline red" onclick="deleteMyAccount()">حذف حسابي نهائياً</button>
