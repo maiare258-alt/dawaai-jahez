@@ -31,12 +31,16 @@ async function initDb() {
       owner_password_hash TEXT NOT NULL,
       on_duty BOOLEAN DEFAULT false,
       on_duty_day TEXT,
-      on_duty_shift TEXT
+      on_duty_shift TEXT,
+      on_duty_start_time TEXT,
+      on_duty_end_time TEXT
     );
   `);
 
-  // ترحيل آمن: يضيف عمود الفترة إذا كانت قاعدة البيانات منشأة من نسخة سابقة
+  // ترحيل آمن: يضيف الأعمدة الجديدة إذا كانت قاعدة البيانات منشأة من نسخة سابقة
   await pool.query(`ALTER TABLE pharmacies ADD COLUMN IF NOT EXISTS on_duty_shift TEXT;`);
+  await pool.query(`ALTER TABLE pharmacies ADD COLUMN IF NOT EXISTS on_duty_start_time TEXT;`);
+  await pool.query(`ALTER TABLE pharmacies ADD COLUMN IF NOT EXISTS on_duty_end_time TEXT;`);
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS stock (
@@ -150,7 +154,7 @@ async function deleteMedicine(medicineId) {
 
 async function getAllPharmacies() {
   const { rows } = await pool.query(
-    'SELECT id, name, address, phone, owner_username, on_duty, on_duty_day, on_duty_shift FROM pharmacies ORDER BY id'
+    'SELECT id, name, address, phone, owner_username, on_duty, on_duty_day, on_duty_shift, on_duty_start_time, on_duty_end_time FROM pharmacies ORDER BY id'
   );
   return rows;
 }
@@ -178,17 +182,26 @@ async function deletePharmacy(pharmacyId) {
   await pool.query('DELETE FROM pharmacies WHERE id = $1', [pharmacyId]);
 }
 
-async function setDutyStatus(pharmacyId, onDuty, day, shift) {
+async function setDutyStatus(pharmacyId, onDuty, day, shift, startTime, endTime) {
   const { rows } = await pool.query(
-    'UPDATE pharmacies SET on_duty = $1, on_duty_day = $2, on_duty_shift = $3 WHERE id = $4 RETURNING *',
-    [!!onDuty, onDuty ? (day || null) : null, onDuty ? (shift || 'طوال اليوم') : null, pharmacyId]
+    `UPDATE pharmacies
+     SET on_duty = $1, on_duty_day = $2, on_duty_shift = $3, on_duty_start_time = $4, on_duty_end_time = $5
+     WHERE id = $6 RETURNING *`,
+    [
+      !!onDuty,
+      onDuty ? (day || null) : null,
+      onDuty ? (shift || 'طوال اليوم') : null,
+      onDuty ? (startTime || null) : null,
+      onDuty ? (endTime || null) : null,
+      pharmacyId
+    ]
   );
   return rows[0];
 }
 
 async function getOnDutyPharmacies() {
   const { rows } = await pool.query(
-    'SELECT id, name, address, phone, on_duty, on_duty_day, on_duty_shift FROM pharmacies WHERE on_duty = true ORDER BY on_duty_shift, id'
+    'SELECT id, name, address, phone, on_duty, on_duty_day, on_duty_shift, on_duty_start_time, on_duty_end_time FROM pharmacies WHERE on_duty = true ORDER BY on_duty_shift, id'
   );
   return rows;
 }
