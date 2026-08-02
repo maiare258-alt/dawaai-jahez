@@ -29,13 +29,14 @@ function updateCartCount() {
 function addToCart(medicineName, genericName, pharmacyName, pharmacyId) {
   const existing = cart.find(item => item.medicineName === medicineName && item.pharmacyId === pharmacyId);
   if (existing) {
-    if (existing.quantity >= 3) {
+    if (existing.quantity >= 3 && !existing.confirmedExcess) {
       const wantsMore = confirm(`لقد أضفت ${existing.quantity} من ${medicineName} من ${pharmacyName} إلى عربتك. هل تريد إضافة المزيد؟`);
       if (!wantsMore) return;
+      existing.confirmedExcess = true;
     }
     existing.quantity += 1;
   } else {
-    cart.push({ medicineName, genericName, pharmacyName, pharmacyId, quantity: 1 });
+    cart.push({ medicineName, genericName, pharmacyName, pharmacyId, quantity: 1, confirmedExcess: false });
   }
   saveCart();
   renderCart();
@@ -43,9 +44,10 @@ function addToCart(medicineName, genericName, pharmacyName, pharmacyId) {
 
 function increaseQuantity(index) {
   const item = cart[index];
-  if (item.quantity >= 3) {
+  if (item.quantity >= 3 && !item.confirmedExcess) {
     const wantsMore = confirm(`لقد أضفت ${item.quantity} من ${item.medicineName} من ${item.pharmacyName} إلى عربتك. هل تريد إضافة المزيد؟`);
     if (!wantsMore) return;
+    item.confirmedExcess = true;
   }
   item.quantity += 1;
   saveCart();
