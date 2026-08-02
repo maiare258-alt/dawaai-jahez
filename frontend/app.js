@@ -93,11 +93,11 @@ function renderCart() {
           <span>${item.medicineName}${item.genericName ? ` <span class="muted">(${item.genericName})</span>` : ''} <span class="muted">- ${item.pharmacyName}</span></span>
           <div style="display:flex; align-items:center; gap:10px;">
             <div style="display:flex; align-items:center; gap:6px;">
-              <button class="btn-outline blue" style="padding:2px 10px; font-size:14px;" onclick="decreaseQuantity(${i})">-</button>
-              <span style="min-width:16px; text-align:center;">${item.quantity}</span>
-              <button class="btn-outline blue" style="padding:2px 10px; font-size:14px;" onclick="increaseQuantity(${i})">+</button>
+              <button class="btn-outline blue small" onclick="decreaseQuantity(${i})">-</button>
+              <span style="min-width:20px; text-align:center;">${item.quantity}</span>
+              <button class="btn-outline blue small" onclick="increaseQuantity(${i})">+</button>
             </div>
-            <button class="btn-outline red" style="padding:4px 12px; font-size:12px;" onclick="removeFromCart(${i})">حذف</button>
+            <button class="btn-outline red small" onclick="removeFromCart(${i})">حذف</button>
           </div>
         </div>
       `).join('')}
@@ -217,7 +217,7 @@ async function runSearch() {
             <span>${a.pharmacy_name}</span>
             <div style="display:flex; align-items:center; gap:8px;">
               <span class="badge ${a.available ? 'yes' : 'no'}">${a.available ? 'متوفر' : 'غير متوفر'}</span>
-              ${a.available ? `<button class="btn-outline blue" style="padding:4px 10px; font-size:12px;" onclick="addToCart('${item.medicine.name}', '${item.medicine.generic_name || ''}', '${a.pharmacy_name}', ${a.pharmacy_id})">أضف للعربة</button>` : ''}
+              ${a.available ? `<button class="btn-outline blue small" onclick="addToCart('${item.medicine.name}', '${item.medicine.generic_name || ''}', '${a.pharmacy_name}', ${a.pharmacy_id})">أضف للعربة</button>` : ''}
             </div>
           </div>
         `).join('')}
@@ -437,7 +437,7 @@ async function renderAdminPanel() {
       ${pharmacies.length === 0 ? '<p class="muted">لا يوجد صيدليات مسجّلة بعد.</p>' : pharmacies.map(p => `
         <div class="row">
           <span>${p.name} <span class="muted">(${p.owner_username})</span></span>
-          <button class="danger-btn" onclick="deletePharmacyAdmin(${p.id}, '${p.name}')">حذف</button>
+          <button class="btn-outline red small" onclick="deletePharmacyAdmin(${p.id}, '${p.name}')">حذف</button>
         </div>
       `).join('')}
     </div>
@@ -455,7 +455,7 @@ async function renderAdminPanel() {
       ${medicines.map(m => `
         <div class="row">
           <span>${m.name}</span>
-          <button class="danger-btn" onclick="deleteMedicineAdmin(${m.id}, '${m.name}')">حذف</button>
+          <button class="btn-outline red small" onclick="deleteMedicineAdmin(${m.id}, '${m.name}')">حذف</button>
         </div>
       `).join('')}
     </div>
