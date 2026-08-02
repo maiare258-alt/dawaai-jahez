@@ -138,6 +138,20 @@
         <button class="primary" onclick="saveDuty()">حفظ حالة المناوبة</button>
       </div>
       <div class="box" style="margin-bottom:20px;">
+        <h3 style="margin-top:0;">تحديد ساعات المناوبة (اختياري)</h3>
+        <p class="muted" style="margin-top:-8px;">إذا حددتها، رح تظهر للمريض جنب الفترة اللي اخترتها أعلاه.</p>
+        <div style="display:flex; gap:12px;">
+          <div style="flex:1;">
+            <label class="muted" style="font-size:14px; display:block; margin-bottom:4px;">من الساعة</label>
+            <input type="time" id="duty-start-time" disabled>
+          </div>
+          <div style="flex:1;">
+            <label class="muted" style="font-size:14px; display:block; margin-bottom:4px;">إلى الساعة</label>
+            <input type="time" id="duty-end-time" disabled>
+          </div>
+        </div>
+      </div>
+      <div class="box" style="margin-bottom:20px;">
         <h3 style="margin-top:0;">إضافة دواء غير موجود بالقائمة</h3>
         <p class="muted" style="margin-top:-8px;">إذا عندك دواء بالصيدلية ومو موجود بالقائمة تحت، ضيفه هون مباشرة.</p>
         <input id="pharm-med-name" placeholder="اسم الدواء">
