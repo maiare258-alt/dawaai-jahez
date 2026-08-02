@@ -105,6 +105,15 @@ function renderCart() {
   `;
 }
 
+function formatTime12(t) {
+  if (!t) return '';
+  const [h, m] = t.split(':').map(Number);
+  const period = h >= 12 ? 'م' : 'ص';
+  let hour12 = h % 12;
+  if (hour12 === 0) hour12 = 12;
+  return `${hour12}:${String(m).padStart(2, '0')} ${period}`;
+}
+
 // ---------- واجهة المريض ----------
 
 async function loadOnDuty() {
@@ -119,12 +128,18 @@ async function loadOnDuty() {
     container.innerHTML = `
       <div class="card" style="border-color:#97c459; background:#f7fbf1;">
         <h3 style="margin-top:0;">🟢 الصيدليات المناوبة اليوم</h3>
-        ${data.map(p => `
-          <div class="row">
-            <span>${p.name}${p.address ? ' - ' + p.address : ''}${p.phone ? ' - ' + p.phone : ''}</span>
-            <span class="badge yes">${p.on_duty_day || ''}${p.on_duty_shift && p.on_duty_shift !== 'طوال اليوم' ? ' (' + p.on_duty_shift + ')' : ''}</span>
-          </div>
-        `).join('')}
+        ${data.map(p => {
+          const extras = [];
+          if (p.on_duty_shift && p.on_duty_shift !== 'طوال اليوم') extras.push(p.on_duty_shift);
+          if (p.on_duty_start_time && p.on_duty_end_time) extras.push(`${formatTime12(p.on_duty_start_time)} - ${formatTime12(p.on_duty_end_time)}`);
+          const label = (p.on_duty_day || '') + (extras.length ? ` (${extras.join('، ')})` : '');
+          return `
+            <div class="row">
+              <span>${p.name}${p.address ? ' - ' + p.address : ''}${p.phone ? ' - ' + p.phone : ''}</span>
+              <span class="badge yes">${label}</span>
+            </div>
+          `;
+        }).join('')}
       </div>
     `;
   } catch (err) {
@@ -274,24 +289,33 @@ function loadDashboard() {
   document.getElementById('duty-checkbox').checked = !!currentPharmacy.on_duty;
   document.getElementById('duty-day').disabled = !currentPharmacy.on_duty;
   document.getElementById('duty-shift').disabled = !currentPharmacy.on_duty;
+  document.getElementById('duty-start-time').disabled = !currentPharmacy.on_duty;
+  document.getElementById('duty-end-time').disabled = !currentPharmacy.on_duty;
   if (currentPharmacy.on_duty_day) {
     document.getElementById('duty-day').value = currentPharmacy.on_duty_day;
   }
   if (currentPharmacy.on_duty_shift) {
     document.getElementById('duty-shift').value = currentPharmacy.on_duty_shift;
   }
+  document.getElementById('duty-start-time').value = currentPharmacy.on_duty_start_time || '';
+  document.getElementById('duty-end-time').value = currentPharmacy.on_duty_end_time || '';
   refreshStock();
 }
 
 function onDutyToggle() {
-  document.getElementById('duty-day').disabled = !document.getElementById('duty-checkbox').checked;
-  document.getElementById('duty-shift').disabled = !document.getElementById('duty-checkbox').checked;
+  const enabled = document.getElementById('duty-checkbox').checked;
+  document.getElementById('duty-day').disabled = !enabled;
+  document.getElementById('duty-shift').disabled = !enabled;
+  document.getElementById('duty-start-time').disabled = !enabled;
+  document.getElementById('duty-end-time').disabled = !enabled;
 }
 
 async function saveDuty() {
   const on_duty = document.getElementById('duty-checkbox').checked;
   const on_duty_day = document.getElementById('duty-day').value;
   const on_duty_shift = document.getElementById('duty-shift').value;
+  const on_duty_start_time = document.getElementById('duty-start-time').value;
+  const on_duty_end_time = document.getElementById('duty-end-time').value;
   try {
     const res = await fetch(`${API}/pharmacies/self/duty`, {
       method: 'PUT',
@@ -301,7 +325,9 @@ async function saveDuty() {
         password: currentPharmacy.password,
         on_duty,
         on_duty_day,
-        on_duty_shift
+        on_duty_shift,
+        on_duty_start_time,
+        on_duty_end_time
       })
     });
     const data = await res.json();
@@ -309,6 +335,8 @@ async function saveDuty() {
     currentPharmacy.on_duty = data.on_duty;
     currentPharmacy.on_duty_day = data.on_duty_day;
     currentPharmacy.on_duty_shift = data.on_duty_shift;
+    currentPharmacy.on_duty_start_time = data.on_duty_start_time;
+    currentPharmacy.on_duty_end_time = data.on_duty_end_time;
     alert('تم حفظ حالة المناوبة بنجاح');
   } catch (err) {
     alert('تعذر الاتصال بالخادم');
