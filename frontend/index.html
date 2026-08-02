@@ -12,48 +12,50 @@
     color: #2c2c2a;
     margin: 0;
     padding: 20px;
+    font-size: 17px;
+    line-height: 1.6;
   }
-  .container { max-width: 640px; margin: 0 auto; }
-  h1 { font-size: 22px; font-weight: 500; margin-bottom: 4px; }
-  h3 { font-size: 15px; margin-top: 28px; }
-  p.subtitle { color: #5f5e5a; font-size: 14px; margin-bottom: 24px; }
-  .tabs { display: flex; gap: 8px; margin-bottom: 20px; }
+  .container { max-width: 680px; margin: 0 auto; }
+  h1 { font-size: 27px; font-weight: 600; margin-bottom: 6px; }
+  h3 { font-size: 18px; margin-top: 30px; }
+  p.subtitle { color: #5f5e5a; font-size: 16px; margin-bottom: 26px; }
+  .tabs { display: flex; gap: 8px; margin-bottom: 22px; }
   .tabs button {
-    flex: 1; padding: 10px; border: 1px solid #d3d1c7; border-radius: 8px;
-    background: white; cursor: pointer; font-size: 14px;
+    flex: 1; padding: 12px; border: 1px solid #d3d1c7; border-radius: 8px;
+    background: white; cursor: pointer; font-size: 16px; font-family: inherit;
   }
-  .tabs button.active { border-color: #185fa5; color: #185fa5; font-weight: 500; }
+  .tabs button.active { border-color: #185fa5; color: #185fa5; font-weight: 600; }
   input, select {
-    width: 100%; padding: 10px; border: 1px solid #d3d1c7; border-radius: 8px;
-    font-size: 14px; margin-bottom: 12px; font-family: inherit;
+    width: 100%; padding: 12px; border: 1px solid #d3d1c7; border-radius: 8px;
+    font-size: 16px; margin-bottom: 14px; font-family: inherit;
   }
   .card {
     background: white; border: 1px solid #e5e3da; border-radius: 12px;
-    padding: 16px 18px; margin-bottom: 12px;
+    padding: 18px 20px; margin-bottom: 14px;
   }
-  .card h3 { margin: 0 0 4px; font-size: 15px; font-weight: 500; margin-top: 0; }
-  .card .generic { font-size: 13px; color: #5f5e5a; margin-bottom: 10px; }
+  .card h3 { margin: 0 0 6px; font-size: 18px; font-weight: 600; margin-top: 0; }
+  .card .generic { font-size: 15px; color: #5f5e5a; margin-bottom: 12px; }
   .row {
     display: flex; justify-content: space-between; align-items: center;
-    padding: 8px 0; border-top: 1px solid #eee;
+    padding: 10px 0; border-top: 1px solid #eee; font-size: 16px;
   }
-  .badge { font-size: 12px; padding: 4px 10px; border-radius: 6px; }
+  .badge { font-size: 14px; padding: 5px 12px; border-radius: 6px; }
   .badge.yes { background: #eaf3de; color: #27500a; }
   .badge.no { background: #fcebeb; color: #501313; }
   .toggle-btn {
-    font-size: 12px; padding: 5px 12px; border-radius: 6px; cursor: pointer; border: 1px solid;
+    font-size: 15px; padding: 7px 14px; border-radius: 6px; cursor: pointer; border: 1px solid; font-family: inherit;
   }
   .toggle-btn.yes { background: #eaf3de; color: #27500a; border-color: #97c459; }
   .toggle-btn.no { background: #fcebeb; color: #501313; border-color: #f09595; }
-  .muted { color: #888780; font-size: 14px; }
-  .auth-box { background: white; border: 1px solid #e5e3da; border-radius: 12px; padding: 20px; }
+  .muted { color: #888780; font-size: 15px; }
+  .auth-box { background: white; border: 1px solid #e5e3da; border-radius: 12px; padding: 22px; }
   .auth-box button.primary, button.primary {
-    width: 100%; padding: 10px; background: #185fa5; color: white; border: none;
-    border-radius: 8px; font-size: 14px; cursor: pointer; margin-top: 4px;
+    width: 100%; padding: 12px; background: #185fa5; color: white; border: none;
+    border-radius: 8px; font-size: 16px; cursor: pointer; margin-top: 6px; font-family: inherit; font-weight: 500;
   }
-  .link-btn { background: none; border: none; color: #185fa5; cursor: pointer; font-size: 13px; text-decoration: underline; padding: 0; }
-  .danger-btn { background: none; border: none; color: #a33; cursor: pointer; font-size: 13px; text-decoration: underline; padding: 0; }
-  .box { background: white; border: 1px solid #e5e3da; border-radius: 12px; padding: 16px 18px; margin-top: 8px; }
+  .link-btn { background: none; border: none; color: #185fa5; cursor: pointer; font-size: 15px; text-decoration: underline; padding: 0; font-family: inherit; }
+  .danger-btn { background: none; border: none; color: #a33; cursor: pointer; font-size: 15px; text-decoration: underline; padding: 0; font-family: inherit; }
+  .box { background: white; border: 1px solid #e5e3da; border-radius: 12px; padding: 18px 20px; margin-top: 10px; }
   #suggestions {
     position: absolute; top: 100%; right: 0; left: 0; z-index: 10;
     background: white; border: 1px solid #d3d1c7; border-radius: 8px;
@@ -61,30 +63,31 @@
   }
   #suggestions.show { display: block; }
   #suggestions .suggestion-item {
-    padding: 10px 14px; cursor: pointer; font-size: 14px; border-top: 1px solid #eee;
+    padding: 12px 16px; cursor: pointer; font-size: 16px; border-top: 1px solid #eee;
   }
   #suggestions .suggestion-item:first-child { border-top: none; }
   #suggestions .suggestion-item:hover { background: #f5f4ef; }
-  #suggestions .suggestion-item .generic-hint { color: #888780; font-size: 12px; }
+  #suggestions .suggestion-item .generic-hint { color: #888780; font-size: 14px; }
   .password-field {
     display: flex; align-items: center; gap: 6px;
-    border: 1px solid #d3d1c7; border-radius: 8px; margin-bottom: 12px; padding: 0 10px;
+    border: 1px solid #d3d1c7; border-radius: 8px; margin-bottom: 14px; padding: 0 12px;
   }
   .password-field input {
-    border: none; flex: 1; padding: 10px 0; margin-bottom: 0; font-size: 14px; font-family: inherit;
+    border: none; flex: 1; padding: 12px 0; margin-bottom: 0; font-size: 16px; font-family: inherit;
   }
   .password-field input:focus { outline: none; }
   .password-field .toggle-password {
-    background: none; border: none; cursor: pointer; font-size: 16px; color: #888780; padding: 4px;
+    background: none; border: none; cursor: pointer; font-size: 18px; color: #888780; padding: 4px;
   }
   .btn-outline {
-    display: inline-block; padding: 10px 20px; border-radius: 8px; border: 1px solid;
-    background: white; cursor: pointer; font-size: 14px; font-weight: 500; font-family: inherit;
+    display: inline-block; padding: 12px 22px; border-radius: 8px; border: 1px solid;
+    background: white; cursor: pointer; font-size: 16px; font-weight: 500; font-family: inherit;
   }
   .btn-outline.blue { border-color: #185fa5; color: #185fa5; }
   .btn-outline.blue:hover { background: #eef4fa; }
   .btn-outline.red { border-color: #a33; color: #a33; }
   .btn-outline.red:hover { background: #fbeeee; }
+  .btn-outline.small { padding: 6px 16px; font-size: 15px; }
 </style>
 </head>
 <body>
@@ -115,7 +118,7 @@
       <div class="muted" id="pharmacy-label" style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;"></div>
       <div class="box" style="margin-bottom:20px;">
         <h3 style="margin-top:0;">حالة المناوبة</h3>
-        <label style="display:flex; align-items:center; gap:8px; font-size:14px; margin-bottom:12px;">
+        <label style="display:flex; align-items:center; gap:8px; font-size:16px; margin-bottom:12px;">
           <input type="checkbox" id="duty-checkbox" onchange="onDutyToggle()"> صيدليتي مناوبة اليوم
         </label>
         <select id="duty-day" disabled>
