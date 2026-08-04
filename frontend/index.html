@@ -16,6 +16,27 @@
     line-height: 1.6;
   }
   .container { max-width: 680px; margin: 0 auto; }
+  .hero {
+    display: flex; align-items: center; gap: 24px;
+    background: linear-gradient(135deg, #eaf4fb 0%, #f7fbfe 55%, #f5f4ef 100%);
+    border-radius: 24px; padding: 32px 28px; margin-bottom: 22px; overflow: hidden;
+  }
+  .hero-capsule { flex-shrink: 0; width: 150px; }
+  .hero-capsule svg { width: 100%; height: auto; filter: drop-shadow(0 14px 18px rgba(24,95,165,0.22)); }
+  .hero-text { flex: 1; min-width: 0; }
+  .hero-title { font-size: 28px; font-weight: 700; line-height: 1.4; margin: 0 0 12px; color: #163a5c; }
+  .hero-highlight { color: #185fa5; }
+  .hero-description { font-size: 16px; color: #4a5b6b; margin: 0; line-height: 1.6; }
+  .hero-search-wrap { position: relative; }
+  #search {
+    border-radius: 999px; padding: 16px 22px; font-size: 17px;
+    box-shadow: 0 4px 16px rgba(24,95,165,0.12); border: 1px solid #cfe0ef;
+  }
+  @media (max-width: 540px) {
+    .hero { flex-direction: column; text-align: center; padding: 26px 20px; }
+    .hero-capsule { width: 110px; }
+    .hero-title { font-size: 23px; }
+  }
   h1 { font-size: 27px; font-weight: 600; margin-bottom: 6px; }
   h3 { font-size: 18px; margin-top: 30px; }
   p.subtitle { color: #5f5e5a; font-size: 16px; margin-bottom: 26px; }
@@ -92,8 +113,37 @@
 </head>
 <body>
 <div class="container">
-  <h1>دوائي جاهز</h1>
-  <p class="subtitle">اعرف فوراً أي صيدلية يتوفر فيها دواؤك</p>
+  <div class="hero">
+    <div class="hero-capsule" aria-hidden="true">
+      <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="capsuleBody" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#eaf4fb"/>
+            <stop offset="100%" stop-color="#a9cdea"/>
+          </linearGradient>
+          <linearGradient id="capsuleTop" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#5c9bd8"/>
+            <stop offset="100%" stop-color="#185fa5"/>
+          </linearGradient>
+          <linearGradient id="wing" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#ffffff"/>
+            <stop offset="100%" stop-color="#cfe3f5"/>
+          </linearGradient>
+        </defs>
+        <g transform="rotate(-18 100 100)">
+          <ellipse cx="63" cy="100" rx="34" ry="46" fill="url(#wing)" opacity="0.9"/>
+          <ellipse cx="137" cy="100" rx="34" ry="46" fill="url(#wing)" opacity="0.9"/>
+          <rect x="60" y="55" width="80" height="90" rx="40" fill="url(#capsuleBody)"/>
+          <path d="M60 95 a40 40 0 0 1 80 0 z" fill="url(#capsuleTop)"/>
+          <ellipse cx="80" cy="80" rx="8" ry="14" fill="#ffffff" opacity="0.55"/>
+        </g>
+      </svg>
+    </div>
+    <div class="hero-text">
+      <h1 class="hero-title">دوائي جاهز<br>في <span class="hero-highlight">أي وقت</span>، من أي مكان</h1>
+      <p class="hero-description">منصة سورية تساعدك على معرفة توفر الدواء في الصيدليات القريبة وطلبه بسهولة.</p>
+    </div>
+  </div>
 
   <div class="tabs">
     <button id="tab-patient" class="active" onclick="showView('patient')">واجهة المريض</button>
@@ -105,7 +155,7 @@
     <div id="on-duty-section"></div>
     <button class="btn-outline blue" onclick="toggleCart()" style="margin-bottom:16px;">🛒 عربة المشتريات (<span id="cart-count">0</span>)</button>
     <div id="cart-section" style="display:none; margin-bottom:16px;"></div>
-    <div style="position:relative;">
+    <div class="hero-search-wrap">
       <input id="search" type="text" placeholder="ابحث عن دواء... مثال: بنادول" oninput="onSearch()" autocomplete="off">
       <div id="suggestions"></div>
     </div>
