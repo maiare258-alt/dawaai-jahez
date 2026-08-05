@@ -7,11 +7,59 @@ function showView(view) {
   document.getElementById('view-patient').style.display = view === 'patient' ? 'block' : 'none';
   document.getElementById('view-pharmacist').style.display = view === 'pharmacist' ? 'block' : 'none';
   document.getElementById('view-admin').style.display = view === 'admin' ? 'block' : 'none';
-  document.getElementById('tab-patient').classList.toggle('active', view === 'patient');
-  document.getElementById('tab-pharmacist').classList.toggle('active', view === 'pharmacist');
-  document.getElementById('tab-admin').classList.toggle('active', view === 'admin');
   if (view === 'pharmacist' && !currentPharmacy) renderPharmacyAuthForm();
   if (view === 'admin' && !adminPassword) renderAdminAuthForm();
+}
+
+// ---------- روابط الهيدر (المتحكم الوحيد بالتنقل بالموقع) ----------
+
+function setActiveNav(link) {
+  document.querySelectorAll('.site-nav .nav-link').forEach(a => a.classList.remove('active'));
+  if (link) link.classList.add('active');
+  closeNav();
+}
+
+function toggleNav() {
+  document.getElementById('site-nav').classList.toggle('open');
+}
+
+function closeNav() {
+  document.getElementById('site-nav').classList.remove('open');
+}
+
+function headerGoHome(link) {
+  showView('patient');
+  document.getElementById('on-duty-section').style.display = 'none';
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+  setActiveNav(link);
+}
+
+function headerGoSearch(link) {
+  showView('patient');
+  const input = document.getElementById('search');
+  input.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  input.focus();
+  setActiveNav(link);
+}
+
+function headerGoOnDuty(link) {
+  showView('patient');
+  const section = document.getElementById('on-duty-section');
+  section.style.display = 'block';
+  section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  setActiveNav(link);
+}
+
+function headerGoPharmacist(link) {
+  showView('pharmacist');
+  document.getElementById('view-pharmacist').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  setActiveNav(link);
+}
+
+function headerGoAdmin(link) {
+  showView('admin');
+  document.getElementById('view-admin').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  setActiveNav(link);
 }
 
 // ---------- عربة المشتريات ----------
