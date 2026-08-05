@@ -323,7 +323,7 @@
       <div class="hero-search-wrap">
         <span class="search-icon" aria-hidden="true">🔍</span>
         <input id="search" type="text" placeholder="ابحث عن دواء أو مادة فعالة..." oninput="onSearch()" autocomplete="off">
-        <button type="button" class="search-btn" onclick="document.getElementById('suggestions').classList.remove('show'); runSearch();">بحث</button>
+        <button type="button" class="search-btn" onclick="submitSearch()">بحث</button>
         <div id="suggestions"></div>
       </div>
       <button id="cart-toggle-btn" class="hero-cart-btn" onclick="toggleCart()">
