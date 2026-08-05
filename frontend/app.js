@@ -256,10 +256,17 @@ async function loadSuggestions() {
   }
 }
 
-function pickSuggestion(name) {
+async function pickSuggestion(name) {
   document.getElementById('search').value = name;
   document.getElementById('suggestions').classList.remove('show');
-  runSearch();
+  await runSearch();
+  document.getElementById('results').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+async function submitSearch() {
+  document.getElementById('suggestions').classList.remove('show');
+  await runSearch();
+  document.getElementById('results').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 async function runSearch() {
