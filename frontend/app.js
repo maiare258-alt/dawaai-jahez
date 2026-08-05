@@ -174,20 +174,27 @@ async function loadOnDuty() {
       return;
     }
     container.innerHTML = `
-      <div class="card" style="border-color:#97c459; background:#f7fbf1;">
-        <h3 style="margin-top:0;">🟢 الصيدليات المناوبة اليوم</h3>
-        ${data.map(p => {
-          const extras = [];
-          if (p.on_duty_shift && p.on_duty_shift !== 'طوال اليوم') extras.push(p.on_duty_shift);
-          if (p.on_duty_start_time && p.on_duty_end_time) extras.push(`${formatTime12(p.on_duty_start_time)} - ${formatTime12(p.on_duty_end_time)}`);
-          const label = (p.on_duty_day || '') + (extras.length ? ` (${extras.join('، ')})` : '');
-          return `
-            <div class="row">
-              <span>${p.name}${p.address ? ' - ' + p.address : ''}${p.phone ? ' - ' + p.phone : ''}</span>
-              <span class="badge yes">${label}</span>
-            </div>
-          `;
-        }).join('')}
+      <div class="duty-wrap">
+        <h3>🟢 الصيدليات المناوبة اليوم</h3>
+        <div class="duty-grid">
+          ${data.map(p => {
+            const extras = [];
+            if (p.on_duty_shift && p.on_duty_shift !== 'طوال اليوم') extras.push(p.on_duty_shift);
+            if (p.on_duty_start_time && p.on_duty_end_time) extras.push(`${formatTime12(p.on_duty_start_time)} - ${formatTime12(p.on_duty_end_time)}`);
+            const timeLine = (p.on_duty_day || '') + (extras.length ? ` (${extras.join('، ')})` : '');
+            return `
+              <div class="duty-card">
+                <div class="duty-card-top">
+                  <span class="duty-card-name">${p.name}</span>
+                  <span class="duty-status-badge">🟢 مناوبة الآن</span>
+                </div>
+                ${p.address ? `<div class="duty-card-row"><span class="duty-icon">📍</span> ${p.address}</div>` : ''}
+                ${p.phone ? `<div class="duty-card-row"><span class="duty-icon">📞</span> ${p.phone}</div>` : ''}
+                <div class="duty-card-row"><span class="duty-icon">🕐</span> ${timeLine}</div>
+              </div>
+            `;
+          }).join('')}
+        </div>
       </div>
     `;
   } catch (err) {
