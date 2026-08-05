@@ -16,6 +16,46 @@
     line-height: 1.6;
   }
   .container { max-width: 680px; margin: 0 auto; }
+  .site-header {
+    position: sticky; top: 12px; z-index: 100;
+    max-width: 1080px; margin: 0 auto 16px;
+    background: rgba(255,255,255,0.65);
+    backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+    border: 1px solid rgba(255,255,255,0.6);
+    border-radius: 18px;
+    box-shadow: 0 8px 28px rgba(24,95,165,0.12);
+  }
+  .site-header-inner {
+    position: relative;
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 14px; padding: 10px 18px;
+  }
+  .site-logo { display: flex; align-items: center; gap: 8px; font-size: 17px; font-weight: 700; color: #163a5c; white-space: nowrap; }
+  .site-logo .logo-dot {
+    width: 32px; height: 32px; border-radius: 50%; flex-shrink: 0;
+    background: linear-gradient(135deg, #5c9bd8, #185fa5);
+    display: flex; align-items: center; justify-content: center; font-size: 15px;
+  }
+  .site-nav { display: flex; align-items: center; gap: 2px; flex-wrap: wrap; }
+  .site-nav a {
+    font-size: 14px; color: #3a4a58; text-decoration: none; padding: 8px 12px; border-radius: 10px;
+    transition: background .2s, color .2s; cursor: pointer; white-space: nowrap; font-family: inherit;
+  }
+  .site-nav a:hover { background: rgba(24,95,165,0.08); color: #185fa5; }
+  .site-nav a.active { color: #185fa5; font-weight: 700; background: rgba(24,95,165,0.1); }
+  .nav-toggle {
+    display: none; background: none; border: none; font-size: 22px; cursor: pointer; color: #185fa5; padding: 4px 8px;
+  }
+  @media (max-width: 860px) {
+    .site-nav {
+      display: none; position: absolute; top: 100%; right: 0; left: 0; flex-direction: column; align-items: stretch;
+      background: rgba(255,255,255,0.97); backdrop-filter: blur(14px); border-radius: 14px; padding: 10px;
+      margin-top: 8px; box-shadow: 0 12px 24px rgba(24,95,165,0.15);
+    }
+    .site-nav.open { display: flex; }
+    .site-nav a { padding: 12px 14px; }
+    .nav-toggle { display: block; }
+  }
   .hero-outer { max-width: 1080px; margin: 0 auto 22px; }
   .hero {
     position: relative;
@@ -152,6 +192,22 @@
 </style>
 </head>
 <body>
+<header class="site-header">
+  <div class="site-header-inner">
+    <div class="site-logo">
+      <span class="logo-dot">💊</span> دوائي جاهز
+    </div>
+    <nav class="site-nav" id="site-nav">
+      <a class="nav-link active" onclick="headerGoHome(this)">الرئيسية</a>
+      <a class="nav-link" onclick="headerGoSearch(this)">البحث عن دواء</a>
+      <a class="nav-link" onclick="headerGoOnDuty(this)">الصيدليات المناوبة</a>
+      <a class="nav-link" onclick="headerGoPharmacist(this)">لوحة الصيدلي</a>
+      <a class="nav-link" onclick="headerGoAdmin(this)">الإدارة</a>
+    </nav>
+    <button class="nav-toggle" onclick="toggleNav()" aria-label="القائمة">☰</button>
+  </div>
+</header>
+
 <div class="hero-outer">
   <div class="hero">
     <div class="hero-glow" aria-hidden="true"></div>
