@@ -9,6 +9,21 @@ function showView(view) {
   document.getElementById('view-admin').style.display = view === 'admin' ? 'block' : 'none';
   if (view === 'pharmacist' && !currentPharmacy) renderPharmacyAuthForm();
   if (view === 'admin' && !adminPassword) renderAdminAuthForm();
+  updateCartVisibility();
+}
+
+// تُظهر زر العربة بس بالصفحة الرئيسية (المريض)، وتخفيه بلوحة الصيدلي/الإدارة/قسم المناوبة
+function updateCartVisibility() {
+  const patientActive = document.getElementById('view-patient').style.display !== 'none';
+  const onDutyActive = document.getElementById('on-duty-section').style.display !== 'none';
+  const cartBtn = document.getElementById('cart-toggle-btn');
+  const cartSection = document.getElementById('cart-section');
+  if (patientActive && !onDutyActive) {
+    cartBtn.style.display = 'inline-flex';
+  } else {
+    cartBtn.style.display = 'none';
+    cartSection.style.display = 'none';
+  }
 }
 
 // ---------- روابط الهيدر (المتحكم الوحيد بالتنقل بالموقع) ----------
@@ -30,6 +45,7 @@ function closeNav() {
 function headerGoHome(link) {
   showView('patient');
   document.getElementById('on-duty-section').style.display = 'none';
+  updateCartVisibility();
   window.scrollTo({ top: 0, behavior: 'smooth' });
   setActiveNav(link);
 }
@@ -46,6 +62,7 @@ function headerGoOnDuty(link) {
   showView('patient');
   const section = document.getElementById('on-duty-section');
   section.style.display = 'block';
+  updateCartVisibility();
   section.scrollIntoView({ behavior: 'smooth', block: 'start' });
   setActiveNav(link);
 }
