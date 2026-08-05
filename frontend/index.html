@@ -16,26 +16,66 @@
     line-height: 1.6;
   }
   .container { max-width: 680px; margin: 0 auto; }
+  .hero-outer { max-width: 1080px; margin: 0 auto 22px; }
   .hero {
-    display: flex; align-items: center; gap: 24px;
-    background: linear-gradient(135deg, #eaf4fb 0%, #f7fbfe 55%, #f5f4ef 100%);
-    border-radius: 24px; padding: 32px 28px; margin-bottom: 22px; overflow: hidden;
+    position: relative;
+    min-height: 70vh;
+    display: flex; align-items: center;
+    background: linear-gradient(160deg, #eaf4fb 0%, #dcecfa 40%, #f7fbfe 75%, #f5f4ef 100%);
+    border-radius: 28px; padding: 40px; overflow: hidden;
   }
-  .hero-capsule { flex-shrink: 0; width: 150px; }
-  .hero-capsule svg { width: 100%; height: auto; filter: drop-shadow(0 14px 18px rgba(24,95,165,0.22)); }
-  .hero-text { flex: 1; min-width: 0; }
-  .hero-title { font-size: 28px; font-weight: 700; line-height: 1.4; margin: 0 0 12px; color: #163a5c; }
+  .hero-glow {
+    position: absolute; left: -100px; bottom: -90px;
+    width: 480px; height: 480px; border-radius: 50%;
+    background: radial-gradient(circle, rgba(93,158,216,0.4) 0%, rgba(93,158,216,0) 70%);
+    z-index: 0;
+  }
+  .hero-particles span {
+    position: absolute; width: 6px; height: 6px; border-radius: 50%;
+    background: rgba(93,158,216,0.55); z-index: 1;
+    animation: particleFloat 5s ease-in-out infinite;
+  }
+  .hero-particles span:nth-child(1) { left: 20px; top: 55%; animation-delay: 0s; }
+  .hero-particles span:nth-child(2) { left: 80px; top: 82%; width:4px; height:4px; animation-delay: .8s; }
+  .hero-particles span:nth-child(3) { left: 160px; top: 60%; animation-delay: 1.6s; }
+  .hero-particles span:nth-child(4) { left: 220px; top: 88%; width:5px; height:5px; animation-delay: 2.4s; }
+  .hero-particles span:nth-child(5) { left: 270px; top: 68%; width:4px; height:4px; animation-delay: 3.2s; }
+  @keyframes particleFloat {
+    0%, 100% { transform: translateY(0); opacity: .5; }
+    50% { transform: translateY(-18px); opacity: 1; }
+  }
+  .hero-capsule {
+    position: absolute; left: -70px; bottom: -20px; width: 400px; z-index: 2;
+    animation: heroFloat 5s ease-in-out infinite;
+  }
+  .hero-capsule svg { width: 100%; height: auto; filter: drop-shadow(0 20px 26px rgba(24,95,165,0.3)); }
+  @keyframes heroFloat {
+    0%, 100% { transform: translateY(0) translateX(0); }
+    50% { transform: translateY(-14px) translateX(8px); }
+  }
+  .hero-content { position: relative; z-index: 3; margin-left: 380px; max-width: 460px; }
+  .hero-title { font-size: 32px; font-weight: 800; line-height: 1.35; margin: 0 0 14px; color: #163a5c; }
   .hero-highlight { color: #185fa5; }
-  .hero-description { font-size: 16px; color: #4a5b6b; margin: 0; line-height: 1.6; }
+  .hero-description { font-size: 17px; color: #4a5b6b; margin: 0 0 24px; line-height: 1.6; }
   .hero-search-wrap { position: relative; }
   #search {
-    border-radius: 999px; padding: 16px 22px; font-size: 17px;
-    box-shadow: 0 4px 16px rgba(24,95,165,0.12); border: 1px solid #cfe0ef;
+    border-radius: 999px; padding: 18px 26px; font-size: 17px;
+    box-shadow: 0 8px 24px rgba(24,95,165,0.18); border: 1px solid #cfe0ef; background: #fff;
   }
-  @media (max-width: 540px) {
-    .hero { flex-direction: column; text-align: center; padding: 26px 20px; }
-    .hero-capsule { width: 110px; }
-    .hero-title { font-size: 23px; }
+  @media (max-width: 720px) {
+    .hero { flex-direction: column; min-height: auto; padding: 32px 24px; text-align: center; }
+    .hero-glow, .hero-particles { display: none; }
+    .hero-capsule {
+      position: static; width: 150px; margin: 0 auto 16px; transform: none;
+      animation: heroFloatMobile 4.5s ease-in-out infinite;
+    }
+    @keyframes heroFloatMobile {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-10px); }
+    }
+    .hero-content { margin-left: 0; max-width: 100%; }
+    .hero-title { font-size: 24px; }
+    .hero-description { margin-left: auto; margin-right: auto; }
   }
   h1 { font-size: 27px; font-weight: 600; margin-bottom: 6px; }
   h3 { font-size: 18px; margin-top: 30px; }
@@ -112,39 +152,61 @@
 </style>
 </head>
 <body>
-<div class="container">
+<div class="hero-outer">
   <div class="hero">
+    <div class="hero-glow" aria-hidden="true"></div>
+    <div class="hero-particles" aria-hidden="true">
+      <span></span><span></span><span></span><span></span><span></span>
+    </div>
     <div class="hero-capsule" aria-hidden="true">
-      <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+      <svg viewBox="0 0 300 220" xmlns="http://www.w3.org/2000/svg">
         <defs>
-          <linearGradient id="capsuleBody" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stop-color="#eaf4fb"/>
-            <stop offset="100%" stop-color="#a9cdea"/>
+          <linearGradient id="lightHalf" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#ffffff"/>
+            <stop offset="100%" stop-color="#dbeaf7"/>
           </linearGradient>
-          <linearGradient id="capsuleTop" x1="0%" y1="0%" x2="100%" y2="100%">
+          <linearGradient id="darkHalf" x1="0%" y1="0%" x2="100%" y2="100%">
             <stop offset="0%" stop-color="#5c9bd8"/>
             <stop offset="100%" stop-color="#185fa5"/>
           </linearGradient>
-          <linearGradient id="wing" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stop-color="#ffffff"/>
-            <stop offset="100%" stop-color="#cfe3f5"/>
+          <linearGradient id="trail" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stop-color="#a9cdea" stop-opacity="0"/>
+            <stop offset="100%" stop-color="#a9cdea" stop-opacity="0.6"/>
           </linearGradient>
+          <clipPath id="capsuleClip">
+            <rect x="90" y="80" width="160" height="60" rx="30"/>
+          </clipPath>
         </defs>
-        <g transform="rotate(-18 100 100)">
-          <ellipse cx="63" cy="100" rx="34" ry="46" fill="url(#wing)" opacity="0.9"/>
-          <ellipse cx="137" cy="100" rx="34" ry="46" fill="url(#wing)" opacity="0.9"/>
-          <rect x="60" y="55" width="80" height="90" rx="40" fill="url(#capsuleBody)"/>
-          <path d="M60 95 a40 40 0 0 1 80 0 z" fill="url(#capsuleTop)"/>
-          <ellipse cx="80" cy="80" rx="8" ry="14" fill="#ffffff" opacity="0.55"/>
+        <g transform="rotate(-30 170 110)">
+          <!-- خطوط حركة خفيفة خلف الكبسولة -->
+          <rect x="10" y="104" width="70" height="6" rx="3" fill="url(#trail)"/>
+          <rect x="25" y="118" width="55" height="5" rx="2.5" fill="url(#trail)" opacity="0.8"/>
+          <rect x="35" y="92" width="45" height="4" rx="2" fill="url(#trail)" opacity="0.7"/>
+          <!-- جسم الكبسولة: أزرق لامع بالمقدمة، أبيض بالمؤخرة -->
+          <g clip-path="url(#capsuleClip)">
+            <rect x="90" y="80" width="80" height="60" fill="url(#lightHalf)"/>
+            <rect x="170" y="80" width="80" height="60" fill="url(#darkHalf)"/>
+          </g>
+          <rect x="90" y="80" width="160" height="60" rx="30" fill="none" stroke="#ffffff" stroke-opacity="0.5" stroke-width="2"/>
+          <!-- لمعة على النصف الأبيض -->
+          <ellipse cx="118" cy="94" rx="13" ry="6" fill="#ffffff" opacity="0.6"/>
+          <!-- لمعة طويلة على النصف الأزرق اللامع -->
+          <ellipse cx="205" cy="98" rx="20" ry="5" fill="#ffffff" opacity="0.35" transform="rotate(-18 205 98)"/>
         </g>
       </svg>
     </div>
-    <div class="hero-text">
+    <div class="hero-content">
       <h1 class="hero-title">دوائي جاهز<br>في <span class="hero-highlight">أي وقت</span>، من أي مكان</h1>
       <p class="hero-description">منصة سورية تساعدك على معرفة توفر الدواء في الصيدليات القريبة وطلبه بسهولة.</p>
+      <div class="hero-search-wrap">
+        <input id="search" type="text" placeholder="ابحث عن دواء... مثال: بنادول" oninput="onSearch()" autocomplete="off">
+        <div id="suggestions"></div>
+      </div>
     </div>
   </div>
+</div>
 
+<div class="container">
   <div class="tabs">
     <button id="tab-patient" class="active" onclick="showView('patient')">واجهة المريض</button>
     <button id="tab-pharmacist" onclick="showView('pharmacist')">لوحة الصيدلي</button>
@@ -155,10 +217,6 @@
     <div id="on-duty-section"></div>
     <button class="btn-outline blue" onclick="toggleCart()" style="margin-bottom:16px;">🛒 عربة المشتريات (<span id="cart-count">0</span>)</button>
     <div id="cart-section" style="display:none; margin-bottom:16px;"></div>
-    <div class="hero-search-wrap">
-      <input id="search" type="text" placeholder="ابحث عن دواء... مثال: بنادول" oninput="onSearch()" autocomplete="off">
-      <div id="suggestions"></div>
-    </div>
     <div id="results"></div>
   </div>
 
