@@ -116,8 +116,30 @@
     display: inline-flex; align-items: center; justify-content: center;
   }
   #search {
-    border-radius: 999px; padding: 18px 26px; font-size: 17px;
-    box-shadow: 0 8px 24px rgba(24,95,165,0.18); border: 1px solid #cfe0ef; background: #fff;
+    width: 100%; height: 64px; border-radius: 9999px;
+    padding: 0 56px 0 132px; font-size: 17px;
+    box-shadow: 0 8px 24px rgba(24,95,165,0.15);
+    border: 2px solid #cfe0ef; background: rgba(255,255,255,0.92);
+    backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+    transition: border-color .2s ease, box-shadow .2s ease;
+  }
+  #search:focus { outline: none; border-color: #5c9bd8; box-shadow: 0 10px 30px rgba(24,95,165,0.28); }
+  .search-icon {
+    position: absolute; right: 22px; top: 50%; transform: translateY(-50%);
+    font-size: 20px; color: #5c9bd8; pointer-events: none;
+  }
+  .search-btn {
+    position: absolute; left: 6px; top: 50%; transform: translateY(-50%);
+    height: 52px; padding: 0 28px; border-radius: 9999px; border: none;
+    background: #185fa5; color: #fff; font-size: 15px; font-weight: 700;
+    cursor: pointer; font-family: inherit;
+    transition: background .2s ease, transform .2s ease;
+  }
+  .search-btn:hover { background: #134b85; transform: translateY(-50%) scale(1.03); }
+  @media (max-width: 480px) {
+    #search { height: 56px; font-size: 15px; padding: 0 44px 0 100px; }
+    .search-btn { height: 44px; padding: 0 18px; font-size: 14px; }
+    .search-icon { right: 16px; font-size: 17px; }
   }
   @media (max-width: 720px) {
     .hero { flex-direction: column; min-height: auto; padding: 32px 24px; text-align: center; }
@@ -299,7 +321,9 @@
       <h1 class="hero-title">دوائي جاهز<br>في <span class="hero-highlight">أي وقت</span>، من أي مكان</h1>
       <p class="hero-description">منصة سورية تساعدك على معرفة توفر الدواء في الصيدليات القريبة وطلبه بسهولة.</p>
       <div class="hero-search-wrap">
-        <input id="search" type="text" placeholder="ابحث عن دواء... مثال: بنادول" oninput="onSearch()" autocomplete="off">
+        <span class="search-icon" aria-hidden="true">🔍</span>
+        <input id="search" type="text" placeholder="ابحث عن دواء أو مادة فعالة..." oninput="onSearch()" autocomplete="off">
+        <button type="button" class="search-btn" onclick="document.getElementById('suggestions').classList.remove('show'); runSearch();">بحث</button>
         <div id="suggestions"></div>
       </div>
       <button id="cart-toggle-btn" class="hero-cart-btn" onclick="toggleCart()">
