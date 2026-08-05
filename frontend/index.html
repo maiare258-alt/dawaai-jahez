@@ -199,7 +199,6 @@
     </div>
     <nav class="site-nav" id="site-nav">
       <a class="nav-link active" onclick="headerGoHome(this)">الرئيسية</a>
-      <a class="nav-link" onclick="headerGoSearch(this)">البحث عن دواء</a>
       <a class="nav-link" onclick="headerGoOnDuty(this)">الصيدليات المناوبة</a>
       <a class="nav-link" onclick="headerGoPharmacist(this)">لوحة الصيدلي</a>
       <a class="nav-link" onclick="headerGoAdmin(this)">الإدارة</a>
@@ -263,14 +262,8 @@
 </div>
 
 <div class="container">
-  <div class="tabs">
-    <button id="tab-patient" class="active" onclick="showView('patient')">واجهة المريض</button>
-    <button id="tab-pharmacist" onclick="showView('pharmacist')">لوحة الصيدلي</button>
-    <button id="tab-admin" onclick="showView('admin')">الإدارة</button>
-  </div>
-
   <div id="view-patient">
-    <div id="on-duty-section"></div>
+    <div id="on-duty-section" style="display:none;"></div>
     <button class="btn-outline blue" onclick="toggleCart()" style="margin-bottom:16px;">🛒 عربة المشتريات (<span id="cart-count">0</span>)</button>
     <div id="cart-section" style="display:none; margin-bottom:16px;"></div>
     <div id="results"></div>
