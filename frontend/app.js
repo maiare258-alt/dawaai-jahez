@@ -281,7 +281,12 @@ async function runSearch() {
     const data = await res.json();
 
     if (data.length === 0) {
-      let html = '<p class="muted">لم يتم العثور على دواء بهذا الاسم.</p>';
+      let html = `
+        <div class="empty-state">
+          <div class="empty-icon">🔍</div>
+          <p class="empty-title">لم يتم العثور على الدواء</p>
+          <p class="empty-subtitle">يمكنك تجربة اسم آخر أو البحث بالمادة الفعالة.</p>
+        </div>`;
       try {
         const sugRes = await fetch(`${API}/medicines/suggest?q=${encodeURIComponent(q)}`);
         const suggestions = await sugRes.json();
@@ -302,21 +307,24 @@ async function runSearch() {
     }
 
     document.getElementById('suggestions').classList.remove('show');
-    container.innerHTML = data.map(item => `
-      <div class="card">
-        <h3>${item.medicine.name}</h3>
-        <div class="generic">المادة الفعالة: ${item.medicine.generic_name || '-'}</div>
-        ${item.availability.map(a => `
-          <div class="row">
-            <span>${a.pharmacy_name}</span>
-            <div style="display:flex; align-items:center; gap:8px;">
-              <span class="badge ${a.available ? 'yes' : 'no'}">${a.available ? 'متوفر' : 'غير متوفر'}</span>
-              ${a.available ? `<button class="btn-outline blue small" onclick="addToCart('${item.medicine.name}', '${item.medicine.generic_name || ''}', '${a.pharmacy_name}', ${a.pharmacy_id})">أضف للعربة</button>` : ''}
+    let cardsHtml = '';
+    data.forEach(item => {
+      item.availability.forEach(a => {
+        cardsHtml += `
+          <div class="result-card">
+            <div class="result-card-top">
+              <span class="result-med-name"><span class="result-icon">💊</span> ${item.medicine.name}</span>
+              <span class="badge ${a.available ? 'yes' : 'no'}">${a.available ? '🟢 متوفر' : '🔴 غير متوفر'}</span>
             </div>
+            <div class="result-row"><span class="result-icon">🧪</span> المادة الفعالة: ${item.medicine.generic_name || '-'}</div>
+            <div class="result-row"><span class="result-icon">🏥</span> ${a.pharmacy_name}</div>
+            ${a.address ? `<div class="result-row"><span class="result-icon">📍</span> ${a.address}</div>` : ''}
+            ${a.available ? `<button class="btn-outline blue small result-add-btn" onclick="addToCart('${item.medicine.name}', '${item.medicine.generic_name || ''}', '${a.pharmacy_name}', ${a.pharmacy_id})">إضافة إلى السلة</button>` : ''}
           </div>
-        `).join('')}
-      </div>
-    `).join('');
+        `;
+      });
+    });
+    container.innerHTML = cardsHtml;
   } catch (err) {
     container.innerHTML = '<p class="muted">تعذر الاتصال بالخادم.</p>';
   }
