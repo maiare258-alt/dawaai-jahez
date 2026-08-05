@@ -98,6 +98,23 @@
   .hero-highlight { color: #185fa5; }
   .hero-description { font-size: 17px; color: #4a5b6b; margin: 0 0 24px; line-height: 1.6; }
   .hero-search-wrap { position: relative; }
+  .hero-cart-btn {
+    display: inline-flex; align-items: center; gap: 10px;
+    background: linear-gradient(135deg, #ffffff 0%, #eef6fd 100%);
+    border: 1px solid rgba(255,255,255,0.85);
+    color: #185fa5; padding: 12px 22px; border-radius: 999px;
+    font-size: 15px; font-weight: 600; cursor: pointer; font-family: inherit;
+    box-shadow: 0 8px 20px rgba(24,95,165,0.18);
+    transition: transform .2s ease, box-shadow .2s ease;
+    margin-top: 16px;
+  }
+  .hero-cart-btn:hover { transform: translateY(-2px); box-shadow: 0 12px 26px rgba(24,95,165,0.25); }
+  .hero-cart-icon { font-size: 17px; }
+  .hero-cart-count {
+    background: #185fa5; color: #ffffff; font-size: 12px; font-weight: 700;
+    min-width: 20px; height: 20px; border-radius: 50%; padding: 0 5px;
+    display: inline-flex; align-items: center; justify-content: center;
+  }
   #search {
     border-radius: 999px; padding: 18px 26px; font-size: 17px;
     box-shadow: 0 8px 24px rgba(24,95,165,0.18); border: 1px solid #cfe0ef; background: #fff;
@@ -285,15 +302,17 @@
         <input id="search" type="text" placeholder="ابحث عن دواء... مثال: بنادول" oninput="onSearch()" autocomplete="off">
         <div id="suggestions"></div>
       </div>
+      <button id="cart-toggle-btn" class="hero-cart-btn" onclick="toggleCart()">
+        <span class="hero-cart-icon">🛒</span> عربة المشتريات <span class="hero-cart-count" id="cart-count">0</span>
+      </button>
     </div>
   </div>
 </div>
 
 <div class="container">
+  <div id="cart-section" style="display:none; margin-bottom:16px;"></div>
   <div id="view-patient">
     <div id="on-duty-section" style="display:none;"></div>
-    <button class="btn-outline blue" onclick="toggleCart()" style="margin-bottom:16px;">🛒 عربة المشتريات (<span id="cart-count">0</span>)</button>
-    <div id="cart-section" style="display:none; margin-bottom:16px;"></div>
     <div id="results"></div>
   </div>
 
