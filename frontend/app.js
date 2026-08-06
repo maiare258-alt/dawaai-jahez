@@ -318,6 +318,7 @@ async function runSearch() {
             </div>
             <div class="result-row">المادة الفعالة: ${item.medicine.generic_name || '-'}</div>
             <div class="result-pharmacy"><span class="result-icon">📍</span> ${a.pharmacy_name}${a.address ? ' - ' + a.address : ''}</div>
+            ${a.phone ? `<div class="result-row"><span class="result-icon">📞</span> ${a.phone}</div>` : ''}
             ${a.available ? `<button class="result-add-btn-full" onclick="addToCart('${item.medicine.name}', '${item.medicine.generic_name || ''}', '${a.pharmacy_name}', ${a.pharmacy_id})">إضافة إلى السلة</button>` : ''}
           </div>
         `;
