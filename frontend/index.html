@@ -258,19 +258,34 @@
   .duty-icon { font-size: 15px; }
   .result-card {
     background: #ffffff; border: 1px solid #cfe0ef; border-radius: 20px;
-    padding: 20px 22px; margin-bottom: 16px;
-    box-shadow: 0 6px 18px rgba(24,95,165,0.08);
+    padding: 16px 18px; margin-bottom: 14px;
+    box-shadow: 0 5px 14px rgba(24,95,165,0.08);
     transition: transform .2s ease, box-shadow .2s ease;
   }
-  .result-card:hover { transform: translateY(-4px); box-shadow: 0 14px 28px rgba(24,95,165,0.16); }
+  .result-card:hover { transform: translateY(-2px); box-shadow: 0 10px 22px rgba(24,95,165,0.15); }
   .result-card-top {
     display: flex; justify-content: space-between; align-items: center;
-    gap: 10px; flex-wrap: wrap; margin-bottom: 10px;
+    gap: 10px; flex-wrap: wrap; margin-bottom: 8px;
   }
-  .result-med-name { font-size: 19px; font-weight: 700; color: #163a5c; display: flex; align-items: center; gap: 8px; }
-  .result-row { display: flex; align-items: center; gap: 8px; font-size: 15px; color: #4a5b6b; margin-top: 6px; }
-  .result-icon { font-size: 15px; }
-  .result-add-btn { margin-top: 14px; }
+  .result-med-name { font-size: 18px; font-weight: 700; color: #163a5c; display: flex; align-items: center; gap: 8px; }
+  .result-row { font-size: 14px; color: #6b7a87; margin-top: 4px; }
+  .result-pharmacy {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 14px; color: #3a4a58; font-weight: 500; margin-top: 6px;
+  }
+  .result-icon { font-size: 14px; }
+  .result-add-btn-full {
+    display: block; width: 100%; text-align: center; margin-top: 14px;
+    padding: 12px 0; border-radius: 999px; border: none;
+    background: linear-gradient(135deg, #5c9bd8, #185fa5);
+    color: #fff; font-size: 15px; font-weight: 700; cursor: pointer; font-family: inherit;
+    transition: transform .2s ease, box-shadow .2s ease, filter .2s ease;
+    box-shadow: 0 6px 16px rgba(24,95,165,0.25);
+  }
+  .result-add-btn-full:hover {
+    transform: translateY(-1px); filter: brightness(1.06);
+    box-shadow: 0 10px 22px rgba(24,95,165,0.32);
+  }
   .empty-state { text-align: center; padding: 40px 20px; }
   .empty-icon { font-size: 44px; margin-bottom: 12px; }
   .empty-title { font-size: 18px; font-weight: 700; color: #163a5c; margin: 0 0 6px; }
