@@ -571,6 +571,13 @@ async function checkAdminPassword() {
   renderAdminPanel();
 }
 
+function logoutAdmin() {
+  adminPassword = null;
+  document.getElementById('admin-panel').style.display = 'none';
+  document.getElementById('admin-panel').innerHTML = '';
+  renderAdminAuthForm();
+}
+
 function adminHeaders() {
   return { 'Content-Type': 'application/json', 'x-admin-password': adminPassword };
 }
@@ -584,7 +591,10 @@ async function renderAdminPanel() {
   const onDutyCount = pharmacies.filter(p => p.on_duty).length;
 
   document.getElementById('admin-panel').innerHTML = `
-    <h2 class="dash-title">لوحة الإدارة</h2>
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:6px;">
+      <h2 class="dash-title" style="margin-bottom:0;">لوحة الإدارة</h2>
+      <button class="btn-outline blue" onclick="logoutAdmin()">تسجيل الخروج</button>
+    </div>
     <div class="stats-grid" style="grid-template-columns: repeat(3, 1fr);">
       <div class="stat-card">
         <div class="stat-value">${pharmacies.length}</div>
