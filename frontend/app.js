@@ -445,6 +445,7 @@ async function saveDuty() {
     currentPharmacy.on_duty_shift = data.on_duty_shift;
     currentPharmacy.on_duty_start_time = data.on_duty_start_time;
     currentPharmacy.on_duty_end_time = data.on_duty_end_time;
+    refreshStock();
     alert('تم حفظ حالة المناوبة بنجاح');
   } catch (err) {
     alert('تعذر الاتصال بالخادم');
@@ -495,6 +496,32 @@ async function refreshStock() {
       </button>
     </div>
   `).join('');
+  renderDashboardStats(data);
+}
+
+function renderDashboardStats(data) {
+  const total = data.length;
+  const available = data.filter(m => m.available).length;
+  const unavailable = total - available;
+  const onDutyText = currentPharmacy.on_duty ? 'نعم' : 'لا';
+  document.getElementById('stats-grid').innerHTML = `
+    <div class="stat-card">
+      <div class="stat-value">${total}</div>
+      <div class="stat-label">عدد الأدوية</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value stat-green">${available}</div>
+      <div class="stat-label">الأدوية المتوفرة</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value stat-red">${unavailable}</div>
+      <div class="stat-label">غير المتوفرة</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value">${onDutyText}</div>
+      <div class="stat-label">المناوبة اليوم</div>
+    </div>
+  `;
 }
 
 async function toggleStock(medicineId, newValue) {
