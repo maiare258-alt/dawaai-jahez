@@ -392,7 +392,7 @@ function loadDashboard() {
   document.getElementById('pharmacist-dashboard').style.display = 'block';
   document.getElementById('pharmacy-label').innerHTML = `
     <span style="font-weight:500; font-size:16px;">صيدلية: ${currentPharmacy.name}</span>
-    <button class="btn-outline blue" onclick="logout()">تسجيل الخروج</button>
+    <button class="action-pill-btn blue" onclick="logout()">🚪 تسجيل الخروج</button>
   `;
   document.getElementById('duty-checkbox').checked = !!currentPharmacy.on_duty;
   document.getElementById('duty-day').disabled = !currentPharmacy.on_duty;
@@ -593,7 +593,7 @@ async function renderAdminPanel() {
   document.getElementById('admin-panel').innerHTML = `
     <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:6px;">
       <h2 class="dash-title" style="margin-bottom:0;">لوحة الإدارة</h2>
-      <button class="btn-outline blue" onclick="logoutAdmin()">تسجيل الخروج</button>
+      <button class="action-pill-btn blue" onclick="logoutAdmin()">🚪 تسجيل الخروج</button>
     </div>
     <div class="stats-grid" style="grid-template-columns: repeat(3, 1fr);">
       <div class="stat-card">
