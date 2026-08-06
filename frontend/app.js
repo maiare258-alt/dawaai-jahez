@@ -618,11 +618,11 @@ async function renderAdminPanel() {
       <div class="stock-scroll">
         ${pharmacies.length === 0
           ? '<p class="muted" style="padding:16px 18px; margin:0;">لا يوجد صيدليات مسجّلة بعد.</p>'
-          : `<div class="stock-table-header"><span>الصيدلية</span><span>إجراء</span></div>
+          : `<div class="stock-table-header"><span>الصيدلية</span><span class="col-action">إجراء</span></div>
              ${pharmacies.map(p => `
                <div class="row">
                  <span>${p.name} <span class="muted">(${p.owner_username})</span>${p.on_duty ? ' <span class="badge yes" style="margin-right:6px;">🟢 مناوبة</span>' : ''}</span>
-                 <button class="btn-outline red small" onclick="deletePharmacyAdmin(${p.id}, '${p.name}')">حذف</button>
+                 <button class="btn-outline red small table-action-btn" onclick="deletePharmacyAdmin(${p.id}, '${p.name}')">حذف</button>
                </div>
              `).join('')}`
         }
@@ -640,11 +640,11 @@ async function renderAdminPanel() {
     <h3>الأدوية المسجّلة (${medicines.length})</h3>
     <div class="stock-table-wrap">
       <div class="stock-scroll">
-        <div class="stock-table-header"><span>الدواء</span><span>إجراء</span></div>
+        <div class="stock-table-header"><span>الدواء</span><span class="col-action">إجراء</span></div>
         ${medicines.map(m => `
           <div class="row">
             <span>${m.name}</span>
-            <button class="btn-outline red small" onclick="deleteMedicineAdmin(${m.id}, '${m.name}')">حذف</button>
+            <button class="btn-outline red small table-action-btn" onclick="deleteMedicineAdmin(${m.id}, '${m.name}')">حذف</button>
           </div>
         `).join('')}
       </div>
