@@ -316,10 +316,9 @@ async function runSearch() {
               <span class="result-med-name"><span class="result-icon">💊</span> ${item.medicine.name}</span>
               <span class="badge ${a.available ? 'yes' : 'no'}">${a.available ? '🟢 متوفر' : '🔴 غير متوفر'}</span>
             </div>
-            <div class="result-row"><span class="result-icon">🧪</span> المادة الفعالة: ${item.medicine.generic_name || '-'}</div>
-            <div class="result-row"><span class="result-icon">🏥</span> ${a.pharmacy_name}</div>
-            ${a.address ? `<div class="result-row"><span class="result-icon">📍</span> ${a.address}</div>` : ''}
-            ${a.available ? `<button class="btn-outline blue small result-add-btn" onclick="addToCart('${item.medicine.name}', '${item.medicine.generic_name || ''}', '${a.pharmacy_name}', ${a.pharmacy_id})">إضافة إلى السلة</button>` : ''}
+            <div class="result-row">المادة الفعالة: ${item.medicine.generic_name || '-'}</div>
+            <div class="result-pharmacy"><span class="result-icon">📍</span> ${a.pharmacy_name}${a.address ? ' - ' + a.address : ''}</div>
+            ${a.available ? `<button class="result-add-btn-full" onclick="addToCart('${item.medicine.name}', '${item.medicine.generic_name || ''}', '${a.pharmacy_name}', ${a.pharmacy_id})">إضافة إلى السلة</button>` : ''}
           </div>
         `;
       });
