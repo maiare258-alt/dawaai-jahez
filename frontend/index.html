@@ -184,6 +184,7 @@
   .badge.no { background: #fcebeb; color: #501313; }
   .toggle-btn {
     font-size: 15px; padding: 7px 14px; border-radius: 6px; cursor: pointer; border: 1px solid; font-family: inherit;
+    min-width: 104px; text-align: center;
   }
   .toggle-btn.yes { background: #eaf3de; color: #27500a; border-color: #97c459; }
   .toggle-btn.no { background: #fcebeb; color: #501313; border-color: #f09595; }
@@ -356,10 +357,13 @@
   .stock-scroll { max-height: 440px; overflow-y: auto; }
   .stock-table-header {
     position: sticky; top: 0; z-index: 2;
-    display: flex; justify-content: space-between; padding: 12px 18px;
+    display: flex; justify-content: space-between; align-items: center; padding: 12px 18px;
     background: rgba(238,246,253,0.95); backdrop-filter: blur(6px);
     font-size: 13px; font-weight: 700; color: #3a4a58; border-bottom: 1px solid #e5eef7;
   }
+  .stock-table-header .col-status { min-width: 104px; text-align: center; }
+  .stock-table-header .col-action { min-width: 78px; text-align: center; }
+  .table-action-btn { min-width: 78px; text-align: center; }
   .stock-scroll .row { padding: 12px 18px; margin: 0; border-top: 1px solid #eef2f6; transition: background .2s ease; }
   .stock-scroll .row:first-child { border-top: none; }
   .stock-scroll .row:hover { background: #f5f9fd; }
@@ -498,7 +502,7 @@
       </div>
       <div class="stock-table-wrap">
         <div class="stock-scroll">
-          <div class="stock-table-header"><span>الدواء</span><span>الحالة</span></div>
+          <div class="stock-table-header"><span>الدواء</span><span class="col-status">الحالة</span></div>
           <div id="stock-list"></div>
         </div>
       </div>
