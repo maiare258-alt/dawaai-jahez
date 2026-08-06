@@ -581,9 +581,27 @@ async function renderAdminPanel() {
     fetch(`${API}/medicines`, { headers: adminHeaders() }).then(r => r.json())
   ]);
 
+  const onDutyCount = pharmacies.filter(p => p.on_duty).length;
+
   document.getElementById('admin-panel').innerHTML = `
-    <h3>إضافة صيدلية جديدة</h3>
-    <div class="box">
+    <h2 class="dash-title">لوحة الإدارة</h2>
+    <div class="stats-grid" style="grid-template-columns: repeat(3, 1fr);">
+      <div class="stat-card">
+        <div class="stat-value">${pharmacies.length}</div>
+        <div class="stat-label">عدد الصيدليات</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value">${medicines.length}</div>
+        <div class="stat-label">عدد الأدوية</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value stat-green">${onDutyCount}</div>
+        <div class="stat-label">الصيدليات المناوبة اليوم</div>
+      </div>
+    </div>
+
+    <div class="box" style="margin-bottom:20px;">
+      <h3 style="margin-top:0;">🏥 إضافة صيدلية جديدة</h3>
       <input id="ph-name" placeholder="اسم الصيدلية">
       <input id="ph-address" placeholder="العنوان">
       <input id="ph-phone" placeholder="رقم الهاتف">
@@ -596,17 +614,23 @@ async function renderAdminPanel() {
     </div>
 
     <h3>الصيدليات المسجّلة (${pharmacies.length})</h3>
-    <div class="box">
-      ${pharmacies.length === 0 ? '<p class="muted">لا يوجد صيدليات مسجّلة بعد.</p>' : pharmacies.map(p => `
-        <div class="row">
-          <span>${p.name} <span class="muted">(${p.owner_username})</span></span>
-          <button class="btn-outline red small" onclick="deletePharmacyAdmin(${p.id}, '${p.name}')">حذف</button>
-        </div>
-      `).join('')}
+    <div class="stock-table-wrap" style="margin-bottom:20px;">
+      <div class="stock-scroll">
+        ${pharmacies.length === 0
+          ? '<p class="muted" style="padding:16px 18px; margin:0;">لا يوجد صيدليات مسجّلة بعد.</p>'
+          : `<div class="stock-table-header"><span>الصيدلية</span><span>إجراء</span></div>
+             ${pharmacies.map(p => `
+               <div class="row">
+                 <span>${p.name} <span class="muted">(${p.owner_username})</span>${p.on_duty ? ' <span class="badge yes" style="margin-right:6px;">🟢 مناوبة</span>' : ''}</span>
+                 <button class="btn-outline red small" onclick="deletePharmacyAdmin(${p.id}, '${p.name}')">حذف</button>
+               </div>
+             `).join('')}`
+        }
+      </div>
     </div>
 
-    <h3>إضافة دواء جديد</h3>
-    <div class="box">
+    <div class="box" style="margin-bottom:20px;">
+      <h3 style="margin-top:0;">💊 إضافة دواء جديد</h3>
       <input id="med-name" placeholder="اسم الدواء">
       <input id="med-generic" placeholder="المادة الفعالة">
       <input id="med-alt" placeholder="أسماء بديلة (افصل بفاصلة)">
@@ -614,13 +638,16 @@ async function renderAdminPanel() {
     </div>
 
     <h3>الأدوية المسجّلة (${medicines.length})</h3>
-    <div class="box">
-      ${medicines.map(m => `
-        <div class="row">
-          <span>${m.name}</span>
-          <button class="btn-outline red small" onclick="deleteMedicineAdmin(${m.id}, '${m.name}')">حذف</button>
-        </div>
-      `).join('')}
+    <div class="stock-table-wrap">
+      <div class="stock-scroll">
+        <div class="stock-table-header"><span>الدواء</span><span>إجراء</span></div>
+        ${medicines.map(m => `
+          <div class="row">
+            <span>${m.name}</span>
+            <button class="btn-outline red small" onclick="deleteMedicineAdmin(${m.id}, '${m.name}')">حذف</button>
+          </div>
+        `).join('')}
+      </div>
     </div>
   `;
 }
