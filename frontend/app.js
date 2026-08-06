@@ -147,27 +147,48 @@ function toggleCart() {
 function renderCart() {
   const container = document.getElementById('cart-section');
   if (cart.length === 0) {
-    container.innerHTML = '<div class="box"><p class="muted" style="margin:0;">عربتك فارغة حالياً. أضف أي دواء متوفر من نتائج البحث.</p></div>';
+    container.innerHTML = `
+      <div class="box cart-empty">
+        <div class="cart-empty-icon">🛒</div>
+        <p class="cart-empty-title">عربة المشتريات فارغة</p>
+        <p class="cart-empty-subtitle">ابدأ بإضافة الأدوية من نتائج البحث.</p>
+      </div>
+    `;
     return;
   }
   container.innerHTML = `
-    <div class="box">
-      <h3 style="margin-top:0;">مشترياتي</h3>
-      ${cart.map((item, i) => `
-        <div class="row">
-          <span>${item.medicineName}${item.genericName ? ` <span class="muted">(${item.genericName})</span>` : ''} <span class="muted">- ${item.pharmacyName}</span></span>
-          <div style="display:flex; align-items:center; gap:10px;">
-            <div style="display:flex; align-items:center; gap:6px;">
-              <button class="btn-outline blue small" onclick="decreaseQuantity(${i})">-</button>
-              <span style="min-width:20px; text-align:center;">${item.quantity}</span>
-              <button class="btn-outline blue small" onclick="increaseQuantity(${i})">+</button>
-            </div>
-            <button class="btn-outline red small" onclick="removeFromCart(${i})">حذف</button>
+    <div class="cart-header">
+      <h3 class="cart-title">عربة المشتريات</h3>
+      <p class="cart-subtitle">راجع الأدوية قبل إتمام الطلب.</p>
+    </div>
+    ${cart.map((item, i) => `
+      <div class="cart-item-card">
+        <div class="cart-item-top">
+          <div>
+            <div class="cart-item-name"><span>💊</span> ${item.medicineName}</div>
+            ${item.genericName ? `<div class="cart-item-generic">${item.genericName}</div>` : ''}
+            <div class="cart-item-pharmacy">${item.pharmacyName}</div>
+          </div>
+          <button class="cart-remove-btn" onclick="removeFromCart(${i})" aria-label="حذف">🗑️</button>
+        </div>
+        <div class="cart-item-bottom">
+          <div class="qty-control">
+            <button class="qty-btn" onclick="decreaseQuantity(${i})">-</button>
+            <span class="qty-value">${item.quantity}</span>
+            <button class="qty-btn" onclick="increaseQuantity(${i})">+</button>
           </div>
         </div>
-      `).join('')}
+      </div>
+    `).join('')}
+    <div class="cart-summary">
+      <div class="cart-summary-row"><span>عدد الأدوية</span><span>${cart.length}</span></div>
+      <button class="checkout-btn" onclick="checkoutComingSoon()">إتمام الطلب</button>
     </div>
   `;
+}
+
+function checkoutComingSoon() {
+  alert('ميزة إتمام الطلب والتوصيل قريباً 🚀');
 }
 
 function formatTime12(t) {
