@@ -191,6 +191,10 @@ function checkoutComingSoon() {
   alert('ميزة إتمام الطلب والتوصيل قريباً 🚀');
 }
 
+function whatsappComingSoon() {
+  alert('البحث عبر واتساب قريباً 💬 لسا عم نجهز رقم رسمي للمشروع.');
+}
+
 function formatTime12(t) {
   if (!t) return '';
   const [h, m] = t.split(':').map(Number);
@@ -329,7 +333,8 @@ async function runSearch() {
 
     document.getElementById('suggestions').classList.remove('show');
     let cardsHtml = '';
-    data.forEach(item => {
+    for (const item of data) {
+      const anyAvailable = item.availability.some(a => a.available);
       item.availability.forEach(a => {
         cardsHtml += `
           <div class="result-card">
@@ -344,7 +349,32 @@ async function runSearch() {
           </div>
         `;
       });
-    });
+
+      if (!anyAvailable && item.medicine.generic_name) {
+        try {
+          const altRes = await fetch(`${API}/medicines/search?q=${encodeURIComponent(item.medicine.generic_name)}`);
+          const altData = await altRes.json();
+          const alternatives = altData
+            .filter(alt => alt.medicine.id !== item.medicine.id)
+            .map(alt => ({ medicine: alt.medicine, availability: alt.availability.filter(a => a.available) }))
+            .filter(alt => alt.availability.length > 0);
+
+          if (alternatives.length > 0) {
+            cardsHtml += `
+              <div class="alt-suggestion-box">
+                <p class="alt-suggestion-title">💊 "${item.medicine.name}" غير متوفر حالياً، بس في بديل بنفس المادة الفعالة (${item.medicine.generic_name}):</p>
+                ${alternatives.map(alt => alt.availability.map(a => `
+                  <div class="alt-suggestion-row">
+                    <span>${alt.medicine.name} <span class="muted">- ${a.pharmacy_name}</span></span>
+                    <button class="btn-outline blue small" onclick="pickSuggestion('${alt.medicine.name}')">عرض</button>
+                  </div>
+                `).join('')).join('')}
+              </div>
+            `;
+          }
+        } catch (err) { /* تجاهل فشل البحث عن بدائل، النتيجة الأساسية أهم */ }
+      }
+    }
     container.innerHTML = cardsHtml;
   } catch (err) {
     container.innerHTML = '<p class="muted">تعذر الاتصال بالخادم.</p>';
