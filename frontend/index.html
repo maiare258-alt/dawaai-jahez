@@ -157,20 +157,27 @@
   }
   .site-footer {
     width: 100vw; margin-left: calc(-50vw + 50%); margin-right: calc(-50vw + 50%);
-    background: #f7fafc; padding: 18px 24px;
+    background: #ffffff; border-top: 1px solid #E5E7EB;
+    box-shadow: 0 -2px 8px rgba(24,95,165,0.04);
+    padding: 12px 24px;
   }
   .footer-inner {
-    max-width: 1000px; margin: 0 auto;
-    display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px;
+    max-width: 1000px; margin: 0 auto; min-height: 46px;
+    display: grid; grid-template-columns: 1fr 1fr 1fr; align-items: center;
   }
-  .footer-links { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
-  .footer-links-title { font-size: 13px; color: #8b98a3; }
-  .footer-links a { font-size: 13px; color: #5f6f7d; text-decoration: none; cursor: pointer; }
+  .footer-links { display: flex; align-items: center; justify-content: flex-start; gap: 8px; flex-wrap: wrap; }
+  .footer-links a {
+    font-size: 14px; font-weight: 500; color: #5f6f7d; text-decoration: none; cursor: pointer;
+    transition: color .2s ease;
+  }
   .footer-links a:hover { color: #185fa5; }
-  .footer-center { font-size: 13px; color: #8b98a3; text-align: center; flex: 1; min-width: 200px; }
-  .footer-copy { font-size: 13px; color: #8b98a3; white-space: nowrap; }
+  .footer-sep { color: #cbd5e0; font-size: 13px; }
+  .footer-center { font-size: 14px; font-weight: 500; color: #6b7a87; text-align: center; }
+  .footer-copy { font-size: 14px; font-weight: 500; color: #6b7a87; text-align: left; white-space: nowrap; }
   @media (max-width: 700px) {
-    .footer-inner { flex-direction: column; align-items: center; text-align: center; }
+    .footer-inner { grid-template-columns: 1fr; gap: 10px; padding: 6px 0; min-height: 0; }
+    .footer-links { justify-content: center; }
+    .footer-center, .footer-copy { text-align: center; }
   }
   .hero-cart-count {
     background: #185fa5; color: #ffffff; font-size: 12px; font-weight: 700;
@@ -580,13 +587,14 @@
     <footer class="site-footer">
       <div class="footer-inner">
         <div class="footer-links">
-          <span class="footer-links-title">روابط:</span>
           <a onclick="headerGoHome()">الرئيسية</a>
+          <span class="footer-sep">|</span>
           <a onclick="headerGoOnDuty()">الصيدليات المناوبة</a>
+          <span class="footer-sep">|</span>
           <a onclick="footerContactComingSoon()">تواصل معنا</a>
         </div>
         <div class="footer-center">منصة سورية للبحث عن توفر الأدوية في الصيدليات.</div>
-        <div class="footer-copy">© 2026 دوائي جاهز</div>
+        <div class="footer-copy">© دوائي جاهز — جميع الحقوق محفوظة</div>
       </div>
     </footer>
   </div>
