@@ -98,6 +98,7 @@
   .hero-highlight { color: #185fa5; }
   .hero-description { font-size: 17px; color: #4a5b6b; margin: 0 0 24px; line-height: 1.6; }
   .hero-search-wrap { position: relative; }
+  .hero-actions-row { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 16px; }
   .hero-cart-btn {
     display: inline-flex; align-items: center; gap: 10px;
     background: linear-gradient(135deg, #ffffff 0%, #eef6fd 100%);
@@ -106,10 +107,20 @@
     font-size: 15px; font-weight: 600; cursor: pointer; font-family: inherit;
     box-shadow: 0 8px 20px rgba(24,95,165,0.18);
     transition: transform .2s ease, box-shadow .2s ease;
-    margin-top: 16px;
   }
   .hero-cart-btn:hover { transform: translateY(-2px); box-shadow: 0 12px 26px rgba(24,95,165,0.25); }
   .hero-cart-icon { font-size: 17px; }
+  .whatsapp-btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: linear-gradient(135deg, #ffffff 0%, #eafaf0 100%);
+    border: 1px solid rgba(255,255,255,0.85);
+    color: #1f8a4c; padding: 12px 20px; border-radius: 999px;
+    font-size: 14px; font-weight: 600; cursor: pointer; font-family: inherit;
+    box-shadow: 0 8px 20px rgba(31,138,76,0.15);
+    transition: transform .2s ease, box-shadow .2s ease;
+  }
+  .whatsapp-btn:hover { transform: translateY(-2px); box-shadow: 0 12px 26px rgba(31,138,76,0.22); }
+  .whatsapp-icon { font-size: 16px; }
   .action-pill-btn {
     display: inline-flex; align-items: center; gap: 8px;
     border-radius: 999px; padding: 11px 22px;
@@ -326,6 +337,16 @@
     transform: translateY(-1px); filter: brightness(1.06);
     box-shadow: 0 10px 22px rgba(24,95,165,0.32);
   }
+  .alt-suggestion-box {
+    background: #fff8ec; border: 1px solid #f0d9a8; border-radius: 16px;
+    padding: 14px 16px; margin-bottom: 16px;
+  }
+  .alt-suggestion-title { font-size: 14px; color: #7a5c1e; margin: 0 0 10px; font-weight: 600; line-height: 1.6; }
+  .alt-suggestion-row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 8px 0; border-top: 1px solid #f3e6c8; font-size: 14px; color: #3a4a58;
+  }
+  .alt-suggestion-row:first-of-type { border-top: none; }
   .empty-state { text-align: center; padding: 40px 20px; }
   .empty-icon { font-size: 44px; margin-bottom: 12px; }
   .empty-title { font-size: 18px; font-weight: 700; color: #163a5c; margin: 0 0 6px; }
@@ -470,9 +491,14 @@
         <button type="button" class="search-btn" onclick="submitSearch()">بحث</button>
         <div id="suggestions"></div>
       </div>
-      <button id="cart-toggle-btn" class="hero-cart-btn" onclick="toggleCart()">
-        <span class="hero-cart-icon">🛒</span> عربة المشتريات <span class="hero-cart-count" id="cart-count">0</span>
-      </button>
+      <div class="hero-actions-row">
+        <button id="cart-toggle-btn" class="hero-cart-btn" onclick="toggleCart()">
+          <span class="hero-cart-icon">🛒</span> عربة المشتريات <span class="hero-cart-count" id="cart-count">0</span>
+        </button>
+        <button type="button" class="whatsapp-btn" onclick="whatsappComingSoon()">
+          <span class="whatsapp-icon">💬</span> ابحث عبر واتساب
+        </button>
+      </div>
     </div>
   </div>
 </div>
