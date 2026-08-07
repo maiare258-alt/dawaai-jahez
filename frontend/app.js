@@ -3,6 +3,40 @@ let currentPharmacy = null;
 let adminPassword = null;
 let cart = JSON.parse(localStorage.getItem('cart') || '[]');
 
+// ---------- نافذة تنبيه مخصصة (بديل alert وconfirm الافتراضيين) ----------
+
+function showModal({ message, type = 'info', showCancel = false, okText = 'حسناً', cancelText = 'إلغاء' }) {
+  return new Promise(resolve => {
+    const icons = { success: '✅', error: '❌', warning: '⚠️', question: '❓', info: 'ℹ️' };
+    document.getElementById('modal-icon').textContent = icons[type] || icons.info;
+    document.getElementById('modal-message').textContent = message;
+    const okBtn = document.getElementById('modal-btn-ok');
+    const cancelBtn = document.getElementById('modal-btn-cancel');
+    okBtn.textContent = okText;
+    cancelBtn.textContent = cancelText;
+    cancelBtn.style.display = showCancel ? 'inline-block' : 'none';
+    const overlay = document.getElementById('custom-modal-overlay');
+    overlay.style.display = 'flex';
+
+    const cleanup = (result) => {
+      overlay.style.display = 'none';
+      okBtn.onclick = null;
+      cancelBtn.onclick = null;
+      resolve(result);
+    };
+    okBtn.onclick = () => cleanup(true);
+    cancelBtn.onclick = () => cleanup(false);
+  });
+}
+
+function customAlert(message, type = 'info') {
+  return showModal({ message, type, showCancel: false });
+}
+
+function customConfirm(message, type = 'question') {
+  return showModal({ message, type, showCancel: true, okText: 'نعم', cancelText: 'إلغاء' });
+}
+
 function showView(view) {
   document.getElementById('view-patient').style.display = view === 'patient' ? 'block' : 'none';
   document.getElementById('view-pharmacist').style.display = view === 'pharmacist' ? 'block' : 'none';
@@ -91,11 +125,11 @@ function updateCartCount() {
   if (el) el.textContent = cart.reduce((sum, item) => sum + item.quantity, 0);
 }
 
-function addToCart(medicineName, genericName, pharmacyName, pharmacyId) {
+async function addToCart(medicineName, genericName, pharmacyName, pharmacyId) {
   const existing = cart.find(item => item.medicineName === medicineName && item.pharmacyId === pharmacyId);
   if (existing) {
     if (existing.quantity >= 3 && !existing.confirmedExcess) {
-      const wantsMore = confirm(`لقد أضفت ${existing.quantity} من ${medicineName} من ${pharmacyName} إلى عربتك. هل تريد إضافة المزيد؟`);
+      const wantsMore = await customConfirm(`لقد أضفت ${existing.quantity} من ${medicineName} من ${pharmacyName} إلى عربتك. هل تريد إضافة المزيد؟`, 'question');
       if (!wantsMore) return;
       existing.confirmedExcess = true;
     }
@@ -107,10 +141,10 @@ function addToCart(medicineName, genericName, pharmacyName, pharmacyId) {
   renderCart();
 }
 
-function increaseQuantity(index) {
+async function increaseQuantity(index) {
   const item = cart[index];
   if (item.quantity >= 3 && !item.confirmedExcess) {
-    const wantsMore = confirm(`لقد أضفت ${item.quantity} من ${item.medicineName} من ${item.pharmacyName} إلى عربتك. هل تريد إضافة المزيد؟`);
+    const wantsMore = await customConfirm(`لقد أضفت ${item.quantity} من ${item.medicineName} من ${item.pharmacyName} إلى عربتك. هل تريد إضافة المزيد؟`, 'question');
     if (!wantsMore) return;
     item.confirmedExcess = true;
   }
@@ -188,11 +222,11 @@ function renderCart() {
 }
 
 function checkoutComingSoon() {
-  alert('ميزة إتمام الطلب والتوصيل قريباً 🚀');
+  customAlert('ميزة إتمام الطلب والتوصيل قريباً 🚀', 'info');
 }
 
 function whatsappComingSoon() {
-  alert('البحث عبر واتساب قريباً 💬 لسا عم نجهز رقم رسمي للمشروع.');
+  customAlert('البحث عبر واتساب قريباً 💬 لسا عم نجهز رقم رسمي للمشروع.', 'info');
 }
 
 function formatTime12(t) {
@@ -409,11 +443,11 @@ async function login() {
       body: JSON.stringify({ username, password })
     });
     const data = await res.json();
-    if (!res.ok) { alert(data.error); return; }
+    if (!res.ok) { customAlert(data.error, 'error'); return; }
     currentPharmacy = { ...data, username, password };
     loadDashboard();
   } catch (err) {
-    alert('تعذر الاتصال بالخادم');
+    customAlert('تعذر الاتصال بالخادم', 'error');
   }
 }
 
@@ -469,16 +503,16 @@ async function saveDuty() {
       })
     });
     const data = await res.json();
-    if (!res.ok) { alert(data.error); return; }
+    if (!res.ok) { customAlert(data.error, 'error'); return; }
     currentPharmacy.on_duty = data.on_duty;
     currentPharmacy.on_duty_day = data.on_duty_day;
     currentPharmacy.on_duty_shift = data.on_duty_shift;
     currentPharmacy.on_duty_start_time = data.on_duty_start_time;
     currentPharmacy.on_duty_end_time = data.on_duty_end_time;
     refreshStock();
-    alert('تم حفظ حالة المناوبة بنجاح');
+    customAlert('تم حفظ حالة المناوبة بنجاح', 'success');
   } catch (err) {
-    alert('تعذر الاتصال بالخادم');
+    customAlert('تعذر الاتصال بالخادم', 'error');
   }
 }
 
@@ -492,7 +526,7 @@ async function addMedicineSelf() {
   const name = document.getElementById('pharm-med-name').value.trim();
   const generic_name = document.getElementById('pharm-med-generic').value.trim();
   const alt_names = document.getElementById('pharm-med-alt').value.split(',').map(s => s.trim()).filter(Boolean);
-  if (!name) { alert('اسم الدواء مطلوب'); return; }
+  if (!name) { customAlert('اسم الدواء مطلوب', 'warning'); return; }
   try {
     const res = await fetch(`${API}/medicines/self`, {
       method: 'POST',
@@ -504,14 +538,14 @@ async function addMedicineSelf() {
       })
     });
     const data = await res.json();
-    if (!res.ok) { alert(data.error); return; }
+    if (!res.ok) { customAlert(data.error, 'error'); return; }
     document.getElementById('pharm-med-name').value = '';
     document.getElementById('pharm-med-generic').value = '';
     document.getElementById('pharm-med-alt').value = '';
-    alert('تمت إضافة الدواء بنجاح. فعّل حالة توفره من القائمة تحت.');
+    customAlert('تمت إضافة الدواء بنجاح. فعّل حالة توفره من القائمة تحت.', 'success');
     refreshStock();
   } catch (err) {
-    alert('تعذر الاتصال بالخادم');
+    customAlert('تعذر الاتصال بالخادم', 'error');
   }
 }
 
@@ -564,15 +598,16 @@ async function toggleStock(medicineId, newValue) {
 }
 
 async function deleteMyAccount() {
-  if (!confirm('متأكد إنك بدك تحذف حسابك نهائياً؟ هذا الإجراء لا يمكن التراجع عنه.')) return;
+  const confirmed = await customConfirm('متأكد إنك بدك تحذف حسابك نهائياً؟ هذا الإجراء لا يمكن التراجع عنه.', 'warning');
+  if (!confirmed) return;
   const res = await fetch(`${API}/pharmacies/self`, {
     method: 'DELETE',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ username: currentPharmacy.username, password: currentPharmacy.password })
   });
   const data = await res.json();
-  if (!res.ok) { alert(data.error); return; }
-  alert('تم حذف حسابك بنجاح');
+  if (!res.ok) { customAlert(data.error, 'error'); return; }
+  await customAlert('تم حذف حسابك بنجاح', 'success');
   logout();
 }
 
@@ -594,7 +629,7 @@ function renderAdminAuthForm() {
 async function checkAdminPassword() {
   const password = document.getElementById('admin-password-input').value;
   const res = await fetch(`${API}/pharmacies`, { headers: { 'x-admin-password': password } });
-  if (!res.ok) { alert('كلمة المرور غير صحيحة'); return; }
+  if (!res.ok) { customAlert('كلمة المرور غير صحيحة', 'error'); return; }
   adminPassword = password;
   document.getElementById('admin-auth-section').innerHTML = '';
   document.getElementById('admin-panel').style.display = 'block';
@@ -704,12 +739,14 @@ async function addPharmacy() {
     method: 'POST', headers: adminHeaders(), body: JSON.stringify(body)
   });
   const data = await res.json();
-  if (!res.ok) { alert(data.error); return; }
+  if (!res.ok) { customAlert(data.error, 'error'); return; }
+  customAlert(`تمت إضافة صيدلية "${data.name}" بنجاح`, 'success');
   renderAdminPanel();
 }
 
 async function deletePharmacyAdmin(id, name) {
-  if (!confirm(`متأكد إنك بدك تحذف صيدلية "${name}"؟`)) return;
+  const confirmed = await customConfirm(`متأكد إنك بدك تحذف صيدلية "${name}"؟`, 'warning');
+  if (!confirmed) return;
   await fetch(`${API}/pharmacies/${id}`, { method: 'DELETE', headers: adminHeaders() });
   renderAdminPanel();
 }
@@ -725,12 +762,14 @@ async function addMedicineAdmin() {
     method: 'POST', headers: adminHeaders(), body: JSON.stringify(body)
   });
   const data = await res.json();
-  if (!res.ok) { alert(data.error); return; }
+  if (!res.ok) { customAlert(data.error, 'error'); return; }
+  customAlert(`تمت إضافة دواء "${data.name}" بنجاح`, 'success');
   renderAdminPanel();
 }
 
 async function deleteMedicineAdmin(id, name) {
-  if (!confirm(`متأكد إنك بدك تحذف دواء "${name}" نهائياً؟`)) return;
+  const confirmed = await customConfirm(`متأكد إنك بدك تحذف دواء "${name}" نهائياً؟`, 'warning');
+  if (!confirmed) return;
   await fetch(`${API}/medicines/${id}`, { method: 'DELETE', headers: adminHeaders() });
   renderAdminPanel();
 }
