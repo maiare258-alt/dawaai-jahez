@@ -336,7 +336,7 @@ async function runSearch() {
   const q = document.getElementById('search').value.trim();
   const container = document.getElementById('results');
   if (!q) {
-    container.innerHTML = '<p class="muted">اكتب اسم الدواء للبحث عن توفره في صيدليات سلمية.</p>';
+    container.innerHTML = '';
     return;
   }
   try {
