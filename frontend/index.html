@@ -99,6 +99,7 @@
   .hero-description { font-size: 17px; color: #4a5b6b; margin: 0 0 24px; line-height: 1.6; }
   .hero-search-wrap { position: relative; }
   .hero-actions-row { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 16px; }
+  .hero-search-hint { font-size: 13px; color: #6b7a87; margin: 10px 4px 0; }
   .hero-cart-btn {
     display: inline-flex; align-items: center; gap: 10px;
     background: linear-gradient(135deg, #ffffff 0%, #eef6fd 100%);
@@ -136,19 +137,19 @@
   .action-pill-btn.red:hover { box-shadow: 0 10px 22px rgba(163,51,51,0.2); }
   .about-section-wrap {
     width: 100vw; margin-left: calc(-50vw + 50%); margin-right: calc(-50vw + 50%);
-    margin-top: 36px; background: #ffffff; padding: 44px 24px 40px;
+    margin-top: 28px; background: #ffffff; padding: 32px 24px 26px;
   }
-  .about-title-lg { font-size: 26px; font-weight: 800; color: #163a5c; text-align: center; margin: 0 0 14px; }
-  .about-desc-lg { font-size: 16px; color: #4a5b6b; text-align: center; line-height: 1.8; max-width: 600px; margin: 0 auto 34px; }
+  .about-title-lg { font-size: 22px; font-weight: 800; color: #163a5c; text-align: center; margin: 30px 0 12px; }
+  .about-desc-lg { font-size: 15px; color: #4a5b6b; text-align: center; line-height: 1.75; max-width: 600px; margin: 0 auto; }
   .feature-cards { display: flex; gap: 18px; max-width: 900px; margin: 0 auto; flex-wrap: wrap; justify-content: center; }
   .feature-card {
     flex: 1 1 220px; max-width: 260px;
-    background: #ffffff; border: 1px solid #e5eef7; border-radius: 18px; padding: 26px 20px;
+    background: #ffffff; border: 1px solid #e5eef7; border-radius: 18px; padding: 22px 20px;
     text-align: center; box-shadow: 0 6px 18px rgba(24,95,165,0.07);
     transition: transform .2s ease, box-shadow .2s ease;
   }
   .feature-card:hover { transform: translateY(-4px); box-shadow: 0 14px 28px rgba(24,95,165,0.15); }
-  .feature-icon { font-size: 32px; margin-bottom: 12px; }
+  .feature-icon { font-size: 30px; margin-bottom: 10px; }
   .feature-title { font-size: 16px; font-weight: 700; color: #163a5c; margin: 0 0 8px; }
   .feature-desc { font-size: 14px; color: #6b7a87; margin: 0; line-height: 1.6; }
   .section-divider {
@@ -159,10 +160,10 @@
     width: 100vw; margin-left: calc(-50vw + 50%); margin-right: calc(-50vw + 50%);
     background: #ffffff; border-top: 1px solid #E5E7EB;
     box-shadow: 0 -2px 8px rgba(24,95,165,0.04);
-    padding: 12px 24px;
+    padding: 8px 24px;
   }
   .footer-inner {
-    max-width: 1000px; margin: 0 auto; min-height: 46px;
+    max-width: 1000px; margin: 0 auto; min-height: 34px;
     display: grid; grid-template-columns: 1fr 1fr 1fr; align-items: center;
   }
   .footer-links { display: flex; align-items: center; justify-content: flex-start; gap: 8px; flex-wrap: wrap; }
@@ -539,6 +540,7 @@
         <button type="button" class="search-btn" onclick="submitSearch()">بحث</button>
         <div id="suggestions"></div>
       </div>
+      <p class="hero-search-hint">اكتب اسم الدواء للبحث عن توفره في صيدليات سلمية.</p>
       <div class="hero-actions-row">
         <button id="cart-toggle-btn" class="hero-cart-btn" onclick="toggleCart()">
           <span class="hero-cart-icon">🛒</span> عربة المشتريات <span class="hero-cart-count" id="cart-count">0</span>
@@ -558,11 +560,6 @@
     <div id="results"></div>
 
     <div class="about-section-wrap">
-      <h2 class="about-title-lg">عن دوائي جاهز</h2>
-      <p class="about-desc-lg">
-        دوائي جاهز منصة سورية محلية انطلقت من مدينة سلمية، هدفها مساعدتك على معرفة توفر دوائك
-        في الصيدليات القريبة فوراً، بدل التنقل من صيدلية لصيدلية بحثاً عن دواء قد لا يكون متوفراً.
-      </p>
       <div class="feature-cards">
         <div class="feature-card">
           <div class="feature-icon">🔍</div>
@@ -580,6 +577,11 @@
           <p class="feature-desc">اجمع الأدوية قبل زيارة الصيدلية.</p>
         </div>
       </div>
+      <h2 class="about-title-lg">عن دوائي جاهز</h2>
+      <p class="about-desc-lg">
+        دوائي جاهز منصة سورية محلية انطلقت من مدينة سلمية، هدفها مساعدتك على معرفة توفر دوائك
+        في الصيدليات القريبة فوراً، بدل التنقل من صيدلية لصيدلية بحثاً عن دواء قد لا يكون متوفراً.
+      </p>
     </div>
 
     <div class="section-divider"></div>
