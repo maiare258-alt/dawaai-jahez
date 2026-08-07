@@ -134,26 +134,44 @@
   .action-pill-btn.blue:hover { box-shadow: 0 10px 22px rgba(24,95,165,0.22); }
   .action-pill-btn.red { background: linear-gradient(135deg, #ffffff 0%, #fdeeee 100%); color: #a33; }
   .action-pill-btn.red:hover { box-shadow: 0 10px 22px rgba(163,51,51,0.2); }
-  .about-footer {
+  .about-section-wrap {
     width: 100vw; margin-left: calc(-50vw + 50%); margin-right: calc(-50vw + 50%);
-    margin-top: 32px;
-    background: rgba(255,255,255,0.75);
-    backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
-    border-top: 1px solid rgba(255,255,255,0.7);
-    padding: 32px 24px;
-    box-shadow: 0 -4px 20px rgba(24,95,165,0.06);
-    text-align: center;
+    margin-top: 36px; background: #ffffff; padding: 44px 24px 40px;
   }
-  .about-footer-inner { max-width: 680px; margin: 0 auto; }
-  .about-title { font-size: 19px; font-weight: 700; color: #163a5c; margin: 0 0 10px; }
-  .about-desc { font-size: 15px; color: #4a5b6b; line-height: 1.7; max-width: 560px; margin: 0 auto 22px; }
-  .about-steps { display: flex; justify-content: center; gap: 22px; flex-wrap: wrap; margin-bottom: 22px; }
-  .about-step { display: flex; flex-direction: column; align-items: center; gap: 6px; max-width: 140px; }
-  .about-step-icon { font-size: 26px; }
-  .about-step-text { font-size: 13px; color: #3a4a58; }
-  .about-contact { border-top: 1px solid #e5eef7; padding-top: 16px; }
-  .about-contact-title { font-size: 14px; font-weight: 700; color: #163a5c; margin: 0 0 4px; }
-  .about-contact-note { font-size: 13px; color: #8b98a3; margin: 0; }
+  .about-title-lg { font-size: 26px; font-weight: 800; color: #163a5c; text-align: center; margin: 0 0 14px; }
+  .about-desc-lg { font-size: 16px; color: #4a5b6b; text-align: center; line-height: 1.8; max-width: 600px; margin: 0 auto 34px; }
+  .feature-cards { display: flex; gap: 18px; max-width: 900px; margin: 0 auto; flex-wrap: wrap; justify-content: center; }
+  .feature-card {
+    flex: 1 1 220px; max-width: 260px;
+    background: #ffffff; border: 1px solid #e5eef7; border-radius: 18px; padding: 26px 20px;
+    text-align: center; box-shadow: 0 6px 18px rgba(24,95,165,0.07);
+    transition: transform .2s ease, box-shadow .2s ease;
+  }
+  .feature-card:hover { transform: translateY(-4px); box-shadow: 0 14px 28px rgba(24,95,165,0.15); }
+  .feature-icon { font-size: 32px; margin-bottom: 12px; }
+  .feature-title { font-size: 16px; font-weight: 700; color: #163a5c; margin: 0 0 8px; }
+  .feature-desc { font-size: 14px; color: #6b7a87; margin: 0; line-height: 1.6; }
+  .section-divider {
+    width: 100vw; margin-left: calc(-50vw + 50%); margin-right: calc(-50vw + 50%);
+    height: 1px; background: linear-gradient(90deg, transparent, #dde8f2, transparent);
+  }
+  .site-footer {
+    width: 100vw; margin-left: calc(-50vw + 50%); margin-right: calc(-50vw + 50%);
+    background: #f7fafc; padding: 18px 24px;
+  }
+  .footer-inner {
+    max-width: 1000px; margin: 0 auto;
+    display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px;
+  }
+  .footer-links { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+  .footer-links-title { font-size: 13px; color: #8b98a3; }
+  .footer-links a { font-size: 13px; color: #5f6f7d; text-decoration: none; cursor: pointer; }
+  .footer-links a:hover { color: #185fa5; }
+  .footer-center { font-size: 13px; color: #8b98a3; text-align: center; flex: 1; min-width: 200px; }
+  .footer-copy { font-size: 13px; color: #8b98a3; white-space: nowrap; }
+  @media (max-width: 700px) {
+    .footer-inner { flex-direction: column; align-items: center; text-align: center; }
+  }
   .hero-cart-count {
     background: #185fa5; color: #ffffff; font-size: 12px; font-weight: 700;
     min-width: 20px; height: 20px; border-radius: 50%; padding: 0 5px;
@@ -532,33 +550,45 @@
     <div id="on-duty-section" style="display:none;"></div>
     <div id="results"></div>
 
-    <div class="about-footer">
-      <div class="about-footer-inner">
-        <h3 class="about-title">عن دوائي جاهز</h3>
-        <p class="about-desc">
-          دوائي جاهز منصة سورية محلية انطلقت من مدينة سلمية، هدفها مساعدتك على معرفة توفر دوائك
-          في الصيدليات القريبة فوراً، بدل التنقل من صيدلية لصيدلية بحثاً عن دواء قد لا يكون متوفراً.
-        </p>
-        <div class="about-steps">
-          <div class="about-step">
-            <span class="about-step-icon">🔍</span>
-            <span class="about-step-text">ابحث عن الدواء الذي تحتاجه</span>
-          </div>
-          <div class="about-step">
-            <span class="about-step-icon">🏥</span>
-            <span class="about-step-text">اعرف فوراً أي صيدلية يتوفر فيها</span>
-          </div>
-          <div class="about-step">
-            <span class="about-step-icon">🛒</span>
-            <span class="about-step-text">أضفه لعربتك وتوجه لأقرب صيدلية</span>
-          </div>
+    <div class="about-section-wrap">
+      <h2 class="about-title-lg">عن دوائي جاهز</h2>
+      <p class="about-desc-lg">
+        دوائي جاهز منصة سورية محلية انطلقت من مدينة سلمية، هدفها مساعدتك على معرفة توفر دوائك
+        في الصيدليات القريبة فوراً، بدل التنقل من صيدلية لصيدلية بحثاً عن دواء قد لا يكون متوفراً.
+      </p>
+      <div class="feature-cards">
+        <div class="feature-card">
+          <div class="feature-icon">🔍</div>
+          <h3 class="feature-title">البحث عن الدواء</h3>
+          <p class="feature-desc">اعرف الصيدليات التي توفر الدواء.</p>
         </div>
-        <div class="about-contact">
-          <p class="about-contact-title">تواصل معنا</p>
-          <p class="about-contact-note">سيتم إضافة معلومات التواصل قريباً.</p>
+        <div class="feature-card">
+          <div class="feature-icon">🏥</div>
+          <h3 class="feature-title">الصيدليات المناوبة</h3>
+          <p class="feature-desc">اعرض الصيدليات المناوبة اليوم.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">🛒</div>
+          <h3 class="feature-title">عربة المشتريات</h3>
+          <p class="feature-desc">اجمع الأدوية قبل زيارة الصيدلية.</p>
         </div>
       </div>
     </div>
+
+    <div class="section-divider"></div>
+
+    <footer class="site-footer">
+      <div class="footer-inner">
+        <div class="footer-links">
+          <span class="footer-links-title">روابط:</span>
+          <a onclick="headerGoHome()">الرئيسية</a>
+          <a onclick="headerGoOnDuty()">الصيدليات المناوبة</a>
+          <a onclick="footerContactComingSoon()">تواصل معنا</a>
+        </div>
+        <div class="footer-center">منصة سورية للبحث عن توفر الأدوية في الصيدليات.</div>
+        <div class="footer-copy">© 2026 دوائي جاهز</div>
+      </div>
+    </footer>
   </div>
 
   <div id="view-pharmacist" style="display:none;">
