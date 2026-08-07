@@ -229,6 +229,10 @@ function whatsappComingSoon() {
   customAlert('البحث عبر واتساب قريباً 💬 لسا عم نجهز رقم رسمي للمشروع.', 'info');
 }
 
+function footerContactComingSoon() {
+  customAlert('سيتم إضافة معلومات التواصل قريباً.', 'info');
+}
+
 function formatTime12(t) {
   if (!t) return '';
   const [h, m] = t.split(':').map(Number);
