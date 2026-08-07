@@ -6,6 +6,20 @@
 <title>دوائي جاهز | توفر الأدوية في الصيدليات</title>
 <style>
   * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  @keyframes fadeSlideUp {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  #results > *, #cart-section > *, #on-duty-section > * {
+    animation: fadeSlideUp .35s ease both;
+  }
+  ::selection { background: rgba(24,95,165,0.15); }
+  ::-webkit-scrollbar { width: 10px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #c3ddf0; border-radius: 999px; }
+  ::-webkit-scrollbar-thumb:hover { background: #a9cdea; }
+  input:focus, select:focus { outline: none; border-color: #5c9bd8; }
   body {
     font-family: 'Tahoma', 'Segoe UI', sans-serif;
     background: #eaf5fc;
@@ -19,11 +33,11 @@
   .site-header {
     position: sticky; top: 12px; z-index: 100;
     max-width: 1080px; margin: 0 auto 16px;
-    background: rgba(255,255,255,0.65);
-    backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
-    border: 1px solid rgba(255,255,255,0.6);
+    background: rgba(255,255,255,0.82);
+    backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(255,255,255,0.9);
     border-radius: 18px;
-    box-shadow: 0 8px 28px rgba(24,95,165,0.12);
+    box-shadow: 0 6px 24px rgba(24,95,165,0.1);
   }
   .site-header-inner {
     position: relative;
@@ -33,6 +47,7 @@
   .site-logo { display: flex; align-items: center; gap: 8px; font-size: 17px; font-weight: 700; color: #163a5c; white-space: nowrap; }
   .site-logo .logo-dot {
     width: 32px; height: 32px; border-radius: 50%; flex-shrink: 0;
+    box-shadow: 0 4px 10px rgba(24,95,165,0.28);
     background: linear-gradient(135deg, #5c9bd8, #185fa5);
     display: flex; align-items: center; justify-content: center; font-size: 15px;
   }
@@ -150,7 +165,13 @@
     transition: transform .2s ease, box-shadow .2s ease;
   }
   .feature-card:hover { transform: translateY(-4px); box-shadow: 0 14px 28px rgba(24,95,165,0.15); }
-  .feature-icon { font-size: 30px; margin-bottom: 10px; }
+  .feature-icon {
+    font-size: 26px; margin: 0 auto 12px;
+    width: 58px; height: 58px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    background: linear-gradient(135deg, #eaf5fc, #d4e9f8);
+    box-shadow: inset 0 2px 6px rgba(255,255,255,0.9), 0 4px 12px rgba(24,95,165,0.1);
+  }
   .feature-title { font-size: 16px; font-weight: 700; color: #163a5c; margin: 0 0 8px; }
   .feature-desc { font-size: 14px; color: #6b7a87; margin: 0; line-height: 1.6; }
   .section-divider {
@@ -443,10 +464,15 @@
   .dash-title { font-size: 22px; font-weight: 800; color: #163a5c; margin: 0 0 6px; }
   .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px; }
   .stat-card {
+    position: relative; overflow: hidden;
     background: #ffffff; border: 1px solid #cfe0ef; border-radius: 18px;
     padding: 16px 10px; text-align: center;
     box-shadow: 0 5px 14px rgba(24,95,165,0.08);
     transition: transform .2s ease, box-shadow .2s ease;
+  }
+  .stat-card::before {
+    content: ''; position: absolute; top: 0; right: 0; left: 0; height: 3px;
+    background: linear-gradient(90deg, #5c9bd8, #185fa5);
   }
   .stat-card:hover { transform: translateY(-2px); box-shadow: 0 10px 22px rgba(24,95,165,0.15); }
   .stat-value { font-size: 23px; font-weight: 800; color: #163a5c; }
@@ -498,37 +524,48 @@
     <div class="hero-capsule" aria-hidden="true">
       <svg viewBox="0 0 300 220" xmlns="http://www.w3.org/2000/svg">
         <defs>
-          <linearGradient id="lightHalf" x1="0%" y1="0%" x2="100%" y2="100%">
+          <linearGradient id="lightHalf" x1="20%" y1="0%" x2="80%" y2="100%">
             <stop offset="0%" stop-color="#ffffff"/>
-            <stop offset="100%" stop-color="#dbeaf7"/>
+            <stop offset="55%" stop-color="#fbfdff"/>
+            <stop offset="100%" stop-color="#d9e8f5"/>
           </linearGradient>
-          <linearGradient id="darkHalf" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stop-color="#5c9bd8"/>
-            <stop offset="100%" stop-color="#185fa5"/>
+          <linearGradient id="darkHalf" x1="20%" y1="0%" x2="80%" y2="100%">
+            <stop offset="0%" stop-color="#a8d4f2"/>
+            <stop offset="45%" stop-color="#74b6e8"/>
+            <stop offset="100%" stop-color="#4a94cf"/>
           </linearGradient>
           <linearGradient id="trail" x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%" stop-color="#a9cdea" stop-opacity="0"/>
-            <stop offset="100%" stop-color="#a9cdea" stop-opacity="0.6"/>
+            <stop offset="0%" stop-color="#bcdcf3" stop-opacity="0"/>
+            <stop offset="100%" stop-color="#bcdcf3" stop-opacity="0.75"/>
           </linearGradient>
+          <radialGradient id="shineGrad" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stop-color="#ffffff" stop-opacity="0.95"/>
+            <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
+          </radialGradient>
           <clipPath id="capsuleClip">
             <rect x="90" y="80" width="160" height="60" rx="30"/>
           </clipPath>
         </defs>
         <g transform="rotate(-30 170 110)">
           <!-- خطوط حركة خفيفة خلف الكبسولة -->
-          <rect x="10" y="104" width="70" height="6" rx="3" fill="url(#trail)"/>
-          <rect x="25" y="118" width="55" height="5" rx="2.5" fill="url(#trail)" opacity="0.8"/>
-          <rect x="35" y="92" width="45" height="4" rx="2" fill="url(#trail)" opacity="0.7"/>
-          <!-- جسم الكبسولة: أزرق لامع بالمقدمة، أبيض بالمؤخرة -->
+          <rect x="8" y="104" width="74" height="7" rx="3.5" fill="url(#trail)"/>
+          <rect x="24" y="119" width="58" height="5" rx="2.5" fill="url(#trail)" opacity="0.75"/>
+          <rect x="34" y="91" width="48" height="4" rx="2" fill="url(#trail)" opacity="0.65"/>
+
+          <!-- جسم الكبسولة -->
           <g clip-path="url(#capsuleClip)">
-            <rect x="90" y="80" width="80" height="60" fill="url(#lightHalf)"/>
-            <rect x="170" y="80" width="80" height="60" fill="url(#darkHalf)"/>
+            <rect x="90" y="80" width="82" height="60" fill="url(#lightHalf)"/>
+            <rect x="172" y="80" width="78" height="60" fill="url(#darkHalf)"/>
+            <!-- ظل داخلي سفلي لإحساس الحجم -->
+            <ellipse cx="170" cy="152" rx="90" ry="22" fill="#7ba9cc" opacity="0.22"/>
+            <!-- لمعة علوية ممتدة على طول الكبسولة -->
+            <ellipse cx="160" cy="93" rx="62" ry="9" fill="#ffffff" opacity="0.5"/>
           </g>
-          <rect x="90" y="80" width="160" height="60" rx="30" fill="none" stroke="#ffffff" stroke-opacity="0.5" stroke-width="2"/>
-          <!-- لمعة على النصف الأبيض -->
-          <ellipse cx="118" cy="94" rx="13" ry="6" fill="#ffffff" opacity="0.6"/>
-          <!-- لمعة طويلة على النصف الأزرق اللامع -->
-          <ellipse cx="205" cy="98" rx="20" ry="5" fill="#ffffff" opacity="0.35" transform="rotate(-18 205 98)"/>
+          <rect x="90" y="80" width="160" height="60" rx="30" fill="none" stroke="#ffffff" stroke-opacity="0.55" stroke-width="1.5"/>
+          <!-- بقعة ضوء ناعمة على النصف الأبيض -->
+          <ellipse cx="120" cy="98" rx="22" ry="12" fill="url(#shineGrad)"/>
+          <!-- بقعة ضوء على النصف الأزرق -->
+          <ellipse cx="208" cy="97" rx="17" ry="7" fill="#ffffff" opacity="0.45" transform="rotate(-14 208 97)"/>
         </g>
       </svg>
     </div>
