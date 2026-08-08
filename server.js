@@ -7,6 +7,7 @@ const db = require('./db');
 const medicinesRoutes = require('./routes/medicines');
 const pharmaciesRoutes = require('./routes/pharmacies');
 const stockRoutes = require('./routes/stock');
+const ordersRoutes = require('./routes/orders');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -21,6 +22,7 @@ app.use(express.static(path.join(__dirname, 'frontend')));
 app.use('/api/medicines', medicinesRoutes);
 app.use('/api/pharmacies', pharmaciesRoutes);
 app.use('/api/stock', stockRoutes);
+app.use('/api/orders', ordersRoutes);
 
 app.get('/health', (req, res) => res.json({ status: 'ok' }));
 
