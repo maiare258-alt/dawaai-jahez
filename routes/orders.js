@@ -57,4 +57,16 @@ router.put('/:id/seen', async (req, res) => {
   }
 });
 
+// حذف طلب نهائياً (بعد ما يتعامل الصيدلي معه)
+// DELETE /api/orders/:id
+router.delete('/:id', async (req, res) => {
+  try {
+    await db.deleteOrder(req.params.id);
+    res.json({ success: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'حدث خطأ أثناء حذف الطلب' });
+  }
+});
+
 module.exports = router;
