@@ -216,13 +216,44 @@ function renderCart() {
     `).join('')}
     <div class="cart-summary">
       <div class="cart-summary-row"><span>عدد الأدوية</span><span>${cart.length}</span></div>
-      <button class="checkout-btn" onclick="checkoutComingSoon()">إتمام الطلب</button>
+      <input id="checkout-name" placeholder="الاسم الكامل">
+      <input id="checkout-phone" placeholder="رقم الهاتف" type="tel">
+      <button class="checkout-btn" onclick="submitOrder()">إتمام الطلب</button>
     </div>
   `;
 }
 
-function checkoutComingSoon() {
-  customAlert('ميزة إتمام الطلب والتوصيل قريباً 🚀', 'info');
+async function submitOrder() {
+  const name = document.getElementById('checkout-name').value.trim();
+  const phone = document.getElementById('checkout-phone').value.trim();
+  if (!name || !phone) {
+    customAlert('الرجاء إدخال الاسم ورقم الهاتف لإتمام الطلب.', 'warning');
+    return;
+  }
+  try {
+    const res = await fetch(`${API}/orders`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        patient_name: name,
+        patient_phone: phone,
+        items: cart.map(item => ({
+          pharmacyId: item.pharmacyId,
+          medicineName: item.medicineName,
+          genericName: item.genericName,
+          quantity: item.quantity
+        }))
+      })
+    });
+    const data = await res.json();
+    if (!res.ok) { customAlert(data.error, 'error'); return; }
+    await customAlert('تم إرسال طلبك بنجاح! الصيدلية رح تتواصل معك قريباً على الرقم يلي أدخلته.', 'success');
+    cart = [];
+    saveCart();
+    renderCart();
+  } catch (err) {
+    customAlert('تعذر الاتصال بالخادم', 'error');
+  }
 }
 
 function whatsappComingSoon() {
@@ -476,6 +507,7 @@ function loadDashboard() {
   document.getElementById('duty-start-time').value = currentPharmacy.on_duty_start_time || '';
   document.getElementById('duty-end-time').value = currentPharmacy.on_duty_end_time || '';
   refreshStock();
+  loadOrders();
 }
 
 function onDutyToggle() {
@@ -590,6 +622,39 @@ function renderDashboardStats(data) {
       <div class="stat-label">المناوبة اليوم</div>
     </div>
   `;
+}
+
+async function loadOrders() {
+  try {
+    const res = await fetch(`${API}/orders/${currentPharmacy.id}`);
+    const orders = await res.json();
+    const wrap = document.getElementById('orders-wrap');
+    const list = document.getElementById('orders-list');
+    if (!orders || orders.length === 0) {
+      wrap.style.display = 'none';
+      return;
+    }
+    wrap.style.display = 'block';
+    list.innerHTML = orders.map(o => `
+      <div class="order-card ${!o.seen ? 'is-new' : ''}">
+        <div class="order-card-top">
+          <span class="order-patient-name">👤 ${o.patient_name}</span>
+          ${!o.seen ? '<span class="order-new-badge">🆕 جديد</span>' : ''}
+        </div>
+        <div class="order-row"><span>📞</span> ${o.patient_phone}</div>
+        <div class="order-row"><span>🕐</span> ${new Date(o.created_at).toLocaleString('ar-SY')}</div>
+        <div class="order-items-list">
+          ${o.items.map(it => `<div class="order-item-line">💊 ${it.medicineName}${it.genericName ? ' - ' + it.genericName : ''} × ${it.quantity}</div>`).join('')}
+        </div>
+        ${!o.seen ? `<button class="btn-outline blue small order-dismiss-btn" onclick="dismissOrder(${o.id})">تم الاطلاع</button>` : ''}
+      </div>
+    `).join('');
+  } catch (err) { /* تجاهل بصمت لو فشل الجلب، الأهم لوحة الصيدلي نفسها */ }
+}
+
+async function dismissOrder(id) {
+  await fetch(`${API}/orders/${id}/seen`, { method: 'PUT' });
+  loadOrders();
 }
 
 async function toggleStock(medicineId, newValue) {
