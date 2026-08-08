@@ -277,6 +277,10 @@ async function markOrderSeen(orderId) {
   await pool.query(`UPDATE orders SET seen = true WHERE id = $1`, [orderId]);
 }
 
+async function deleteOrder(orderId) {
+  await pool.query(`DELETE FROM orders WHERE id = $1`, [orderId]);
+}
+
 module.exports = {
   initDb,
   searchMedicines,
@@ -296,5 +300,6 @@ module.exports = {
   setStock,
   createOrder,
   getOrdersForPharmacy,
-  markOrderSeen
+  markOrderSeen,
+  deleteOrder
 };
