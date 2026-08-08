@@ -109,6 +109,19 @@
     0%, 100% { transform: translateY(0) translateX(0); }
     50% { transform: translateY(-14px) translateX(8px); }
   }
+  .hero-cart-illustration {
+    position: absolute; top: 9%; left: 40px; width: 130px; z-index: 1;
+    pointer-events: none;
+    animation: heroCartFloat 6s ease-in-out infinite;
+  }
+  .hero-cart-illustration svg { width: 100%; height: auto; filter: drop-shadow(0 10px 18px rgba(24,95,165,0.16)); }
+  @keyframes heroCartFloat {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
+  }
+  @media (max-width: 900px) {
+    .hero-cart-illustration { width: 100px; top: 7%; left: 20px; }
+  }
   .hero-content { position: relative; z-index: 3; margin-left: 380px; max-width: 460px; }
   .hero-title { font-size: 32px; font-weight: 800; line-height: 1.35; margin: 0 0 14px; color: #163a5c; }
   .hero-highlight { color: #185fa5; }
@@ -235,7 +248,7 @@
   }
   @media (max-width: 720px) {
     .hero { flex-direction: column; min-height: auto; padding: 32px 24px; text-align: center; }
-    .hero-glow, .hero-particles { display: none; }
+    .hero-glow, .hero-particles, .hero-cart-illustration { display: none; }
     .hero-capsule {
       position: static; width: 150px; margin: 0 auto 16px; transform: none;
       animation: heroFloatMobile 4.5s ease-in-out infinite;
@@ -520,6 +533,40 @@
     <div class="hero-glow" aria-hidden="true"></div>
     <div class="hero-particles" aria-hidden="true">
       <span></span><span></span><span></span><span></span><span></span>
+    </div>
+    <div class="hero-cart-illustration" aria-hidden="true">
+      <svg viewBox="0 0 160 150" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="cartBody" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#ffffff"/>
+            <stop offset="100%" stop-color="#e3eff9"/>
+          </linearGradient>
+          <linearGradient id="cartBoxGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#a8d4f2"/>
+            <stop offset="100%" stop-color="#5c9bd8"/>
+          </linearGradient>
+        </defs>
+        <path d="M18 20 L30 20 L44 78" stroke="#a9c8e0" stroke-width="4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M44 78 L118 78 L108 118 L54 118 Z" fill="url(#cartBody)" stroke="#bcdcf3" stroke-width="2"/>
+        <line x1="60" y1="78" x2="66" y2="118" stroke="#cfe3f5" stroke-width="1.5"/>
+        <line x1="81" y1="78" x2="81" y2="118" stroke="#cfe3f5" stroke-width="1.5"/>
+        <line x1="102" y1="78" x2="96" y2="118" stroke="#cfe3f5" stroke-width="1.5"/>
+        <circle cx="62" cy="130" r="7" fill="#7ba9cc"/>
+        <circle cx="100" cy="130" r="7" fill="#7ba9cc"/>
+        <circle cx="62" cy="130" r="3" fill="#ffffff"/>
+        <circle cx="100" cy="130" r="3" fill="#ffffff"/>
+        <rect x="56" y="55" width="26" height="24" rx="3" fill="url(#cartBoxGrad)"/>
+        <line x1="69" y1="60" x2="69" y2="74" stroke="#ffffff" stroke-width="2"/>
+        <line x1="62" y1="67" x2="76" y2="67" stroke="#ffffff" stroke-width="2"/>
+        <rect x="86" y="58" width="24" height="16" rx="3" fill="#ffffff" stroke="#bcdcf3" stroke-width="1.5"/>
+        <circle cx="91" cy="66" r="2.3" fill="#a9cdea"/>
+        <circle cx="98" cy="66" r="2.3" fill="#a9cdea"/>
+        <circle cx="105" cy="66" r="2.3" fill="#a9cdea"/>
+        <g transform="translate(78,42) rotate(-20)">
+          <rect x="-12" y="-5" width="24" height="10" rx="5" fill="#ffffff" stroke="#bcdcf3" stroke-width="1"/>
+          <path d="M0 -5 a5 5 0 0 1 0 10 Z" fill="#5c9bd8"/>
+        </g>
+      </svg>
     </div>
     <div class="hero-capsule" aria-hidden="true">
       <svg viewBox="0 0 300 220" xmlns="http://www.w3.org/2000/svg">
