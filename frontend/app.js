@@ -508,6 +508,7 @@ function loadDashboard() {
   document.getElementById('duty-end-time').value = currentPharmacy.on_duty_end_time || '';
   refreshStock();
   loadOrders();
+  startOrdersPolling();
 }
 
 function onDutyToggle() {
@@ -554,6 +555,7 @@ async function saveDuty() {
 
 function logout() {
   currentPharmacy = null;
+  stopOrdersPolling();
   document.getElementById('pharmacist-dashboard').style.display = 'none';
   renderPharmacyAuthForm();
 }
@@ -622,6 +624,20 @@ function renderDashboardStats(data) {
       <div class="stat-label">المناوبة اليوم</div>
     </div>
   `;
+}
+
+let ordersPollInterval = null;
+
+function startOrdersPolling() {
+  stopOrdersPolling();
+  ordersPollInterval = setInterval(loadOrders, 12000);
+}
+
+function stopOrdersPolling() {
+  if (ordersPollInterval) {
+    clearInterval(ordersPollInterval);
+    ordersPollInterval = null;
+  }
 }
 
 async function loadOrders() {
