@@ -51,6 +51,19 @@ async function initDb() {
     );
   `);
 
+  // طلبات المرضى: كل طلب مرتبط بصيدلية واحدة (السلة الواحدة ممكن تنقسم لعدة طلبات لو فيها صيدليات مختلفة)
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS orders (
+      id SERIAL PRIMARY KEY,
+      pharmacy_id INTEGER REFERENCES pharmacies(id) ON DELETE CASCADE,
+      patient_name TEXT NOT NULL,
+      patient_phone TEXT NOT NULL,
+      items JSONB DEFAULT '[]',
+      seen BOOLEAN DEFAULT false,
+      created_at TIMESTAMP DEFAULT NOW()
+    );
+  `);
+
   const { rows } = await pool.query('SELECT COUNT(*) FROM medicines');
   if (Number(rows[0].count) === 0) {
     const defaults = [
@@ -241,6 +254,29 @@ async function setStock(pharmacyId, medicineId, available) {
   );
 }
 
+// ---------- الطلبات ----------
+
+async function createOrder(pharmacyId, patientName, patientPhone, items) {
+  const { rows } = await pool.query(
+    `INSERT INTO orders (pharmacy_id, patient_name, patient_phone, items)
+     VALUES ($1, $2, $3, $4) RETURNING *`,
+    [pharmacyId, patientName, patientPhone, JSON.stringify(items)]
+  );
+  return rows[0];
+}
+
+async function getOrdersForPharmacy(pharmacyId) {
+  const { rows } = await pool.query(
+    `SELECT * FROM orders WHERE pharmacy_id = $1 ORDER BY created_at DESC`,
+    [pharmacyId]
+  );
+  return rows;
+}
+
+async function markOrderSeen(orderId) {
+  await pool.query(`UPDATE orders SET seen = true WHERE id = $1`, [orderId]);
+}
+
 module.exports = {
   initDb,
   searchMedicines,
@@ -257,5 +293,8 @@ module.exports = {
   getOnDutyPharmacies,
   getAvailability,
   getStockForPharmacy,
-  setStock
+  setStock,
+  createOrder,
+  getOrdersForPharmacy,
+  markOrderSeen
 };
