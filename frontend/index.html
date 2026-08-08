@@ -502,6 +502,34 @@
   .stock-scroll .row { padding: 12px 18px; margin: 0; border-top: 1px solid #eef2f6; transition: background .2s ease; }
   .stock-scroll .row:first-child { border-top: none; }
   .stock-scroll .row:hover { background: #f5f9fd; }
+  .orders-wrap {
+    background: rgba(255,255,255,0.72);
+    backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(255,255,255,0.6);
+    border-radius: 20px; padding: 22px; margin-bottom: 20px;
+    box-shadow: 0 10px 30px rgba(24,95,165,0.1);
+  }
+  .order-card {
+    background: #ffffff; border: 1px solid #e5eef7; border-radius: 16px;
+    padding: 16px 18px; margin-bottom: 12px;
+    transition: transform .2s ease, box-shadow .2s ease;
+  }
+  .order-card:last-child { margin-bottom: 0; }
+  .order-card:hover { transform: translateY(-2px); box-shadow: 0 10px 22px rgba(24,95,165,0.14); }
+  .order-card.is-new { border-color: #97c459; background: #f8fdf3; }
+  .order-card-top {
+    display: flex; justify-content: space-between; align-items: center;
+    gap: 10px; flex-wrap: wrap; margin-bottom: 8px;
+  }
+  .order-patient-name { font-size: 16px; font-weight: 700; color: #163a5c; }
+  .order-new-badge {
+    background: #eaf3de; color: #27500a; font-size: 12px; font-weight: 700;
+    padding: 3px 10px; border-radius: 999px;
+  }
+  .order-row { font-size: 14px; color: #4a5b6b; margin-top: 4px; display: flex; align-items: center; gap: 6px; }
+  .order-items-list { font-size: 14px; color: #3a4a58; margin-top: 8px; padding-top: 8px; border-top: 1px solid #eef2f6; }
+  .order-item-line { padding: 2px 0; }
+  .order-dismiss-btn { margin-top: 12px; }
 </style>
 </head>
 <body>
@@ -684,6 +712,10 @@
       <h2 class="dash-title">لوحة الصيدلي</h2>
       <div class="muted" id="pharmacy-label" style="display:flex; align-items:center; justify-content:space-between; margin-bottom:16px;"></div>
       <div class="stats-grid" id="stats-grid"></div>
+      <div class="orders-wrap" id="orders-wrap" style="display:none;">
+        <h3 style="margin-top:0;">🛎️ طلبات جديدة من المرضى</h3>
+        <div id="orders-list"></div>
+      </div>
       <div class="box" style="margin-bottom:20px;">
         <h3 style="margin-top:0;">🕐 حالة المناوبة</h3>
         <label style="display:flex; align-items:center; gap:8px; font-size:16px; margin-bottom:12px;">
