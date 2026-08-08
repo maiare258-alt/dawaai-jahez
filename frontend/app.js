@@ -560,7 +560,7 @@ async function refreshStock() {
     <div class="row">
       <span>${m.name}</span>
       <button class="toggle-btn ${m.available ? 'yes' : 'no'}" onclick="toggleStock(${m.medicine_id}, ${!m.available})">
-        ${m.available ? 'متوفر' : 'غير متوفر'}
+        ${m.available ? '🟢 متوفر' : '🔴 غير متوفر'}
       </button>
     </div>
   `).join('');
