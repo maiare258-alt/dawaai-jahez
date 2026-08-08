@@ -646,7 +646,10 @@ async function loadOrders() {
         <div class="order-items-list">
           ${o.items.map(it => `<div class="order-item-line">💊 ${it.medicineName}${it.genericName ? ' - ' + it.genericName : ''} × ${it.quantity}</div>`).join('')}
         </div>
-        ${!o.seen ? `<button class="btn-outline blue small order-dismiss-btn" onclick="dismissOrder(${o.id})">تم الاطلاع</button>` : ''}
+        <div class="order-actions-row">
+          ${!o.seen ? `<button class="btn-outline blue small" onclick="dismissOrder(${o.id})">تم الاطلاع</button>` : ''}
+          <button class="btn-outline red small" onclick="removeOrder(${o.id})">🗑️ حذف الطلب</button>
+        </div>
       </div>
     `).join('');
   } catch (err) { /* تجاهل بصمت لو فشل الجلب، الأهم لوحة الصيدلي نفسها */ }
@@ -654,6 +657,13 @@ async function loadOrders() {
 
 async function dismissOrder(id) {
   await fetch(`${API}/orders/${id}/seen`, { method: 'PUT' });
+  loadOrders();
+}
+
+async function removeOrder(id) {
+  const confirmed = await customConfirm('متأكد إنك تعاملت مع هذا الطلب وبدك تحذفه نهائياً؟', 'warning');
+  if (!confirmed) return;
+  await fetch(`${API}/orders/${id}`, { method: 'DELETE' });
   loadOrders();
 }
 
