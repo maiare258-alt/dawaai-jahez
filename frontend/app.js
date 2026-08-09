@@ -180,35 +180,10 @@ function toggleCart() {
   }
 }
 
-function renderMyOrdersBanners() {
-  if (!myOrders || myOrders.length === 0) return '';
-  return myOrders.map(o => {
-    if (o.status === 'confirmed') {
-      return `
-        <div class="order-status-banner confirmed">
-          <div class="order-status-banner-text">
-            <span class="order-status-icon">✅</span>
-            <span>تم الاستجابة لطلبك من قبل الصيدلية (${o.pharmacyName})</span>
-          </div>
-          <button class="order-status-dismiss" onclick="dismissMyOrder(${o.id})" aria-label="إخفاء">✕</button>
-        </div>`;
-    }
-    return `
-      <div class="order-status-banner pending">
-        <div class="order-status-banner-text">
-          <span class="order-status-icon">⏳</span>
-          <span>طلبك عند صيدلية (${o.pharmacyName}) قيد المراجعة...</span>
-        </div>
-      </div>`;
-  }).join('');
-}
-
 function renderCart() {
   const container = document.getElementById('cart-section');
-  const bannersHtml = renderMyOrdersBanners();
   if (cart.length === 0) {
     container.innerHTML = `
-      ${bannersHtml}
       <div class="box cart-empty">
         <div class="cart-empty-icon">🛒</div>
         <p class="cart-empty-title">عربة المشتريات فارغة</p>
@@ -218,7 +193,6 @@ function renderCart() {
     return;
   }
   container.innerHTML = `
-    ${bannersHtml}
     <div class="cart-header">
       <h3 class="cart-title">عربة المشتريات</h3>
       <p class="cart-subtitle">راجع الأدوية قبل إتمام الطلب.</p>
@@ -282,6 +256,7 @@ async function submitOrder() {
       myOrders.push({ id: o.id, pharmacyName: item ? item.pharmacyName : '', status: 'pending' });
     });
     saveMyOrders();
+    updateBellVisibility();
     startMyOrdersPolling();
 
     await customAlert('تم إرسال طلبك بنجاح! الصيدلية رح تتواصل معك قريباً على الرقم يلي أدخلته.', 'success');
@@ -293,16 +268,75 @@ async function submitOrder() {
   }
 }
 
-// ---------- تتبع حالة طلبات المريض (هل استجابت الصيدلية؟) ----------
+// ---------- تتبع حالة طلبات المريض (هل استجابت الصيدلية؟) — عبر أيقونة الجرس ----------
 
 function saveMyOrders() {
   localStorage.setItem('myOrders', JSON.stringify(myOrders));
 }
 
+function updateBellVisibility() {
+  const btn = document.getElementById('bell-btn');
+  if (!btn) return;
+  btn.style.display = myOrders.length > 0 ? 'inline-flex' : 'none';
+  if (myOrders.length === 0) document.getElementById('bell-panel').style.display = 'none';
+}
+
+function updateBellBadge() {
+  const badge = document.getElementById('bell-badge');
+  if (!badge) return;
+  const confirmedCount = myOrders.filter(o => o.status === 'confirmed').length;
+  badge.textContent = confirmedCount;
+  badge.style.display = confirmedCount > 0 ? 'flex' : 'none';
+}
+
+function pulseBell() {
+  const btn = document.getElementById('bell-btn');
+  if (!btn) return;
+  btn.classList.remove('pulse');
+  void btn.offsetWidth; // يعيد تشغيل حركة الاهتزاز حتى لو صارت قبل شوي
+  btn.classList.add('pulse');
+}
+
+function toggleBellPanel() {
+  const panel = document.getElementById('bell-panel');
+  const willShow = panel.style.display === 'none';
+  panel.style.display = willShow ? 'block' : 'none';
+  if (willShow) renderBellPanel();
+}
+
+function renderBellPanel() {
+  const panel = document.getElementById('bell-panel');
+  if (!myOrders || myOrders.length === 0) {
+    panel.innerHTML = `<div class="bell-panel-empty">ما في إشعارات حالياً</div>`;
+    return;
+  }
+  panel.innerHTML = myOrders.map(o => {
+    if (o.status === 'confirmed') {
+      return `
+        <div class="order-status-banner confirmed">
+          <div class="order-status-banner-text">
+            <span class="order-status-icon">✅</span>
+            <span>تم الاستجابة لطلبك من قبل الصيدلية (${o.pharmacyName})</span>
+          </div>
+          <button class="order-status-dismiss" onclick="dismissMyOrder(${o.id})" aria-label="إخفاء">✕</button>
+        </div>`;
+    }
+    return `
+      <div class="order-status-banner pending">
+        <div class="order-status-banner-text">
+          <span class="order-status-icon">⏳</span>
+          <span>طلبك عند صيدلية (${o.pharmacyName}) قيد المراجعة...</span>
+        </div>
+      </div>`;
+  }).join('');
+}
+
 function dismissMyOrder(id) {
   myOrders = myOrders.filter(o => o.id !== id);
   saveMyOrders();
-  renderCart();
+  updateBellBadge();
+  updateBellVisibility();
+  renderBellPanel();
 }
 
 let myOrdersPollInterval = null;
@@ -321,26 +355,27 @@ function stopMyOrdersPolling() {
 }
 
 async function checkMyOrdersStatus() {
-  if (!myOrders || myOrders.length === 0) { stopMyOrdersPolling(); return; }
+  if (!myOrders || myOrders.length === 0) { stopMyOrdersPolling(); updateBellVisibility(); return; }
   try {
     const ids = myOrders.map(o => o.id).join(',');
     const res = await fetch(`${API}/orders/status?ids=${ids}`);
     const rows = await res.json();
-    let changed = false;
+    let newlyConfirmed = false;
     myOrders = myOrders.filter(local => {
       const found = rows.find(r => r.id === local.id);
       if (!found) return false; // الصيدلية حذفت الطلب من عندها
       if (found.status === 'confirmed' && local.status !== 'confirmed') {
         local.status = 'confirmed';
-        changed = true;
-        customAlert(`تم الاستجابة لطلبك من قبل الصيدلية (${local.pharmacyName})`, 'success');
+        newlyConfirmed = true;
       }
       return true;
     });
-    if (changed || rows.length !== myOrders.length) {
-      saveMyOrders();
-      renderCart();
-    }
+    saveMyOrders();
+    updateBellBadge();
+    updateBellVisibility();
+    const panel = document.getElementById('bell-panel');
+    if (panel && panel.style.display !== 'none') renderBellPanel();
+    if (newlyConfirmed) pulseBell();
     if (myOrders.every(o => o.status === 'confirmed')) stopMyOrdersPolling();
   } catch (err) { /* تجاهل بصمت، رح يعيد المحاولة بالجولة الجاية */ }
 }
@@ -998,6 +1033,11 @@ document.addEventListener('click', (e) => {
   if (box && !box.contains(e.target) && e.target !== input) {
     box.classList.remove('show');
   }
+  const bellPanel = document.getElementById('bell-panel');
+  const bellBtn = document.getElementById('bell-btn');
+  if (bellPanel && bellPanel.style.display !== 'none' && !bellPanel.contains(e.target) && !bellBtn.contains(e.target)) {
+    bellPanel.style.display = 'none';
+  }
 });
 
 showView('patient');
@@ -1005,4 +1045,6 @@ runSearch();
 loadOnDuty();
 updateCartCount();
 setInterval(loadOnDuty, 5000);
+updateBellVisibility();
+updateBellBadge();
 if (myOrders.length > 0) startMyOrdersPolling();
