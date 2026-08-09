@@ -62,7 +62,8 @@
     display: none; background: none; border: none; font-size: 22px; cursor: pointer; color: #185fa5; padding: 4px 8px;
   }
   .cart-section-wrap { position: relative; }
-  .bell-wrap { position: fixed; top: 92px; right: 20px; z-index: 500; }
+  .cart-section-wrap.has-bell { min-height: 72px; }
+  .cart-section-wrap .bell-wrap { position: absolute; top: 14px; right: 14px; z-index: 30; }
   .bell-btn {
     position: relative; display: inline-flex; align-items: center; justify-content: center;
     background: #fff; border: 1px solid #cfe0ef; cursor: pointer;
@@ -725,16 +726,15 @@
   </div>
 </div>
 
-<div class="bell-wrap">
-  <button id="bell-btn" class="bell-btn" onclick="toggleBellPanel()" aria-label="إشعارات الطلبات" style="display:none">
-    <span class="bell-icon">🔔</span>
-    <span class="bell-badge" id="bell-badge" style="display:none">0</span>
-  </button>
-  <div id="bell-panel" class="bell-panel" style="display:none"></div>
-</div>
-
 <div class="container">
   <div class="cart-section-wrap">
+    <div class="bell-wrap">
+      <button id="bell-btn" class="bell-btn" onclick="toggleBellPanel()" aria-label="إشعارات الطلبات" style="display:none">
+        <span class="bell-icon">🔔</span>
+        <span class="bell-badge" id="bell-badge" style="display:none">0</span>
+      </button>
+      <div id="bell-panel" class="bell-panel" style="display:none"></div>
+    </div>
     <div id="cart-section" style="display:none; margin-bottom:16px;"></div>
   </div>
   <div id="view-patient">
