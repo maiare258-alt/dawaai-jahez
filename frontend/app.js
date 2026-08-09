@@ -310,7 +310,7 @@ let myOrdersPollInterval = null;
 function startMyOrdersPolling() {
   if (myOrdersPollInterval) return;
   checkMyOrdersStatus();
-  myOrdersPollInterval = setInterval(checkMyOrdersStatus, 15000);
+  myOrdersPollInterval = setInterval(checkMyOrdersStatus, 4000);
 }
 
 function stopMyOrdersPolling() {
