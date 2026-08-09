@@ -336,6 +336,8 @@
   .btn-outline.blue:hover { background: #eef4fa; }
   .btn-outline.red { border-color: #a33; color: #a33; }
   .btn-outline.red:hover { background: #fbeeee; }
+  .btn-outline.green { border-color: #3f8f3f; color: #2f6b2f; }
+  .btn-outline.green:hover { background: #eef8ee; }
   .btn-outline.small { padding: 6px 16px; font-size: 15px; }
   .duty-wrap {
     background: rgba(255,255,255,0.72);
@@ -537,6 +539,27 @@
   .order-new-badge {
     background: #eaf3de; color: #27500a; font-size: 12px; font-weight: 700;
     padding: 3px 10px; border-radius: 999px;
+  }
+  .order-confirmed-badge {
+    background: #dcefe1; color: #1c6b3a; font-size: 12px; font-weight: 700;
+    padding: 3px 10px; border-radius: 999px;
+  }
+  .order-status-banner {
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    border-radius: 16px; padding: 14px 16px; margin-bottom: 12px;
+    font-size: 15px; font-weight: 600;
+  }
+  .order-status-banner-text { display: flex; align-items: center; gap: 10px; }
+  .order-status-banner.confirmed {
+    background: #f8fdf3; border: 1px solid #97c459; color: #2f5c14;
+  }
+  .order-status-banner.pending {
+    background: #f4f9fd; border: 1px solid #cfe0ef; color: #3a5b78;
+  }
+  .order-status-icon { font-size: 18px; }
+  .order-status-dismiss {
+    background: none; border: none; cursor: pointer;
+    color: #5f5e5a; font-size: 14px; padding: 4px 8px; flex-shrink: 0;
   }
   .order-row { font-size: 14px; color: #4a5b6b; margin-top: 4px; display: flex; align-items: center; gap: 6px; }
   .order-items-list { font-size: 14px; color: #3a4a58; margin-top: 8px; padding-top: 8px; border-top: 1px solid #eef2f6; }
