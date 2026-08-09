@@ -771,7 +771,7 @@ async function renderAdminPanel() {
       <h2 class="dash-title" style="margin-bottom:0;">لوحة الإدارة</h2>
       <button class="action-pill-btn blue" onclick="logoutAdmin()">🚪 تسجيل الخروج</button>
     </div>
-    <div class="stats-grid" style="grid-template-columns: repeat(3, 1fr);">
+    <div class="stats-grid stats-grid-3">
       <div class="stat-card">
         <div class="stat-value">${pharmacies.length}</div>
         <div class="stat-label">عدد الصيدليات</div>
