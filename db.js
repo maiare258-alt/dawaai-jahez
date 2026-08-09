@@ -60,9 +60,11 @@ async function initDb() {
       patient_phone TEXT NOT NULL,
       items JSONB DEFAULT '[]',
       seen BOOLEAN DEFAULT false,
+      status TEXT DEFAULT 'pending',
       created_at TIMESTAMP DEFAULT NOW()
     );
   `);
+  await pool.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'pending';`);
 
   const { rows } = await pool.query('SELECT COUNT(*) FROM medicines');
   if (Number(rows[0].count) === 0) {
@@ -281,6 +283,22 @@ async function deleteOrder(orderId) {
   await pool.query(`DELETE FROM orders WHERE id = $1`, [orderId]);
 }
 
+// الصيدلي يأكد إنه استجاب للطلب وحجز الدواء
+async function confirmOrder(orderId) {
+  await pool.query(`UPDATE orders SET status = 'confirmed' WHERE id = $1`, [orderId]);
+}
+
+// جلب حالة مجموعة طلبات معينة (للمريض، عشان يعرف إذا الصيدلية استجابت)
+async function getOrdersStatus(ids) {
+  const { rows } = await pool.query(
+    `SELECT o.id, o.status, p.name AS pharmacy_name
+     FROM orders o JOIN pharmacies p ON o.pharmacy_id = p.id
+     WHERE o.id = ANY($1::int[])`,
+    [ids]
+  );
+  return rows;
+}
+
 module.exports = {
   initDb,
   searchMedicines,
@@ -301,5 +319,7 @@ module.exports = {
   createOrder,
   getOrdersForPharmacy,
   markOrderSeen,
-  deleteOrder
+  deleteOrder,
+  confirmOrder,
+  getOrdersStatus
 };
