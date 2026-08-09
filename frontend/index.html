@@ -473,6 +473,7 @@
   .cart-empty-subtitle { font-size: 15px; color: #5f5e5a; margin: 0; }
   .dash-title { font-size: 22px; font-weight: 800; color: #163a5c; margin: 0 0 6px; }
   .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px; }
+  .stats-grid.stats-grid-3 { grid-template-columns: repeat(3, 1fr); }
   .stat-card {
     position: relative; overflow: hidden;
     background: #ffffff; border: 1px solid #cfe0ef; border-radius: 16px;
@@ -489,7 +490,13 @@
   .stat-value.stat-green { color: #27500a; }
   .stat-value.stat-red { color: #7a1f1f; }
   .stat-label { font-size: 12px; color: #6b7a87; margin-top: 4px; }
-  @media (max-width: 560px) { .stats-grid { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 560px) {
+    .stats-grid { grid-template-columns: repeat(2, 1fr); }
+    .stats-grid.stats-grid-3 { grid-template-columns: repeat(2, 1fr); }
+  }
+  @media (max-width: 380px) {
+    .stats-grid.stats-grid-3 { grid-template-columns: 1fr; }
+  }
   .stock-table-wrap {
     background: #ffffff; border: 1px solid #cfe0ef; border-radius: 20px;
     overflow: hidden; margin-bottom: 20px; box-shadow: 0 5px 14px rgba(24,95,165,0.08);
