@@ -201,18 +201,23 @@
     max-width: 1000px; margin: 0 auto; min-height: 30px;
     display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 16px;
   }
-  .footer-links { display: flex; align-items: center; justify-content: flex-start; gap: 8px; flex-wrap: wrap; }
+  .footer-links {
+    display: flex; align-items: center; justify-content: flex-start; gap: 8px; flex-wrap: wrap;
+    justify-self: end;
+  }
   .footer-links a {
     font-size: 14px; font-weight: 500; color: #5f6f7d; text-decoration: none; cursor: pointer;
     transition: color .2s ease;
   }
   .footer-links a:hover { color: #185fa5; }
   .footer-sep { color: #cbd5e0; font-size: 13px; }
-  .footer-center { font-size: 14px; font-weight: 500; color: #6b7a87; text-align: center; }
-  .footer-copy { font-size: 14px; font-weight: 500; color: #6b7a87; text-align: left; white-space: nowrap; }
+  .footer-center { font-size: 14px; font-weight: 500; color: #6b7a87; text-align: center; justify-self: center; }
+  .footer-copy { font-size: 14px; font-weight: 500; color: #6b7a87; text-align: left; white-space: nowrap; justify-self: start; }
   @media (max-width: 700px) {
     .footer-inner { grid-template-columns: 1fr; gap: 10px; padding: 6px 0; min-height: 0; }
-    .footer-links { justify-content: center; }
+    .footer-links { justify-content: center; justify-self: stretch; }
+    .footer-center { justify-self: stretch; }
+    .footer-copy { justify-self: stretch; }
     .footer-center, .footer-copy { text-align: center; }
   }
   .hero-cart-count {
@@ -463,9 +468,9 @@
   }
   .checkout-btn:hover { transform: translateY(-1px); filter: brightness(1.06); box-shadow: 0 10px 22px rgba(24,95,165,0.32); }
   .cart-empty { text-align: center; padding: 36px 20px; }
-  .cart-empty-icon { font-size: 44px; margin-bottom: 10px; }
-  .cart-empty-title { font-size: 17px; font-weight: 700; color: #163a5c; margin: 0 0 6px; }
-  .cart-empty-subtitle { font-size: 14px; color: #5f5e5a; margin: 0; }
+  .cart-empty-icon { font-size: 44px; margin-bottom: 12px; }
+  .cart-empty-title { font-size: 18px; font-weight: 700; color: #163a5c; margin: 0 0 6px; }
+  .cart-empty-subtitle { font-size: 15px; color: #5f5e5a; margin: 0; }
   .dash-title { font-size: 22px; font-weight: 800; color: #163a5c; margin: 0 0 6px; }
   .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px; }
   .stat-card {
