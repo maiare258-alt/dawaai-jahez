@@ -64,6 +64,9 @@
   .cart-section-wrap { position: relative; }
   .cart-section-wrap.has-bell { min-height: 72px; }
   .cart-section-wrap .bell-wrap { position: absolute; top: 14px; right: 14px; z-index: 30; }
+  body.modal-open .bell-wrap {
+    visibility: hidden; opacity: 0; transition: opacity .15s ease;
+  }
   .bell-btn {
     position: relative; display: inline-flex; align-items: center; justify-content: center;
     background: #fff; border: 1px solid #cfe0ef; cursor: pointer;
