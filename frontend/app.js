@@ -277,8 +277,11 @@ function saveMyOrders() {
 function updateBellVisibility() {
   const btn = document.getElementById('bell-btn');
   if (!btn) return;
-  btn.style.display = myOrders.length > 0 ? 'inline-flex' : 'none';
-  if (myOrders.length === 0) document.getElementById('bell-panel').style.display = 'none';
+  const wrap = document.querySelector('.cart-section-wrap');
+  const hasOrders = myOrders.length > 0;
+  btn.style.display = hasOrders ? 'inline-flex' : 'none';
+  if (wrap) wrap.classList.toggle('has-bell', hasOrders);
+  if (!hasOrders) document.getElementById('bell-panel').style.display = 'none';
 }
 
 function updateBellBadge() {
