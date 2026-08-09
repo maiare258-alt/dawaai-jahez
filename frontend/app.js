@@ -900,4 +900,4 @@ showView('patient');
 runSearch();
 loadOnDuty();
 updateCartCount();
-setInterval(loadOnDuty, 15000);
+setInterval(loadOnDuty, 5000);
