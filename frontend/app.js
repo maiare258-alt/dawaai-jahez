@@ -275,11 +275,19 @@ function formatTime12(t) {
 
 // ---------- واجهة المريض ----------
 
+let lastOnDutySnapshot = null;
+
 async function loadOnDuty() {
   const container = document.getElementById('on-duty-section');
   try {
     const res = await fetch(`${API}/pharmacies/on-duty`);
     const data = await res.json();
+
+    // ما تغيّر شي بالبيانات؟ خلص، ما في داعي نعيد رسم الشاشة ونسبب وميض
+    const snapshot = JSON.stringify(data);
+    if (snapshot === lastOnDutySnapshot) return;
+    lastOnDutySnapshot = snapshot;
+
     if (data.length === 0) {
       container.innerHTML = `
         <div class="duty-wrap">
