@@ -444,12 +444,13 @@
     position: fixed; inset: 0; background: rgba(22,58,92,0.45);
     backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
     display: flex; align-items: center; justify-content: center;
-    z-index: 1000; padding: 20px;
+    z-index: 10000; padding: 20px;
   }
   .modal-box {
     background: #ffffff; border-radius: 20px; padding: 32px 26px; max-width: 380px; width: 100%;
     text-align: center; box-shadow: 0 20px 50px rgba(24,95,165,0.25);
     animation: modalPop .25s ease;
+    position: relative; z-index: 10001;
   }
   @keyframes modalPop { from { transform: scale(.92); opacity: 0; } to { transform: scale(1); opacity: 1; } }
   .modal-icon { font-size: 42px; margin-bottom: 14px; }
