@@ -33,6 +33,23 @@ router.post('/', async (req, res) => {
   }
 });
 
+// جلب حالة مجموعة طلبات معينة (للمريض، عشان يشوف إذا الصيدلية استجابت)
+// GET /api/orders/status?ids=1,2,3
+router.get('/status', async (req, res) => {
+  try {
+    const ids = String(req.query.ids || '')
+      .split(',')
+      .map(s => Number(s.trim()))
+      .filter(n => Number.isInteger(n) && n > 0);
+    if (ids.length === 0) return res.json([]);
+    const rows = await db.getOrdersStatus(ids);
+    res.json(rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'حدث خطأ أثناء جلب حالة الطلبات' });
+  }
+});
+
 // جلب طلبات صيدلية معينة (للوحة الصيدلي)
 // GET /api/orders/:pharmacyId
 router.get('/:pharmacyId', async (req, res) => {
@@ -54,6 +71,18 @@ router.put('/:id/seen', async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'حدث خطأ أثناء تحديث الطلب' });
+  }
+});
+
+// تأكيد إنه الصيدلية استجابت للطلب وحجزت الدواء
+// PUT /api/orders/:id/confirm
+router.put('/:id/confirm', async (req, res) => {
+  try {
+    await db.confirmOrder(req.params.id);
+    res.json({ success: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'حدث خطأ أثناء تأكيد الطلب' });
   }
 });
 
