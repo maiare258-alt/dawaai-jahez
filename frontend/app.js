@@ -2,6 +2,8 @@ const API = '/api';
 let currentPharmacy = null;
 let adminPassword = null;
 let cart = JSON.parse(localStorage.getItem('cart') || '[]');
+// طلبات المريض المرسلة من هذا المتصفح (لتتبع رد الصيدلية عليها)
+let myOrders = JSON.parse(localStorage.getItem('myOrders') || '[]');
 
 // ---------- نافذة تنبيه مخصصة (بديل alert وconfirm الافتراضيين) ----------
 
@@ -178,10 +180,35 @@ function toggleCart() {
   }
 }
 
+function renderMyOrdersBanners() {
+  if (!myOrders || myOrders.length === 0) return '';
+  return myOrders.map(o => {
+    if (o.status === 'confirmed') {
+      return `
+        <div class="order-status-banner confirmed">
+          <div class="order-status-banner-text">
+            <span class="order-status-icon">✅</span>
+            <span>تم الاستجابة لطلبك من قبل الصيدلية (${o.pharmacyName})</span>
+          </div>
+          <button class="order-status-dismiss" onclick="dismissMyOrder(${o.id})" aria-label="إخفاء">✕</button>
+        </div>`;
+    }
+    return `
+      <div class="order-status-banner pending">
+        <div class="order-status-banner-text">
+          <span class="order-status-icon">⏳</span>
+          <span>طلبك عند صيدلية (${o.pharmacyName}) قيد المراجعة...</span>
+        </div>
+      </div>`;
+  }).join('');
+}
+
 function renderCart() {
   const container = document.getElementById('cart-section');
+  const bannersHtml = renderMyOrdersBanners();
   if (cart.length === 0) {
     container.innerHTML = `
+      ${bannersHtml}
       <div class="box cart-empty">
         <div class="cart-empty-icon">🛒</div>
         <p class="cart-empty-title">عربة المشتريات فارغة</p>
@@ -191,6 +218,7 @@ function renderCart() {
     return;
   }
   container.innerHTML = `
+    ${bannersHtml}
     <div class="cart-header">
       <h3 class="cart-title">عربة المشتريات</h3>
       <p class="cart-subtitle">راجع الأدوية قبل إتمام الطلب.</p>
@@ -247,6 +275,15 @@ async function submitOrder() {
     });
     const data = await res.json();
     if (!res.ok) { customAlert(data.error, 'error'); return; }
+
+    // نربط كل طلب باسم صيدليته (من العربة) ونحفظه محلياً لمتابعة رد الصيدلية عليه
+    data.orders.forEach(o => {
+      const item = cart.find(it => it.pharmacyId === o.pharmacy_id);
+      myOrders.push({ id: o.id, pharmacyName: item ? item.pharmacyName : '', status: 'pending' });
+    });
+    saveMyOrders();
+    startMyOrdersPolling();
+
     await customAlert('تم إرسال طلبك بنجاح! الصيدلية رح تتواصل معك قريباً على الرقم يلي أدخلته.', 'success');
     cart = [];
     saveCart();
@@ -254,6 +291,58 @@ async function submitOrder() {
   } catch (err) {
     customAlert('تعذر الاتصال بالخادم', 'error');
   }
+}
+
+// ---------- تتبع حالة طلبات المريض (هل استجابت الصيدلية؟) ----------
+
+function saveMyOrders() {
+  localStorage.setItem('myOrders', JSON.stringify(myOrders));
+}
+
+function dismissMyOrder(id) {
+  myOrders = myOrders.filter(o => o.id !== id);
+  saveMyOrders();
+  renderCart();
+}
+
+let myOrdersPollInterval = null;
+
+function startMyOrdersPolling() {
+  if (myOrdersPollInterval) return;
+  checkMyOrdersStatus();
+  myOrdersPollInterval = setInterval(checkMyOrdersStatus, 15000);
+}
+
+function stopMyOrdersPolling() {
+  if (myOrdersPollInterval) {
+    clearInterval(myOrdersPollInterval);
+    myOrdersPollInterval = null;
+  }
+}
+
+async function checkMyOrdersStatus() {
+  if (!myOrders || myOrders.length === 0) { stopMyOrdersPolling(); return; }
+  try {
+    const ids = myOrders.map(o => o.id).join(',');
+    const res = await fetch(`${API}/orders/status?ids=${ids}`);
+    const rows = await res.json();
+    let changed = false;
+    myOrders = myOrders.filter(local => {
+      const found = rows.find(r => r.id === local.id);
+      if (!found) return false; // الصيدلية حذفت الطلب من عندها
+      if (found.status === 'confirmed' && local.status !== 'confirmed') {
+        local.status = 'confirmed';
+        changed = true;
+        customAlert(`تم الاستجابة لطلبك من قبل الصيدلية (${local.pharmacyName})`, 'success');
+      }
+      return true;
+    });
+    if (changed || rows.length !== myOrders.length) {
+      saveMyOrders();
+      renderCart();
+    }
+    if (myOrders.every(o => o.status === 'confirmed')) stopMyOrdersPolling();
+  } catch (err) { /* تجاهل بصمت، رح يعيد المحاولة بالجولة الجاية */ }
 }
 
 function whatsappComingSoon() {
@@ -672,6 +761,7 @@ async function loadOrders() {
         <div class="order-card-top">
           <span class="order-patient-name">👤 ${o.patient_name}</span>
           ${!o.seen ? '<span class="order-new-badge">🆕 جديد</span>' : ''}
+          ${o.status === 'confirmed' ? '<span class="order-confirmed-badge">✅ تم الحجز</span>' : ''}
         </div>
         <div class="order-row"><span>📞</span> ${o.patient_phone}</div>
         <div class="order-row"><span>🕐</span> ${new Date(o.created_at).toLocaleString('ar-SY')}</div>
@@ -680,6 +770,7 @@ async function loadOrders() {
         </div>
         <div class="order-actions-row">
           ${!o.seen ? `<button class="btn-outline blue small" onclick="dismissOrder(${o.id})">تم الاطلاع</button>` : ''}
+          ${o.status !== 'confirmed' ? `<button class="btn-outline green small" onclick="confirmOrderAction(${o.id})">✅ تأكيد الحجز</button>` : ''}
           <button class="btn-outline red small" onclick="removeOrder(${o.id})">🗑️ حذف الطلب</button>
         </div>
       </div>
@@ -689,6 +780,11 @@ async function loadOrders() {
 
 async function dismissOrder(id) {
   await fetch(`${API}/orders/${id}/seen`, { method: 'PUT' });
+  loadOrders();
+}
+
+async function confirmOrderAction(id) {
+  await fetch(`${API}/orders/${id}/confirm`, { method: 'PUT' });
   loadOrders();
 }
 
@@ -909,3 +1005,4 @@ runSearch();
 loadOnDuty();
 updateCartCount();
 setInterval(loadOnDuty, 5000);
+if (myOrders.length > 0) startMyOrdersPolling();
