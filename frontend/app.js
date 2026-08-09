@@ -19,9 +19,11 @@ function showModal({ message, type = 'info', showCancel = false, okText = 'حس�
     cancelBtn.style.display = showCancel ? 'inline-block' : 'none';
     const overlay = document.getElementById('custom-modal-overlay');
     overlay.style.display = 'flex';
+    document.body.classList.add('modal-open');
 
     const cleanup = (result) => {
       overlay.style.display = 'none';
+      document.body.classList.remove('modal-open');
       okBtn.onclick = null;
       cancelBtn.onclick = null;
       resolve(result);
