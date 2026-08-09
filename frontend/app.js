@@ -281,7 +281,15 @@ async function loadOnDuty() {
     const res = await fetch(`${API}/pharmacies/on-duty`);
     const data = await res.json();
     if (data.length === 0) {
-      container.innerHTML = '';
+      container.innerHTML = `
+        <div class="duty-wrap">
+          <div class="empty-state">
+            <div class="empty-icon">🏥</div>
+            <p class="empty-title">لا توجد صيدليات مناوبة حالياً</p>
+            <p class="empty-subtitle">تحقق لاحقاً، أو تواصل مع صيدليتك المفضلة مباشرة.</p>
+          </div>
+        </div>
+      `;
       return;
     }
     container.innerHTML = `
