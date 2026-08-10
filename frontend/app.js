@@ -688,7 +688,7 @@ function renderPharmacyAuthForm() {
       <input id="login-username" type="text" placeholder="اسم المستخدم">
       <div class="password-field">
         <input id="login-password" type="password" placeholder="كلمة المرور">
-        <button type="button" class="toggle-password" onclick="togglePassword('login-password', this)">👁</button>
+        <button type="button" class="toggle-password" onclick="togglePassword('login-password', this)" aria-label="إظهار كلمة المرور">👁</button>
       </div>
       <button class="primary" onclick="login()">دخول</button>
     </div>
@@ -948,7 +948,7 @@ function renderAdminAuthForm() {
     <div class="auth-box">
       <div class="password-field">
         <input id="admin-password-input" type="password" placeholder="كلمة مرور الإدارة">
-        <button type="button" class="toggle-password" onclick="togglePassword('admin-password-input', this)">👁</button>
+        <button type="button" class="toggle-password" onclick="togglePassword('admin-password-input', this)" aria-label="إظهار كلمة المرور">👁</button>
       </div>
       <button class="primary" onclick="checkAdminPassword()">دخول</button>
     </div>
@@ -1012,7 +1012,7 @@ async function renderAdminPanel() {
       <input id="ph-username" placeholder="اسم مستخدم">
       <div class="password-field">
         <input id="ph-password" type="password" placeholder="كلمة مرور">
-        <button type="button" class="toggle-password" onclick="togglePassword('ph-password', this)">👁</button>
+        <button type="button" class="toggle-password" onclick="togglePassword('ph-password', this)" aria-label="إظهار كلمة المرور">👁</button>
       </div>
       <button class="primary" onclick="addPharmacy()">إضافة الصيدلية</button>
     </div>
@@ -1108,9 +1108,11 @@ function togglePassword(inputId, btn) {
   if (input.type === 'password') {
     input.type = 'text';
     btn.textContent = '🙈';
+    btn.setAttribute('aria-label', 'إخفاء كلمة المرور');
   } else {
     input.type = 'password';
     btn.textContent = '👁';
+    btn.setAttribute('aria-label', 'إظهار كلمة المرور');
   }
 }
 
