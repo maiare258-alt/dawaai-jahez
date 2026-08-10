@@ -62,6 +62,7 @@ function updateCartVisibility() {
     cartBtn.style.display = 'none';
     cartSection.style.display = 'none';
   }
+  updateBellVisibility();
 }
 
 // ---------- روابط الهيدر (المتحكم الوحيد بالتنقل بالموقع) ----------
