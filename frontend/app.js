@@ -180,6 +180,7 @@ function toggleCart() {
   } else {
     section.style.display = 'none';
   }
+  updateBellVisibility();
 }
 
 function renderCart() {
@@ -280,18 +281,27 @@ function updateBellVisibility() {
   const btn = document.getElementById('bell-btn');
   if (!btn) return;
   const wrap = document.querySelector('.cart-section-wrap');
+  const cartSection = document.getElementById('cart-section');
+  const cartOpen = cartSection && cartSection.style.display !== 'none';
   const hasOrders = myOrders.length > 0;
-  btn.style.display = hasOrders ? 'inline-flex' : 'none';
-  if (wrap) wrap.classList.toggle('has-bell', hasOrders);
-  if (!hasOrders) document.getElementById('bell-panel').style.display = 'none';
+  const showBell = hasOrders && cartOpen;
+  btn.style.display = showBell ? 'inline-flex' : 'none';
+  if (wrap) wrap.classList.toggle('has-bell', showBell);
+  if (!showBell) document.getElementById('bell-panel').style.display = 'none';
 }
 
 function updateBellBadge() {
   const badge = document.getElementById('bell-badge');
-  if (!badge) return;
+  const cartBadge = document.getElementById('cart-notify-badge');
   const confirmedCount = myOrders.filter(o => o.status === 'confirmed').length;
-  badge.textContent = confirmedCount;
-  badge.style.display = confirmedCount > 0 ? 'flex' : 'none';
+  if (badge) {
+    badge.textContent = confirmedCount;
+    badge.style.display = confirmedCount > 0 ? 'flex' : 'none';
+  }
+  if (cartBadge) {
+    cartBadge.textContent = confirmedCount;
+    cartBadge.style.display = confirmedCount > 0 ? 'flex' : 'none';
+  }
 }
 
 function pulseBell() {
