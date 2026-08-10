@@ -7,6 +7,15 @@
 <style>
   * { box-sizing: border-box; }
   html { scroll-behavior: smooth; }
+
+  /* حل مركزي موحّد: إزالة مربع اللمس الأزرق الافتراضي (Mobile Tap Highlight) من
+     كل عنصر تفاعلي فعلي بالموقع. كل عنصر قابل للنقر بالمشروع مبني بـ onclick=
+     (تحققنا: صفر عنصر يستخدم addEventListener أو href عادي)، فهاد الـselector
+     الوحيد بيغطي كل الأزرار والروابط والعناصر التفاعلية الحالية والمستقبلية
+     تلقائياً، ويستثني تلقائياً كل حقول الإدخال النصية وخانات الاختيار
+     (ولا واحدة فيهم عندها onclick) — فتركيز لوحة المفاتيح وoutline الحالي
+     عليهم يضلوا تماماً متل ما هم، بدون أي تغيير. */
+  [onclick] { -webkit-tap-highlight-color: transparent; }
   @keyframes fadeSlideUp {
     from { opacity: 0; transform: translateY(12px); }
     to { opacity: 1; transform: translateY(0); }
@@ -60,7 +69,6 @@
   .site-nav a.active { color: #185fa5; font-weight: 700; background: rgba(24,95,165,0.1); }
   .nav-toggle {
     display: none; background: none; border: none; font-size: 22px; cursor: pointer; color: #185fa5; padding: 4px 8px;
-    -webkit-tap-highlight-color: transparent;
   }
   .cart-section-wrap { position: relative; }
   .cart-section-wrap.has-bell { min-height: 72px; }
@@ -168,7 +176,6 @@
   .hero-search-hint { font-size: 13px; color: #6b7a87; margin: 10px 4px 0; }
   .hero-cart-btn {
     position: relative;
-    -webkit-tap-highlight-color: transparent;
     display: inline-flex; align-items: center; gap: 10px;
     background: linear-gradient(135deg, #ffffff 0%, #eef6fd 100%);
     border: 1px solid rgba(255,255,255,0.85);
@@ -187,7 +194,6 @@
   .hero-cart-btn:hover { transform: translateY(-2px); box-shadow: 0 12px 26px rgba(24,95,165,0.25); }
   .hero-cart-icon { font-size: 17px; }
   .whatsapp-btn {
-    -webkit-tap-highlight-color: transparent;
     display: inline-flex; align-items: center; gap: 8px;
     background: linear-gradient(135deg, #ffffff 0%, #eafaf0 100%);
     border: 1px solid rgba(255,255,255,0.85);
@@ -253,7 +259,6 @@
     justify-self: end;
   }
   .footer-links a {
-    -webkit-tap-highlight-color: transparent;
     font-size: 14px; font-weight: 500; color: #5f6f7d; text-decoration: none; cursor: pointer;
     transition: color .2s ease;
   }
@@ -287,7 +292,6 @@
     font-size: 20px; color: #5c9bd8; pointer-events: none;
   }
   .search-btn {
-    -webkit-tap-highlight-color: transparent;
     position: absolute; left: 6px; top: 50%; transform: translateY(-50%);
     height: 52px; padding: 0 28px; border-radius: 9999px; border: none;
     background: #185fa5; color: #fff; font-size: 15px; font-weight: 700;
@@ -436,7 +440,6 @@
   }
   .result-icon { font-size: 14px; }
   .result-add-btn-full {
-    -webkit-tap-highlight-color: transparent;
     display: block; width: 100%; text-align: center; margin-top: 14px;
     padding: 12px 0; border-radius: 999px; border: none;
     background: linear-gradient(135deg, #5c9bd8, #185fa5);
