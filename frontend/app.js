@@ -129,7 +129,7 @@ function updateCartCount() {
   if (el) el.textContent = cart.reduce((sum, item) => sum + item.quantity, 0);
 }
 
-async function addToCart(medicineName, genericName, pharmacyName, pharmacyId) {
+async function addToCart(medicineName, genericName, pharmacyName, pharmacyId, btn) {
   const existing = cart.find(item => item.medicineName === medicineName && item.pharmacyId === pharmacyId);
   if (existing) {
     if (existing.quantity >= 3 && !existing.confirmedExcess) {
@@ -143,6 +143,23 @@ async function addToCart(medicineName, genericName, pharmacyName, pharmacyId) {
   }
   saveCart();
   renderCart();
+  showAddedFeedback(btn);
+}
+
+// تغيير مؤقت لشكل زر الإضافة نفسه كتأكيد فوري، بدون أي نافذة أو تنبيه منفصل
+function showAddedFeedback(btn) {
+  if (!btn || btn.dataset.feedbackActive === '1') return;
+  const originalText = btn.textContent;
+  btn.dataset.feedbackActive = '1';
+  btn.disabled = true;
+  btn.classList.add('added-success');
+  btn.textContent = '✓ تمت الإضافة';
+  setTimeout(() => {
+    btn.textContent = originalText;
+    btn.classList.remove('added-success');
+    btn.disabled = false;
+    btn.dataset.feedbackActive = '0';
+  }, 1100);
 }
 
 async function increaseQuantity(index) {
@@ -475,10 +492,17 @@ async function loadOnDuty() {
 }
 
 let searchTimeout;
+let suggestionIndex = -1;
 function onSearch() {
   clearTimeout(searchTimeout);
   searchTimeout = setTimeout(() => {
-    runSearch();
+    const q = document.getElementById('search').value.trim();
+    // حد أدنى حرفين للبحث الحي بس (البحث الصريح بزر "بحث" أو الاقتراحات غير متأثر إطلاقاً)
+    if (q.length < 2) {
+      document.getElementById('results').innerHTML = '';
+    } else {
+      runSearch();
+    }
     loadSuggestions();
   }, 300);
 }
@@ -486,6 +510,7 @@ function onSearch() {
 async function loadSuggestions() {
   const q = document.getElementById('search').value.trim();
   const box = document.getElementById('suggestions');
+  suggestionIndex = -1;
   if (!q) {
     box.classList.remove('show');
     box.innerHTML = '';
@@ -499,8 +524,8 @@ async function loadSuggestions() {
       box.innerHTML = '';
       return;
     }
-    box.innerHTML = data.map(m => `
-      <div class="suggestion-item" onclick="pickSuggestion('${m.name}')">
+    box.innerHTML = data.map((m, i) => `
+      <div class="suggestion-item" role="option" id="suggestion-${i}" aria-selected="false" onclick="pickSuggestion('${m.name}')">
         هل تقصد <strong>${m.name}</strong>؟
         ${m.generic_name ? `<span class="generic-hint"> (${m.generic_name})</span>` : ''}
       </div>
@@ -511,15 +536,55 @@ async function loadSuggestions() {
   }
 }
 
+function onSearchKeydown(e) {
+  const box = document.getElementById('suggestions');
+  const isOpen = box.classList.contains('show');
+  const items = box.querySelectorAll('.suggestion-item');
+
+  if (e.key === 'ArrowDown') {
+    if (!isOpen || items.length === 0) return;
+    e.preventDefault();
+    suggestionIndex = (suggestionIndex + 1) % items.length;
+    highlightSuggestion(items);
+  } else if (e.key === 'ArrowUp') {
+    if (!isOpen || items.length === 0) return;
+    e.preventDefault();
+    suggestionIndex = (suggestionIndex - 1 + items.length) % items.length;
+    highlightSuggestion(items);
+  } else if (e.key === 'Enter') {
+    if (isOpen && items.length > 0 && suggestionIndex >= 0) {
+      e.preventDefault();
+      items[suggestionIndex].click();
+    }
+    // ما في اقتراح محدد: نحافظ على السلوك الحالي (ما في شي يصير تلقائياً)
+  } else if (e.key === 'Escape') {
+    if (isOpen) {
+      box.classList.remove('show');
+      suggestionIndex = -1;
+    }
+  }
+}
+
+function highlightSuggestion(items) {
+  items.forEach((el, i) => {
+    const active = i === suggestionIndex;
+    el.classList.toggle('active', active);
+    el.setAttribute('aria-selected', active ? 'true' : 'false');
+    if (active) el.scrollIntoView({ block: 'nearest' });
+  });
+}
+
 async function pickSuggestion(name) {
   document.getElementById('search').value = name;
   document.getElementById('suggestions').classList.remove('show');
+  suggestionIndex = -1;
   await runSearch();
   document.getElementById('results').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 async function submitSearch() {
   document.getElementById('suggestions').classList.remove('show');
+  suggestionIndex = -1;
   await runSearch();
   document.getElementById('results').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
@@ -575,7 +640,7 @@ async function runSearch() {
             <div class="result-row">المادة الفعالة: ${item.medicine.generic_name || '-'}</div>
             <div class="result-pharmacy"><span class="result-icon">📍</span> ${a.pharmacy_name}${a.address ? ' - ' + a.address : ''}</div>
             ${a.phone ? `<div class="result-row"><span class="result-icon">📞</span> ${a.phone}</div>` : ''}
-            ${a.available ? `<button class="result-add-btn-full" onclick="addToCart('${item.medicine.name}', '${item.medicine.generic_name || ''}', '${a.pharmacy_name}', ${a.pharmacy_id})">إضافة إلى السلة</button>` : ''}
+            ${a.available ? `<button class="result-add-btn-full" onclick="addToCart('${item.medicine.name}', '${item.medicine.generic_name || ''}', '${a.pharmacy_name}', ${a.pharmacy_id}, this)">إضافة إلى السلة</button>` : ''}
           </div>
         `;
       });
@@ -1053,6 +1118,7 @@ document.addEventListener('click', (e) => {
   const input = document.getElementById('search');
   if (box && !box.contains(e.target) && e.target !== input) {
     box.classList.remove('show');
+    suggestionIndex = -1;
   }
   const bellPanel = document.getElementById('bell-panel');
   const bellBtn = document.getElementById('bell-btn');
