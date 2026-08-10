@@ -359,7 +359,7 @@ let myOrdersPollInterval = null;
 function startMyOrdersPolling() {
   if (myOrdersPollInterval) return;
   checkMyOrdersStatus();
-  myOrdersPollInterval = setInterval(checkMyOrdersStatus, 4000);
+  myOrdersPollInterval = setInterval(checkMyOrdersStatus, 2000);
 }
 
 function stopMyOrdersPolling() {
@@ -375,6 +375,7 @@ async function checkMyOrdersStatus() {
     const ids = myOrders.map(o => o.id).join(',');
     const res = await fetch(`${API}/orders/status?ids=${ids}`);
     const rows = await res.json();
+    const lengthBefore = myOrders.length;
     let newlyConfirmed = false;
     myOrders = myOrders.filter(local => {
       const found = rows.find(r => r.id === local.id);
@@ -385,12 +386,17 @@ async function checkMyOrdersStatus() {
       }
       return true;
     });
-    saveMyOrders();
-    updateBellBadge();
-    updateBellVisibility();
-    const panel = document.getElementById('bell-panel');
-    if (panel && panel.style.display !== 'none') renderBellPanel();
-    if (newlyConfirmed) pulseBell();
+
+    // ما منلمس أي عنصر بالصفحة إلا إذا صار تغيير فعلي — تجنباً لأي إعادة رسم بلا داعي
+    const changed = newlyConfirmed || myOrders.length !== lengthBefore;
+    if (changed) {
+      saveMyOrders();
+      updateBellBadge();
+      updateBellVisibility();
+      const panel = document.getElementById('bell-panel');
+      if (panel && panel.style.display !== 'none') renderBellPanel();
+      if (newlyConfirmed) pulseBell();
+    }
     if (myOrders.every(o => o.status === 'confirmed')) stopMyOrdersPolling();
   } catch (err) { /* تجاهل بصمت، رح يعيد المحاولة بالجولة الجاية */ }
 }
