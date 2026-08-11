@@ -881,7 +881,8 @@ function renderDashboardStats(data) {
   const total = medicines.length;
   const available = medicines.filter(m => m.available).length;
   const unavailable = total - available;
-  const cosmeticsCount = cosmetics.length;
+  const cosmeticsTotal = cosmetics.length;
+  const cosmeticsAvailable = cosmetics.filter(m => m.available).length;
   const onDutyText = currentPharmacy.on_duty ? 'نعم' : 'لا';
   document.getElementById('stats-grid').innerHTML = `
     <div class="stat-card">
@@ -897,8 +898,8 @@ function renderDashboardStats(data) {
       <div class="stat-label">غير المتوفرة</div>
     </div>
     <div class="stat-card">
-      <div class="stat-value">${cosmeticsCount}</div>
-      <div class="stat-label">عدد المستحضرات</div>
+      <div class="stat-value">${cosmeticsAvailable}/${cosmeticsTotal}</div>
+      <div class="stat-label">مستحضرات</div>
     </div>
     <div class="stat-card">
       <div class="stat-value">${onDutyText}</div>
