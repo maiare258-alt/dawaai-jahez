@@ -826,6 +826,11 @@ function logout() {
   renderPharmacyAuthForm();
 }
 
+function updateMedNamePlaceholder(selectId, inputId) {
+  const category = document.getElementById(selectId).value;
+  document.getElementById(inputId).placeholder = category === 'cosmetic' ? 'اسم المستحضر' : 'اسم الدواء';
+}
+
 async function addMedicineSelf() {
   const name = document.getElementById('pharm-med-name').value.trim();
   const generic_name = document.getElementById('pharm-med-generic').value.trim();
@@ -848,6 +853,7 @@ async function addMedicineSelf() {
     document.getElementById('pharm-med-generic').value = '';
     document.getElementById('pharm-med-alt').value = '';
     document.getElementById('pharm-med-category').value = 'medicine';
+    updateMedNamePlaceholder('pharm-med-category', 'pharm-med-name');
     customAlert('تمت الإضافة بنجاح. فعّل حالة توفره من القائمة تحت.', 'success');
     refreshStock();
   } catch (err) {
@@ -1079,7 +1085,7 @@ async function renderAdminPanel() {
       <input id="med-name" placeholder="اسم الدواء">
       <input id="med-generic" placeholder="المادة الفعالة">
       <input id="med-alt" placeholder="أسماء بديلة (افصل بفاصلة)">
-      <select id="med-category">
+      <select id="med-category" onchange="updateMedNamePlaceholder('med-category', 'med-name')">
         <option value="medicine">دواء</option>
         <option value="cosmetic">مستحضر تجميل</option>
       </select>
