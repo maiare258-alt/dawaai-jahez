@@ -423,6 +423,14 @@ function whatsappComingSoon() {
   customAlert('البحث عبر واتساب قريباً 💬 لسا عم نجهز رقم رسمي للمشروع.', 'info');
 }
 
+function cosmeticsComingSoon() {
+  customAlert('قسم مستحضرات التجميل قريباً 💄', 'info');
+}
+
+function nursingComingSoon() {
+  customAlert('قسم خدمات التمريض قريباً 🩺', 'info');
+}
+
 function footerContactComingSoon() {
   customAlert('سيتم إضافة معلومات التواصل قريباً.', 'info');
 }
