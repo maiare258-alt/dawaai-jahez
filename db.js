@@ -17,9 +17,11 @@ async function initDb() {
       id SERIAL PRIMARY KEY,
       name TEXT NOT NULL,
       generic_name TEXT,
-      alt_names TEXT[] DEFAULT '{}'
+      alt_names TEXT[] DEFAULT '{}',
+      category TEXT DEFAULT 'medicine'
     );
   `);
+  await pool.query(`ALTER TABLE medicines ADD COLUMN IF NOT EXISTS category TEXT DEFAULT 'medicine';`);
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS pharmacies (
@@ -107,23 +109,24 @@ function levenshtein(a, b) {
 
 // ---------- الأدوية ----------
 
-async function searchMedicines(query) {
+async function searchMedicines(query, category = 'medicine') {
   const q = query.trim().toLowerCase();
   if (!q) return [];
   const { rows } = await pool.query(
     `SELECT * FROM medicines
-     WHERE LOWER(name) LIKE $1
+     WHERE category = $2
+       AND (LOWER(name) LIKE $1
         OR LOWER(COALESCE(generic_name, '')) LIKE $1
-        OR EXISTS (SELECT 1 FROM unnest(alt_names) a WHERE LOWER(a) LIKE $1)`,
-    [`%${q}%`]
+        OR EXISTS (SELECT 1 FROM unnest(alt_names) a WHERE LOWER(a) LIKE $1))`,
+    [`%${q}%`, category]
   );
   return rows;
 }
 
-async function addMedicine({ name, generic_name, alt_names }) {
+async function addMedicine({ name, generic_name, alt_names, category }) {
   const { rows } = await pool.query(
-    'INSERT INTO medicines (name, generic_name, alt_names) VALUES ($1, $2, $3) RETURNING *',
-    [name, generic_name || null, alt_names || []]
+    'INSERT INTO medicines (name, generic_name, alt_names, category) VALUES ($1, $2, $3, $4) RETURNING *',
+    [name, generic_name || null, alt_names || [], category || 'medicine']
   );
   return rows[0];
 }
@@ -133,12 +136,13 @@ async function getAllMedicines() {
   return rows;
 }
 
-// تقترح أدوية قريبة إملائياً من كلمة البحث (تتحمل خطأ حرف أو حرفين)
-async function suggestMedicines(query) {
+// تقترح أدوية/مستحضرات قريبة إملائياً من كلمة البحث (تتحمل خطأ حرف أو حرفين)، بنفس التصنيف
+async function suggestMedicines(query, category = 'medicine') {
   const q = query.trim().toLowerCase();
   if (q.length < 2) return [];
 
-  const medicines = await getAllMedicines();
+  const allMedicines = await getAllMedicines();
+  const medicines = allMedicines.filter(m => m.category === category);
   const maxDistance = q.length <= 3 ? 1 : (q.length <= 6 ? 2 : 3);
 
   const scored = [];
@@ -237,7 +241,7 @@ async function getAvailability(medicineId) {
 
 async function getStockForPharmacy(pharmacyId) {
   const { rows } = await pool.query(
-    `SELECT m.id AS medicine_id, m.name, m.generic_name,
+    `SELECT m.id AS medicine_id, m.name, m.generic_name, m.category,
             COALESCE(s.available, false) AS available
      FROM medicines m
      LEFT JOIN stock s ON s.medicine_id = m.id AND s.pharmacy_id = $1
