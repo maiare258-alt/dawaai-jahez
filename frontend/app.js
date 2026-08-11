@@ -673,7 +673,12 @@ async function runSearch() {
     }
     container.innerHTML = cardsHtml;
   } catch (err) {
-    container.innerHTML = '<p class="muted">تعذر الاتصال بالخادم.</p>';
+    container.innerHTML = `
+      <div class="empty-state">
+        <div class="empty-icon">⚠️</div>
+        <p class="empty-title">تعذر الاتصال بالخادم</p>
+        <p class="empty-subtitle">تحقق من اتصالك بالإنترنت وحاول مرة أخرى.</p>
+      </div>`;
   }
 }
 
