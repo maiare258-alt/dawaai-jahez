@@ -2,6 +2,8 @@ const API = '/api';
 let currentPharmacy = null;
 let adminPassword = null;
 let cart = JSON.parse(localStorage.getItem('cart') || '[]');
+// التصنيف الحالي لصفحة البحث: 'medicine' (الرئيسية) أو 'cosmetic' (مستحضرات تجميل)
+let currentCategory = 'medicine';
 // طلبات المريض المرسلة من هذا المتصفح (لتتبع رد الصيدلية عليها)
 let myOrders = JSON.parse(localStorage.getItem('myOrders') || '[]');
 
@@ -82,6 +84,30 @@ function closeNav() {
 }
 
 function headerGoHome(link) {
+  if (currentCategory !== 'medicine') {
+    currentCategory = 'medicine';
+    document.getElementById('hero-title').innerHTML = 'دوائي جاهز<br>في <span class="hero-highlight">أي وقت</span>، من أي مكان';
+    document.getElementById('hero-description').textContent = 'منصة سورية تساعدك على معرفة توفر الدواء في الصيدليات القريبة وطلبه بسهولة.';
+    document.getElementById('search').placeholder = 'ابحث عن دواء أو مادة فعالة...';
+    document.getElementById('hero-search-hint').textContent = 'اكتب اسم الدواء للبحث عن توفره في صيدليات سلمية.';
+    document.getElementById('search').value = '';
+    document.getElementById('results').innerHTML = '';
+  }
+  showView('patient');
+  document.getElementById('on-duty-section').style.display = 'none';
+  updateCartVisibility();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+  setActiveNav(link);
+}
+
+function headerGoCosmetics(link) {
+  currentCategory = 'cosmetic';
+  document.getElementById('hero-title').innerHTML = 'دوائي جاهز<br>مستحضرات <span class="hero-highlight">تجميلك</span>، بأي وقت';
+  document.getElementById('hero-description').textContent = 'منصة سورية تساعدك على معرفة توفر مستحضرات التجميل في الصيدليات القريبة.';
+  document.getElementById('search').placeholder = 'ابحث عن مستحضر تجميل...';
+  document.getElementById('hero-search-hint').textContent = 'اكتب اسم المستحضر للبحث عن توفره في صيدليات سلمية.';
+  document.getElementById('search').value = '';
+  document.getElementById('results').innerHTML = '';
   showView('patient');
   document.getElementById('on-duty-section').style.display = 'none';
   updateCartVisibility();
@@ -423,10 +449,6 @@ function whatsappComingSoon() {
   customAlert('البحث عبر واتساب قريباً 💬 لسا عم نجهز رقم رسمي للمشروع.', 'info');
 }
 
-function cosmeticsComingSoon() {
-  customAlert('قسم مستحضرات التجميل قريباً 💄', 'info');
-}
-
 function nursingComingSoon() {
   customAlert('قسم خدمات التمريض قريباً 🩺', 'info');
 }
@@ -526,7 +548,7 @@ async function loadSuggestions() {
     return;
   }
   try {
-    const res = await fetch(`${API}/medicines/suggest?q=${encodeURIComponent(q)}`);
+    const res = await fetch(`${API}/medicines/suggest?q=${encodeURIComponent(q)}&category=${currentCategory}`);
     const data = await res.json();
     if (data.length === 0) {
       box.classList.remove('show');
@@ -609,23 +631,24 @@ async function runSearch() {
     return;
   }
   try {
-    const res = await fetch(`${API}/medicines/search?q=${encodeURIComponent(q)}`);
+    const res = await fetch(`${API}/medicines/search?q=${encodeURIComponent(q)}&category=${currentCategory}`);
     const data = await res.json();
 
     if (data.length === 0) {
+      const itemLabel = currentCategory === 'cosmetic' ? 'المستحضر' : 'الدواء';
       let html = `
         <div class="empty-state">
           <div class="empty-icon">🔍</div>
-          <p class="empty-title">لم يتم العثور على الدواء</p>
+          <p class="empty-title">لم يتم العثور على ${itemLabel}</p>
           <p class="empty-subtitle">يمكنك تجربة اسم آخر أو البحث بالمادة الفعالة.</p>
         </div>`;
       try {
-        const sugRes = await fetch(`${API}/medicines/suggest?q=${encodeURIComponent(q)}`);
+        const sugRes = await fetch(`${API}/medicines/suggest?q=${encodeURIComponent(q)}&category=${currentCategory}`);
         const suggestions = await sugRes.json();
         if (suggestions.length > 0) {
           html += `
             <div class="box">
-              <p class="muted" style="margin-top:0;">هل تقصد أحد هذه الأدوية؟</p>
+              <p class="muted" style="margin-top:0;">هل تقصد أحد هذه النتائج؟</p>
               ${suggestions.map(m => `
                 <div style="cursor:pointer; color:#185fa5; padding:6px 0;" onclick="pickSuggestion('${m.name}')">
                   ${m.name}${m.generic_name ? ' - ' + m.generic_name : ''}
@@ -646,7 +669,7 @@ async function runSearch() {
         cardsHtml += `
           <div class="result-card">
             <div class="result-card-top">
-              <span class="result-med-name"><span class="result-icon">💊</span> ${item.medicine.name}</span>
+              <span class="result-med-name"><span class="result-icon">${currentCategory === 'cosmetic' ? '💄' : '💊'}</span> ${item.medicine.name}</span>
               <span class="badge ${a.available ? 'yes' : 'no'}">${a.available ? '🟢 متوفر' : '🔴 غير متوفر'}</span>
             </div>
             <div class="result-row">المادة الفعالة: ${item.medicine.generic_name || '-'}</div>
@@ -659,7 +682,7 @@ async function runSearch() {
 
       if (!anyAvailable && item.medicine.generic_name) {
         try {
-          const altRes = await fetch(`${API}/medicines/search?q=${encodeURIComponent(item.medicine.generic_name)}`);
+          const altRes = await fetch(`${API}/medicines/search?q=${encodeURIComponent(item.medicine.generic_name)}&category=${currentCategory}`);
           const altData = await altRes.json();
           const alternatives = altData
             .filter(alt => alt.medicine.id !== item.medicine.id)
@@ -669,7 +692,7 @@ async function runSearch() {
           if (alternatives.length > 0) {
             cardsHtml += `
               <div class="alt-suggestion-box">
-                <p class="alt-suggestion-title">💊 "${item.medicine.name}" غير متوفر حالياً، بس في بديل بنفس المادة الفعالة (${item.medicine.generic_name}):</p>
+                <p class="alt-suggestion-title">${currentCategory === 'cosmetic' ? '💄' : '💊'} "${item.medicine.name}" غير متوفر حالياً، بس في بديل بنفس المادة الفعالة (${item.medicine.generic_name}):</p>
                 ${alternatives.map(alt => alt.availability.map(a => `
                   <div class="alt-suggestion-row">
                     <span>${alt.medicine.name} <span class="muted">- ${a.pharmacy_name}</span></span>
@@ -807,6 +830,7 @@ async function addMedicineSelf() {
   const name = document.getElementById('pharm-med-name').value.trim();
   const generic_name = document.getElementById('pharm-med-generic').value.trim();
   const alt_names = document.getElementById('pharm-med-alt').value.split(',').map(s => s.trim()).filter(Boolean);
+  const category = document.getElementById('pharm-med-category').value;
   if (!name) { customAlert('اسم الدواء مطلوب', 'warning'); return; }
   try {
     const res = await fetch(`${API}/medicines/self`, {
@@ -815,7 +839,7 @@ async function addMedicineSelf() {
       body: JSON.stringify({
         username: currentPharmacy.username,
         password: currentPharmacy.password,
-        name, generic_name, alt_names
+        name, generic_name, alt_names, category
       })
     });
     const data = await res.json();
@@ -823,7 +847,8 @@ async function addMedicineSelf() {
     document.getElementById('pharm-med-name').value = '';
     document.getElementById('pharm-med-generic').value = '';
     document.getElementById('pharm-med-alt').value = '';
-    customAlert('تمت إضافة الدواء بنجاح. فعّل حالة توفره من القائمة تحت.', 'success');
+    document.getElementById('pharm-med-category').value = 'medicine';
+    customAlert('تمت الإضافة بنجاح. فعّل حالة توفره من القائمة تحت.', 'success');
     refreshStock();
   } catch (err) {
     customAlert('تعذر الاتصال بالخادم', 'error');
@@ -835,7 +860,7 @@ async function refreshStock() {
   const data = await res.json();
   document.getElementById('stock-list').innerHTML = data.map(m => `
     <div class="row">
-      <span>${m.name}</span>
+      <span>${m.name} <span class="muted" style="font-size:12px;">${m.category === 'cosmetic' ? '💄' : '💊'}</span></span>
       <button class="toggle-btn ${m.available ? 'yes' : 'no'}" onclick="toggleStock(${m.medicine_id}, ${!m.available})">
         ${m.available ? '🟢 متوفر' : '🔴 غير متوفر'}
       </button>
@@ -1054,6 +1079,10 @@ async function renderAdminPanel() {
       <input id="med-name" placeholder="اسم الدواء">
       <input id="med-generic" placeholder="المادة الفعالة">
       <input id="med-alt" placeholder="أسماء بديلة (افصل بفاصلة)">
+      <select id="med-category">
+        <option value="medicine">دواء</option>
+        <option value="cosmetic">مستحضر تجميل</option>
+      </select>
       <button class="primary" onclick="addMedicineAdmin()">إضافة الدواء</button>
     </div>
 
@@ -1063,7 +1092,7 @@ async function renderAdminPanel() {
         <div class="stock-table-header"><span>الدواء</span><span class="col-action">إجراء</span></div>
         ${medicines.map(m => `
           <div class="row">
-            <span>${m.name}</span>
+            <span>${m.name} <span class="muted" style="font-size:12px;">${m.category === 'cosmetic' ? '💄 مستحضر تجميل' : '💊 دواء'}</span></span>
             <button class="btn-outline red small table-action-btn" onclick="deleteMedicineAdmin(${m.id}, '${m.name}')">حذف</button>
           </div>
         `).join('')}
@@ -1101,14 +1130,15 @@ async function addMedicineAdmin() {
   const body = {
     name: document.getElementById('med-name').value,
     generic_name: document.getElementById('med-generic').value,
-    alt_names
+    alt_names,
+    category: document.getElementById('med-category').value
   };
   const res = await fetch(`${API}/medicines`, {
     method: 'POST', headers: adminHeaders(), body: JSON.stringify(body)
   });
   const data = await res.json();
   if (!res.ok) { customAlert(data.error, 'error'); return; }
-  customAlert(`تمت إضافة دواء "${data.name}" بنجاح`, 'success');
+  customAlert(`تمت إضافة "${data.name}" بنجاح`, 'success');
   renderAdminPanel();
 }
 
