@@ -549,6 +549,7 @@
   .dash-title { font-size: 22px; font-weight: 800; color: #163a5c; margin: 0 0 6px; }
   .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px; }
   .stats-grid.stats-grid-3 { grid-template-columns: repeat(3, 1fr); }
+  .stats-grid.stats-grid-5 { grid-template-columns: repeat(5, 1fr); }
   .stat-card {
     position: relative; overflow: hidden;
     background: #ffffff; border: 1px solid #cfe0ef; border-radius: 16px;
@@ -568,9 +569,11 @@
   @media (max-width: 560px) {
     .stats-grid { grid-template-columns: repeat(2, 1fr); }
     .stats-grid.stats-grid-3 { grid-template-columns: repeat(2, 1fr); }
+    .stats-grid.stats-grid-5 { grid-template-columns: repeat(3, 1fr); }
   }
   @media (max-width: 380px) {
     .stats-grid.stats-grid-3 { grid-template-columns: 1fr; }
+    .stats-grid.stats-grid-5 { grid-template-columns: repeat(2, 1fr); }
   }
   .stock-table-wrap {
     background: #ffffff; border: 1px solid #cfe0ef; border-radius: 20px;
@@ -854,7 +857,7 @@
     <div id="pharmacist-dashboard" style="display:none;">
       <h2 class="dash-title">لوحة الصيدلي</h2>
       <div class="muted" id="pharmacy-label" style="display:flex; align-items:center; justify-content:space-between; margin-bottom:16px;"></div>
-      <div class="stats-grid" id="stats-grid"></div>
+      <div class="stats-grid stats-grid-5" id="stats-grid"></div>
       <div class="orders-wrap" id="orders-wrap" style="display:none;">
         <h3 style="margin-top:0;">🛎️ طلبات جديدة من المرضى</h3>
         <div id="orders-list"></div>
