@@ -556,8 +556,11 @@ function onSearchKeydown(e) {
     if (isOpen && items.length > 0 && suggestionIndex >= 0) {
       e.preventDefault();
       items[suggestionIndex].click();
+    } else {
+      // ما في اقتراح محدد: Enter بيبحث مباشرة، بنفس سلوك زر "بحث" بالظبط
+      e.preventDefault();
+      submitSearch();
     }
-    // ما في اقتراح محدد: نحافظ على السلوك الحالي (ما في شي يصير تلقائياً)
   } else if (e.key === 'Escape') {
     if (isOpen) {
       box.classList.remove('show');
