@@ -890,7 +890,7 @@ function renderDashboardStats(data) {
     </div>
     <div class="stat-card">
       <div class="stat-value stat-green">${available}</div>
-      <div class="stat-label">الأدوية المتوفرة</div>
+      <div class="stat-label">أدوية متوفرة</div>
     </div>
     <div class="stat-card">
       <div class="stat-value stat-red">${unavailable}</div>
@@ -898,7 +898,7 @@ function renderDashboardStats(data) {
     </div>
     <div class="stat-card">
       <div class="stat-value">${cosmeticsCount}</div>
-      <div class="stat-label">مستحضرات التجميل</div>
+      <div class="stat-label">عدد المستحضرات</div>
     </div>
     <div class="stat-card">
       <div class="stat-value">${onDutyText}</div>
