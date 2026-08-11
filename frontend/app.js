@@ -876,9 +876,12 @@ async function refreshStock() {
 }
 
 function renderDashboardStats(data) {
-  const total = data.length;
-  const available = data.filter(m => m.available).length;
+  const medicines = data.filter(m => m.category !== 'cosmetic');
+  const cosmetics = data.filter(m => m.category === 'cosmetic');
+  const total = medicines.length;
+  const available = medicines.filter(m => m.available).length;
   const unavailable = total - available;
+  const cosmeticsCount = cosmetics.length;
   const onDutyText = currentPharmacy.on_duty ? 'نعم' : 'لا';
   document.getElementById('stats-grid').innerHTML = `
     <div class="stat-card">
@@ -892,6 +895,10 @@ function renderDashboardStats(data) {
     <div class="stat-card">
       <div class="stat-value stat-red">${unavailable}</div>
       <div class="stat-label">غير المتوفرة</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value">${cosmeticsCount}</div>
+      <div class="stat-label">مستحضرات التجميل</div>
     </div>
     <div class="stat-card">
       <div class="stat-value">${onDutyText}</div>
