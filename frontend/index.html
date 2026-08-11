@@ -900,7 +900,7 @@
         <input id="pharm-med-name" placeholder="اسم الدواء">
         <input id="pharm-med-generic" placeholder="المادة الفعالة (اختياري)">
         <input id="pharm-med-alt" placeholder="أسماء بديلة، افصل بينها بفاصلة (اختياري)">
-        <select id="pharm-med-category">
+        <select id="pharm-med-category" onchange="updateMedNamePlaceholder('pharm-med-category', 'pharm-med-name')">
           <option value="medicine">دواء</option>
           <option value="cosmetic">مستحضر تجميل</option>
         </select>
