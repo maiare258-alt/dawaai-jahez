@@ -4,12 +4,13 @@ const bcrypt = require('bcryptjs');
 const db = require('../db');
 const adminAuth = require('../middleware/adminAuth');
 
-// البحث عن دواء وعرض توفره في كل الصيدليات (متاح للجميع - واجهة المريض)
-// GET /api/medicines/search?q=بنادول
+// البحث عن دواء/مستحضر وعرض توفره في كل الصيدليات (متاح للجميع - واجهة المريض)
+// GET /api/medicines/search?q=بنادول&category=medicine
 router.get('/search', async (req, res) => {
   const q = req.query.q || '';
+  const category = req.query.category || 'medicine';
   try {
-    const medicines = await db.searchMedicines(q);
+    const medicines = await db.searchMedicines(q, category);
     const results = await Promise.all(medicines.map(async medicine => ({
       medicine,
       availability: await db.getAvailability(medicine.id)
@@ -21,12 +22,13 @@ router.get('/search', async (req, res) => {
   }
 });
 
-// اقتراح أدوية متشابهة إملائياً (متاح للجميع - واجهة المريض)
-// GET /api/medicines/suggest?q=بندول
+// اقتراح نتائج متشابهة إملائياً (متاح للجميع - واجهة المريض)
+// GET /api/medicines/suggest?q=بندول&category=medicine
 router.get('/suggest', async (req, res) => {
   const q = req.query.q || '';
+  const category = req.query.category || 'medicine';
   try {
-    const suggestions = await db.suggestMedicines(q);
+    const suggestions = await db.suggestMedicines(q, category);
     res.json(suggestions);
   } catch (err) {
     console.error(err);
@@ -45,28 +47,28 @@ router.get('/', adminAuth, async (req, res) => {
   }
 });
 
-// إضافة دواء جديد (للإدارة فقط)
-// POST /api/medicines  { name, generic_name, alt_names: [] }
+// إضافة دواء أو مستحضر جديد (للإدارة فقط)
+// POST /api/medicines  { name, generic_name, alt_names: [], category }
 router.post('/', adminAuth, async (req, res) => {
-  const { name, generic_name, alt_names } = req.body;
-  if (!name) return res.status(400).json({ error: 'اسم الدواء مطلوب' });
+  const { name, generic_name, alt_names, category } = req.body;
+  if (!name) return res.status(400).json({ error: 'الاسم مطلوب' });
   try {
-    const medicine = await db.addMedicine({ name, generic_name, alt_names });
+    const medicine = await db.addMedicine({ name, generic_name, alt_names, category });
     res.status(201).json(medicine);
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: 'حدث خطأ أثناء إضافة الدواء' });
+    res.status(500).json({ error: 'حدث خطأ أثناء الإضافة' });
   }
 });
 
-// إضافة دواء جديد من قبل الصيدلي نفسه (يتطلب تأكيد اسم المستخدم وكلمة المرور، بدون كلمة مرور الإدارة)
-// POST /api/medicines/self  { username, password, name, generic_name, alt_names }
+// إضافة دواء أو مستحضر جديد من قبل الصيدلي نفسه (يتطلب تأكيد اسم المستخدم وكلمة المرور، بدون كلمة مرور الإدارة)
+// POST /api/medicines/self  { username, password, name, generic_name, alt_names, category }
 router.post('/self', async (req, res) => {
-  const { username, password, name, generic_name, alt_names } = req.body;
+  const { username, password, name, generic_name, alt_names, category } = req.body;
   if (!username || !password) {
     return res.status(400).json({ error: 'بيانات الدخول مطلوبة' });
   }
-  if (!name) return res.status(400).json({ error: 'اسم الدواء مطلوب' });
+  if (!name) return res.status(400).json({ error: 'الاسم مطلوب' });
   try {
     const pharmacy = await db.findPharmacyByUsername(username);
     if (!pharmacy) return res.status(401).json({ error: 'بيانات الدخول غير صحيحة' });
@@ -74,11 +76,11 @@ router.post('/self', async (req, res) => {
     const valid = await bcrypt.compare(password, pharmacy.owner_password_hash);
     if (!valid) return res.status(401).json({ error: 'بيانات الدخول غير صحيحة' });
 
-    const medicine = await db.addMedicine({ name, generic_name, alt_names });
+    const medicine = await db.addMedicine({ name, generic_name, alt_names, category });
     res.status(201).json(medicine);
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: 'حدث خطأ أثناء إضافة الدواء' });
+    res.status(500).json({ error: 'حدث خطأ أثناء الإضافة' });
   }
 });
 
