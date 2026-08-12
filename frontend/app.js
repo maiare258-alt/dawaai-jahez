@@ -50,6 +50,7 @@ function showView(view) {
   document.getElementById('view-nursing').style.display = view === 'nursing' ? 'block' : 'none';
   if (view === 'pharmacist' && !currentPharmacy) renderPharmacyAuthForm();
   if (view === 'admin' && !adminPassword) renderAdminAuthForm();
+  if (view !== 'nursing') stopNursingPolling();
   updateCartVisibility();
 }
 
@@ -462,7 +463,7 @@ function headerGoNursing(link) {
   updateCartVisibility();
   window.scrollTo({ top: 0, behavior: 'smooth' });
   setActiveNav(link);
-  loadNurses();
+  loadNurses().then(startNursingPolling);
 }
 
 function footerContactComingSoon() {
@@ -567,40 +568,45 @@ function markNurseAsRated(nurseId) {
   }
 }
 
+let openNurseDetailIds = new Set();
+
+function renderNursesList(nurses) {
+  if (nurses.length === 0) {
+    return `
+      <div class="empty-state">
+        <div class="empty-icon">🩺</div>
+        <p class="empty-title">لا يوجد ممرضون مسجّلون حالياً</p>
+        <p class="empty-subtitle">سوف يتم إضافة ممرضين موثوقين قريباً.</p>
+      </div>`;
+  }
+  return nurses.map(n => `
+    <div class="result-card">
+      <div class="result-card-top">
+        <span class="result-med-name">👤 ${escapeHtml(n.name)}</span>
+        <span class="badge ${n.available ? 'yes' : 'no'}">${n.available ? '🟢 متاح للعمل' : '🔴 غير متاح حالياً'}</span>
+      </div>
+      <div class="result-row">🎓 ${escapeHtml(n.specialty || 'ممرض عام')}</div>
+      <div class="result-row">
+        ${n.rating_count > 0
+          ? `${renderStars(n.avg_rating)} ${Number(n.avg_rating).toFixed(1)} من ${n.rating_count} تقييم`
+          : '<span class="muted">لا توجد تقييمات بعد</span>'}
+      </div>
+      <button class="btn-outline blue small" onclick="toggleNurseDetail(${n.id})">لمحة عنه</button>
+      <div id="nurse-detail-${n.id}" style="display:none; margin-top:12px;"></div>
+    </div>
+  `).join('');
+}
+
 async function loadNurses() {
   const container = document.getElementById('nurses-list');
   container.innerHTML = '<p class="muted">جاري التحميل...</p>';
+  openNurseDetailIds.clear();
   try {
     const res = await fetch(`${API}/nurses`);
     const nurses = await res.json();
     nursesCache = nurses;
-
-    if (nurses.length === 0) {
-      container.innerHTML = `
-        <div class="empty-state">
-          <div class="empty-icon">🩺</div>
-          <p class="empty-title">لا يوجد ممرضون مسجّلون حالياً</p>
-          <p class="empty-subtitle">سوف يتم إضافة ممرضين موثوقين قريباً.</p>
-        </div>`;
-      return;
-    }
-
-    container.innerHTML = nurses.map(n => `
-      <div class="result-card">
-        <div class="result-card-top">
-          <span class="result-med-name">👤 ${escapeHtml(n.name)}</span>
-          <span class="badge ${n.available ? 'yes' : 'no'}">${n.available ? '🟢 متاح للعمل' : '🔴 غير متاح حالياً'}</span>
-        </div>
-        <div class="result-row">🎓 ${escapeHtml(n.specialty || 'ممرض عام')}</div>
-        <div class="result-row">
-          ${n.rating_count > 0
-            ? `${renderStars(n.avg_rating)} ${Number(n.avg_rating).toFixed(1)} من ${n.rating_count} تقييم`
-            : '<span class="muted">لا توجد تقييمات بعد</span>'}
-        </div>
-        <button class="btn-outline blue small" onclick="toggleNurseDetail(${n.id})">لمحة عنه</button>
-        <div id="nurse-detail-${n.id}" style="display:none; margin-top:12px;"></div>
-      </div>
-    `).join('');
+    lastNursesSnapshot = JSON.stringify(nurses);
+    container.innerHTML = renderNursesList(nurses);
   } catch (err) {
     container.innerHTML = `
       <div class="empty-state">
@@ -611,13 +617,56 @@ async function loadNurses() {
   }
 }
 
+// ---------- تحديث دوري لصفحة التمريض (عشان يظهر رأي المريض فور موافقة الإدارة عليه) ----------
+
+let nursingPollInterval = null;
+let lastNursesSnapshot = null;
+
+function startNursingPolling() {
+  stopNursingPolling();
+  nursingPollInterval = setInterval(pollNurses, 5000);
+}
+
+function stopNursingPolling() {
+  if (nursingPollInterval) {
+    clearInterval(nursingPollInterval);
+    nursingPollInterval = null;
+  }
+}
+
+async function pollNurses() {
+  try {
+    const res = await fetch(`${API}/nurses`);
+    const nurses = await res.json();
+    const snapshot = JSON.stringify(nurses);
+    if (snapshot === lastNursesSnapshot) return; // ما تغيّر شي، صفر إعادة رسم
+    lastNursesSnapshot = snapshot;
+    nursesCache = nurses;
+
+    const container = document.getElementById('nurses-list');
+    if (!container) { stopNursingPolling(); return; }
+    container.innerHTML = renderNursesList(nurses);
+
+    // نعيد فتح أي "لمحة عنه" كانت مفتوحة عند المستخدم، بمحتواها المحدّث
+    for (const id of openNurseDetailIds) {
+      const panel = document.getElementById(`nurse-detail-${id}`);
+      if (panel) {
+        panel.style.display = 'block';
+        renderNurseDetail(id);
+      }
+    }
+  } catch (err) { /* تجاهل بصمت، رح يعيد المحاولة بالجولة الجاية */ }
+}
+
 async function toggleNurseDetail(nurseId) {
   const panel = document.getElementById(`nurse-detail-${nurseId}`);
   if (panel.style.display === 'none') {
     panel.style.display = 'block';
+    openNurseDetailIds.add(nurseId);
     await renderNurseDetail(nurseId);
   } else {
     panel.style.display = 'none';
+    openNurseDetailIds.delete(nurseId);
   }
 }
 
