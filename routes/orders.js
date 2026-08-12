@@ -9,6 +9,9 @@ router.post('/', async (req, res) => {
   if (!patient_name || !patient_phone || !Array.isArray(items) || items.length === 0) {
     return res.status(400).json({ error: 'الاسم ورقم الهاتف والأدوية مطلوبة لإتمام الطلب' });
   }
+  if (!/^[0-9]{7,15}$/.test(patient_phone)) {
+    return res.status(400).json({ error: 'رقم الهاتف يجب أن يتكون من أرقام فقط' });
+  }
   try {
     const byPharmacy = {};
     for (const item of items) {
