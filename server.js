@@ -8,6 +8,7 @@ const medicinesRoutes = require('./routes/medicines');
 const pharmaciesRoutes = require('./routes/pharmacies');
 const stockRoutes = require('./routes/stock');
 const ordersRoutes = require('./routes/orders');
+const nursesRoutes = require('./routes/nurses');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -23,6 +24,7 @@ app.use('/api/medicines', medicinesRoutes);
 app.use('/api/pharmacies', pharmaciesRoutes);
 app.use('/api/stock', stockRoutes);
 app.use('/api/orders', ordersRoutes);
+app.use('/api/nurses', nursesRoutes);
 
 app.get('/health', (req, res) => res.json({ status: 'ok' }));
 
