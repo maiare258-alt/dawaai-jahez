@@ -94,6 +94,7 @@ function headerGoHome(link) {
     document.getElementById('search').value = '';
     document.getElementById('results').innerHTML = '';
   }
+  document.getElementById('hero-search-wrap').style.display = '';
   showView('patient');
   document.getElementById('on-duty-section').style.display = 'none';
   updateCartVisibility();
@@ -109,6 +110,7 @@ function headerGoCosmetics(link) {
   document.getElementById('hero-search-hint').textContent = 'اكتب اسم المستحضر للبحث عن توفره في صيدليات سلمية.';
   document.getElementById('search').value = '';
   document.getElementById('results').innerHTML = '';
+  document.getElementById('hero-search-wrap').style.display = '';
   showView('patient');
   document.getElementById('on-duty-section').style.display = 'none';
   updateCartVisibility();
@@ -451,6 +453,10 @@ function whatsappComingSoon() {
 }
 
 function headerGoNursing(link) {
+  document.getElementById('hero-title').innerHTML = 'دوائي جاهز خدمات تمريض<br><span class="hero-highlight">في أي وقت</span>، من أي مكان';
+  document.getElementById('hero-description').textContent = 'منصة سورية تساعدك على معرفة توفر الدواء وخدمات التمريض في مدينة سلمية.';
+  document.getElementById('hero-search-hint').textContent = 'ابحث عن الممرض لمعرفة توافره في مدينة سلمية.';
+  document.getElementById('hero-search-wrap').style.display = 'none';
   showView('nursing');
   document.getElementById('on-duty-section').style.display = 'none';
   updateCartVisibility();
@@ -574,7 +580,7 @@ async function loadNurses() {
         <div class="empty-state">
           <div class="empty-icon">🩺</div>
           <p class="empty-title">لا يوجد ممرضون مسجّلون حالياً</p>
-          <p class="empty-subtitle">تابعنا، رح نضيف ممرضين موثوقين قريباً.</p>
+          <p class="empty-subtitle">سوف يتم إضافة ممرضين موثوقين قريباً.</p>
         </div>`;
       return;
     }
