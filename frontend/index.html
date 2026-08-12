@@ -350,6 +350,10 @@
   .badge { font-size: 14px; padding: 5px 12px; border-radius: 999px; }
   .badge.yes { background: #eaf3de; color: #27500a; }
   .badge.no { background: #fcebeb; color: #7a1f1f; }
+  .star-picker { display: flex; gap: 6px; font-size: 28px; margin: 10px 0; }
+  .star-picker span { color: #d8d8d8; cursor: pointer; transition: color .15s ease; line-height: 1; }
+  .star-picker span.filled { color: #f5a623; }
+  .star-display { color: #f5a623; font-size: 15px; letter-spacing: 2px; }
   .toggle-btn {
     font-size: 15px; padding: 7px 14px; border-radius: 999px; cursor: pointer; border: 1px solid; font-family: inherit;
     min-width: 104px; text-align: center;
@@ -652,7 +656,7 @@
       <a class="nav-link" onclick="headerGoOnDuty(this)">الصيدليات المناوبة</a>
       <a class="nav-link" onclick="headerGoPharmacist(this)">لوحة الصيدلي</a>
       <a class="nav-link" onclick="headerGoCosmetics(this)">مستحضرات تجميل</a>
-      <a class="nav-link" onclick="nursingComingSoon()">خدمات تمريض</a>
+      <a class="nav-link" onclick="headerGoNursing(this)">خدمات تمريض</a>
       <a class="nav-link" onclick="headerGoAdmin(this)">الإدارة</a>
     </nav>
     <div class="site-logo">
@@ -924,6 +928,12 @@
   <div id="view-admin" style="display:none;">
     <div id="admin-auth-section"></div>
     <div id="admin-panel" style="display:none;"></div>
+  </div>
+
+  <div id="view-nursing" style="display:none;">
+    <h2 class="dash-title">خدمات تمريض 🩺</h2>
+    <p class="muted" style="margin-top:-8px;">تواصل مع ممرضين موثوقين لتلقي الرعاية التمريضية بمنزلك.</p>
+    <div id="nurses-list"></div>
   </div>
 </div>
 
