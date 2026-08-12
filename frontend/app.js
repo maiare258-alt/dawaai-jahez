@@ -1206,6 +1206,7 @@ async function checkAdminPassword() {
 
 function logoutAdmin() {
   adminPassword = null;
+  stopAdminRatingsPolling();
   document.getElementById('admin-panel').style.display = 'none';
   document.getElementById('admin-panel').innerHTML = '';
   renderAdminAuthForm();
@@ -1222,6 +1223,9 @@ async function renderAdminPanel() {
     fetch(`${API}/nurses`).then(r => r.json()),
     fetch(`${API}/nurses/ratings/pending`, { headers: adminHeaders() }).then(r => r.json())
   ]);
+
+  approvedRatingsLoaded = false;
+  lastPendingRatingsSnapshot = JSON.stringify(pendingRatings);
 
   const onDutyCount = pharmacies.filter(p => p.on_duty).length;
 
@@ -1329,26 +1333,23 @@ async function renderAdminPanel() {
       </div>
     </div>
 
-    <div class="orders-wrap" style="${pendingRatings.length === 0 ? 'display:none;' : ''}">
-      <h3 style="margin-top:0;">⭐ تقييمات قيد المراجعة (${pendingRatings.length})</h3>
-      <div>
-        ${pendingRatings.map(r => `
-          <div class="order-card is-new">
-            <div class="order-card-top">
-              <span class="order-patient-name">👤 ${escapeHtml(r.patient_name)} ← ${escapeHtml(r.nurse_name)}</span>
-              <span class="order-new-badge">${'★'.repeat(r.stars)}${'☆'.repeat(5 - r.stars)}</span>
-            </div>
-            <div class="order-row"><span>📞</span> ${escapeHtml(r.patient_phone)}</div>
-            ${r.comment ? `<div class="order-items-list"><div class="order-item-line">💬 ${escapeHtml(r.comment)}</div></div>` : ''}
-            <div class="order-actions-row">
-              <button class="btn-outline green small" onclick="approveRatingAdmin(${r.id})">✅ موافقة</button>
-              <button class="btn-outline red small" onclick="rejectRatingAdmin(${r.id})">🗑️ رفض</button>
-            </div>
-          </div>
-        `).join('')}
+    <div id="pending-ratings-wrap" style="${pendingRatings.length === 0 ? 'display:none;' : ''}">
+      <div class="orders-wrap">
+        <h3 style="margin-top:0;">⭐ تقييمات قيد المراجعة (<span id="pending-ratings-count">${pendingRatings.length}</span>)</h3>
+        <div id="pending-ratings-list">${renderPendingRatingsCards(pendingRatings)}</div>
       </div>
     </div>
+
+    <div class="box" style="margin-bottom:20px;">
+      <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px;">
+        <h3 style="margin:0;">💬 التقييمات المنشورة</h3>
+        <button class="btn-outline blue small" onclick="toggleApprovedRatingsAdmin()" id="toggle-approved-ratings-btn">عرض التقييمات</button>
+      </div>
+      <div id="approved-ratings-list" style="display:none; margin-top:14px;"></div>
+    </div>
   `;
+
+  startAdminRatingsPolling();
 }
 
 async function addPharmacy() {
@@ -1455,6 +1456,112 @@ async function rejectRatingAdmin(id) {
   if (!confirmed) return;
   await fetch(`${API}/nurses/ratings/${id}`, { method: 'DELETE', headers: adminHeaders() });
   renderAdminPanel();
+}
+
+// ---------- تحديث دوري سريع لتقييمات قيد المراجعة (بدون إعادة رسم اللوحة كلها) ----------
+
+function renderPendingRatingsCards(ratings) {
+  return ratings.map(r => `
+    <div class="order-card is-new">
+      <div class="order-card-top">
+        <span class="order-patient-name">👤 ${escapeHtml(r.patient_name)} ← ${escapeHtml(r.nurse_name)}</span>
+        <span class="order-new-badge">${'★'.repeat(r.stars)}${'☆'.repeat(5 - r.stars)}</span>
+      </div>
+      <div class="order-row"><span>📞</span> ${escapeHtml(r.patient_phone)}</div>
+      ${r.comment ? `<div class="order-items-list"><div class="order-item-line">💬 ${escapeHtml(r.comment)}</div></div>` : ''}
+      <div class="order-actions-row">
+        <button class="btn-outline green small" onclick="approveRatingAdmin(${r.id})">✅ موافقة</button>
+        <button class="btn-outline red small" onclick="rejectRatingAdmin(${r.id})">🗑️ رفض</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+let adminRatingsPollInterval = null;
+let lastPendingRatingsSnapshot = null;
+
+function startAdminRatingsPolling() {
+  stopAdminRatingsPolling();
+  adminRatingsPollInterval = setInterval(loadPendingRatingsForAdmin, 4000);
+}
+
+function stopAdminRatingsPolling() {
+  if (adminRatingsPollInterval) {
+    clearInterval(adminRatingsPollInterval);
+    adminRatingsPollInterval = null;
+  }
+}
+
+async function loadPendingRatingsForAdmin() {
+  if (!adminPassword) { stopAdminRatingsPolling(); return; }
+  try {
+    const res = await fetch(`${API}/nurses/ratings/pending`, { headers: adminHeaders() });
+    const ratings = await res.json();
+    const snapshot = JSON.stringify(ratings);
+    if (snapshot === lastPendingRatingsSnapshot) return; // ما تغيّر شي، صفر إعادة رسم
+    lastPendingRatingsSnapshot = snapshot;
+
+    const wrap = document.getElementById('pending-ratings-wrap');
+    const list = document.getElementById('pending-ratings-list');
+    const countEl = document.getElementById('pending-ratings-count');
+    if (!wrap || !list) return;
+    wrap.style.display = ratings.length === 0 ? 'none' : 'block';
+    list.innerHTML = renderPendingRatingsCards(ratings);
+    if (countEl) countEl.textContent = ratings.length;
+  } catch (err) { /* تجاهل بصمت، رح يعيد المحاولة بالجولة الجاية */ }
+}
+
+// ---------- التقييمات المنشورة (حذف تعليق مسيء حتى بعد نشره) ----------
+
+let approvedRatingsLoaded = false;
+
+async function toggleApprovedRatingsAdmin() {
+  const container = document.getElementById('approved-ratings-list');
+  const btn = document.getElementById('toggle-approved-ratings-btn');
+  if (container.style.display === 'none') {
+    container.style.display = 'block';
+    btn.textContent = 'إخفاء التقييمات';
+    if (!approvedRatingsLoaded) await loadApprovedRatingsAdmin();
+  } else {
+    container.style.display = 'none';
+    btn.textContent = 'عرض التقييمات';
+  }
+}
+
+async function loadApprovedRatingsAdmin() {
+  const container = document.getElementById('approved-ratings-list');
+  container.innerHTML = '<p class="muted">جاري التحميل...</p>';
+  try {
+    const res = await fetch(`${API}/nurses/ratings/approved`, { headers: adminHeaders() });
+    const ratings = await res.json();
+    approvedRatingsLoaded = true;
+    if (ratings.length === 0) {
+      container.innerHTML = '<p class="muted" style="margin:0;">لا توجد تقييمات منشورة بعد.</p>';
+      return;
+    }
+    container.innerHTML = ratings.map(r => `
+      <div class="order-card">
+        <div class="order-card-top">
+          <span class="order-patient-name">👤 ${escapeHtml(r.patient_name)} ← ${escapeHtml(r.nurse_name)}</span>
+          <span class="order-new-badge">${'★'.repeat(r.stars)}${'☆'.repeat(5 - r.stars)}</span>
+        </div>
+        ${r.comment ? `<div class="order-items-list"><div class="order-item-line">💬 ${escapeHtml(r.comment)}</div></div>` : ''}
+        <div class="order-actions-row">
+          <button class="btn-outline red small" onclick="deleteApprovedRatingAdmin(${r.id})">🗑️ حذف نهائي</button>
+        </div>
+      </div>
+    `).join('');
+  } catch (err) {
+    container.innerHTML = '<p class="muted" style="margin:0;">تعذر تحميل التقييمات.</p>';
+  }
+}
+
+async function deleteApprovedRatingAdmin(id) {
+  const confirmed = await customConfirm('متأكد إنك بدك تحذف هذا التقييم نهائياً؟ هذا الإجراء لا يمكن التراجع عنه.', 'warning');
+  if (!confirmed) return;
+  await fetch(`${API}/nurses/ratings/${id}`, { method: 'DELETE', headers: adminHeaders() });
+  approvedRatingsLoaded = false;
+  await loadApprovedRatingsAdmin();
 }
 
 document.addEventListener('click', (e) => {
