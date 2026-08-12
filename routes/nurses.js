@@ -36,6 +36,9 @@ router.post('/:id/ratings', async (req, res) => {
   if (!patient_name || !patient_phone) {
     return res.status(400).json({ error: 'الاسم ورقم الهاتف مطلوبان' });
   }
+  if (!/^[0-9]{7,15}$/.test(patient_phone)) {
+    return res.status(400).json({ error: 'رقم الهاتف يجب أن يتكون من أرقام فقط' });
+  }
   const starsNum = Number(stars);
   if (!Number.isInteger(starsNum) || starsNum < 1 || starsNum > 5) {
     return res.status(400).json({ error: 'التقييم يجب أن يكون عدد نجوم صحيح من 1 إلى 5' });
