@@ -68,6 +68,32 @@ async function initDb() {
   `);
   await pool.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'pending';`);
 
+  // خدمات التمريض
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS nurses (
+      id SERIAL PRIMARY KEY,
+      name TEXT NOT NULL,
+      specialty TEXT,
+      university TEXT,
+      graduation_year TEXT,
+      phone TEXT,
+      available BOOLEAN DEFAULT true
+    );
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS nurse_ratings (
+      id SERIAL PRIMARY KEY,
+      nurse_id INTEGER REFERENCES nurses(id) ON DELETE CASCADE,
+      patient_name TEXT NOT NULL,
+      patient_phone TEXT NOT NULL,
+      stars INTEGER NOT NULL,
+      comment TEXT,
+      status TEXT DEFAULT 'pending',
+      created_at TIMESTAMP DEFAULT NOW()
+    );
+  `);
+
   const { rows } = await pool.query('SELECT COUNT(*) FROM medicines');
   if (Number(rows[0].count) === 0) {
     const defaults = [
@@ -303,6 +329,89 @@ async function getOrdersStatus(ids) {
   return rows;
 }
 
+// ---------- خدمات التمريض ----------
+
+async function getAllNurses() {
+  const { rows } = await pool.query('SELECT * FROM nurses ORDER BY id');
+  return rows;
+}
+
+// قائمة الممرضين مع متوسط تقييمهم وعدد التقييمات (الموافق عليها بس) - لواجهة المريض ولوحة الإدارة
+async function getNursesWithRatings() {
+  const { rows } = await pool.query(`
+    SELECT n.*,
+           COALESCE(AVG(r.stars) FILTER (WHERE r.status = 'approved'), 0)::float AS avg_rating,
+           COUNT(r.id) FILTER (WHERE r.status = 'approved')::int AS rating_count
+    FROM nurses n
+    LEFT JOIN nurse_ratings r ON r.nurse_id = n.id
+    GROUP BY n.id
+    ORDER BY n.id
+  `);
+  return rows;
+}
+
+async function addNurse({ name, specialty, university, graduation_year, phone }) {
+  const { rows } = await pool.query(
+    `INSERT INTO nurses (name, specialty, university, graduation_year, phone)
+     VALUES ($1, $2, $3, $4, $5) RETURNING *`,
+    [name, specialty || null, university || null, graduation_year || null, phone || null]
+  );
+  return rows[0];
+}
+
+async function deleteNurse(nurseId) {
+  await pool.query('DELETE FROM nurses WHERE id = $1', [nurseId]);
+}
+
+async function setNurseAvailability(nurseId, available) {
+  const { rows } = await pool.query(
+    'UPDATE nurses SET available = $1 WHERE id = $2 RETURNING *',
+    [!!available, nurseId]
+  );
+  return rows[0];
+}
+
+// التقييمات الموافق عليها بس لممرض معين (تظهر للعموم بالتفاصيل)
+async function getApprovedRatingsForNurse(nurseId) {
+  const { rows } = await pool.query(
+    `SELECT id, patient_name, stars, comment, created_at
+     FROM nurse_ratings
+     WHERE nurse_id = $1 AND status = 'approved'
+     ORDER BY created_at DESC`,
+    [nurseId]
+  );
+  return rows;
+}
+
+// إضافة تقييم جديد - بيروح حالة "قيد المراجعة" دايماً، ما بيظهر للعموم إلا بعد موافقة الإدارة
+async function addNurseRating({ nurse_id, patient_name, patient_phone, stars, comment }) {
+  const { rows } = await pool.query(
+    `INSERT INTO nurse_ratings (nurse_id, patient_name, patient_phone, stars, comment)
+     VALUES ($1, $2, $3, $4, $5) RETURNING *`,
+    [nurse_id, patient_name, patient_phone, stars, comment || null]
+  );
+  return rows[0];
+}
+
+async function getPendingRatings() {
+  const { rows } = await pool.query(
+    `SELECT r.*, n.name AS nurse_name
+     FROM nurse_ratings r JOIN nurses n ON n.id = r.nurse_id
+     WHERE r.status = 'pending'
+     ORDER BY r.created_at ASC`
+  );
+  return rows;
+}
+
+async function approveRating(ratingId) {
+  await pool.query(`UPDATE nurse_ratings SET status = 'approved' WHERE id = $1`, [ratingId]);
+}
+
+// رفض تقييم = حذفه نهائياً (ما بضل أي أثر له، مش رح يظهر لا للإدارة ولا للعموم)
+async function rejectRating(ratingId) {
+  await pool.query('DELETE FROM nurse_ratings WHERE id = $1', [ratingId]);
+}
+
 module.exports = {
   initDb,
   searchMedicines,
@@ -325,5 +434,15 @@ module.exports = {
   markOrderSeen,
   deleteOrder,
   confirmOrder,
-  getOrdersStatus
+  getOrdersStatus,
+  getAllNurses,
+  getNursesWithRatings,
+  addNurse,
+  deleteNurse,
+  setNurseAvailability,
+  getApprovedRatingsForNurse,
+  addNurseRating,
+  getPendingRatings,
+  approveRating,
+  rejectRating
 };
