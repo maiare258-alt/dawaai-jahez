@@ -47,6 +47,7 @@ function showView(view) {
   document.getElementById('view-patient').style.display = view === 'patient' ? 'block' : 'none';
   document.getElementById('view-pharmacist').style.display = view === 'pharmacist' ? 'block' : 'none';
   document.getElementById('view-admin').style.display = view === 'admin' ? 'block' : 'none';
+  document.getElementById('view-nursing').style.display = view === 'nursing' ? 'block' : 'none';
   if (view === 'pharmacist' && !currentPharmacy) renderPharmacyAuthForm();
   if (view === 'admin' && !adminPassword) renderAdminAuthForm();
   updateCartVisibility();
@@ -449,8 +450,13 @@ function whatsappComingSoon() {
   customAlert('البحث عبر واتساب قريباً 💬 لسا عم نجهز رقم رسمي للمشروع.', 'info');
 }
 
-function nursingComingSoon() {
-  customAlert('قسم خدمات التمريض قريباً 🩺', 'info');
+function headerGoNursing(link) {
+  showView('nursing');
+  document.getElementById('on-duty-section').style.display = 'none';
+  updateCartVisibility();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+  setActiveNav(link);
+  loadNurses();
 }
 
 function footerContactComingSoon() {
@@ -520,6 +526,178 @@ async function loadOnDuty() {
   } catch (err) {
     container.innerHTML = '';
   }
+}
+
+// ---------- خدمات التمريض ----------
+
+let nursesCache = [];
+
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str == null ? '' : String(str);
+  return div.innerHTML;
+}
+
+function renderStars(count) {
+  const rounded = Math.round(count);
+  let html = '';
+  for (let i = 1; i <= 5; i++) html += i <= rounded ? '★' : '☆';
+  return `<span class="star-display">${html}</span>`;
+}
+
+function getRatedNurses() {
+  return JSON.parse(localStorage.getItem('ratedNurses') || '[]');
+}
+
+function hasRatedNurse(nurseId) {
+  return getRatedNurses().includes(nurseId);
+}
+
+function markNurseAsRated(nurseId) {
+  const list = getRatedNurses();
+  if (!list.includes(nurseId)) {
+    list.push(nurseId);
+    localStorage.setItem('ratedNurses', JSON.stringify(list));
+  }
+}
+
+async function loadNurses() {
+  const container = document.getElementById('nurses-list');
+  container.innerHTML = '<p class="muted">جاري التحميل...</p>';
+  try {
+    const res = await fetch(`${API}/nurses`);
+    const nurses = await res.json();
+    nursesCache = nurses;
+
+    if (nurses.length === 0) {
+      container.innerHTML = `
+        <div class="empty-state">
+          <div class="empty-icon">🩺</div>
+          <p class="empty-title">لا يوجد ممرضون مسجّلون حالياً</p>
+          <p class="empty-subtitle">تابعنا، رح نضيف ممرضين موثوقين قريباً.</p>
+        </div>`;
+      return;
+    }
+
+    container.innerHTML = nurses.map(n => `
+      <div class="result-card">
+        <div class="result-card-top">
+          <span class="result-med-name">👤 ${escapeHtml(n.name)}</span>
+          <span class="badge ${n.available ? 'yes' : 'no'}">${n.available ? '🟢 متاح للعمل' : '🔴 غير متاح حالياً'}</span>
+        </div>
+        <div class="result-row">🎓 ${escapeHtml(n.specialty || 'ممرض عام')}</div>
+        <div class="result-row">
+          ${n.rating_count > 0
+            ? `${renderStars(n.avg_rating)} ${Number(n.avg_rating).toFixed(1)} من ${n.rating_count} تقييم`
+            : '<span class="muted">لا توجد تقييمات بعد</span>'}
+        </div>
+        <button class="btn-outline blue small" onclick="toggleNurseDetail(${n.id})">لمحة عنه</button>
+        <div id="nurse-detail-${n.id}" style="display:none; margin-top:12px;"></div>
+      </div>
+    `).join('');
+  } catch (err) {
+    container.innerHTML = `
+      <div class="empty-state">
+        <div class="empty-icon">⚠️</div>
+        <p class="empty-title">تعذر الاتصال بالخادم</p>
+        <p class="empty-subtitle">تحقق من اتصالك بالإنترنت وحاول مرة أخرى.</p>
+      </div>`;
+  }
+}
+
+async function toggleNurseDetail(nurseId) {
+  const panel = document.getElementById(`nurse-detail-${nurseId}`);
+  if (panel.style.display === 'none') {
+    panel.style.display = 'block';
+    await renderNurseDetail(nurseId);
+  } else {
+    panel.style.display = 'none';
+  }
+}
+
+async function renderNurseDetail(nurseId) {
+  const panel = document.getElementById(`nurse-detail-${nurseId}`);
+  const nurse = nursesCache.find(n => n.id === nurseId);
+  panel.innerHTML = '<p class="muted">جاري التحميل...</p>';
+
+  let ratings = [];
+  try {
+    const res = await fetch(`${API}/nurses/${nurseId}/ratings`);
+    ratings = await res.json();
+  } catch (err) { /* بنكمل بعرض الملخص حتى لو فشل جلب التعليقات */ }
+
+  const alreadyRated = hasRatedNurse(nurseId);
+
+  panel.innerHTML = `
+    <div class="box">
+      ${nurse && nurse.university ? `<div class="result-row">🎓 ${escapeHtml(nurse.university)}${nurse.graduation_year ? ' - تخرج ' + escapeHtml(nurse.graduation_year) : ''}</div>` : ''}
+      ${nurse && nurse.phone ? `<div class="result-row">📞 ${escapeHtml(nurse.phone)}</div>` : ''}
+      <hr style="border:none; border-top:1px solid #eef2f6; margin:14px 0;">
+      <p style="font-weight:700; margin:0 0 8px;">آراء المرضى (${ratings.length})</p>
+      ${ratings.length === 0
+        ? '<p class="muted" style="margin:0 0 12px;">لا توجد آراء منشورة بعد.</p>'
+        : ratings.map(r => `
+          <div style="padding:8px 0; border-bottom:1px solid #f2f5f8;">
+            <div>${renderStars(r.stars)}</div>
+            ${r.comment ? `<p style="margin:4px 0 0; font-size:14px; color:#3a4a58;">${escapeHtml(r.comment)}</p>` : ''}
+          </div>
+        `).join('')
+      }
+      <hr style="border:none; border-top:1px solid #eef2f6; margin:14px 0;">
+      <p style="font-weight:700; margin:0 0 8px;">قيّم هذا الممرض</p>
+      ${alreadyRated
+        ? '<p class="muted">شكراً، تم إرسال تقييمك مسبقاً وهو الآن قيد مراجعة الإدارة.</p>'
+        : `
+          <div class="star-picker" id="rating-stars-${nurseId}">
+            ${[1, 2, 3, 4, 5].map(i => `<span onclick="setRatingStars(${nurseId}, ${i})" data-i="${i}">☆</span>`).join('')}
+          </div>
+          <textarea id="rating-comment-${nurseId}" placeholder="اكتب رأيك (اختياري)" rows="2" style="width:100%; padding:10px 14px; border:1px solid #cfe0ef; border-radius:14px; font-family:inherit; font-size:15px; resize:vertical; margin-bottom:10px;"></textarea>
+          <input id="rating-name-${nurseId}" placeholder="اسمك">
+          <input id="rating-phone-${nurseId}" placeholder="رقم هاتفك" type="tel">
+          <button class="primary" onclick="submitNurseRating(${nurseId})">إرسال التقييم</button>
+        `}
+    </div>
+  `;
+}
+
+const selectedNurseStars = {};
+
+function setRatingStars(nurseId, stars) {
+  selectedNurseStars[nurseId] = stars;
+  const container = document.getElementById(`rating-stars-${nurseId}`);
+  if (!container) return;
+  container.querySelectorAll('span').forEach(span => {
+    const i = Number(span.dataset.i);
+    span.textContent = i <= stars ? '★' : '☆';
+    span.classList.toggle('filled', i <= stars);
+  });
+}
+
+async function submitNurseRating(nurseId) {
+  const stars = selectedNurseStars[nurseId];
+  if (!stars) { customAlert('الرجاء اختيار عدد النجوم أولاً', 'warning'); return; }
+  const name = document.getElementById(`rating-name-${nurseId}`).value.trim();
+  const phone = document.getElementById(`rating-phone-${nurseId}`).value.trim();
+  const comment = document.getElementById(`rating-comment-${nurseId}`).value.trim();
+  if (!name || !phone) { customAlert('الاسم ورقم الهاتف مطلوبان', 'warning'); return; }
+  try {
+    const res = await fetch(`${API}/nurses/${nurseId}/ratings`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ patient_name: name, patient_phone: phone, stars, comment })
+    });
+    const data = await res.json();
+    if (!res.ok) { customAlert(data.error, 'error'); return; }
+    markNurseAsRated(nurseId);
+    await customAlert('تم إرسال تقييمك بنجاح! رح يظهر للعموم بعد موافقة الإدارة عليه.', 'success');
+    renderNurseDetail(nurseId);
+  } catch (err) {
+    customAlert('تعذر الاتصال بالخادم', 'error');
+  }
+}
+
+function uploadCertificateComingSoon() {
+  customAlert('رفع الشهادات (PDF/Word) رح يتفعّل بعد ربط استضافة دائمة للملفات 📄', 'info');
 }
 
 let searchTimeout;
@@ -1032,9 +1210,11 @@ function adminHeaders() {
 }
 
 async function renderAdminPanel() {
-  const [pharmacies, medicines] = await Promise.all([
+  const [pharmacies, medicines, nurses, pendingRatings] = await Promise.all([
     fetch(`${API}/pharmacies`, { headers: adminHeaders() }).then(r => r.json()),
-    fetch(`${API}/medicines`, { headers: adminHeaders() }).then(r => r.json())
+    fetch(`${API}/medicines`, { headers: adminHeaders() }).then(r => r.json()),
+    fetch(`${API}/nurses`).then(r => r.json()),
+    fetch(`${API}/nurses/ratings/pending`, { headers: adminHeaders() }).then(r => r.json())
   ]);
 
   const onDutyCount = pharmacies.filter(p => p.on_duty).length;
@@ -1101,13 +1281,63 @@ async function renderAdminPanel() {
     </div>
 
     <h3>الأدوية المسجّلة (${medicines.length})</h3>
-    <div class="stock-table-wrap">
+    <div class="stock-table-wrap" style="margin-bottom:20px;">
       <div class="stock-scroll">
         <div class="stock-table-header"><span>الدواء</span><span class="col-action">إجراء</span></div>
         ${medicines.map(m => `
           <div class="row">
             <span>${m.name} <span class="muted" style="font-size:12px;">${m.category === 'cosmetic' ? '💄 مستحضر تجميل' : '💊 دواء'}</span></span>
             <button class="btn-outline red small table-action-btn" onclick="deleteMedicineAdmin(${m.id}, '${m.name}')">حذف</button>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+
+    <div class="box" style="margin-bottom:20px;">
+      <h3 style="margin-top:0;">🩺 إضافة ممرض جديد</h3>
+      <input id="nurse-name" placeholder="اسم الممرض">
+      <input id="nurse-specialty" placeholder="التخصص">
+      <input id="nurse-university" placeholder="الجامعة">
+      <input id="nurse-grad-year" placeholder="سنة التخرج">
+      <input id="nurse-phone" placeholder="رقم الهاتف">
+      <button type="button" class="btn-outline blue small" onclick="uploadCertificateComingSoon()" style="margin-bottom:10px;">📄 رفع شهادة (PDF/Word)</button>
+      <button class="primary" onclick="addNurseAdmin()">إضافة الممرض</button>
+    </div>
+
+    <h3>الممرضون المسجّلون (${nurses.length})</h3>
+    <div class="stock-table-wrap" style="margin-bottom:20px;">
+      <div class="stock-scroll">
+        ${nurses.length === 0
+          ? '<p class="muted" style="padding:16px 18px; margin:0;">لا يوجد ممرضون مسجّلون بعد.</p>'
+          : `<div class="stock-table-header"><span>الممرض</span><span class="col-action">إجراءات</span></div>
+             ${nurses.map(n => `
+               <div class="row">
+                 <span>${n.name} <span class="muted" style="font-size:12px;">${n.specialty || ''}</span></span>
+                 <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap; justify-content:flex-end;">
+                   <button class="toggle-btn ${n.available ? 'yes' : 'no'}" onclick="toggleNurseAvailabilityAdmin(${n.id}, ${!n.available})">${n.available ? '🟢 متاح' : '🔴 غير متاح'}</button>
+                   <button class="btn-outline red small table-action-btn" onclick="deleteNurseAdmin(${n.id}, '${n.name}')">حذف</button>
+                 </div>
+               </div>
+             `).join('')}`
+        }
+      </div>
+    </div>
+
+    <div class="orders-wrap" style="${pendingRatings.length === 0 ? 'display:none;' : ''}">
+      <h3 style="margin-top:0;">⭐ تقييمات قيد المراجعة (${pendingRatings.length})</h3>
+      <div>
+        ${pendingRatings.map(r => `
+          <div class="order-card is-new">
+            <div class="order-card-top">
+              <span class="order-patient-name">👤 ${escapeHtml(r.patient_name)} ← ${escapeHtml(r.nurse_name)}</span>
+              <span class="order-new-badge">${'★'.repeat(r.stars)}${'☆'.repeat(5 - r.stars)}</span>
+            </div>
+            <div class="order-row"><span>📞</span> ${escapeHtml(r.patient_phone)}</div>
+            ${r.comment ? `<div class="order-items-list"><div class="order-item-line">💬 ${escapeHtml(r.comment)}</div></div>` : ''}
+            <div class="order-actions-row">
+              <button class="btn-outline green small" onclick="approveRatingAdmin(${r.id})">✅ موافقة</button>
+              <button class="btn-outline red small" onclick="rejectRatingAdmin(${r.id})">🗑️ رفض</button>
+            </div>
           </div>
         `).join('')}
       </div>
@@ -1174,6 +1404,51 @@ function togglePassword(inputId, btn) {
     btn.textContent = '👁';
     btn.setAttribute('aria-label', 'إظهار كلمة المرور');
   }
+}
+
+// ---------- إدارة خدمات التمريض (لوحة الإدارة) ----------
+
+async function addNurseAdmin() {
+  const body = {
+    name: document.getElementById('nurse-name').value,
+    specialty: document.getElementById('nurse-specialty').value,
+    university: document.getElementById('nurse-university').value,
+    graduation_year: document.getElementById('nurse-grad-year').value,
+    phone: document.getElementById('nurse-phone').value,
+  };
+  const res = await fetch(`${API}/nurses`, {
+    method: 'POST', headers: adminHeaders(), body: JSON.stringify(body)
+  });
+  const data = await res.json();
+  if (!res.ok) { customAlert(data.error, 'error'); return; }
+  customAlert(`تمت إضافة "${data.name}" بنجاح`, 'success');
+  renderAdminPanel();
+}
+
+async function deleteNurseAdmin(id, name) {
+  const confirmed = await customConfirm(`متأكد إنك بدك تحذف الممرض "${name}"؟`, 'warning');
+  if (!confirmed) return;
+  await fetch(`${API}/nurses/${id}`, { method: 'DELETE', headers: adminHeaders() });
+  renderAdminPanel();
+}
+
+async function toggleNurseAvailabilityAdmin(id, newAvailable) {
+  await fetch(`${API}/nurses/${id}/availability`, {
+    method: 'PUT', headers: adminHeaders(), body: JSON.stringify({ available: newAvailable })
+  });
+  renderAdminPanel();
+}
+
+async function approveRatingAdmin(id) {
+  await fetch(`${API}/nurses/ratings/${id}/approve`, { method: 'PUT', headers: adminHeaders() });
+  renderAdminPanel();
+}
+
+async function rejectRatingAdmin(id) {
+  const confirmed = await customConfirm('متأكد إنك بدك ترفض هذا التقييم؟ رح ينحذف نهائياً.', 'warning');
+  if (!confirmed) return;
+  await fetch(`${API}/nurses/ratings/${id}`, { method: 'DELETE', headers: adminHeaders() });
+  renderAdminPanel();
 }
 
 document.addEventListener('click', (e) => {
