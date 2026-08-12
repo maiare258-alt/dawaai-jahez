@@ -270,7 +270,7 @@ function renderCart() {
     <div class="cart-summary">
       <div class="cart-summary-row"><span>عدد الأدوية</span><span>${cart.length}</span></div>
       <input id="checkout-name" placeholder="الاسم الكامل">
-      <input id="checkout-phone" placeholder="رقم الهاتف" type="tel">
+      <input id="checkout-phone" placeholder="رقم الهاتف" type="tel" inputmode="numeric" oninput="digitsOnly(this)">
       <button class="checkout-btn" onclick="submitOrder()">إتمام الطلب</button>
     </div>
   `;
@@ -539,6 +539,11 @@ async function loadOnDuty() {
 
 let nursesCache = [];
 
+// تسمح فقط بكتابة أرقام بخانات الهاتف (تمنع الحروف أثناء الكتابة مباشرة)
+function digitsOnly(input) {
+  input.value = input.value.replace(/[^0-9]/g, '');
+}
+
 function escapeHtml(str) {
   const div = document.createElement('div');
   div.textContent = str == null ? '' : String(str);
@@ -708,7 +713,7 @@ async function renderNurseDetail(nurseId) {
           </div>
           <textarea id="rating-comment-${nurseId}" placeholder="اكتب رأيك (اختياري)" rows="2" style="width:100%; padding:10px 14px; border:1px solid #cfe0ef; border-radius:14px; font-family:inherit; font-size:15px; resize:vertical; margin-bottom:10px;"></textarea>
           <input id="rating-name-${nurseId}" placeholder="اسمك">
-          <input id="rating-phone-${nurseId}" placeholder="رقم هاتفك" type="tel">
+          <input id="rating-phone-${nurseId}" placeholder="رقم هاتفك" type="tel" inputmode="numeric" oninput="digitsOnly(this)">
           <button class="primary" onclick="submitNurseRating(${nurseId})">إرسال التقييم</button>
         `}
     </div>
