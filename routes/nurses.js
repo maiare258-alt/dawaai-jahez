@@ -79,6 +79,18 @@ router.get('/ratings/pending', adminAuth, async (req, res) => {
   }
 });
 
+// كل التقييمات المنشورة - لمراجعة الإدارة وحذف أي تعليق مسيء حتى بعد نشره
+// GET /api/nurses/ratings/approved
+router.get('/ratings/approved', adminAuth, async (req, res) => {
+  try {
+    const ratings = await db.getApprovedRatings();
+    res.json(ratings);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'حدث خطأ أثناء جلب التقييمات المنشورة' });
+  }
+});
+
 // الموافقة على تقييم (يصير ظاهر للعموم)
 // PUT /api/nurses/ratings/:id/approve
 router.put('/ratings/:id/approve', adminAuth, async (req, res) => {
