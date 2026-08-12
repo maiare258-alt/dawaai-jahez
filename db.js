@@ -403,6 +403,17 @@ async function getPendingRatings() {
   return rows;
 }
 
+// كل التقييمات المنشورة (الموافق عليها) - لمراجعة الإدارة وحذف أي تعليق مسيء لاحقاً
+async function getApprovedRatings() {
+  const { rows } = await pool.query(
+    `SELECT r.*, n.name AS nurse_name
+     FROM nurse_ratings r JOIN nurses n ON n.id = r.nurse_id
+     WHERE r.status = 'approved'
+     ORDER BY r.created_at DESC`
+  );
+  return rows;
+}
+
 async function approveRating(ratingId) {
   await pool.query(`UPDATE nurse_ratings SET status = 'approved' WHERE id = $1`, [ratingId]);
 }
@@ -443,6 +454,7 @@ module.exports = {
   getApprovedRatingsForNurse,
   addNurseRating,
   getPendingRatings,
+  getApprovedRatings,
   approveRating,
   rejectRating
 };
