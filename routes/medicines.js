@@ -4,6 +4,21 @@ const bcrypt = require('bcryptjs');
 const db = require('../db');
 const adminAuth = require('../middleware/adminAuth');
 
+// التصنيفات المسموحة حصراً عند إنشاء دواء/مستحضر جديد
+const ALLOWED_CATEGORIES = ['medicine', 'cosmetic'];
+
+// تتحقق من صحة category: غير موجودة إطلاقاً → القيمة الافتراضية (توافق مع السلوك القديم)
+// موجودة بس غير صحيحة → خطأ صريح، بدون أي تحويل تلقائي
+function validateCategory(category) {
+  if (category === undefined || category === null || category === '') {
+    return { value: 'medicine', error: null };
+  }
+  if (!ALLOWED_CATEGORIES.includes(category)) {
+    return { value: null, error: 'تصنيف غير صالح. القيم المسموحة: دواء أو مستحضر تجميل فقط' };
+  }
+  return { value: category, error: null };
+}
+
 // البحث عن دواء/مستحضر وعرض توفره في كل الصيدليات (متاح للجميع - واجهة المريض)
 // GET /api/medicines/search?q=بنادول&category=medicine
 router.get('/search', async (req, res) => {
@@ -52,8 +67,10 @@ router.get('/', adminAuth, async (req, res) => {
 router.post('/', adminAuth, async (req, res) => {
   const { name, generic_name, alt_names, category } = req.body;
   if (!name) return res.status(400).json({ error: 'الاسم مطلوب' });
+  const { value: validCategory, error: categoryError } = validateCategory(category);
+  if (categoryError) return res.status(400).json({ error: categoryError });
   try {
-    const medicine = await db.addMedicine({ name, generic_name, alt_names, category });
+    const medicine = await db.addMedicine({ name, generic_name, alt_names, category: validCategory });
     res.status(201).json(medicine);
   } catch (err) {
     console.error(err);
@@ -69,6 +86,8 @@ router.post('/self', async (req, res) => {
     return res.status(400).json({ error: 'بيانات الدخول مطلوبة' });
   }
   if (!name) return res.status(400).json({ error: 'الاسم مطلوب' });
+  const { value: validCategory, error: categoryError } = validateCategory(category);
+  if (categoryError) return res.status(400).json({ error: categoryError });
   try {
     const pharmacy = await db.findPharmacyByUsername(username);
     if (!pharmacy) return res.status(401).json({ error: 'بيانات الدخول غير صحيحة' });
@@ -76,7 +95,7 @@ router.post('/self', async (req, res) => {
     const valid = await bcrypt.compare(password, pharmacy.owner_password_hash);
     if (!valid) return res.status(401).json({ error: 'بيانات الدخول غير صحيحة' });
 
-    const medicine = await db.addMedicine({ name, generic_name, alt_names, category });
+    const medicine = await db.addMedicine({ name, generic_name, alt_names, category: validCategory });
     res.status(201).json(medicine);
   } catch (err) {
     console.error(err);
