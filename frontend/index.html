@@ -53,6 +53,7 @@
     display: flex; align-items: center; justify-content: space-between;
     gap: 14px; padding: 10px 18px;
   }
+  .site-header-right { display: flex; align-items: center; gap: 16px; }
   .site-logo { display: flex; align-items: center; gap: 8px; font-size: 17px; font-weight: 700; color: #163a5c; white-space: nowrap; }
   .site-logo .logo-dot {
     width: 32px; height: 32px; border-radius: 50%; flex-shrink: 0;
@@ -671,12 +672,14 @@
       <a class="nav-link" onclick="headerGoNursing(this)" id="nav-nursing">خدمات تمريض</a>
       <a class="nav-link" onclick="headerGoAdmin(this)" id="nav-admin">الإدارة</a>
     </nav>
-    <div class="site-logo">
-      <span class="logo-dot">💊</span> دوائي جاهز
-    </div>
-    <div class="header-icons">
-      <button id="lang-toggle-btn" class="lang-toggle-btn" onclick="toggleLanguage()">English</button>
-      <button class="nav-toggle" onclick="toggleNav()" aria-label="القائمة">☰</button>
+    <div class="site-header-right">
+      <div class="site-logo">
+        <span class="logo-dot">💊</span> <span id="brand-name">دوائي جاهز</span>
+      </div>
+      <div class="header-icons">
+        <button id="lang-toggle-btn" class="lang-toggle-btn" onclick="toggleLanguage()">English</button>
+        <button class="nav-toggle" onclick="toggleNav()" aria-label="القائمة">☰</button>
+      </div>
     </div>
   </div>
 </header>
