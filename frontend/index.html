@@ -351,8 +351,14 @@
   .badge.yes { background: #eaf3de; color: #27500a; }
   .badge.no { background: #fcebeb; color: #7a1f1f; }
   .star-picker { display: flex; gap: 6px; font-size: 28px; margin: 10px 0; }
-  .star-picker span { color: #d8d8d8; cursor: pointer; transition: color .15s ease; line-height: 1; }
-  .star-picker span.filled { color: #f5a623; }
+  .star-picker button {
+    background: none; border: none; padding: 0; margin: 0; font: inherit;
+    color: #d8d8d8; cursor: pointer; transition: color .15s ease; line-height: 1;
+  }
+  .star-picker button.filled { color: #f5a623; }
+  .star-picker button:focus-visible {
+    outline: 2px solid #185fa5; outline-offset: 3px; border-radius: 4px;
+  }
   .star-display { color: #f5a623; font-size: 15px; letter-spacing: 2px; }
   .toggle-btn {
     font-size: 15px; padding: 7px 14px; border-radius: 999px; cursor: pointer; border: 1px solid; font-family: inherit;
