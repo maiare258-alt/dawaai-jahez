@@ -7,6 +7,120 @@ let currentCategory = 'medicine';
 // طلبات المريض المرسلة من هذا المتصفح (لتتبع رد الصيدلية عليها)
 let myOrders = JSON.parse(localStorage.getItem('myOrders') || '[]');
 
+// ---------- نظام تعدد اللغات (عربي/إنكليزي) — المرحلة 1: الصفحة الرئيسية ----------
+
+let currentLang = localStorage.getItem('lang') || 'ar';
+
+const translations = {
+  ar: {
+    nav_home: 'الرئيسية', nav_onduty: 'الصيدليات المناوبة', nav_pharmacist: 'لوحة الصيدلي',
+    nav_cosmetics: 'مستحضرات تجميل', nav_nursing: 'خدمات تمريض', nav_admin: 'الإدارة',
+    hero_title_medicine: 'دوائي جاهز<br>في <span class="hero-highlight">أي وقت</span>، من أي مكان',
+    hero_desc_medicine: 'منصة سورية تساعدك على معرفة توفر الدواء في الصيدليات القريبة وطلبه بسهولة.',
+    search_placeholder_medicine: 'ابحث عن دواء أو مادة فعالة...',
+    search_hint_medicine: 'اكتب اسم الدواء للبحث عن توفره في صيدليات سلمية.',
+    hero_title_cosmetic: 'دوائي جاهز<br>مستحضرات <span class="hero-highlight">تجميلك</span>، بأي وقت',
+    hero_desc_cosmetic: 'منصة سورية تساعدك على معرفة توفر مستحضرات التجميل في الصيدليات القريبة.',
+    search_placeholder_cosmetic: 'ابحث عن مستحضر تجميل...',
+    search_hint_cosmetic: 'اكتب اسم المستحضر للبحث عن توفره في صيدليات سلمية.',
+    hero_title_nursing: 'دوائي جاهز خدمات تمريض<br><span class="hero-highlight">في أي وقت</span>، من أي مكان',
+    hero_desc_nursing: 'منصة سورية تساعدك على معرفة توفر الدواء وخدمات التمريض في مدينة سلمية.',
+    search_hint_nursing: 'ابحث عن الممرض لمعرفة توافره في مدينة سلمية.',
+    search_btn: 'بحث', cart_btn: 'عربة المشتريات', whatsapp_btn: 'ابحث عبر واتساب',
+    feature1_title: 'البحث عن الدواء', feature1_desc: 'اعرف الصيدليات التي توفر الدواء.',
+    feature2_title: 'الصيدليات المناوبة', feature2_desc: 'اعرض الصيدليات المناوبة اليوم.',
+    feature3_title: 'عربة المشتريات', feature3_desc: 'اجمع الأدوية قبل زيارة الصيدلية.',
+    about_title: 'عن دوائي جاهز',
+    about_desc: 'دوائي جاهز منصة سورية محلية انطلقت من مدينة سلمية، هدفها مساعدتك على معرفة توفر دوائك في الصيدليات القريبة فوراً، بدل التنقل من صيدلية لصيدلية بحثاً عن دواء قد لا يكون متوفراً.',
+    footer_home: 'الرئيسية', footer_onduty: 'الصيدليات المناوبة', footer_contact: 'تواصل معنا',
+    footer_center: 'منصة سورية للبحث عن توفر الأدوية في الصيدليات.',
+    footer_copy: '© دوائي جاهز — جميع الحقوق محفوظة',
+    cart_empty_title: 'عربة المشتريات فارغة', cart_empty_subtitle: 'ابدأ بإضافة الأدوية من نتائج البحث.',
+    page_title: 'دوائي جاهز | توفر الأدوية في الصيدليات', lang_toggle: 'English'
+  },
+  en: {
+    nav_home: 'Home', nav_onduty: 'On-Duty Pharmacies', nav_pharmacist: 'Pharmacist Panel',
+    nav_cosmetics: 'Cosmetics', nav_nursing: 'Nursing Services', nav_admin: 'Admin',
+    hero_title_medicine: 'Dawaai Jahez<br><span class="hero-highlight">Anytime</span>, Anywhere',
+    hero_desc_medicine: 'A Syrian platform that helps you find medicine availability at nearby pharmacies and order it easily.',
+    search_placeholder_medicine: 'Search for a medicine or active ingredient...',
+    search_hint_medicine: 'Type the medicine name to check its availability in Salamiyah pharmacies.',
+    hero_title_cosmetic: 'Dawaai Jahez<br>Your <span class="hero-highlight">Cosmetics</span>, Anytime',
+    hero_desc_cosmetic: 'A Syrian platform that helps you find cosmetic products availability at nearby pharmacies.',
+    search_placeholder_cosmetic: 'Search for a cosmetic product...',
+    search_hint_cosmetic: 'Type the product name to check its availability in Salamiyah pharmacies.',
+    hero_title_nursing: 'Dawaai Jahez Nursing Services<br><span class="hero-highlight">Anytime</span>, Anywhere',
+    hero_desc_nursing: 'A Syrian platform that helps you find medicine and nursing service availability in Salamiyah city.',
+    search_hint_nursing: 'Search for a nurse to check their availability in Salamiyah city.',
+    search_btn: 'Search', cart_btn: 'Cart', whatsapp_btn: 'Search via WhatsApp',
+    feature1_title: 'Medicine Search', feature1_desc: 'Find pharmacies that have your medicine.',
+    feature2_title: 'On-Duty Pharmacies', feature2_desc: "See today's on-duty pharmacies.",
+    feature3_title: 'Shopping Cart', feature3_desc: 'Collect medicines before visiting the pharmacy.',
+    about_title: 'About Dawaai Jahez',
+    about_desc: 'Dawaai Jahez is a local Syrian platform launched in Salamiyah, aiming to help you instantly know your medicine availability at nearby pharmacies, instead of going from pharmacy to pharmacy looking for a medicine that might not be available.',
+    footer_home: 'Home', footer_onduty: 'On-Duty Pharmacies', footer_contact: 'Contact Us',
+    footer_center: 'A Syrian platform for medicine availability search at pharmacies.',
+    footer_copy: '© Dawaai Jahez — All rights reserved',
+    cart_empty_title: 'Your cart is empty', cart_empty_subtitle: 'Start adding medicines from the search results.',
+    page_title: 'Dawaai Jahez | Medicine Availability at Pharmacies', lang_toggle: 'عربي'
+  }
+};
+
+function t(key) {
+  return (translations[currentLang] && translations[currentLang][key]) || translations.ar[key] || key;
+}
+
+// يحدد أي نص Hero فعّال حالياً (دواء/تجميل/تمريض) ويعيد تطبيقه باللغة الجديدة
+function refreshCurrentHeroText() {
+  const nursingActive = document.getElementById('view-nursing').style.display !== 'none';
+  if (nursingActive) applyNursingHeroText();
+  else if (currentCategory === 'cosmetic') applyCosmeticHeroText();
+  else applyMedicineHeroText();
+}
+
+function applyLanguage() {
+  document.documentElement.lang = currentLang;
+  document.documentElement.dir = currentLang === 'ar' ? 'rtl' : 'ltr';
+  document.title = t('page_title');
+
+  document.getElementById('nav-home').textContent = t('nav_home');
+  document.getElementById('nav-onduty').textContent = t('nav_onduty');
+  document.getElementById('nav-pharmacist').textContent = t('nav_pharmacist');
+  document.getElementById('nav-cosmetics').textContent = t('nav_cosmetics');
+  document.getElementById('nav-nursing').textContent = t('nav_nursing');
+  document.getElementById('nav-admin').textContent = t('nav_admin');
+
+  refreshCurrentHeroText();
+  document.getElementById('search-btn').textContent = t('search_btn');
+  document.getElementById('cart-btn-label').textContent = t('cart_btn');
+  document.getElementById('whatsapp-btn-label').textContent = t('whatsapp_btn');
+
+  document.getElementById('feature1-title').textContent = t('feature1_title');
+  document.getElementById('feature1-desc').textContent = t('feature1_desc');
+  document.getElementById('feature2-title').textContent = t('feature2_title');
+  document.getElementById('feature2-desc').textContent = t('feature2_desc');
+  document.getElementById('feature3-title').textContent = t('feature3_title');
+  document.getElementById('feature3-desc').textContent = t('feature3_desc');
+  document.getElementById('about-title').textContent = t('about_title');
+  document.getElementById('about-desc').textContent = t('about_desc');
+
+  document.getElementById('footer-home').textContent = t('footer_home');
+  document.getElementById('footer-onduty').textContent = t('footer_onduty');
+  document.getElementById('footer-contact').textContent = t('footer_contact');
+  document.getElementById('footer-center').textContent = t('footer_center');
+  document.getElementById('footer-copy').textContent = t('footer_copy');
+
+  document.getElementById('lang-toggle-btn').textContent = t('lang_toggle');
+
+  renderCart(); // لتحديث نص حالة الفراغ لو العربة مفتوحة وفاضية
+}
+
+function toggleLanguage() {
+  currentLang = currentLang === 'ar' ? 'en' : 'ar';
+  localStorage.setItem('lang', currentLang);
+  applyLanguage();
+}
+
 // ---------- نافذة تنبيه مخصصة (بديل alert وconfirm الافتراضيين) ----------
 
 function showModal({ message, type = 'info', showCancel = false, okText = 'حسناً', cancelText = 'إلغاء' }) {
@@ -85,13 +199,30 @@ function closeNav() {
   document.getElementById('site-nav').classList.remove('open');
 }
 
+function applyMedicineHeroText() {
+  document.getElementById('hero-title').innerHTML = t('hero_title_medicine');
+  document.getElementById('hero-description').textContent = t('hero_desc_medicine');
+  document.getElementById('search').placeholder = t('search_placeholder_medicine');
+  document.getElementById('hero-search-hint').textContent = t('search_hint_medicine');
+}
+
+function applyCosmeticHeroText() {
+  document.getElementById('hero-title').innerHTML = t('hero_title_cosmetic');
+  document.getElementById('hero-description').textContent = t('hero_desc_cosmetic');
+  document.getElementById('search').placeholder = t('search_placeholder_cosmetic');
+  document.getElementById('hero-search-hint').textContent = t('search_hint_cosmetic');
+}
+
+function applyNursingHeroText() {
+  document.getElementById('hero-title').innerHTML = t('hero_title_nursing');
+  document.getElementById('hero-description').textContent = t('hero_desc_nursing');
+  document.getElementById('hero-search-hint').textContent = t('search_hint_nursing');
+}
+
 function headerGoHome(link) {
   if (currentCategory !== 'medicine') {
     currentCategory = 'medicine';
-    document.getElementById('hero-title').innerHTML = 'دوائي جاهز<br>في <span class="hero-highlight">أي وقت</span>، من أي مكان';
-    document.getElementById('hero-description').textContent = 'منصة سورية تساعدك على معرفة توفر الدواء في الصيدليات القريبة وطلبه بسهولة.';
-    document.getElementById('search').placeholder = 'ابحث عن دواء أو مادة فعالة...';
-    document.getElementById('hero-search-hint').textContent = 'اكتب اسم الدواء للبحث عن توفره في صيدليات سلمية.';
+    applyMedicineHeroText();
     document.getElementById('search').value = '';
     document.getElementById('results').innerHTML = '';
   }
@@ -105,10 +236,7 @@ function headerGoHome(link) {
 
 function headerGoCosmetics(link) {
   currentCategory = 'cosmetic';
-  document.getElementById('hero-title').innerHTML = 'دوائي جاهز<br>مستحضرات <span class="hero-highlight">تجميلك</span>، بأي وقت';
-  document.getElementById('hero-description').textContent = 'منصة سورية تساعدك على معرفة توفر مستحضرات التجميل في الصيدليات القريبة.';
-  document.getElementById('search').placeholder = 'ابحث عن مستحضر تجميل...';
-  document.getElementById('hero-search-hint').textContent = 'اكتب اسم المستحضر للبحث عن توفره في صيدليات سلمية.';
+  applyCosmeticHeroText();
   document.getElementById('search').value = '';
   document.getElementById('results').innerHTML = '';
   document.getElementById('hero-search-wrap').style.display = '';
@@ -237,8 +365,8 @@ function renderCart() {
     container.innerHTML = `
       <div class="box cart-empty">
         <div class="cart-empty-icon">🛒</div>
-        <p class="cart-empty-title">عربة المشتريات فارغة</p>
-        <p class="cart-empty-subtitle">ابدأ بإضافة الأدوية من نتائج البحث.</p>
+        <p class="cart-empty-title">${t('cart_empty_title')}</p>
+        <p class="cart-empty-subtitle">${t('cart_empty_subtitle')}</p>
       </div>
     `;
     return;
@@ -454,9 +582,7 @@ function whatsappComingSoon() {
 }
 
 function headerGoNursing(link) {
-  document.getElementById('hero-title').innerHTML = 'دوائي جاهز خدمات تمريض<br><span class="hero-highlight">في أي وقت</span>، من أي مكان';
-  document.getElementById('hero-description').textContent = 'منصة سورية تساعدك على معرفة توفر الدواء وخدمات التمريض في مدينة سلمية.';
-  document.getElementById('hero-search-hint').textContent = 'ابحث عن الممرض لمعرفة توافره في مدينة سلمية.';
+  applyNursingHeroText();
   document.getElementById('hero-search-wrap').style.display = 'none';
   showView('nursing');
   document.getElementById('on-duty-section').style.display = 'none';
@@ -1642,6 +1768,7 @@ document.addEventListener('click', (e) => {
 });
 
 showView('patient');
+applyLanguage();
 runSearch();
 loadOnDuty();
 updateCartCount();
