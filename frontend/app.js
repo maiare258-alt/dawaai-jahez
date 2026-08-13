@@ -36,7 +36,20 @@ const translations = {
     footer_center: 'منصة سورية للبحث عن توفر الأدوية في الصيدليات.',
     footer_copy: '© دوائي جاهز — جميع الحقوق محفوظة',
     cart_empty_title: 'عربة المشتريات فارغة', cart_empty_subtitle: 'ابدأ بإضافة الأدوية من نتائج البحث.',
-    page_title: 'دوائي جاهز | توفر الأدوية في الصيدليات', lang_toggle: 'English', brand_name: 'دوائي جاهز'
+    page_title: 'دوائي جاهز | توفر الأدوية في الصيدليات', lang_toggle: 'English', brand_name: 'دوائي جاهز',
+    not_found_title_medicine: 'لم يتم العثور على الدواء', not_found_title_cosmetic: 'لم يتم العثور على المستحضر',
+    not_found_subtitle: 'يمكنك تجربة اسم آخر أو البحث بالمادة الفعالة.',
+    did_you_mean_results: 'هل تقصد أحد هذه النتائج؟',
+    suggest_did_you_mean: 'هل تقصد', q_mark: '؟',
+    available_badge: '🟢 متوفر', unavailable_badge: '🔴 غير متوفر',
+    active_ingredient_label: 'المادة الفعالة:', add_to_cart_btn: 'إضافة إلى السلة', added_feedback: '✓ تمت الإضافة',
+    alt_unavailable_but: 'غير متوفر حالياً، بس في بديل بنفس المادة الفعالة', alt_view_btn: 'عرض',
+    server_error_title: 'تعذر الاتصال بالخادم', server_error_subtitle: 'تحقق من اتصالك بالإنترنت وحاول مرة أخرى.',
+    cart_panel_title: 'عربة المشتريات', cart_panel_subtitle: 'راجع الأدوية قبل إتمام الطلب.',
+    cart_items_count_label: 'عدد الأدوية', checkout_name_placeholder: 'الاسم الكامل',
+    checkout_phone_placeholder: 'رقم الهاتف', checkout_btn: 'إتمام الطلب', remove_aria: 'حذف',
+    checkout_missing_fields: 'الرجاء إدخال الاسم ورقم الهاتف لإتمام الطلب.',
+    order_success_msg: 'تم إرسال طلبك بنجاح! الصيدلية رح تتواصل معك قريباً على الرقم يلي أدخلته.'
   },
   en: {
     nav_home: 'Home', nav_onduty: 'On-Duty Pharmacies', nav_pharmacist: 'Pharmacist Panel',
@@ -62,7 +75,20 @@ const translations = {
     footer_center: 'A Syrian platform for medicine availability search at pharmacies.',
     footer_copy: '© Dawaai Jahez — All rights reserved',
     cart_empty_title: 'Your cart is empty', cart_empty_subtitle: 'Start adding medicines from the search results.',
-    page_title: 'Dawaai Jahez | Medicine Availability at Pharmacies', lang_toggle: 'عربي', brand_name: 'Dawaai Jahez'
+    page_title: 'Dawaai Jahez | Medicine Availability at Pharmacies', lang_toggle: 'عربي', brand_name: 'Dawaai Jahez',
+    not_found_title_medicine: 'Medicine not found', not_found_title_cosmetic: 'Product not found',
+    not_found_subtitle: 'You can try another name or search by active ingredient.',
+    did_you_mean_results: 'Did you mean one of these?',
+    suggest_did_you_mean: 'Did you mean', q_mark: '?',
+    available_badge: '🟢 Available', unavailable_badge: '🔴 Unavailable',
+    active_ingredient_label: 'Active ingredient:', add_to_cart_btn: 'Add to Cart', added_feedback: '✓ Added',
+    alt_unavailable_but: 'is currently unavailable, but there is an alternative with the same active ingredient', alt_view_btn: 'View',
+    server_error_title: 'Could not connect to the server', server_error_subtitle: 'Check your internet connection and try again.',
+    cart_panel_title: 'Shopping Cart', cart_panel_subtitle: 'Review the items before checkout.',
+    cart_items_count_label: 'Number of items', checkout_name_placeholder: 'Full name',
+    checkout_phone_placeholder: 'Phone number', checkout_btn: 'Checkout', remove_aria: 'Remove',
+    checkout_missing_fields: 'Please enter your name and phone number to complete the order.',
+    order_success_msg: 'Your order has been sent successfully! The pharmacy will contact you soon on the number you entered.'
   }
 };
 
@@ -114,6 +140,7 @@ function applyLanguage() {
   document.getElementById('brand-name').textContent = t('brand_name');
 
   renderCart(); // لتحديث نص حالة الفراغ لو العربة مفتوحة وفاضية
+  if (document.getElementById('search').value.trim()) runSearch(); // تحديث نتائج البحث الحالية لو موجودة
 }
 
 function toggleLanguage() {
@@ -313,7 +340,7 @@ function showAddedFeedback(btn) {
   btn.dataset.feedbackActive = '1';
   btn.disabled = true;
   btn.classList.add('added-success');
-  btn.textContent = '✓ تمت الإضافة';
+  btn.textContent = t('added_feedback');
   setTimeout(() => {
     btn.textContent = originalText;
     btn.classList.remove('added-success');
@@ -374,8 +401,8 @@ function renderCart() {
   }
   container.innerHTML = `
     <div class="cart-header">
-      <h3 class="cart-title">عربة المشتريات</h3>
-      <p class="cart-subtitle">راجع الأدوية قبل إتمام الطلب.</p>
+      <h3 class="cart-title">${t('cart_panel_title')}</h3>
+      <p class="cart-subtitle">${t('cart_panel_subtitle')}</p>
     </div>
     ${cart.map((item, i) => `
       <div class="cart-item-card">
@@ -385,7 +412,7 @@ function renderCart() {
             ${item.genericName ? `<div class="cart-item-generic">${item.genericName}</div>` : ''}
             <div class="cart-item-pharmacy">${item.pharmacyName}</div>
           </div>
-          <button class="cart-remove-btn" onclick="removeFromCart(${i})" aria-label="حذف">🗑️</button>
+          <button class="cart-remove-btn" onclick="removeFromCart(${i})" aria-label="${t('remove_aria')}">🗑️</button>
         </div>
         <div class="cart-item-bottom">
           <div class="qty-control">
@@ -397,10 +424,10 @@ function renderCart() {
       </div>
     `).join('')}
     <div class="cart-summary">
-      <div class="cart-summary-row"><span>عدد الأدوية</span><span>${cart.length}</span></div>
-      <input id="checkout-name" placeholder="الاسم الكامل">
-      <input id="checkout-phone" placeholder="رقم الهاتف" type="tel" inputmode="numeric" oninput="digitsOnly(this)">
-      <button class="checkout-btn" onclick="submitOrder()">إتمام الطلب</button>
+      <div class="cart-summary-row"><span>${t('cart_items_count_label')}</span><span>${cart.length}</span></div>
+      <input id="checkout-name" placeholder="${t('checkout_name_placeholder')}">
+      <input id="checkout-phone" placeholder="${t('checkout_phone_placeholder')}" type="tel" inputmode="numeric" oninput="digitsOnly(this)">
+      <button class="checkout-btn" onclick="submitOrder()">${t('checkout_btn')}</button>
     </div>
   `;
 }
@@ -409,7 +436,7 @@ async function submitOrder() {
   const name = document.getElementById('checkout-name').value.trim();
   const phone = document.getElementById('checkout-phone').value.trim();
   if (!name || !phone) {
-    customAlert('الرجاء إدخال الاسم ورقم الهاتف لإتمام الطلب.', 'warning');
+    customAlert(t('checkout_missing_fields'), 'warning');
     return;
   }
   try {
@@ -439,12 +466,12 @@ async function submitOrder() {
     updateBellVisibility();
     startMyOrdersPolling();
 
-    await customAlert('تم إرسال طلبك بنجاح! الصيدلية رح تتواصل معك قريباً على الرقم يلي أدخلته.', 'success');
+    await customAlert(t('order_success_msg'), 'success');
     cart = [];
     saveCart();
     renderCart();
   } catch (err) {
-    customAlert('تعذر الاتصال بالخادم', 'error');
+    customAlert(t('server_error_title'), 'error');
   }
 }
 
@@ -931,7 +958,7 @@ async function loadSuggestions() {
     }
     box.innerHTML = data.map((m, i) => `
       <div class="suggestion-item" role="option" id="suggestion-${i}" aria-selected="false" onclick="pickSuggestion('${m.name}')">
-        هل تقصد <strong>${m.name}</strong>؟
+        ${t('suggest_did_you_mean')} <strong>${m.name}</strong>${t('q_mark')}
         ${m.generic_name ? `<span class="generic-hint"> (${m.generic_name})</span>` : ''}
       </div>
     `).join('');
@@ -1009,12 +1036,12 @@ async function runSearch() {
     const data = await res.json();
 
     if (data.length === 0) {
-      const itemLabel = currentCategory === 'cosmetic' ? 'المستحضر' : 'الدواء';
+      const notFoundTitle = currentCategory === 'cosmetic' ? t('not_found_title_cosmetic') : t('not_found_title_medicine');
       let html = `
         <div class="empty-state">
           <div class="empty-icon">🔍</div>
-          <p class="empty-title">لم يتم العثور على ${itemLabel}</p>
-          <p class="empty-subtitle">يمكنك تجربة اسم آخر أو البحث بالمادة الفعالة.</p>
+          <p class="empty-title">${notFoundTitle}</p>
+          <p class="empty-subtitle">${t('not_found_subtitle')}</p>
         </div>`;
       try {
         const sugRes = await fetch(`${API}/medicines/suggest?q=${encodeURIComponent(q)}&category=${currentCategory}`);
@@ -1022,7 +1049,7 @@ async function runSearch() {
         if (suggestions.length > 0) {
           html += `
             <div class="box">
-              <p class="muted" style="margin-top:0;">هل تقصد أحد هذه النتائج؟</p>
+              <p class="muted" style="margin-top:0;">${t('did_you_mean_results')}</p>
               ${suggestions.map(m => `
                 <div style="cursor:pointer; color:#185fa5; padding:6px 0;" onclick="pickSuggestion('${m.name}')">
                   ${m.name}${m.generic_name ? ' - ' + m.generic_name : ''}
@@ -1044,12 +1071,12 @@ async function runSearch() {
           <div class="result-card">
             <div class="result-card-top">
               <span class="result-med-name"><span class="result-icon">${currentCategory === 'cosmetic' ? '💄' : '💊'}</span> ${item.medicine.name}</span>
-              <span class="badge ${a.available ? 'yes' : 'no'}">${a.available ? '🟢 متوفر' : '🔴 غير متوفر'}</span>
+              <span class="badge ${a.available ? 'yes' : 'no'}">${a.available ? t('available_badge') : t('unavailable_badge')}</span>
             </div>
-            <div class="result-row">المادة الفعالة: ${item.medicine.generic_name || '-'}</div>
+            <div class="result-row">${t('active_ingredient_label')} ${item.medicine.generic_name || '-'}</div>
             <div class="result-pharmacy"><span class="result-icon">📍</span> ${a.pharmacy_name}${a.address ? ' - ' + a.address : ''}</div>
             ${a.phone ? `<div class="result-row"><span class="result-icon">📞</span> ${a.phone}</div>` : ''}
-            ${a.available ? `<button class="result-add-btn-full" onclick="addToCart('${item.medicine.name}', '${item.medicine.generic_name || ''}', '${a.pharmacy_name}', ${a.pharmacy_id}, this)">إضافة إلى السلة</button>` : ''}
+            ${a.available ? `<button class="result-add-btn-full" onclick="addToCart('${item.medicine.name}', '${item.medicine.generic_name || ''}', '${a.pharmacy_name}', ${a.pharmacy_id}, this)">${t('add_to_cart_btn')}</button>` : ''}
           </div>
         `;
       });
@@ -1066,11 +1093,11 @@ async function runSearch() {
           if (alternatives.length > 0) {
             cardsHtml += `
               <div class="alt-suggestion-box">
-                <p class="alt-suggestion-title">${currentCategory === 'cosmetic' ? '💄' : '💊'} "${item.medicine.name}" غير متوفر حالياً، بس في بديل بنفس المادة الفعالة (${item.medicine.generic_name}):</p>
+                <p class="alt-suggestion-title">${currentCategory === 'cosmetic' ? '💄' : '💊'} "${item.medicine.name}" ${t('alt_unavailable_but')} (${item.medicine.generic_name}):</p>
                 ${alternatives.map(alt => alt.availability.map(a => `
                   <div class="alt-suggestion-row">
                     <span>${alt.medicine.name} <span class="muted">- ${a.pharmacy_name}</span></span>
-                    <button class="btn-outline blue small" onclick="pickSuggestion('${alt.medicine.name}')">عرض</button>
+                    <button class="btn-outline blue small" onclick="pickSuggestion('${alt.medicine.name}')">${t('alt_view_btn')}</button>
                   </div>
                 `).join('')).join('')}
               </div>
@@ -1084,8 +1111,8 @@ async function runSearch() {
     container.innerHTML = `
       <div class="empty-state">
         <div class="empty-icon">⚠️</div>
-        <p class="empty-title">تعذر الاتصال بالخادم</p>
-        <p class="empty-subtitle">تحقق من اتصالك بالإنترنت وحاول مرة أخرى.</p>
+        <p class="empty-title">${t('server_error_title')}</p>
+        <p class="empty-subtitle">${t('server_error_subtitle')}</p>
       </div>`;
   }
 }
