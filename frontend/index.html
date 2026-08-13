@@ -880,68 +880,68 @@
   <div id="view-pharmacist" style="display:none;">
     <div id="pharmacist-auth-section"></div>
     <div id="pharmacist-dashboard" style="display:none;">
-      <h2 class="dash-title">لوحة الصيدلي</h2>
+      <h2 class="dash-title" id="pharm-dash-title">لوحة الصيدلي</h2>
       <div class="muted" id="pharmacy-label" style="display:flex; align-items:center; justify-content:space-between; margin-bottom:16px;"></div>
       <div class="stats-grid stats-grid-5" id="stats-grid"></div>
       <div class="orders-wrap" id="orders-wrap" style="display:none;">
-        <h3 style="margin-top:0;">🛎️ طلبات جديدة من المرضى</h3>
+        <h3 style="margin-top:0;" id="new-orders-title">🛎️ طلبات جديدة من المرضى</h3>
         <div id="orders-list"></div>
       </div>
       <div class="box" style="margin-bottom:20px;">
-        <h3 style="margin-top:0;">🕐 حالة المناوبة</h3>
+        <h3 style="margin-top:0;" id="duty-status-title">🕐 حالة المناوبة</h3>
         <label style="display:flex; align-items:center; gap:8px; font-size:16px; margin-bottom:12px;">
-          <input type="checkbox" id="duty-checkbox" onchange="onDutyToggle()"> صيدليتي مناوبة اليوم
+          <input type="checkbox" id="duty-checkbox" onchange="onDutyToggle()"> <span id="duty-checkbox-label">صيدليتي مناوبة اليوم</span>
         </label>
         <select id="duty-day" disabled>
-          <option value="الأحد">الأحد</option>
-          <option value="الاثنين">الاثنين</option>
-          <option value="الثلاثاء">الثلاثاء</option>
-          <option value="الأربعاء">الأربعاء</option>
-          <option value="الخميس">الخميس</option>
-          <option value="الجمعة">الجمعة</option>
-          <option value="السبت">السبت</option>
+          <option value="الأحد" id="opt-day-sun">الأحد</option>
+          <option value="الاثنين" id="opt-day-mon">الاثنين</option>
+          <option value="الثلاثاء" id="opt-day-tue">الثلاثاء</option>
+          <option value="الأربعاء" id="opt-day-wed">الأربعاء</option>
+          <option value="الخميس" id="opt-day-thu">الخميس</option>
+          <option value="الجمعة" id="opt-day-fri">الجمعة</option>
+          <option value="السبت" id="opt-day-sat">السبت</option>
         </select>
         <select id="duty-shift" disabled>
-          <option value="طوال اليوم">طوال اليوم</option>
-          <option value="صباحاً">صباحاً فقط</option>
-          <option value="مساءً">مساءً فقط</option>
+          <option value="طوال اليوم" id="opt-shift-allday">طوال اليوم</option>
+          <option value="صباحاً" id="opt-shift-morning">صباحاً فقط</option>
+          <option value="مساءً" id="opt-shift-evening">مساءً فقط</option>
         </select>
-        <button class="primary" onclick="saveDuty()">حفظ حالة المناوبة</button>
+        <button class="primary" onclick="saveDuty()" id="save-duty-btn">حفظ حالة المناوبة</button>
       </div>
       <div class="box" style="margin-bottom:20px;">
-        <h3 style="margin-top:0;">⏱️ تحديد ساعات المناوبة (اختياري)</h3>
-        <p class="muted" style="margin-top:-8px;">حدد التوقيت المخصص لتظهر النتيجة بجانب يوم المناوبة.</p>
+        <h3 style="margin-top:0;" id="duty-hours-title">⏱️ تحديد ساعات المناوبة (اختياري)</h3>
+        <p class="muted" style="margin-top:-8px;" id="duty-hours-desc">حدد التوقيت المخصص لتظهر النتيجة بجانب يوم المناوبة.</p>
         <div style="display:flex; gap:12px;">
           <div style="flex:1;">
-            <label class="muted" style="font-size:14px; display:block; margin-bottom:4px;">من الساعة</label>
+            <label class="muted" style="font-size:14px; display:block; margin-bottom:4px;" id="duty-start-label">من الساعة</label>
             <input type="time" id="duty-start-time" disabled>
           </div>
           <div style="flex:1;">
-            <label class="muted" style="font-size:14px; display:block; margin-bottom:4px;">إلى الساعة</label>
+            <label class="muted" style="font-size:14px; display:block; margin-bottom:4px;" id="duty-end-label">إلى الساعة</label>
             <input type="time" id="duty-end-time" disabled>
           </div>
         </div>
       </div>
       <div class="box" style="margin-bottom:20px;">
-        <h3 style="margin-top:0;">💊 إضافة دواء غير موجود بالقائمة</h3>
-        <p class="muted" style="margin-top:-8px;">إذا لديك دواء في مخزن الصيدلية وغير متوفر ضمن القائمة يمكنك إضافته في خانات النص المبينة أدناه.</p>
+        <h3 style="margin-top:0;" id="add-med-title">💊 إضافة دواء غير موجود بالقائمة</h3>
+        <p class="muted" style="margin-top:-8px;" id="add-med-desc">إذا لديك دواء في مخزن الصيدلية وغير متوفر ضمن القائمة يمكنك إضافته في خانات النص المبينة أدناه.</p>
         <input id="pharm-med-name" placeholder="اسم الدواء">
         <input id="pharm-med-generic" placeholder="المادة الفعالة (اختياري)">
         <input id="pharm-med-alt" placeholder="أسماء بديلة، افصل بينها بفاصلة (اختياري)">
         <select id="pharm-med-category" onchange="updateMedNamePlaceholder('pharm-med-category', 'pharm-med-name')">
-          <option value="medicine">دواء</option>
-          <option value="cosmetic">مستحضر تجميل</option>
+          <option value="medicine" id="opt-cat-medicine">دواء</option>
+          <option value="cosmetic" id="opt-cat-cosmetic">مستحضر تجميل</option>
         </select>
-        <button class="primary" onclick="addMedicineSelf()">إضافة الدواء</button>
+        <button class="primary" onclick="addMedicineSelf()" id="add-med-btn">إضافة الدواء</button>
       </div>
       <div class="stock-table-wrap">
         <div class="stock-scroll">
-          <div class="stock-table-header"><span>الدواء</span><span class="col-status">الحالة</span></div>
+          <div class="stock-table-header"><span id="stock-table-medicine">الدواء</span><span class="col-status" id="stock-table-status">الحالة</span></div>
           <div id="stock-list"></div>
         </div>
       </div>
       <p style="margin-top:32px;">
-        <button class="action-pill-btn red" onclick="deleteMyAccount()">🗑️ حذف حسابي نهائياً</button>
+        <button class="action-pill-btn red" onclick="deleteMyAccount()" id="delete-account-btn">🗑️ حذف حسابي نهائياً</button>
       </p>
     </div>
   </div>
