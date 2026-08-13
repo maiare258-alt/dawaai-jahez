@@ -49,7 +49,15 @@ const translations = {
     cart_items_count_label: 'عدد الأدوية', checkout_name_placeholder: 'الاسم الكامل',
     checkout_phone_placeholder: 'رقم الهاتف', checkout_btn: 'إتمام الطلب', remove_aria: 'حذف',
     checkout_missing_fields: 'الرجاء إدخال الاسم ورقم الهاتف لإتمام الطلب.',
-    order_success_msg: 'تم إرسال طلبك بنجاح! الصيدلية رح تتواصل معك قريباً على الرقم يلي أدخلته.'
+    order_success_msg: 'تم إرسال طلبك بنجاح! الصيدلية رح تتواصل معك قريباً على الرقم يلي أدخلته.',
+    modal_ok: 'حسناً', modal_cancel: 'إلغاء', modal_yes: 'نعم',
+    onduty_title: '🟢 الصيدليات المناوبة اليوم', onduty_now_badge: '🟢 مناوبة الآن',
+    onduty_empty_title: 'لا توجد صيدليات مناوبة حالياً',
+    onduty_empty_subtitle: 'تحقق لاحقاً، أو تواصل مع صيدليتك المفضلة مباشرة.',
+    bell_empty: 'ما في إشعارات حالياً', bell_aria_label: 'إشعارات الطلبات', bell_dismiss_aria: 'إخفاء',
+    bell_confirmed_text: 'تم الاستجابة لطلبك من قبل الصيدلية',
+    bell_pending_prefix: 'طلبك عند صيدلية', bell_pending_suffix: 'قيد المراجعة...',
+    excess_quantity_confirm: 'لقد أضفت {qty} من {name} من {pharmacy} إلى عربتك. هل تريد إضافة المزيد؟'
   },
   en: {
     nav_home: 'Home', nav_onduty: 'On-Duty Pharmacies', nav_pharmacist: 'Pharmacist Panel',
@@ -88,12 +96,27 @@ const translations = {
     cart_items_count_label: 'Number of items', checkout_name_placeholder: 'Full name',
     checkout_phone_placeholder: 'Phone number', checkout_btn: 'Checkout', remove_aria: 'Remove',
     checkout_missing_fields: 'Please enter your name and phone number to complete the order.',
-    order_success_msg: 'Your order has been sent successfully! The pharmacy will contact you soon on the number you entered.'
+    order_success_msg: 'Your order has been sent successfully! The pharmacy will contact you soon on the number you entered.',
+    modal_ok: 'OK', modal_cancel: 'Cancel', modal_yes: 'Yes',
+    onduty_title: '🟢 Pharmacies on duty today', onduty_now_badge: '🟢 On duty now',
+    onduty_empty_title: 'No pharmacies on duty right now',
+    onduty_empty_subtitle: 'Check back later, or contact your usual pharmacy directly.',
+    bell_empty: 'No notifications yet', bell_aria_label: 'Order notifications', bell_dismiss_aria: 'Dismiss',
+    bell_confirmed_text: 'Your order was confirmed by the pharmacy',
+    bell_pending_prefix: 'Your order at', bell_pending_suffix: 'is under review...',
+    excess_quantity_confirm: "You've added {qty} of {name} from {pharmacy} to your cart. Add more?"
   }
 };
 
 function t(key) {
   return (translations[currentLang] && translations[currentLang][key]) || translations.ar[key] || key;
+}
+
+// تعبئة قالب ترجمة فيه عناصر نائبة {مثل هذه}
+function tFormat(key, values) {
+  let str = t(key);
+  for (const [k, v] of Object.entries(values)) str = str.replace(`{${k}}`, v);
+  return str;
 }
 
 // يحدد أي نص Hero فعّال حالياً (دواء/تجميل/تمريض) ويعيد تطبيقه باللغة الجديدة
@@ -141,6 +164,11 @@ function applyLanguage() {
 
   renderCart(); // لتحديث نص حالة الفراغ لو العربة مفتوحة وفاضية
   if (document.getElementById('search').value.trim()) runSearch(); // تحديث نتائج البحث الحالية لو موجودة
+
+  document.getElementById('bell-btn').setAttribute('aria-label', t('bell_aria_label'));
+  renderBellPanel();
+  lastOnDutySnapshot = null; // نجبر إعادة رسم الصيدليات المناوبة حتى لو البيانات نفسها ما تغيّرت
+  loadOnDuty();
 }
 
 function toggleLanguage() {
@@ -151,7 +179,9 @@ function toggleLanguage() {
 
 // ---------- نافذة تنبيه مخصصة (بديل alert وconfirm الافتراضيين) ----------
 
-function showModal({ message, type = 'info', showCancel = false, okText = 'حسناً', cancelText = 'إلغاء' }) {
+function showModal({ message, type = 'info', showCancel = false, okText, cancelText }) {
+  okText = okText || t('modal_ok');
+  cancelText = cancelText || t('modal_cancel');
   return new Promise(resolve => {
     const icons = { success: '✅', error: '❌', warning: '⚠️', question: '❓', info: 'ℹ️' };
     document.getElementById('modal-icon').textContent = icons[type] || icons.info;
@@ -182,7 +212,7 @@ function customAlert(message, type = 'info') {
 }
 
 function customConfirm(message, type = 'question') {
-  return showModal({ message, type, showCancel: true, okText: 'نعم', cancelText: 'إلغاء' });
+  return showModal({ message, type, showCancel: true, okText: t('modal_yes'), cancelText: t('modal_cancel') });
 }
 
 function showView(view) {
@@ -320,7 +350,7 @@ async function addToCart(medicineName, genericName, pharmacyName, pharmacyId, bt
   const existing = cart.find(item => item.medicineName === medicineName && item.pharmacyId === pharmacyId);
   if (existing) {
     if (existing.quantity >= 3 && !existing.confirmedExcess) {
-      const wantsMore = await customConfirm(`لقد أضفت ${existing.quantity} من ${medicineName} من ${pharmacyName} إلى عربتك. هل تريد إضافة المزيد؟`, 'question');
+      const wantsMore = await customConfirm(tFormat('excess_quantity_confirm', { qty: existing.quantity, name: medicineName, pharmacy: pharmacyName }), 'question');
       if (!wantsMore) return;
       existing.confirmedExcess = true;
     }
@@ -352,7 +382,7 @@ function showAddedFeedback(btn) {
 async function increaseQuantity(index) {
   const item = cart[index];
   if (item.quantity >= 3 && !item.confirmedExcess) {
-    const wantsMore = await customConfirm(`لقد أضفت ${item.quantity} من ${item.medicineName} من ${item.pharmacyName} إلى عربتك. هل تريد إضافة المزيد؟`, 'question');
+    const wantsMore = await customConfirm(tFormat('excess_quantity_confirm', { qty: item.quantity, name: item.medicineName, pharmacy: item.pharmacyName }), 'question');
     if (!wantsMore) return;
     item.confirmedExcess = true;
   }
@@ -526,7 +556,7 @@ function toggleBellPanel() {
 function renderBellPanel() {
   const panel = document.getElementById('bell-panel');
   if (!myOrders || myOrders.length === 0) {
-    panel.innerHTML = `<div class="bell-panel-empty">ما في إشعارات حالياً</div>`;
+    panel.innerHTML = `<div class="bell-panel-empty">${t('bell_empty')}</div>`;
     return;
   }
   panel.innerHTML = myOrders.map(o => {
@@ -535,16 +565,16 @@ function renderBellPanel() {
         <div class="order-status-banner confirmed">
           <div class="order-status-banner-text">
             <span class="order-status-icon">✅</span>
-            <span>تم الاستجابة لطلبك من قبل الصيدلية (${o.pharmacyName})</span>
+            <span>${t('bell_confirmed_text')} (${o.pharmacyName})</span>
           </div>
-          <button class="order-status-dismiss" onclick="dismissMyOrder(${o.id})" aria-label="إخفاء">✕</button>
+          <button class="order-status-dismiss" onclick="dismissMyOrder(${o.id})" aria-label="${t('bell_dismiss_aria')}">✕</button>
         </div>`;
     }
     return `
       <div class="order-status-banner pending">
         <div class="order-status-banner-text">
           <span class="order-status-icon">⏳</span>
-          <span>طلبك عند صيدلية (${o.pharmacyName}) قيد المراجعة...</span>
+          <span>${t('bell_pending_prefix')} (${o.pharmacyName}) ${t('bell_pending_suffix')}</span>
         </div>
       </div>`;
   }).join('');
@@ -627,11 +657,20 @@ function footerContactComingSoon() {
 function formatTime12(t) {
   if (!t) return '';
   const [h, m] = t.split(':').map(Number);
-  const period = h >= 12 ? 'م' : 'ص';
   let hour12 = h % 12;
   if (hour12 === 0) hour12 = 12;
-  return `${hour12}:${String(m).padStart(2, '0')} ${period}`;
+  const mm = String(m).padStart(2, '0');
+  if (currentLang === 'en') {
+    return `${hour12}:${mm} ${h >= 12 ? 'PM' : 'AM'}`;
+  }
+  return `${hour12}:${mm} ${h >= 12 ? 'م' : 'ص'}`;
 }
+
+// أيام الأسبوع وفترات المناوبة قيم ثابتة معروفة (مش نص حر)، فآمن نترجم عرضها فقط
+const DUTY_DAY_EN = { 'الأحد': 'Sunday', 'الاثنين': 'Monday', 'الثلاثاء': 'Tuesday', 'الأربعاء': 'Wednesday', 'الخميس': 'Thursday', 'الجمعة': 'Friday', 'السبت': 'Saturday' };
+const DUTY_SHIFT_EN = { 'طوال اليوم': 'All day', 'صباحاً': 'Morning only', 'مساءً': 'Evening only' };
+function translateDutyDay(day) { return currentLang === 'en' ? (DUTY_DAY_EN[day] || day) : day; }
+function translateDutyShift(shift) { return currentLang === 'en' ? (DUTY_SHIFT_EN[shift] || shift) : shift; }
 
 // ---------- واجهة المريض ----------
 
@@ -653,8 +692,8 @@ async function loadOnDuty() {
         <div class="duty-wrap">
           <div class="empty-state">
             <div class="empty-icon">🏥</div>
-            <p class="empty-title">لا توجد صيدليات مناوبة حالياً</p>
-            <p class="empty-subtitle">تحقق لاحقاً، أو تواصل مع صيدليتك المفضلة مباشرة.</p>
+            <p class="empty-title">${t('onduty_empty_title')}</p>
+            <p class="empty-subtitle">${t('onduty_empty_subtitle')}</p>
           </div>
         </div>
       `;
@@ -662,18 +701,18 @@ async function loadOnDuty() {
     }
     container.innerHTML = `
       <div class="duty-wrap">
-        <h3>🟢 الصيدليات المناوبة اليوم</h3>
+        <h3>${t('onduty_title')}</h3>
         <div class="duty-grid">
           ${data.map(p => {
             const extras = [];
-            if (p.on_duty_shift && p.on_duty_shift !== 'طوال اليوم') extras.push(p.on_duty_shift);
+            if (p.on_duty_shift && p.on_duty_shift !== 'طوال اليوم') extras.push(translateDutyShift(p.on_duty_shift));
             if (p.on_duty_start_time && p.on_duty_end_time) extras.push(`${formatTime12(p.on_duty_start_time)} - ${formatTime12(p.on_duty_end_time)}`);
-            const timeLine = (p.on_duty_day || '') + (extras.length ? ` (${extras.join('، ')})` : '');
+            const timeLine = translateDutyDay(p.on_duty_day || '') + (extras.length ? ` (${extras.join('، ')})` : '');
             return `
               <div class="duty-card">
                 <div class="duty-card-top">
                   <span class="duty-card-name">${p.name}</span>
-                  <span class="duty-status-badge">🟢 مناوبة الآن</span>
+                  <span class="duty-status-badge">${t('onduty_now_badge')}</span>
                 </div>
                 ${p.address ? `<div class="duty-card-row"><span class="duty-icon">📍</span> ${p.address}</div>` : ''}
                 ${p.phone ? `<div class="duty-card-row"><span class="duty-icon">📞</span> ${p.phone}</div>` : ''}
