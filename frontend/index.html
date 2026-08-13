@@ -122,6 +122,9 @@
     .site-nav.open { display: flex; }
     .site-nav a { padding: 12px 14px; }
     .nav-toggle { display: block; }
+    /* على الموبايل، القائمة مختفية فبيضل الشعار والأزرار عنصر وحيد بالهيدر ويلتصقوا بشكل غريب —
+       نفكّ التجميع هون بس عشان يرجعوا طرفين متقابلين (الشعار يمين، الأزرار يسار) */
+    .site-header-right { display: contents; }
   }
   .hero-outer { max-width: 1080px; margin: 0 auto 22px; }
   .hero {
