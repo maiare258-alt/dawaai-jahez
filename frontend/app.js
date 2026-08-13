@@ -57,7 +57,35 @@ const translations = {
     bell_empty: 'ما في إشعارات حالياً', bell_aria_label: 'إشعارات الطلبات', bell_dismiss_aria: 'إخفاء',
     bell_confirmed_text: 'تم الاستجابة لطلبك من قبل الصيدلية',
     bell_pending_prefix: 'طلبك عند صيدلية', bell_pending_suffix: 'قيد المراجعة...',
-    excess_quantity_confirm: 'لقد أضفت {qty} من {name} من {pharmacy} إلى عربتك. هل تريد إضافة المزيد؟'
+    excess_quantity_confirm: 'لقد أضفت {qty} من {name} من {pharmacy} إلى عربتك. هل تريد إضافة المزيد؟',
+    pharm_login_title: 'دخول الصيدلي',
+    pharm_login_no_account: 'إذا لم يكن لديك حساب بعد، تواصل مع فريق دوائي جاهز لتسجيل صيدليتك.',
+    username_placeholder: 'اسم المستخدم', password_placeholder: 'كلمة المرور', login_btn: 'دخول',
+    pharm_dashboard_title: 'لوحة الصيدلي', pharmacy_label_prefix: 'صيدلية:', logout_btn: '🚪 تسجيل الخروج',
+    new_orders_title: '🛎️ طلبات جديدة من المرضى',
+    duty_status_title: '🕐 حالة المناوبة', duty_checkbox_label: 'صيدليتي مناوبة اليوم',
+    save_duty_btn: 'حفظ حالة المناوبة',
+    duty_hours_title: '⏱️ تحديد ساعات المناوبة (اختياري)',
+    duty_hours_desc: 'حدد التوقيت المخصص لتظهر النتيجة بجانب يوم المناوبة.',
+    duty_start_label: 'من الساعة', duty_end_label: 'إلى الساعة',
+    add_med_title: '💊 إضافة دواء غير موجود بالقائمة',
+    add_med_desc: 'إذا لديك دواء في مخزن الصيدلية وغير متوفر ضمن القائمة يمكنك إضافته في خانات النص المبينة أدناه.',
+    med_name_placeholder: 'اسم الدواء', med_name_placeholder_cosmetic: 'اسم المستحضر',
+    generic_name_placeholder: 'المادة الفعالة (اختياري)', alt_names_placeholder: 'أسماء بديلة، افصل بينها بفاصلة (اختياري)',
+    cat_medicine: 'دواء', cat_cosmetic: 'مستحضر تجميل', add_med_btn: 'إضافة الدواء',
+    stock_table_medicine: 'الدواء', stock_table_status: 'الحالة', delete_account_btn: '🗑️ حذف حسابي نهائياً',
+    day_sunday: 'الأحد', day_monday: 'الاثنين', day_tuesday: 'الثلاثاء', day_wednesday: 'الأربعاء',
+    day_thursday: 'الخميس', day_friday: 'الجمعة', day_saturday: 'السبت',
+    shift_allday: 'طوال اليوم', shift_morning: 'صباحاً فقط', shift_evening: 'مساءً فقط',
+    stat_total_meds: 'عدد الأدوية', stat_available_meds: 'أدوية متوفرة', stat_unavailable_meds: 'غير المتوفرة',
+    stat_cosmetics: 'مستحضرات', stat_onduty_today: 'المناوبة اليوم', yes_word: 'نعم', no_word: 'لا',
+    med_name_required: 'اسم الدواء مطلوب', med_added_success: 'تمت الإضافة بنجاح. فعّل حالة توفره من القائمة تحت.',
+    duty_saved_success: 'تم حفظ حالة المناوبة بنجاح',
+    order_new_badge: '🆕 جديد', order_confirmed_badge: '✅ تم الحجز',
+    order_dismiss_btn: 'تم الاطلاع', order_confirm_btn: '✅ تأكيد الحجز', order_delete_btn: '🗑️ حذف الطلب',
+    order_delete_confirm: 'متأكد إنك تعاملت مع هذا الطلب وبدك تحذفه نهائياً؟',
+    delete_account_confirm: 'متأكد إنك بدك تحذف حسابك نهائياً؟ هذا الإجراء لا يمكن التراجع عنه.',
+    account_deleted_success: 'تم حذف حسابك بنجاح'
   },
   en: {
     nav_home: 'Home', nav_onduty: 'On-Duty Pharmacies', nav_pharmacist: 'Pharmacist Panel',
@@ -104,7 +132,35 @@ const translations = {
     bell_empty: 'No notifications yet', bell_aria_label: 'Order notifications', bell_dismiss_aria: 'Dismiss',
     bell_confirmed_text: 'Your order was confirmed by the pharmacy',
     bell_pending_prefix: 'Your order at', bell_pending_suffix: 'is under review...',
-    excess_quantity_confirm: "You've added {qty} of {name} from {pharmacy} to your cart. Add more?"
+    excess_quantity_confirm: "You've added {qty} of {name} from {pharmacy} to your cart. Add more?",
+    pharm_login_title: 'Pharmacist Login',
+    pharm_login_no_account: "If you don't have an account yet, contact the Dawaai Jahez team to register your pharmacy.",
+    username_placeholder: 'Username', password_placeholder: 'Password', login_btn: 'Login',
+    pharm_dashboard_title: 'Pharmacist Panel', pharmacy_label_prefix: 'Pharmacy:', logout_btn: '🚪 Logout',
+    new_orders_title: '🛎️ New patient orders',
+    duty_status_title: '🕐 Duty status', duty_checkbox_label: 'My pharmacy is on duty today',
+    save_duty_btn: 'Save duty status',
+    duty_hours_title: '⏱️ Set duty hours (optional)',
+    duty_hours_desc: 'Set a custom time to show alongside the duty day.',
+    duty_start_label: 'From', duty_end_label: 'To',
+    add_med_title: '💊 Add a medicine not in the list',
+    add_med_desc: 'If you have a medicine in stock that is not listed, you can add it in the fields below.',
+    med_name_placeholder: 'Medicine name', med_name_placeholder_cosmetic: 'Product name',
+    generic_name_placeholder: 'Active ingredient (optional)', alt_names_placeholder: 'Alternative names, separate with commas (optional)',
+    cat_medicine: 'Medicine', cat_cosmetic: 'Cosmetic product', add_med_btn: 'Add medicine',
+    stock_table_medicine: 'Medicine', stock_table_status: 'Status', delete_account_btn: '🗑️ Delete my account permanently',
+    day_sunday: 'Sunday', day_monday: 'Monday', day_tuesday: 'Tuesday', day_wednesday: 'Wednesday',
+    day_thursday: 'Thursday', day_friday: 'Friday', day_saturday: 'Saturday',
+    shift_allday: 'All day', shift_morning: 'Morning only', shift_evening: 'Evening only',
+    stat_total_meds: 'Total medicines', stat_available_meds: 'Available medicines', stat_unavailable_meds: 'Unavailable',
+    stat_cosmetics: 'Cosmetics', stat_onduty_today: 'On duty today', yes_word: 'Yes', no_word: 'No',
+    med_name_required: 'Medicine name is required', med_added_success: 'Added successfully. Enable its availability from the list below.',
+    duty_saved_success: 'Duty status saved successfully',
+    order_new_badge: '🆕 New', order_confirmed_badge: '✅ Reserved',
+    order_dismiss_btn: 'Mark as seen', order_confirm_btn: '✅ Confirm reservation', order_delete_btn: '🗑️ Delete order',
+    order_delete_confirm: "Confirm you've handled this order and want to delete it permanently?",
+    delete_account_confirm: 'Are you sure you want to permanently delete your account? This action cannot be undone.',
+    account_deleted_success: 'Your account has been deleted successfully'
   }
 };
 
@@ -169,6 +225,49 @@ function applyLanguage() {
   renderBellPanel();
   lastOnDutySnapshot = null; // نجبر إعادة رسم الصيدليات المناوبة حتى لو البيانات نفسها ما تغيّرت
   loadOnDuty();
+
+  // ---------- لوحة الصيدلي ----------
+  document.getElementById('pharm-dash-title').textContent = t('pharm_dashboard_title');
+  document.getElementById('new-orders-title').textContent = t('new_orders_title');
+  document.getElementById('duty-status-title').textContent = t('duty_status_title');
+  document.getElementById('duty-checkbox-label').textContent = t('duty_checkbox_label');
+  document.getElementById('save-duty-btn').textContent = t('save_duty_btn');
+  document.getElementById('duty-hours-title').textContent = t('duty_hours_title');
+  document.getElementById('duty-hours-desc').textContent = t('duty_hours_desc');
+  document.getElementById('duty-start-label').textContent = t('duty_start_label');
+  document.getElementById('duty-end-label').textContent = t('duty_end_label');
+  document.getElementById('opt-day-sun').textContent = t('day_sunday');
+  document.getElementById('opt-day-mon').textContent = t('day_monday');
+  document.getElementById('opt-day-tue').textContent = t('day_tuesday');
+  document.getElementById('opt-day-wed').textContent = t('day_wednesday');
+  document.getElementById('opt-day-thu').textContent = t('day_thursday');
+  document.getElementById('opt-day-fri').textContent = t('day_friday');
+  document.getElementById('opt-day-sat').textContent = t('day_saturday');
+  document.getElementById('opt-shift-allday').textContent = t('shift_allday');
+  document.getElementById('opt-shift-morning').textContent = t('shift_morning');
+  document.getElementById('opt-shift-evening').textContent = t('shift_evening');
+  document.getElementById('add-med-title').textContent = t('add_med_title');
+  document.getElementById('add-med-desc').textContent = t('add_med_desc');
+  document.getElementById('pharm-med-name').placeholder =
+    document.getElementById('pharm-med-category').value === 'cosmetic' ? t('med_name_placeholder_cosmetic') : t('med_name_placeholder');
+  document.getElementById('pharm-med-generic').placeholder = t('generic_name_placeholder');
+  document.getElementById('pharm-med-alt').placeholder = t('alt_names_placeholder');
+  document.getElementById('opt-cat-medicine').textContent = t('cat_medicine');
+  document.getElementById('opt-cat-cosmetic').textContent = t('cat_cosmetic');
+  document.getElementById('add-med-btn').textContent = t('add_med_btn');
+  document.getElementById('stock-table-medicine').textContent = t('stock_table_medicine');
+  document.getElementById('stock-table-status').textContent = t('stock_table_status');
+  document.getElementById('delete-account-btn').textContent = t('delete_account_btn');
+  if (currentPharmacy) {
+    document.getElementById('pharmacy-label').innerHTML = `
+      <span style="font-weight:500; font-size:16px;">${t('pharmacy_label_prefix')} ${currentPharmacy.name}</span>
+      <button class="action-pill-btn blue" onclick="logout()">${t('logout_btn')}</button>
+    `;
+    refreshStock();
+    loadOrders();
+  } else if (document.getElementById('pharmacist-auth-section').innerHTML.trim()) {
+    renderPharmacyAuthForm();
+  }
 }
 
 function toggleLanguage() {
@@ -1162,14 +1261,14 @@ function renderPharmacyAuthForm() {
   document.getElementById('pharmacist-dashboard').style.display = 'none';
   document.getElementById('pharmacist-auth-section').innerHTML = `
     <div class="auth-box">
-      <h3 style="margin-top:0;">دخول الصيدلي</h3>
-      <p class="muted" style="margin-top:-8px;">إذا لم يكن لديك حساب بعد، تواصل مع فريق دوائي جاهز لتسجيل صيدليتك.</p>
-      <input id="login-username" type="text" placeholder="اسم المستخدم">
+      <h3 style="margin-top:0;">${t('pharm_login_title')}</h3>
+      <p class="muted" style="margin-top:-8px;">${t('pharm_login_no_account')}</p>
+      <input id="login-username" type="text" placeholder="${t('username_placeholder')}">
       <div class="password-field">
-        <input id="login-password" type="password" placeholder="كلمة المرور">
+        <input id="login-password" type="password" placeholder="${t('password_placeholder')}">
         <button type="button" class="toggle-password" onclick="togglePassword('login-password', this)" aria-label="إظهار كلمة المرور">👁</button>
       </div>
-      <button class="primary" onclick="login()">دخول</button>
+      <button class="primary" onclick="login()">${t('login_btn')}</button>
     </div>
   `;
 }
@@ -1188,7 +1287,7 @@ async function login() {
     currentPharmacy = { ...data, username, password };
     loadDashboard();
   } catch (err) {
-    customAlert('تعذر الاتصال بالخادم', 'error');
+    customAlert(t('server_error_title'), 'error');
   }
 }
 
@@ -1196,8 +1295,8 @@ function loadDashboard() {
   document.getElementById('pharmacist-auth-section').innerHTML = '';
   document.getElementById('pharmacist-dashboard').style.display = 'block';
   document.getElementById('pharmacy-label').innerHTML = `
-    <span style="font-weight:500; font-size:16px;">صيدلية: ${currentPharmacy.name}</span>
-    <button class="action-pill-btn blue" onclick="logout()">🚪 تسجيل الخروج</button>
+    <span style="font-weight:500; font-size:16px;">${t('pharmacy_label_prefix')} ${currentPharmacy.name}</span>
+    <button class="action-pill-btn blue" onclick="logout()">${t('logout_btn')}</button>
   `;
   document.getElementById('duty-checkbox').checked = !!currentPharmacy.on_duty;
   document.getElementById('duty-day').disabled = !currentPharmacy.on_duty;
@@ -1253,9 +1352,9 @@ async function saveDuty() {
     currentPharmacy.on_duty_start_time = data.on_duty_start_time;
     currentPharmacy.on_duty_end_time = data.on_duty_end_time;
     refreshStock();
-    customAlert('تم حفظ حالة المناوبة بنجاح', 'success');
+    customAlert(t('duty_saved_success'), 'success');
   } catch (err) {
-    customAlert('تعذر الاتصال بالخادم', 'error');
+    customAlert(t('server_error_title'), 'error');
   }
 }
 
@@ -1268,7 +1367,7 @@ function logout() {
 
 function updateMedNamePlaceholder(selectId, inputId) {
   const category = document.getElementById(selectId).value;
-  document.getElementById(inputId).placeholder = category === 'cosmetic' ? 'اسم المستحضر' : 'اسم الدواء';
+  document.getElementById(inputId).placeholder = category === 'cosmetic' ? t('med_name_placeholder_cosmetic') : t('med_name_placeholder');
 }
 
 async function addMedicineSelf() {
@@ -1276,7 +1375,7 @@ async function addMedicineSelf() {
   const generic_name = document.getElementById('pharm-med-generic').value.trim();
   const alt_names = document.getElementById('pharm-med-alt').value.split(',').map(s => s.trim()).filter(Boolean);
   const category = document.getElementById('pharm-med-category').value;
-  if (!name) { customAlert('اسم الدواء مطلوب', 'warning'); return; }
+  if (!name) { customAlert(t('med_name_required'), 'warning'); return; }
   try {
     const res = await fetch(`${API}/medicines/self`, {
       method: 'POST',
@@ -1294,10 +1393,10 @@ async function addMedicineSelf() {
     document.getElementById('pharm-med-alt').value = '';
     document.getElementById('pharm-med-category').value = 'medicine';
     updateMedNamePlaceholder('pharm-med-category', 'pharm-med-name');
-    customAlert('تمت الإضافة بنجاح. فعّل حالة توفره من القائمة تحت.', 'success');
+    customAlert(t('med_added_success'), 'success');
     refreshStock();
   } catch (err) {
-    customAlert('تعذر الاتصال بالخادم', 'error');
+    customAlert(t('server_error_title'), 'error');
   }
 }
 
@@ -1308,7 +1407,7 @@ async function refreshStock() {
     <div class="row">
       <span>${m.name} <span class="muted" style="font-size:12px;">${m.category === 'cosmetic' ? '💄' : '💊'}</span></span>
       <button class="toggle-btn ${m.available ? 'yes' : 'no'}" onclick="toggleStock(${m.medicine_id}, ${!m.available})">
-        ${m.available ? '🟢 متوفر' : '🔴 غير متوفر'}
+        ${m.available ? t('available_badge') : t('unavailable_badge')}
       </button>
     </div>
   `).join('');
@@ -1323,27 +1422,27 @@ function renderDashboardStats(data) {
   const unavailable = total - available;
   const cosmeticsTotal = cosmetics.length;
   const cosmeticsAvailable = cosmetics.filter(m => m.available).length;
-  const onDutyText = currentPharmacy.on_duty ? 'نعم' : 'لا';
+  const onDutyText = currentPharmacy.on_duty ? t('yes_word') : t('no_word');
   document.getElementById('stats-grid').innerHTML = `
     <div class="stat-card">
       <div class="stat-value">${total}</div>
-      <div class="stat-label">عدد الأدوية</div>
+      <div class="stat-label">${t('stat_total_meds')}</div>
     </div>
     <div class="stat-card">
       <div class="stat-value stat-green">${available}</div>
-      <div class="stat-label">أدوية متوفرة</div>
+      <div class="stat-label">${t('stat_available_meds')}</div>
     </div>
     <div class="stat-card">
       <div class="stat-value stat-red">${unavailable}</div>
-      <div class="stat-label">غير المتوفرة</div>
+      <div class="stat-label">${t('stat_unavailable_meds')}</div>
     </div>
     <div class="stat-card">
       <div class="stat-value">${cosmeticsAvailable}/${cosmeticsTotal}</div>
-      <div class="stat-label">مستحضرات</div>
+      <div class="stat-label">${t('stat_cosmetics')}</div>
     </div>
     <div class="stat-card">
       <div class="stat-value">${onDutyText}</div>
-      <div class="stat-label">المناوبة اليوم</div>
+      <div class="stat-label">${t('stat_onduty_today')}</div>
     </div>
   `;
 }
@@ -1377,18 +1476,18 @@ async function loadOrders() {
       <div class="order-card ${!o.seen ? 'is-new' : ''}">
         <div class="order-card-top">
           <span class="order-patient-name">👤 ${o.patient_name}</span>
-          ${!o.seen ? '<span class="order-new-badge">🆕 جديد</span>' : ''}
-          ${o.status === 'confirmed' ? '<span class="order-confirmed-badge">✅ تم الحجز</span>' : ''}
+          ${!o.seen ? `<span class="order-new-badge">${t('order_new_badge')}</span>` : ''}
+          ${o.status === 'confirmed' ? `<span class="order-confirmed-badge">${t('order_confirmed_badge')}</span>` : ''}
         </div>
         <div class="order-row"><span>📞</span> ${o.patient_phone}</div>
-        <div class="order-row"><span>🕐</span> ${new Date(o.created_at).toLocaleString('ar-SY')}</div>
+        <div class="order-row"><span>🕐</span> ${new Date(o.created_at).toLocaleString(currentLang === 'en' ? 'en-US' : 'ar-SY')}</div>
         <div class="order-items-list">
           ${o.items.map(it => `<div class="order-item-line">💊 ${it.medicineName}${it.genericName ? ' - ' + it.genericName : ''} × ${it.quantity}</div>`).join('')}
         </div>
         <div class="order-actions-row">
-          ${!o.seen ? `<button class="btn-outline blue small" onclick="dismissOrder(${o.id})">تم الاطلاع</button>` : ''}
-          ${o.status !== 'confirmed' ? `<button class="btn-outline green small" onclick="confirmOrderAction(${o.id})">✅ تأكيد الحجز</button>` : ''}
-          <button class="btn-outline red small" onclick="removeOrder(${o.id})">🗑️ حذف الطلب</button>
+          ${!o.seen ? `<button class="btn-outline blue small" onclick="dismissOrder(${o.id})">${t('order_dismiss_btn')}</button>` : ''}
+          ${o.status !== 'confirmed' ? `<button class="btn-outline green small" onclick="confirmOrderAction(${o.id})">${t('order_confirm_btn')}</button>` : ''}
+          <button class="btn-outline red small" onclick="removeOrder(${o.id})">${t('order_delete_btn')}</button>
         </div>
       </div>
     `).join('');
@@ -1406,7 +1505,7 @@ async function confirmOrderAction(id) {
 }
 
 async function removeOrder(id) {
-  const confirmed = await customConfirm('متأكد إنك تعاملت مع هذا الطلب وبدك تحذفه نهائياً؟', 'warning');
+  const confirmed = await customConfirm(t('order_delete_confirm'), 'warning');
   if (!confirmed) return;
   await fetch(`${API}/orders/${id}`, { method: 'DELETE' });
   loadOrders();
@@ -1422,7 +1521,7 @@ async function toggleStock(medicineId, newValue) {
 }
 
 async function deleteMyAccount() {
-  const confirmed = await customConfirm('متأكد إنك بدك تحذف حسابك نهائياً؟ هذا الإجراء لا يمكن التراجع عنه.', 'warning');
+  const confirmed = await customConfirm(t('delete_account_confirm'), 'warning');
   if (!confirmed) return;
   const res = await fetch(`${API}/pharmacies/self`, {
     method: 'DELETE',
@@ -1431,7 +1530,7 @@ async function deleteMyAccount() {
   });
   const data = await res.json();
   if (!res.ok) { customAlert(data.error, 'error'); return; }
-  await customAlert('تم حذف حسابك بنجاح', 'success');
+  await customAlert(t('account_deleted_success'), 'success');
   logout();
 }
 
