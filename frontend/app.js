@@ -36,7 +36,7 @@ const translations = {
     footer_center: 'منصة سورية للبحث عن توفر الأدوية في الصيدليات.',
     footer_copy: '© دوائي جاهز — جميع الحقوق محفوظة',
     cart_empty_title: 'عربة المشتريات فارغة', cart_empty_subtitle: 'ابدأ بإضافة الأدوية من نتائج البحث.',
-    page_title: 'دوائي جاهز | توفر الأدوية في الصيدليات', lang_toggle: 'English'
+    page_title: 'دوائي جاهز | توفر الأدوية في الصيدليات', lang_toggle: 'English', brand_name: 'دوائي جاهز'
   },
   en: {
     nav_home: 'Home', nav_onduty: 'On-Duty Pharmacies', nav_pharmacist: 'Pharmacist Panel',
@@ -62,7 +62,7 @@ const translations = {
     footer_center: 'A Syrian platform for medicine availability search at pharmacies.',
     footer_copy: '© Dawaai Jahez — All rights reserved',
     cart_empty_title: 'Your cart is empty', cart_empty_subtitle: 'Start adding medicines from the search results.',
-    page_title: 'Dawaai Jahez | Medicine Availability at Pharmacies', lang_toggle: 'عربي'
+    page_title: 'Dawaai Jahez | Medicine Availability at Pharmacies', lang_toggle: 'عربي', brand_name: 'Dawaai Jahez'
   }
 };
 
@@ -111,6 +111,7 @@ function applyLanguage() {
   document.getElementById('footer-copy').textContent = t('footer_copy');
 
   document.getElementById('lang-toggle-btn').textContent = t('lang_toggle');
+  document.getElementById('brand-name').textContent = t('brand_name');
 
   renderCart(); // لتحديث نص حالة الفراغ لو العربة مفتوحة وفاضية
 }
