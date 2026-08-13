@@ -70,6 +70,12 @@
   .nav-toggle {
     display: none; background: none; border: none; font-size: 22px; cursor: pointer; color: #185fa5; padding: 4px 8px;
   }
+  .header-icons { display: flex; align-items: center; gap: 8px; }
+  .lang-toggle-btn {
+    background: none; border: 1px solid #185fa5; color: #185fa5; font-family: inherit;
+    padding: 6px 14px; border-radius: 999px; font-size: 13px; font-weight: 600; cursor: pointer;
+  }
+  .lang-toggle-btn:hover { background: #eef4fa; }
   .cart-section-wrap { position: relative; }
   .cart-section-wrap.has-bell { min-height: 72px; }
   .cart-section-wrap .bell-wrap { position: absolute; top: 14px; right: 14px; z-index: 30; }
@@ -658,17 +664,20 @@
 <header class="site-header">
   <div class="site-header-inner">
     <nav class="site-nav" id="site-nav">
-      <a class="nav-link active" onclick="headerGoHome(this)">الرئيسية</a>
-      <a class="nav-link" onclick="headerGoOnDuty(this)">الصيدليات المناوبة</a>
-      <a class="nav-link" onclick="headerGoPharmacist(this)">لوحة الصيدلي</a>
-      <a class="nav-link" onclick="headerGoCosmetics(this)">مستحضرات تجميل</a>
-      <a class="nav-link" onclick="headerGoNursing(this)">خدمات تمريض</a>
-      <a class="nav-link" onclick="headerGoAdmin(this)">الإدارة</a>
+      <a class="nav-link active" onclick="headerGoHome(this)" id="nav-home">الرئيسية</a>
+      <a class="nav-link" onclick="headerGoOnDuty(this)" id="nav-onduty">الصيدليات المناوبة</a>
+      <a class="nav-link" onclick="headerGoPharmacist(this)" id="nav-pharmacist">لوحة الصيدلي</a>
+      <a class="nav-link" onclick="headerGoCosmetics(this)" id="nav-cosmetics">مستحضرات تجميل</a>
+      <a class="nav-link" onclick="headerGoNursing(this)" id="nav-nursing">خدمات تمريض</a>
+      <a class="nav-link" onclick="headerGoAdmin(this)" id="nav-admin">الإدارة</a>
     </nav>
     <div class="site-logo">
       <span class="logo-dot">💊</span> دوائي جاهز
     </div>
-    <button class="nav-toggle" onclick="toggleNav()" aria-label="القائمة">☰</button>
+    <div class="header-icons">
+      <button id="lang-toggle-btn" class="lang-toggle-btn" onclick="toggleLanguage()">English</button>
+      <button class="nav-toggle" onclick="toggleNav()" aria-label="القائمة">☰</button>
+    </div>
   </div>
 </header>
 
@@ -788,17 +797,17 @@
       <div class="hero-search-wrap" id="hero-search-wrap">
         <span class="search-icon" aria-hidden="true">🔍</span>
         <input id="search" type="text" placeholder="ابحث عن دواء أو مادة فعالة..." aria-label="البحث عن دواء أو مادة فعالة" oninput="onSearch()" onkeydown="onSearchKeydown(event)" autocomplete="off">
-        <button type="button" class="search-btn" onclick="submitSearch()">بحث</button>
+        <button type="button" class="search-btn" id="search-btn" onclick="submitSearch()">بحث</button>
         <div id="suggestions" role="listbox" aria-label="اقتراحات البحث"></div>
       </div>
       <p class="hero-search-hint" id="hero-search-hint">اكتب اسم الدواء للبحث عن توفره في صيدليات سلمية.</p>
       <div class="hero-actions-row">
         <button id="cart-toggle-btn" class="hero-cart-btn" onclick="toggleCart()">
-          <span class="hero-cart-icon">🛒</span> عربة المشتريات <span class="hero-cart-count" id="cart-count">0</span>
+          <span class="hero-cart-icon">🛒</span> <span id="cart-btn-label">عربة المشتريات</span> <span class="hero-cart-count" id="cart-count">0</span>
           <span class="cart-notify-badge" id="cart-notify-badge" style="display:none">0</span>
         </button>
         <button type="button" class="whatsapp-btn" onclick="whatsappComingSoon()">
-          <span class="whatsapp-icon">💬</span> ابحث عبر واتساب
+          <span class="whatsapp-icon">💬</span> <span id="whatsapp-btn-label">ابحث عبر واتساب</span>
         </button>
       </div>
     </div>
@@ -824,22 +833,22 @@
       <div class="feature-cards">
         <div class="feature-card">
           <div class="feature-icon">🔍</div>
-          <h3 class="feature-title">البحث عن الدواء</h3>
-          <p class="feature-desc">اعرف الصيدليات التي توفر الدواء.</p>
+          <h3 class="feature-title" id="feature1-title">البحث عن الدواء</h3>
+          <p class="feature-desc" id="feature1-desc">اعرف الصيدليات التي توفر الدواء.</p>
         </div>
         <div class="feature-card">
           <div class="feature-icon">🏥</div>
-          <h3 class="feature-title">الصيدليات المناوبة</h3>
-          <p class="feature-desc">اعرض الصيدليات المناوبة اليوم.</p>
+          <h3 class="feature-title" id="feature2-title">الصيدليات المناوبة</h3>
+          <p class="feature-desc" id="feature2-desc">اعرض الصيدليات المناوبة اليوم.</p>
         </div>
         <div class="feature-card">
           <div class="feature-icon">🛒</div>
-          <h3 class="feature-title">عربة المشتريات</h3>
-          <p class="feature-desc">اجمع الأدوية قبل زيارة الصيدلية.</p>
+          <h3 class="feature-title" id="feature3-title">عربة المشتريات</h3>
+          <p class="feature-desc" id="feature3-desc">اجمع الأدوية قبل زيارة الصيدلية.</p>
         </div>
       </div>
-      <h2 class="about-title-lg">عن دوائي جاهز</h2>
-      <p class="about-desc-lg">
+      <h2 class="about-title-lg" id="about-title">عن دوائي جاهز</h2>
+      <p class="about-desc-lg" id="about-desc">
         دوائي جاهز منصة سورية محلية انطلقت من مدينة سلمية، هدفها مساعدتك على معرفة توفر دوائك
         في الصيدليات القريبة فوراً، بدل التنقل من صيدلية لصيدلية بحثاً عن دواء قد لا يكون متوفراً.
       </p>
@@ -850,14 +859,14 @@
     <footer class="site-footer">
       <div class="footer-inner">
         <div class="footer-links">
-          <a onclick="headerGoHome()">الرئيسية</a>
+          <a onclick="headerGoHome()" id="footer-home">الرئيسية</a>
           <span class="footer-sep">|</span>
-          <a onclick="headerGoOnDuty()">الصيدليات المناوبة</a>
+          <a onclick="headerGoOnDuty()" id="footer-onduty">الصيدليات المناوبة</a>
           <span class="footer-sep">|</span>
-          <a onclick="footerContactComingSoon()">تواصل معنا</a>
+          <a onclick="footerContactComingSoon()" id="footer-contact">تواصل معنا</a>
         </div>
-        <div class="footer-center">منصة سورية للبحث عن توفر الأدوية في الصيدليات.</div>
-        <div class="footer-copy">© دوائي جاهز — جميع الحقوق محفوظة</div>
+        <div class="footer-center" id="footer-center">منصة سورية للبحث عن توفر الأدوية في الصيدليات.</div>
+        <div class="footer-copy" id="footer-copy">© دوائي جاهز — جميع الحقوق محفوظة</div>
       </div>
     </footer>
   </div>
