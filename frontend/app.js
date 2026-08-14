@@ -120,7 +120,11 @@ const translations = {
     star_rate_one: 'قيّم نجمة واحدة من 5', star_rate_two: 'قيّم نجمتين من 5', star_rate_n: 'قيّم {n} نجوم من 5',
     select_stars_first: 'الرجاء اختيار عدد النجوم أولاً', name_phone_required: 'الاسم ورقم الهاتف مطلوبان',
     rating_submitted_success: 'تم إرسال تقييمك بنجاح! رح يظهر للعموم بعد موافقة الإدارة عليه.',
-    nursing_page_title: 'خدمات تمريض 🩺', nursing_page_desc: 'تواصل مع ممرضين موثوقين لتلقي الرعاية التمريضية بمنزلك.'
+    nursing_page_title: 'خدمات تمريض 🩺', nursing_page_desc: 'تواصل مع ممرضين موثوقين لتلقي الرعاية التمريضية بمنزلك.',
+    show_password_aria: 'إظهار كلمة المرور', hide_password_aria: 'إخفاء كلمة المرور',
+    whatsapp_coming_soon: 'البحث عبر واتساب قريباً 💬 لسا عم نجهز رقم رسمي للمشروع.',
+    contact_coming_soon: 'سيتم إضافة معلومات التواصل قريباً.',
+    invalid_credentials: 'بيانات الدخول غير صحيحة'
   },
   en: {
     nav_home: 'Home', nav_onduty: 'On-Duty Pharmacies', nav_pharmacist: 'Pharmacist Panel',
@@ -230,7 +234,11 @@ const translations = {
     star_rate_one: 'Rate 1 star out of 5', star_rate_two: 'Rate 2 stars out of 5', star_rate_n: 'Rate {n} stars out of 5',
     select_stars_first: 'Please select a star rating first', name_phone_required: 'Name and phone number are required',
     rating_submitted_success: 'Your rating was submitted successfully! It will appear publicly after admin approval.',
-    nursing_page_title: 'Nursing Services 🩺', nursing_page_desc: 'Connect with trusted nurses for home nursing care.'
+    nursing_page_title: 'Nursing Services 🩺', nursing_page_desc: 'Connect with trusted nurses for home nursing care.',
+    show_password_aria: 'Show password', hide_password_aria: 'Hide password',
+    whatsapp_coming_soon: "Search via WhatsApp coming soon 💬 We're setting up an official number for the project.",
+    contact_coming_soon: 'Contact information will be added soon.',
+    invalid_credentials: 'Invalid login credentials'
   }
 };
 
@@ -243,6 +251,15 @@ function tFormat(key, values) {
   let str = t(key);
   for (const [k, v] of Object.entries(values)) str = str.replace(`{${k}}`, v);
   return str;
+}
+
+// بعض رسائل الخطأ جاية جاهزة عربي من الباك إند (ملفات routes) — نترجم عرضها هون بدون لمس الباك إند نفسه
+const BACKEND_ERROR_MAP = {
+  'بيانات الدخول غير صحيحة': 'invalid_credentials'
+};
+function translateApiError(rawError) {
+  const key = BACKEND_ERROR_MAP[rawError];
+  return key ? t(key) : rawError;
 }
 
 // يحدد أي نص Hero فعّال حالياً (دواء/تجميل/تمريض) ويعيد تطبيقه باللغة الجديدة
@@ -333,8 +350,8 @@ function applyLanguage() {
       <span style="font-weight:500; font-size:16px;">${t('pharmacy_label_prefix')} ${currentPharmacy.name}</span>
       <button class="action-pill-btn blue" onclick="logout()">${t('logout_btn')}</button>
     `;
-    refreshStock();
-    loadOrders();
+    renderStockUI();
+    renderOrdersUI();
   } else if (document.getElementById('pharmacist-auth-section').innerHTML.trim()) {
     renderPharmacyAuthForm();
   }
@@ -672,7 +689,7 @@ async function submitOrder() {
       })
     });
     const data = await res.json();
-    if (!res.ok) { customAlert(data.error, 'error'); return; }
+    if (!res.ok) { customAlert(translateApiError(data.error), 'error'); return; }
 
     // نربط كل طلب باسم صيدليته (من العربة) ونحفظه محلياً لمتابعة رد الصيدلية عليه
     data.orders.forEach(o => {
@@ -823,7 +840,7 @@ async function checkMyOrdersStatus() {
 }
 
 function whatsappComingSoon() {
-  customAlert('البحث عبر واتساب قريباً 💬 لسا عم نجهز رقم رسمي للمشروع.', 'info');
+  customAlert(t('whatsapp_coming_soon'), 'info');
 }
 
 function headerGoNursing(link) {
@@ -838,7 +855,7 @@ function headerGoNursing(link) {
 }
 
 function footerContactComingSoon() {
-  customAlert('سيتم إضافة معلومات التواصل قريباً.', 'info');
+  customAlert(t('contact_coming_soon'), 'info');
 }
 
 function formatTime12(t) {
@@ -918,6 +935,10 @@ async function loadOnDuty() {
 // ---------- خدمات التمريض ----------
 
 let nursesCache = [];
+
+// ذاكرة مؤقتة لآخر بيانات مخزون/طلبات الصيدلي — عشان تبديل اللغة يعيد الرسم بس، بدون طلبات شبكة جديدة
+let pharmacistStockCache = [];
+let pharmacistOrdersCache = [];
 
 // تسمح فقط بكتابة أرقام بخانات الهاتف (تمنع الحروف أثناء الكتابة مباشرة)
 function digitsOnly(input) {
@@ -1136,7 +1157,7 @@ async function submitNurseRating(nurseId) {
       body: JSON.stringify({ patient_name: name, patient_phone: phone, stars, comment })
     });
     const data = await res.json();
-    if (!res.ok) { customAlert(data.error, 'error'); return; }
+    if (!res.ok) { customAlert(translateApiError(data.error), 'error'); return; }
     markNurseAsRated(nurseId);
     await customAlert(t('rating_submitted_success'), 'success');
     renderNurseDetail(nurseId);
@@ -1354,7 +1375,7 @@ function renderPharmacyAuthForm() {
       <input id="login-username" type="text" placeholder="${t('username_placeholder')}">
       <div class="password-field">
         <input id="login-password" type="password" placeholder="${t('password_placeholder')}">
-        <button type="button" class="toggle-password" onclick="togglePassword('login-password', this)" aria-label="إظهار كلمة المرور">👁</button>
+        <button type="button" class="toggle-password" onclick="togglePassword('login-password', this)" aria-label="${t('show_password_aria')}">👁</button>
       </div>
       <button class="primary" onclick="login()">${t('login_btn')}</button>
     </div>
@@ -1371,7 +1392,7 @@ async function login() {
       body: JSON.stringify({ username, password })
     });
     const data = await res.json();
-    if (!res.ok) { customAlert(data.error, 'error'); return; }
+    if (!res.ok) { customAlert(translateApiError(data.error), 'error'); return; }
     currentPharmacy = { ...data, username, password };
     loadDashboard();
   } catch (err) {
@@ -1433,7 +1454,7 @@ async function saveDuty() {
       })
     });
     const data = await res.json();
-    if (!res.ok) { customAlert(data.error, 'error'); return; }
+    if (!res.ok) { customAlert(translateApiError(data.error), 'error'); return; }
     currentPharmacy.on_duty = data.on_duty;
     currentPharmacy.on_duty_day = data.on_duty_day;
     currentPharmacy.on_duty_shift = data.on_duty_shift;
@@ -1475,7 +1496,7 @@ async function addMedicineSelf() {
       })
     });
     const data = await res.json();
-    if (!res.ok) { customAlert(data.error, 'error'); return; }
+    if (!res.ok) { customAlert(translateApiError(data.error), 'error'); return; }
     document.getElementById('pharm-med-name').value = '';
     document.getElementById('pharm-med-generic').value = '';
     document.getElementById('pharm-med-alt').value = '';
@@ -1491,6 +1512,13 @@ async function addMedicineSelf() {
 async function refreshStock() {
   const res = await fetch(`${API}/stock/${currentPharmacy.id}`);
   const data = await res.json();
+  pharmacistStockCache = data;
+  renderStockUI();
+}
+
+// إعادة رسم قائمة المخزون وبطاقات الإحصاء من آخر بيانات محفوظة، بدون أي طلب شبكة — تُستخدم عند تبديل اللغة
+function renderStockUI() {
+  const data = pharmacistStockCache;
   document.getElementById('stock-list').innerHTML = data.map(m => `
     <div class="row">
       <span>${m.name} <span class="muted" style="font-size:12px;">${m.category === 'cosmetic' ? '💄' : '💊'}</span></span>
@@ -1553,33 +1581,40 @@ async function loadOrders() {
   try {
     const res = await fetch(`${API}/orders/${currentPharmacy.id}`);
     const orders = await res.json();
-    const wrap = document.getElementById('orders-wrap');
-    const list = document.getElementById('orders-list');
-    if (!orders || orders.length === 0) {
-      wrap.style.display = 'none';
-      return;
-    }
-    wrap.style.display = 'block';
-    list.innerHTML = orders.map(o => `
-      <div class="order-card ${!o.seen ? 'is-new' : ''}">
-        <div class="order-card-top">
-          <span class="order-patient-name">👤 ${o.patient_name}</span>
-          ${!o.seen ? `<span class="order-new-badge">${t('order_new_badge')}</span>` : ''}
-          ${o.status === 'confirmed' ? `<span class="order-confirmed-badge">${t('order_confirmed_badge')}</span>` : ''}
-        </div>
-        <div class="order-row"><span>📞</span> ${o.patient_phone}</div>
-        <div class="order-row"><span>🕐</span> ${new Date(o.created_at).toLocaleString(currentLang === 'en' ? 'en-US' : 'ar-SY')}</div>
-        <div class="order-items-list">
-          ${o.items.map(it => `<div class="order-item-line">💊 ${it.medicineName}${it.genericName ? ' - ' + it.genericName : ''} × ${it.quantity}</div>`).join('')}
-        </div>
-        <div class="order-actions-row">
-          ${!o.seen ? `<button class="btn-outline blue small" onclick="dismissOrder(${o.id})">${t('order_dismiss_btn')}</button>` : ''}
-          ${o.status !== 'confirmed' ? `<button class="btn-outline green small" onclick="confirmOrderAction(${o.id})">${t('order_confirm_btn')}</button>` : ''}
-          <button class="btn-outline red small" onclick="removeOrder(${o.id})">${t('order_delete_btn')}</button>
-        </div>
-      </div>
-    `).join('');
+    pharmacistOrdersCache = orders;
+    renderOrdersUI();
   } catch (err) { /* تجاهل بصمت لو فشل الجلب، الأهم لوحة الصيدلي نفسها */ }
+}
+
+// إعادة رسم قائمة الطلبات من آخر بيانات محفوظة، بدون أي طلب شبكة — تُستخدم عند تبديل اللغة
+function renderOrdersUI() {
+  const orders = pharmacistOrdersCache;
+  const wrap = document.getElementById('orders-wrap');
+  const list = document.getElementById('orders-list');
+  if (!orders || orders.length === 0) {
+    wrap.style.display = 'none';
+    return;
+  }
+  wrap.style.display = 'block';
+  list.innerHTML = orders.map(o => `
+    <div class="order-card ${!o.seen ? 'is-new' : ''}">
+      <div class="order-card-top">
+        <span class="order-patient-name">👤 ${o.patient_name}</span>
+        ${!o.seen ? `<span class="order-new-badge">${t('order_new_badge')}</span>` : ''}
+        ${o.status === 'confirmed' ? `<span class="order-confirmed-badge">${t('order_confirmed_badge')}</span>` : ''}
+      </div>
+      <div class="order-row"><span>📞</span> ${o.patient_phone}</div>
+      <div class="order-row"><span>🕐</span> ${new Date(o.created_at).toLocaleString(currentLang === 'en' ? 'en-US' : 'ar-SY')}</div>
+      <div class="order-items-list">
+        ${o.items.map(it => `<div class="order-item-line">💊 ${it.medicineName}${it.genericName ? ' - ' + it.genericName : ''} × ${it.quantity}</div>`).join('')}
+      </div>
+      <div class="order-actions-row">
+        ${!o.seen ? `<button class="btn-outline blue small" onclick="dismissOrder(${o.id})">${t('order_dismiss_btn')}</button>` : ''}
+        ${o.status !== 'confirmed' ? `<button class="btn-outline green small" onclick="confirmOrderAction(${o.id})">${t('order_confirm_btn')}</button>` : ''}
+        <button class="btn-outline red small" onclick="removeOrder(${o.id})">${t('order_delete_btn')}</button>
+      </div>
+    </div>
+  `).join('');
 }
 
 async function dismissOrder(id) {
@@ -1617,7 +1652,7 @@ async function deleteMyAccount() {
     body: JSON.stringify({ username: currentPharmacy.username, password: currentPharmacy.password })
   });
   const data = await res.json();
-  if (!res.ok) { customAlert(data.error, 'error'); return; }
+  if (!res.ok) { customAlert(translateApiError(data.error), 'error'); return; }
   await customAlert(t('account_deleted_success'), 'success');
   logout();
 }
@@ -1630,7 +1665,7 @@ function renderAdminAuthForm() {
     <div class="auth-box">
       <div class="password-field">
         <input id="admin-password-input" type="password" placeholder="${t('admin_password_placeholder')}">
-        <button type="button" class="toggle-password" onclick="togglePassword('admin-password-input', this)" aria-label="إظهار كلمة المرور">👁</button>
+        <button type="button" class="toggle-password" onclick="togglePassword('admin-password-input', this)" aria-label="${t('show_password_aria')}">👁</button>
       </div>
       <button class="primary" onclick="checkAdminPassword()">${t('login_btn')}</button>
     </div>
@@ -1710,7 +1745,7 @@ function renderAdminPanelUI() {
       <input id="ph-username" placeholder="${t('username_placeholder')}">
       <div class="password-field">
         <input id="ph-password" type="password" placeholder="${t('password_placeholder')}">
-        <button type="button" class="toggle-password" onclick="togglePassword('ph-password', this)" aria-label="إظهار كلمة المرور">👁</button>
+        <button type="button" class="toggle-password" onclick="togglePassword('ph-password', this)" aria-label="${t('show_password_aria')}">👁</button>
       </div>
       <button class="primary" onclick="addPharmacy()">${t('add_pharmacy_btn')}</button>
     </div>
@@ -1817,7 +1852,7 @@ async function addPharmacy() {
     method: 'POST', headers: adminHeaders(), body: JSON.stringify(body)
   });
   const data = await res.json();
-  if (!res.ok) { customAlert(data.error, 'error'); return; }
+  if (!res.ok) { customAlert(translateApiError(data.error), 'error'); return; }
   customAlert(tFormat('pharmacy_added_success', { name: data.name }), 'success');
   renderAdminPanel();
 }
@@ -1841,7 +1876,7 @@ async function addMedicineAdmin() {
     method: 'POST', headers: adminHeaders(), body: JSON.stringify(body)
   });
   const data = await res.json();
-  if (!res.ok) { customAlert(data.error, 'error'); return; }
+  if (!res.ok) { customAlert(translateApiError(data.error), 'error'); return; }
   customAlert(tFormat('item_added_success', { name: data.name }), 'success');
   renderAdminPanel();
 }
@@ -1858,11 +1893,11 @@ function togglePassword(inputId, btn) {
   if (input.type === 'password') {
     input.type = 'text';
     btn.textContent = '🙈';
-    btn.setAttribute('aria-label', 'إخفاء كلمة المرور');
+    btn.setAttribute('aria-label', t('hide_password_aria'));
   } else {
     input.type = 'password';
     btn.textContent = '👁';
-    btn.setAttribute('aria-label', 'إظهار كلمة المرور');
+    btn.setAttribute('aria-label', t('show_password_aria'));
   }
 }
 
@@ -1880,7 +1915,7 @@ async function addNurseAdmin() {
     method: 'POST', headers: adminHeaders(), body: JSON.stringify(body)
   });
   const data = await res.json();
-  if (!res.ok) { customAlert(data.error, 'error'); return; }
+  if (!res.ok) { customAlert(translateApiError(data.error), 'error'); return; }
   customAlert(tFormat('item_added_success', { name: data.name }), 'success');
   renderAdminPanel();
 }
