@@ -85,7 +85,29 @@ const translations = {
     order_dismiss_btn: 'تم الاطلاع', order_confirm_btn: '✅ تأكيد الحجز', order_delete_btn: '🗑️ حذف الطلب',
     order_delete_confirm: 'متأكد إنك تعاملت مع هذا الطلب وبدك تحذفه نهائياً؟',
     delete_account_confirm: 'متأكد إنك بدك تحذف حسابك نهائياً؟ هذا الإجراء لا يمكن التراجع عنه.',
-    account_deleted_success: 'تم حذف حسابك بنجاح'
+    account_deleted_success: 'تم حذف حسابك بنجاح',
+    admin_dashboard_title: 'لوحة الإدارة', admin_password_placeholder: 'كلمة مرور الإدارة', wrong_password: 'كلمة المرور غير صحيحة',
+    stat_pharmacies_count: 'عدد الصيدليات', stat_onduty_pharmacies: 'الصيدليات المناوبة اليوم',
+    add_pharmacy_title: '🏥 إضافة صيدلية جديدة', pharmacy_name_placeholder: 'اسم الصيدلية',
+    address_placeholder: 'العنوان', phone_placeholder: 'رقم الهاتف', add_pharmacy_btn: 'إضافة الصيدلية',
+    registered_pharmacies_title: 'الصيدليات المسجّلة', no_pharmacies_yet: 'لا يوجد صيدليات مسجّلة بعد.',
+    pharmacies_table_header: 'الصيدلية', action_col_header: 'إجراء', delete_btn: 'حذف', onduty_badge_short: '🟢 مناوبة',
+    delete_pharmacy_confirm: 'متأكد إنك بدك تحذف صيدلية "{name}"؟', pharmacy_added_success: 'تمت إضافة صيدلية "{name}" بنجاح',
+    add_medicine_title_admin: '💊 إضافة دواء جديد', registered_medicines_title: 'الأدوية المسجّلة',
+    item_added_success: 'تمت إضافة "{name}" بنجاح', delete_medicine_confirm: 'متأكد إنك بدك تحذف دواء "{name}" نهائياً؟',
+    add_nurse_title: '🩺 إضافة ممرض جديد', nurse_name_placeholder: 'اسم الممرض', specialty_placeholder: 'التخصص',
+    university_placeholder: 'الجامعة', grad_year_placeholder: 'سنة التخرج', upload_cert_btn: '📄 رفع شهادة (PDF/Word)',
+    add_nurse_btn: 'إضافة الممرض', registered_nurses_title: 'الممرضون المسجّلون', no_nurses_yet: 'لا يوجد ممرضون مسجّلون بعد.',
+    nurses_table_header: 'الممرض', actions_header_plural: 'إجراءات',
+    nurse_available_short: '🟢 متاح', nurse_unavailable_short: '🔴 غير متاح',
+    delete_nurse_confirm: 'متأكد إنك بدك تحذف الممرض "{name}"؟',
+    pending_ratings_title: '⭐ تقييمات قيد المراجعة', approve_btn: '✅ موافقة', reject_btn: '🗑️ رفض',
+    reject_rating_confirm: 'متأكد إنك بدك ترفض هذا التقييم؟ رح ينحذف نهائياً.',
+    published_ratings_title: '💬 التقييمات المنشورة', show_ratings_btn: 'عرض التقييمات', hide_ratings_btn: 'إخفاء التقييمات',
+    loading_text: 'جاري التحميل...', no_published_ratings: 'لا توجد تقييمات منشورة بعد.',
+    delete_final_btn: '🗑️ حذف نهائي', failed_load_ratings: 'تعذر تحميل التقييمات.',
+    delete_rating_final_confirm: 'متأكد إنك بدك تحذف هذا التقييم نهائياً؟ هذا الإجراء لا يمكن التراجع عنه.',
+    upload_cert_coming_soon: 'رفع الشهادات (PDF/Word) رح يتفعّل بعد ربط استضافة دائمة للملفات 📄'
   },
   en: {
     nav_home: 'Home', nav_onduty: 'On-Duty Pharmacies', nav_pharmacist: 'Pharmacist Panel',
@@ -160,7 +182,29 @@ const translations = {
     order_dismiss_btn: 'Mark as seen', order_confirm_btn: '✅ Confirm reservation', order_delete_btn: '🗑️ Delete order',
     order_delete_confirm: "Confirm you've handled this order and want to delete it permanently?",
     delete_account_confirm: 'Are you sure you want to permanently delete your account? This action cannot be undone.',
-    account_deleted_success: 'Your account has been deleted successfully'
+    account_deleted_success: 'Your account has been deleted successfully',
+    admin_dashboard_title: 'Admin Panel', admin_password_placeholder: 'Admin password', wrong_password: 'Incorrect password',
+    stat_pharmacies_count: 'Pharmacies count', stat_onduty_pharmacies: 'Pharmacies on duty today',
+    add_pharmacy_title: '🏥 Add new pharmacy', pharmacy_name_placeholder: 'Pharmacy name',
+    address_placeholder: 'Address', phone_placeholder: 'Phone number', add_pharmacy_btn: 'Add pharmacy',
+    registered_pharmacies_title: 'Registered pharmacies', no_pharmacies_yet: 'No pharmacies registered yet.',
+    pharmacies_table_header: 'Pharmacy', action_col_header: 'Action', delete_btn: 'Delete', onduty_badge_short: '🟢 On duty',
+    delete_pharmacy_confirm: 'Are you sure you want to delete pharmacy "{name}"?', pharmacy_added_success: 'Pharmacy "{name}" added successfully',
+    add_medicine_title_admin: '💊 Add new medicine', registered_medicines_title: 'Registered medicines',
+    item_added_success: '"{name}" added successfully', delete_medicine_confirm: 'Are you sure you want to permanently delete medicine "{name}"?',
+    add_nurse_title: '🩺 Add new nurse', nurse_name_placeholder: 'Nurse name', specialty_placeholder: 'Specialty',
+    university_placeholder: 'University', grad_year_placeholder: 'Graduation year', upload_cert_btn: '📄 Upload certificate (PDF/Word)',
+    add_nurse_btn: 'Add nurse', registered_nurses_title: 'Registered nurses', no_nurses_yet: 'No nurses registered yet.',
+    nurses_table_header: 'Nurse', actions_header_plural: 'Actions',
+    nurse_available_short: '🟢 Available', nurse_unavailable_short: '🔴 Unavailable',
+    delete_nurse_confirm: 'Are you sure you want to delete nurse "{name}"?',
+    pending_ratings_title: '⭐ Ratings pending review', approve_btn: '✅ Approve', reject_btn: '🗑️ Reject',
+    reject_rating_confirm: 'Are you sure you want to reject this rating? It will be permanently deleted.',
+    published_ratings_title: '💬 Published ratings', show_ratings_btn: 'Show ratings', hide_ratings_btn: 'Hide ratings',
+    loading_text: 'Loading...', no_published_ratings: 'No published ratings yet.',
+    delete_final_btn: '🗑️ Delete permanently', failed_load_ratings: 'Could not load ratings.',
+    delete_rating_final_confirm: 'Are you sure you want to permanently delete this rating? This action cannot be undone.',
+    upload_cert_coming_soon: 'Certificate upload (PDF/Word) will be enabled once permanent file hosting is set up 📄'
   }
 };
 
@@ -267,6 +311,13 @@ function applyLanguage() {
     loadOrders();
   } else if (document.getElementById('pharmacist-auth-section').innerHTML.trim()) {
     renderPharmacyAuthForm();
+  }
+
+  // ---------- لوحة الإدارة ----------
+  if (adminPassword) {
+    renderAdminPanel();
+  } else if (document.getElementById('admin-auth-section').innerHTML.trim()) {
+    renderAdminAuthForm();
   }
 }
 
@@ -1058,7 +1109,7 @@ async function submitNurseRating(nurseId) {
 }
 
 function uploadCertificateComingSoon() {
-  customAlert('رفع الشهادات (PDF/Word) رح يتفعّل بعد ربط استضافة دائمة للملفات 📄', 'info');
+  customAlert(t('upload_cert_coming_soon'), 'info');
 }
 
 let searchTimeout;
@@ -1541,10 +1592,10 @@ function renderAdminAuthForm() {
   document.getElementById('admin-auth-section').innerHTML = `
     <div class="auth-box">
       <div class="password-field">
-        <input id="admin-password-input" type="password" placeholder="كلمة مرور الإدارة">
+        <input id="admin-password-input" type="password" placeholder="${t('admin_password_placeholder')}">
         <button type="button" class="toggle-password" onclick="togglePassword('admin-password-input', this)" aria-label="إظهار كلمة المرور">👁</button>
       </div>
-      <button class="primary" onclick="checkAdminPassword()">دخول</button>
+      <button class="primary" onclick="checkAdminPassword()">${t('login_btn')}</button>
     </div>
   `;
 }
@@ -1552,7 +1603,7 @@ function renderAdminAuthForm() {
 async function checkAdminPassword() {
   const password = document.getElementById('admin-password-input').value;
   const res = await fetch(`${API}/pharmacies`, { headers: { 'x-admin-password': password } });
-  if (!res.ok) { customAlert('كلمة المرور غير صحيحة', 'error'); return; }
+  if (!res.ok) { customAlert(t('wrong_password'), 'error'); return; }
   adminPassword = password;
   document.getElementById('admin-auth-section').innerHTML = '';
   document.getElementById('admin-panel').style.display = 'block';
@@ -1586,47 +1637,47 @@ async function renderAdminPanel() {
 
   document.getElementById('admin-panel').innerHTML = `
     <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:6px;">
-      <h2 class="dash-title" style="margin-bottom:0;">لوحة الإدارة</h2>
-      <button class="action-pill-btn blue" onclick="logoutAdmin()">🚪 تسجيل الخروج</button>
+      <h2 class="dash-title" style="margin-bottom:0;">${t('admin_dashboard_title')}</h2>
+      <button class="action-pill-btn blue" onclick="logoutAdmin()">${t('logout_btn')}</button>
     </div>
     <div class="stats-grid stats-grid-3">
       <div class="stat-card">
         <div class="stat-value">${pharmacies.length}</div>
-        <div class="stat-label">عدد الصيدليات</div>
+        <div class="stat-label">${t('stat_pharmacies_count')}</div>
       </div>
       <div class="stat-card">
         <div class="stat-value">${medicines.length}</div>
-        <div class="stat-label">عدد الأدوية</div>
+        <div class="stat-label">${t('stat_total_meds')}</div>
       </div>
       <div class="stat-card">
         <div class="stat-value stat-green">${onDutyCount}</div>
-        <div class="stat-label">الصيدليات المناوبة اليوم</div>
+        <div class="stat-label">${t('stat_onduty_pharmacies')}</div>
       </div>
     </div>
 
     <div class="box" style="margin-bottom:20px;">
-      <h3 style="margin-top:0;">🏥 إضافة صيدلية جديدة</h3>
-      <input id="ph-name" placeholder="اسم الصيدلية">
-      <input id="ph-address" placeholder="العنوان">
-      <input id="ph-phone" placeholder="رقم الهاتف">
-      <input id="ph-username" placeholder="اسم مستخدم">
+      <h3 style="margin-top:0;">${t('add_pharmacy_title')}</h3>
+      <input id="ph-name" placeholder="${t('pharmacy_name_placeholder')}">
+      <input id="ph-address" placeholder="${t('address_placeholder')}">
+      <input id="ph-phone" placeholder="${t('phone_placeholder')}">
+      <input id="ph-username" placeholder="${t('username_placeholder')}">
       <div class="password-field">
-        <input id="ph-password" type="password" placeholder="كلمة مرور">
+        <input id="ph-password" type="password" placeholder="${t('password_placeholder')}">
         <button type="button" class="toggle-password" onclick="togglePassword('ph-password', this)" aria-label="إظهار كلمة المرور">👁</button>
       </div>
-      <button class="primary" onclick="addPharmacy()">إضافة الصيدلية</button>
+      <button class="primary" onclick="addPharmacy()">${t('add_pharmacy_btn')}</button>
     </div>
 
-    <h3>الصيدليات المسجّلة (${pharmacies.length})</h3>
+    <h3>${t('registered_pharmacies_title')} (${pharmacies.length})</h3>
     <div class="stock-table-wrap" style="margin-bottom:20px;">
       <div class="stock-scroll">
         ${pharmacies.length === 0
-          ? '<p class="muted" style="padding:16px 18px; margin:0;">لا يوجد صيدليات مسجّلة بعد.</p>'
-          : `<div class="stock-table-header"><span>الصيدلية</span><span class="col-action">إجراء</span></div>
+          ? `<p class="muted" style="padding:16px 18px; margin:0;">${t('no_pharmacies_yet')}</p>`
+          : `<div class="stock-table-header"><span>${t('pharmacies_table_header')}</span><span class="col-action">${t('action_col_header')}</span></div>
              ${pharmacies.map(p => `
                <div class="row">
-                 <span>${p.name} <span class="muted">(${p.owner_username})</span>${p.on_duty ? ' <span class="badge yes" style="margin-right:6px;">🟢 مناوبة</span>' : ''}</span>
-                 <button class="btn-outline red small table-action-btn" onclick="deletePharmacyAdmin(${p.id}, '${p.name}')">حذف</button>
+                 <span>${p.name} <span class="muted">(${p.owner_username})</span>${p.on_duty ? ` <span class="badge yes" style="margin-right:6px;">${t('onduty_badge_short')}</span>` : ''}</span>
+                 <button class="btn-outline red small table-action-btn" onclick="deletePharmacyAdmin(${p.id}, '${p.name}')">${t('delete_btn')}</button>
                </div>
              `).join('')}`
         }
@@ -1634,53 +1685,53 @@ async function renderAdminPanel() {
     </div>
 
     <div class="box" style="margin-bottom:20px;">
-      <h3 style="margin-top:0;">💊 إضافة دواء جديد</h3>
-      <input id="med-name" placeholder="اسم الدواء">
-      <input id="med-generic" placeholder="المادة الفعالة">
-      <input id="med-alt" placeholder="أسماء بديلة (افصل بفاصلة)">
+      <h3 style="margin-top:0;">${t('add_medicine_title_admin')}</h3>
+      <input id="med-name" placeholder="${t('med_name_placeholder')}">
+      <input id="med-generic" placeholder="${t('generic_name_placeholder')}">
+      <input id="med-alt" placeholder="${t('alt_names_placeholder')}">
       <select id="med-category" onchange="updateMedNamePlaceholder('med-category', 'med-name')">
-        <option value="medicine">دواء</option>
-        <option value="cosmetic">مستحضر تجميل</option>
+        <option value="medicine">${t('cat_medicine')}</option>
+        <option value="cosmetic">${t('cat_cosmetic')}</option>
       </select>
-      <button class="primary" onclick="addMedicineAdmin()">إضافة الدواء</button>
+      <button class="primary" onclick="addMedicineAdmin()">${t('add_med_btn')}</button>
     </div>
 
-    <h3>الأدوية المسجّلة (${medicines.length})</h3>
+    <h3>${t('registered_medicines_title')} (${medicines.length})</h3>
     <div class="stock-table-wrap" style="margin-bottom:20px;">
       <div class="stock-scroll">
-        <div class="stock-table-header"><span>الدواء</span><span class="col-action">إجراء</span></div>
+        <div class="stock-table-header"><span>${t('stock_table_medicine')}</span><span class="col-action">${t('action_col_header')}</span></div>
         ${medicines.map(m => `
           <div class="row">
-            <span>${m.name} <span class="muted" style="font-size:12px;">${m.category === 'cosmetic' ? '💄 مستحضر تجميل' : '💊 دواء'}</span></span>
-            <button class="btn-outline red small table-action-btn" onclick="deleteMedicineAdmin(${m.id}, '${m.name}')">حذف</button>
+            <span>${m.name} <span class="muted" style="font-size:12px;">${m.category === 'cosmetic' ? '💄 ' + t('cat_cosmetic') : '💊 ' + t('cat_medicine')}</span></span>
+            <button class="btn-outline red small table-action-btn" onclick="deleteMedicineAdmin(${m.id}, '${m.name}')">${t('delete_btn')}</button>
           </div>
         `).join('')}
       </div>
     </div>
 
     <div class="box" style="margin-bottom:20px;">
-      <h3 style="margin-top:0;">🩺 إضافة ممرض جديد</h3>
-      <input id="nurse-name" placeholder="اسم الممرض">
-      <input id="nurse-specialty" placeholder="التخصص">
-      <input id="nurse-university" placeholder="الجامعة">
-      <input id="nurse-grad-year" placeholder="سنة التخرج">
-      <input id="nurse-phone" placeholder="رقم الهاتف">
-      <button type="button" class="btn-outline blue small" onclick="uploadCertificateComingSoon()" style="margin-bottom:10px;">📄 رفع شهادة (PDF/Word)</button>
-      <button class="primary" onclick="addNurseAdmin()">إضافة الممرض</button>
+      <h3 style="margin-top:0;">${t('add_nurse_title')}</h3>
+      <input id="nurse-name" placeholder="${t('nurse_name_placeholder')}">
+      <input id="nurse-specialty" placeholder="${t('specialty_placeholder')}">
+      <input id="nurse-university" placeholder="${t('university_placeholder')}">
+      <input id="nurse-grad-year" placeholder="${t('grad_year_placeholder')}">
+      <input id="nurse-phone" placeholder="${t('phone_placeholder')}">
+      <button type="button" class="btn-outline blue small" onclick="uploadCertificateComingSoon()" style="margin-bottom:10px;">${t('upload_cert_btn')}</button>
+      <button class="primary" onclick="addNurseAdmin()">${t('add_nurse_btn')}</button>
     </div>
 
-    <h3>الممرضون المسجّلون (${nurses.length})</h3>
+    <h3>${t('registered_nurses_title')} (${nurses.length})</h3>
     <div class="stock-table-wrap" style="margin-bottom:20px;">
       <div class="stock-scroll">
         ${nurses.length === 0
-          ? '<p class="muted" style="padding:16px 18px; margin:0;">لا يوجد ممرضون مسجّلون بعد.</p>'
-          : `<div class="stock-table-header"><span>الممرض</span><span class="col-action">إجراءات</span></div>
+          ? `<p class="muted" style="padding:16px 18px; margin:0;">${t('no_nurses_yet')}</p>`
+          : `<div class="stock-table-header"><span>${t('nurses_table_header')}</span><span class="col-action">${t('actions_header_plural')}</span></div>
              ${nurses.map(n => `
                <div class="row">
                  <span>${n.name} <span class="muted" style="font-size:12px;">${n.specialty || ''}</span></span>
                  <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap; justify-content:flex-end;">
-                   <button class="toggle-btn ${n.available ? 'yes' : 'no'}" onclick="toggleNurseAvailabilityAdmin(${n.id}, ${!n.available})">${n.available ? '🟢 متاح' : '🔴 غير متاح'}</button>
-                   <button class="btn-outline red small table-action-btn" onclick="deleteNurseAdmin(${n.id}, '${n.name}')">حذف</button>
+                   <button class="toggle-btn ${n.available ? 'yes' : 'no'}" onclick="toggleNurseAvailabilityAdmin(${n.id}, ${!n.available})">${n.available ? t('nurse_available_short') : t('nurse_unavailable_short')}</button>
+                   <button class="btn-outline red small table-action-btn" onclick="deleteNurseAdmin(${n.id}, '${n.name}')">${t('delete_btn')}</button>
                  </div>
                </div>
              `).join('')}`
@@ -1690,15 +1741,15 @@ async function renderAdminPanel() {
 
     <div id="pending-ratings-wrap" style="${pendingRatings.length === 0 ? 'display:none;' : ''}">
       <div class="orders-wrap">
-        <h3 style="margin-top:0;">⭐ تقييمات قيد المراجعة (<span id="pending-ratings-count">${pendingRatings.length}</span>)</h3>
+        <h3 style="margin-top:0;">${t('pending_ratings_title')} (<span id="pending-ratings-count">${pendingRatings.length}</span>)</h3>
         <div id="pending-ratings-list">${renderPendingRatingsCards(pendingRatings)}</div>
       </div>
     </div>
 
     <div class="box" style="margin-bottom:20px;">
       <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px;">
-        <h3 style="margin:0;">💬 التقييمات المنشورة</h3>
-        <button class="btn-outline blue small" onclick="toggleApprovedRatingsAdmin()" id="toggle-approved-ratings-btn">عرض التقييمات</button>
+        <h3 style="margin:0;">${t('published_ratings_title')}</h3>
+        <button class="btn-outline blue small" onclick="toggleApprovedRatingsAdmin()" id="toggle-approved-ratings-btn">${t('show_ratings_btn')}</button>
       </div>
       <div id="approved-ratings-list" style="display:none; margin-top:14px;"></div>
     </div>
@@ -1720,12 +1771,12 @@ async function addPharmacy() {
   });
   const data = await res.json();
   if (!res.ok) { customAlert(data.error, 'error'); return; }
-  customAlert(`تمت إضافة صيدلية "${data.name}" بنجاح`, 'success');
+  customAlert(tFormat('pharmacy_added_success', { name: data.name }), 'success');
   renderAdminPanel();
 }
 
 async function deletePharmacyAdmin(id, name) {
-  const confirmed = await customConfirm(`متأكد إنك بدك تحذف صيدلية "${name}"؟`, 'warning');
+  const confirmed = await customConfirm(tFormat('delete_pharmacy_confirm', { name }), 'warning');
   if (!confirmed) return;
   await fetch(`${API}/pharmacies/${id}`, { method: 'DELETE', headers: adminHeaders() });
   renderAdminPanel();
@@ -1744,12 +1795,12 @@ async function addMedicineAdmin() {
   });
   const data = await res.json();
   if (!res.ok) { customAlert(data.error, 'error'); return; }
-  customAlert(`تمت إضافة "${data.name}" بنجاح`, 'success');
+  customAlert(tFormat('item_added_success', { name: data.name }), 'success');
   renderAdminPanel();
 }
 
 async function deleteMedicineAdmin(id, name) {
-  const confirmed = await customConfirm(`متأكد إنك بدك تحذف دواء "${name}" نهائياً؟`, 'warning');
+  const confirmed = await customConfirm(tFormat('delete_medicine_confirm', { name }), 'warning');
   if (!confirmed) return;
   await fetch(`${API}/medicines/${id}`, { method: 'DELETE', headers: adminHeaders() });
   renderAdminPanel();
@@ -1783,12 +1834,12 @@ async function addNurseAdmin() {
   });
   const data = await res.json();
   if (!res.ok) { customAlert(data.error, 'error'); return; }
-  customAlert(`تمت إضافة "${data.name}" بنجاح`, 'success');
+  customAlert(tFormat('item_added_success', { name: data.name }), 'success');
   renderAdminPanel();
 }
 
 async function deleteNurseAdmin(id, name) {
-  const confirmed = await customConfirm(`متأكد إنك بدك تحذف الممرض "${name}"؟`, 'warning');
+  const confirmed = await customConfirm(tFormat('delete_nurse_confirm', { name }), 'warning');
   if (!confirmed) return;
   await fetch(`${API}/nurses/${id}`, { method: 'DELETE', headers: adminHeaders() });
   renderAdminPanel();
@@ -1807,7 +1858,7 @@ async function approveRatingAdmin(id) {
 }
 
 async function rejectRatingAdmin(id) {
-  const confirmed = await customConfirm('متأكد إنك بدك ترفض هذا التقييم؟ رح ينحذف نهائياً.', 'warning');
+  const confirmed = await customConfirm(t('reject_rating_confirm'), 'warning');
   if (!confirmed) return;
   await fetch(`${API}/nurses/ratings/${id}`, { method: 'DELETE', headers: adminHeaders() });
   renderAdminPanel();
@@ -1825,8 +1876,8 @@ function renderPendingRatingsCards(ratings) {
       <div class="order-row"><span>📞</span> ${escapeHtml(r.patient_phone)}</div>
       ${r.comment ? `<div class="order-items-list"><div class="order-item-line">💬 ${escapeHtml(r.comment)}</div></div>` : ''}
       <div class="order-actions-row">
-        <button class="btn-outline green small" onclick="approveRatingAdmin(${r.id})">✅ موافقة</button>
-        <button class="btn-outline red small" onclick="rejectRatingAdmin(${r.id})">🗑️ رفض</button>
+        <button class="btn-outline green small" onclick="approveRatingAdmin(${r.id})">${t('approve_btn')}</button>
+        <button class="btn-outline red small" onclick="rejectRatingAdmin(${r.id})">${t('reject_btn')}</button>
       </div>
     </div>
   `).join('');
@@ -1875,23 +1926,23 @@ async function toggleApprovedRatingsAdmin() {
   const btn = document.getElementById('toggle-approved-ratings-btn');
   if (container.style.display === 'none') {
     container.style.display = 'block';
-    btn.textContent = 'إخفاء التقييمات';
+    btn.textContent = t('hide_ratings_btn');
     if (!approvedRatingsLoaded) await loadApprovedRatingsAdmin();
   } else {
     container.style.display = 'none';
-    btn.textContent = 'عرض التقييمات';
+    btn.textContent = t('show_ratings_btn');
   }
 }
 
 async function loadApprovedRatingsAdmin() {
   const container = document.getElementById('approved-ratings-list');
-  container.innerHTML = '<p class="muted">جاري التحميل...</p>';
+  container.innerHTML = `<p class="muted">${t('loading_text')}</p>`;
   try {
     const res = await fetch(`${API}/nurses/ratings/approved`, { headers: adminHeaders() });
     const ratings = await res.json();
     approvedRatingsLoaded = true;
     if (ratings.length === 0) {
-      container.innerHTML = '<p class="muted" style="margin:0;">لا توجد تقييمات منشورة بعد.</p>';
+      container.innerHTML = `<p class="muted" style="margin:0;">${t('no_published_ratings')}</p>`;
       return;
     }
     container.innerHTML = ratings.map(r => `
@@ -1902,17 +1953,17 @@ async function loadApprovedRatingsAdmin() {
         </div>
         ${r.comment ? `<div class="order-items-list"><div class="order-item-line">💬 ${escapeHtml(r.comment)}</div></div>` : ''}
         <div class="order-actions-row">
-          <button class="btn-outline red small" onclick="deleteApprovedRatingAdmin(${r.id})">🗑️ حذف نهائي</button>
+          <button class="btn-outline red small" onclick="deleteApprovedRatingAdmin(${r.id})">${t('delete_final_btn')}</button>
         </div>
       </div>
     `).join('');
   } catch (err) {
-    container.innerHTML = '<p class="muted" style="margin:0;">تعذر تحميل التقييمات.</p>';
+    container.innerHTML = `<p class="muted" style="margin:0;">${t('failed_load_ratings')}</p>`;
   }
 }
 
 async function deleteApprovedRatingAdmin(id) {
-  const confirmed = await customConfirm('متأكد إنك بدك تحذف هذا التقييم نهائياً؟ هذا الإجراء لا يمكن التراجع عنه.', 'warning');
+  const confirmed = await customConfirm(t('delete_rating_final_confirm'), 'warning');
   if (!confirmed) return;
   await fetch(`${API}/nurses/ratings/${id}`, { method: 'DELETE', headers: adminHeaders() });
   approvedRatingsLoaded = false;
