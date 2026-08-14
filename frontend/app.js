@@ -107,7 +107,20 @@ const translations = {
     loading_text: 'جاري التحميل...', no_published_ratings: 'لا توجد تقييمات منشورة بعد.',
     delete_final_btn: '🗑️ حذف نهائي', failed_load_ratings: 'تعذر تحميل التقييمات.',
     delete_rating_final_confirm: 'متأكد إنك بدك تحذف هذا التقييم نهائياً؟ هذا الإجراء لا يمكن التراجع عنه.',
-    upload_cert_coming_soon: 'رفع الشهادات (PDF/Word) رح يتفعّل بعد ربط استضافة دائمة للملفات 📄'
+    upload_cert_coming_soon: 'رفع الشهادات (PDF/Word) رح يتفعّل بعد ربط استضافة دائمة للملفات 📄',
+    nursing_empty_title: 'لا يوجد ممرضون مسجّلون حالياً', nursing_empty_subtitle: 'سوف يتم إضافة ممرضين موثوقين قريباً.',
+    nurse_available_full: '🟢 متاح للعمل', nurse_unavailable_full: '🔴 غير متاح حالياً',
+    general_nurse_label: 'ممرض عام', rating_summary_suffix: 'من {count} تقييم',
+    no_ratings_yet_short: 'لا توجد تقييمات بعد', view_profile_btn: 'لمحة عنه',
+    grad_year_label: 'تخرج', patient_reviews_title: 'آراء المرضى ({count})',
+    no_published_reviews: 'لا توجد آراء منشورة بعد.', rate_this_nurse_title: 'قيّم هذا الممرض',
+    already_rated_msg: 'شكراً، تم إرسال تقييمك مسبقاً وهو الآن قيد مراجعة الإدارة.',
+    comment_placeholder: 'اكتب رأيك (اختياري)', your_name_placeholder: 'اسمك', your_phone_placeholder: 'رقم هاتفك',
+    submit_rating_btn: 'إرسال التقييم',
+    star_rate_one: 'قيّم نجمة واحدة من 5', star_rate_two: 'قيّم نجمتين من 5', star_rate_n: 'قيّم {n} نجوم من 5',
+    select_stars_first: 'الرجاء اختيار عدد النجوم أولاً', name_phone_required: 'الاسم ورقم الهاتف مطلوبان',
+    rating_submitted_success: 'تم إرسال تقييمك بنجاح! رح يظهر للعموم بعد موافقة الإدارة عليه.',
+    nursing_page_title: 'خدمات تمريض 🩺', nursing_page_desc: 'تواصل مع ممرضين موثوقين لتلقي الرعاية التمريضية بمنزلك.'
   },
   en: {
     nav_home: 'Home', nav_onduty: 'On-Duty Pharmacies', nav_pharmacist: 'Pharmacist Panel',
@@ -204,7 +217,20 @@ const translations = {
     loading_text: 'Loading...', no_published_ratings: 'No published ratings yet.',
     delete_final_btn: '🗑️ Delete permanently', failed_load_ratings: 'Could not load ratings.',
     delete_rating_final_confirm: 'Are you sure you want to permanently delete this rating? This action cannot be undone.',
-    upload_cert_coming_soon: 'Certificate upload (PDF/Word) will be enabled once permanent file hosting is set up 📄'
+    upload_cert_coming_soon: 'Certificate upload (PDF/Word) will be enabled once permanent file hosting is set up 📄',
+    nursing_empty_title: 'No nurses registered right now', nursing_empty_subtitle: 'Trusted nurses will be added soon.',
+    nurse_available_full: '🟢 Available for work', nurse_unavailable_full: '🔴 Currently unavailable',
+    general_nurse_label: 'General nurse', rating_summary_suffix: 'from {count} reviews',
+    no_ratings_yet_short: 'No ratings yet', view_profile_btn: 'View profile',
+    grad_year_label: 'graduated', patient_reviews_title: 'Patient reviews ({count})',
+    no_published_reviews: 'No published reviews yet.', rate_this_nurse_title: 'Rate this nurse',
+    already_rated_msg: 'Thanks, your rating was already submitted and is now under admin review.',
+    comment_placeholder: 'Write your review (optional)', your_name_placeholder: 'Your name', your_phone_placeholder: 'Your phone number',
+    submit_rating_btn: 'Submit rating',
+    star_rate_one: 'Rate 1 star out of 5', star_rate_two: 'Rate 2 stars out of 5', star_rate_n: 'Rate {n} stars out of 5',
+    select_stars_first: 'Please select a star rating first', name_phone_required: 'Name and phone number are required',
+    rating_submitted_success: 'Your rating was submitted successfully! It will appear publicly after admin approval.',
+    nursing_page_title: 'Nursing Services 🩺', nursing_page_desc: 'Connect with trusted nurses for home nursing care.'
   }
 };
 
@@ -318,6 +344,17 @@ function applyLanguage() {
     renderAdminPanelUI();
   } else if (document.getElementById('admin-auth-section').innerHTML.trim()) {
     renderAdminAuthForm();
+  }
+
+  // ---------- خدمات التمريض ----------
+  document.getElementById('nursing-page-title').textContent = t('nursing_page_title');
+  document.getElementById('nursing-page-desc').textContent = t('nursing_page_desc');
+  if (document.getElementById('nurses-list').innerHTML.trim()) {
+    document.getElementById('nurses-list').innerHTML = renderNursesList(nursesCache);
+    for (const id of openNurseDetailIds) {
+      const panel = document.getElementById(`nurse-detail-${id}`);
+      if (panel) { panel.style.display = 'block'; renderNurseDetail(id); }
+    }
   }
 }
 
@@ -923,23 +960,23 @@ function renderNursesList(nurses) {
     return `
       <div class="empty-state">
         <div class="empty-icon">🩺</div>
-        <p class="empty-title">لا يوجد ممرضون مسجّلون حالياً</p>
-        <p class="empty-subtitle">سوف يتم إضافة ممرضين موثوقين قريباً.</p>
+        <p class="empty-title">${t('nursing_empty_title')}</p>
+        <p class="empty-subtitle">${t('nursing_empty_subtitle')}</p>
       </div>`;
   }
   return nurses.map(n => `
     <div class="result-card">
       <div class="result-card-top">
         <span class="result-med-name">👤 ${escapeHtml(n.name)}</span>
-        <span class="badge ${n.available ? 'yes' : 'no'}">${n.available ? '🟢 متاح للعمل' : '🔴 غير متاح حالياً'}</span>
+        <span class="badge ${n.available ? 'yes' : 'no'}">${n.available ? t('nurse_available_full') : t('nurse_unavailable_full')}</span>
       </div>
-      <div class="result-row">🎓 ${escapeHtml(n.specialty || 'ممرض عام')}</div>
+      <div class="result-row">🎓 ${escapeHtml(n.specialty || t('general_nurse_label'))}</div>
       <div class="result-row">
         ${n.rating_count > 0
-          ? `${renderStars(n.avg_rating)} ${Number(n.avg_rating).toFixed(1)} من ${n.rating_count} تقييم`
-          : '<span class="muted">لا توجد تقييمات بعد</span>'}
+          ? `${renderStars(n.avg_rating)} ${Number(n.avg_rating).toFixed(1)} ${tFormat('rating_summary_suffix', { count: n.rating_count })}`
+          : `<span class="muted">${t('no_ratings_yet_short')}</span>`}
       </div>
-      <button class="btn-outline blue small" onclick="toggleNurseDetail(${n.id})">لمحة عنه</button>
+      <button class="btn-outline blue small" onclick="toggleNurseDetail(${n.id})">${t('view_profile_btn')}</button>
       <div id="nurse-detail-${n.id}" style="display:none; margin-top:12px;"></div>
     </div>
   `).join('');
@@ -947,7 +984,7 @@ function renderNursesList(nurses) {
 
 async function loadNurses() {
   const container = document.getElementById('nurses-list');
-  container.innerHTML = '<p class="muted">جاري التحميل...</p>';
+  container.innerHTML = `<p class="muted">${t('loading_text')}</p>`;
   openNurseDetailIds.clear();
   try {
     const res = await fetch(`${API}/nurses`);
@@ -959,8 +996,8 @@ async function loadNurses() {
     container.innerHTML = `
       <div class="empty-state">
         <div class="empty-icon">⚠️</div>
-        <p class="empty-title">تعذر الاتصال بالخادم</p>
-        <p class="empty-subtitle">تحقق من اتصالك بالإنترنت وحاول مرة أخرى.</p>
+        <p class="empty-title">${t('server_error_title')}</p>
+        <p class="empty-subtitle">${t('server_error_subtitle')}</p>
       </div>`;
   }
 }
@@ -1021,7 +1058,7 @@ async function toggleNurseDetail(nurseId) {
 async function renderNurseDetail(nurseId) {
   const panel = document.getElementById(`nurse-detail-${nurseId}`);
   const nurse = nursesCache.find(n => n.id === nurseId);
-  panel.innerHTML = '<p class="muted">جاري التحميل...</p>';
+  panel.innerHTML = `<p class="muted">${t('loading_text')}</p>`;
 
   let ratings = [];
   try {
@@ -1033,12 +1070,12 @@ async function renderNurseDetail(nurseId) {
 
   panel.innerHTML = `
     <div class="box">
-      ${nurse && nurse.university ? `<div class="result-row">🎓 ${escapeHtml(nurse.university)}${nurse.graduation_year ? ' - تخرج ' + escapeHtml(nurse.graduation_year) : ''}</div>` : ''}
+      ${nurse && nurse.university ? `<div class="result-row">🎓 ${escapeHtml(nurse.university)}${nurse.graduation_year ? ` - ${t('grad_year_label')} ${escapeHtml(nurse.graduation_year)}` : ''}</div>` : ''}
       ${nurse && nurse.phone ? `<div class="result-row">📞 ${escapeHtml(nurse.phone)}</div>` : ''}
       <hr style="border:none; border-top:1px solid #eef2f6; margin:14px 0;">
-      <p style="font-weight:700; margin:0 0 8px;">آراء المرضى (${ratings.length})</p>
+      <p style="font-weight:700; margin:0 0 8px;">${tFormat('patient_reviews_title', { count: ratings.length })}</p>
       ${ratings.length === 0
-        ? '<p class="muted" style="margin:0 0 12px;">لا توجد آراء منشورة بعد.</p>'
+        ? `<p class="muted" style="margin:0 0 12px;">${t('no_published_reviews')}</p>`
         : ratings.map(r => `
           <div style="padding:8px 0; border-bottom:1px solid #f2f5f8;">
             <div>${renderStars(r.stars)}</div>
@@ -1047,17 +1084,17 @@ async function renderNurseDetail(nurseId) {
         `).join('')
       }
       <hr style="border:none; border-top:1px solid #eef2f6; margin:14px 0;">
-      <p style="font-weight:700; margin:0 0 8px;">قيّم هذا الممرض</p>
+      <p style="font-weight:700; margin:0 0 8px;">${t('rate_this_nurse_title')}</p>
       ${alreadyRated
-        ? '<p class="muted">شكراً، تم إرسال تقييمك مسبقاً وهو الآن قيد مراجعة الإدارة.</p>'
+        ? `<p class="muted">${t('already_rated_msg')}</p>`
         : `
           <div class="star-picker" id="rating-stars-${nurseId}">
             ${[1, 2, 3, 4, 5].map(i => `<button type="button" onclick="setRatingStars(${nurseId}, ${i})" data-i="${i}" aria-label="${starAriaLabel(i)}" aria-pressed="false">☆</button>`).join('')}
           </div>
-          <textarea id="rating-comment-${nurseId}" placeholder="اكتب رأيك (اختياري)" rows="2" style="width:100%; padding:10px 14px; border:1px solid #cfe0ef; border-radius:14px; font-family:inherit; font-size:15px; resize:vertical; margin-bottom:10px;"></textarea>
-          <input id="rating-name-${nurseId}" placeholder="اسمك">
-          <input id="rating-phone-${nurseId}" placeholder="رقم هاتفك" type="tel" inputmode="numeric" oninput="digitsOnly(this)">
-          <button class="primary" onclick="submitNurseRating(${nurseId})">إرسال التقييم</button>
+          <textarea id="rating-comment-${nurseId}" placeholder="${t('comment_placeholder')}" rows="2" style="width:100%; padding:10px 14px; border:1px solid #cfe0ef; border-radius:14px; font-family:inherit; font-size:15px; resize:vertical; margin-bottom:10px;"></textarea>
+          <input id="rating-name-${nurseId}" placeholder="${t('your_name_placeholder')}">
+          <input id="rating-phone-${nurseId}" placeholder="${t('your_phone_placeholder')}" type="tel" inputmode="numeric" oninput="digitsOnly(this)">
+          <button class="primary" onclick="submitNurseRating(${nurseId})">${t('submit_rating_btn')}</button>
         `}
     </div>
   `;
@@ -1067,9 +1104,9 @@ const selectedNurseStars = {};
 
 // وصف عربي صحيح لكل نجمة حسب قواعد العدد (واحدة/اثنتين/3 فما فوق)
 function starAriaLabel(i) {
-  if (i === 1) return 'قيّم نجمة واحدة من 5';
-  if (i === 2) return 'قيّم نجمتين من 5';
-  return `قيّم ${i} نجوم من 5`;
+  if (i === 1) return t('star_rate_one');
+  if (i === 2) return t('star_rate_two');
+  return tFormat('star_rate_n', { n: i });
 }
 
 function setRatingStars(nurseId, stars) {
@@ -1087,11 +1124,11 @@ function setRatingStars(nurseId, stars) {
 
 async function submitNurseRating(nurseId) {
   const stars = selectedNurseStars[nurseId];
-  if (!stars) { customAlert('الرجاء اختيار عدد النجوم أولاً', 'warning'); return; }
+  if (!stars) { customAlert(t('select_stars_first'), 'warning'); return; }
   const name = document.getElementById(`rating-name-${nurseId}`).value.trim();
   const phone = document.getElementById(`rating-phone-${nurseId}`).value.trim();
   const comment = document.getElementById(`rating-comment-${nurseId}`).value.trim();
-  if (!name || !phone) { customAlert('الاسم ورقم الهاتف مطلوبان', 'warning'); return; }
+  if (!name || !phone) { customAlert(t('name_phone_required'), 'warning'); return; }
   try {
     const res = await fetch(`${API}/nurses/${nurseId}/ratings`, {
       method: 'POST',
@@ -1101,10 +1138,10 @@ async function submitNurseRating(nurseId) {
     const data = await res.json();
     if (!res.ok) { customAlert(data.error, 'error'); return; }
     markNurseAsRated(nurseId);
-    await customAlert('تم إرسال تقييمك بنجاح! رح يظهر للعموم بعد موافقة الإدارة عليه.', 'success');
+    await customAlert(t('rating_submitted_success'), 'success');
     renderNurseDetail(nurseId);
   } catch (err) {
-    customAlert('تعذر الاتصال بالخادم', 'error');
+    customAlert(t('server_error_title'), 'error');
   }
 }
 
