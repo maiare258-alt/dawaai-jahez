@@ -193,7 +193,21 @@
      ديناميكياً لآخر مساحة متاحة (بدل رقم ثابت قد يفيض بعرض كمبيوتر أضيق)، بعرض الكمبيوتر بس
      عشان ما نتعارض مع تصميم الموبايل، وبدون أي لمسة على مواضع العناصر الزخرفية أو التصميم العربي */
   @media (min-width: 721px) {
-    html[dir="ltr"] .hero-content { max-width: calc(100% - 380px); width: calc(100% - 380px); }
+    html[dir="ltr"] .hero-content { max-width: calc(100% - 380px); width: calc(100% - 380px); margin-left: 0; margin-right: 380px; }
+    /* عكس مواضع كل العناصر الزخرفية لتصير باتجاه اليمين بالوضع الإنكليزي، بدل اليسار بالعربي */
+    html[dir="ltr"] .hero-glow { left: auto; right: -100px; }
+    html[dir="ltr"] .hero-particles span:nth-child(1) { left: auto; right: 20px; }
+    html[dir="ltr"] .hero-particles span:nth-child(2) { left: auto; right: 80px; }
+    html[dir="ltr"] .hero-particles span:nth-child(3) { left: auto; right: 160px; }
+    html[dir="ltr"] .hero-particles span:nth-child(4) { left: auto; right: 220px; }
+    html[dir="ltr"] .hero-particles span:nth-child(5) { left: auto; right: 270px; }
+    html[dir="ltr"] .hero-capsule { left: auto; right: -70px; }
+    html[dir="ltr"] .hero-cart-illustration { left: auto; right: 258px; }
+    html[dir="ltr"] .hero-bottle-illustration { left: auto; right: 24px; }
+  }
+  @media (min-width: 721px) and (max-width: 900px) {
+    html[dir="ltr"] .hero-cart-illustration { left: auto; right: 195px; }
+    html[dir="ltr"] .hero-bottle-illustration { left: auto; right: 16px; }
   }
   .hero-title { font-size: 32px; font-weight: 800; line-height: 1.35; margin: 0 0 14px; color: #163a5c; }
   .hero-highlight { color: #185fa5; }
