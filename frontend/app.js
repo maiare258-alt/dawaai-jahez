@@ -315,7 +315,7 @@ function applyLanguage() {
 
   // ---------- لوحة الإدارة ----------
   if (adminPassword) {
-    renderAdminPanel();
+    renderAdminPanelUI();
   } else if (document.getElementById('admin-auth-section').innerHTML.trim()) {
     renderAdminAuthForm();
   }
@@ -1622,6 +1622,9 @@ function adminHeaders() {
   return { 'Content-Type': 'application/json', 'x-admin-password': adminPassword };
 }
 
+// ذاكرة مؤقتة لآخر بيانات جُلبت من السيرفر — عشان تبديل اللغة يعيد الرسم بس، بدون طلبات شبكة جديدة
+let adminDataCache = { pharmacies: [], medicines: [], nurses: [], pendingRatings: [] };
+
 async function renderAdminPanel() {
   const [pharmacies, medicines, nurses, pendingRatings] = await Promise.all([
     fetch(`${API}/pharmacies`, { headers: adminHeaders() }).then(r => r.json()),
@@ -1629,6 +1632,13 @@ async function renderAdminPanel() {
     fetch(`${API}/nurses`).then(r => r.json()),
     fetch(`${API}/nurses/ratings/pending`, { headers: adminHeaders() }).then(r => r.json())
   ]);
+  adminDataCache = { pharmacies, medicines, nurses, pendingRatings };
+  renderAdminPanelUI();
+}
+
+// إعادة رسم اللوحة من آخر بيانات محفوظة بدون أي طلب شبكة جديد — تُستخدم عند تبديل اللغة بس
+function renderAdminPanelUI() {
+  const { pharmacies, medicines, nurses, pendingRatings } = adminDataCache;
 
   approvedRatingsLoaded = false;
   lastPendingRatingsSnapshot = JSON.stringify(pendingRatings);
