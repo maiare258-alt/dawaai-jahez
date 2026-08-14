@@ -189,6 +189,12 @@
     .hero-bottle-illustration { width: 64px; top: 5%; left: 16px; }
   }
   .hero-content { position: relative; z-index: 3; margin-left: 380px; max-width: 460px; }
+  /* بالإنكليزي (LTR) النص بيتكوم يسار الصندوق فبتبين فجوة فاضية على اليمين — نخلي الصندوق يمتد
+     ديناميكياً لآخر مساحة متاحة (بدل رقم ثابت قد يفيض بعرض كمبيوتر أضيق)، بعرض الكمبيوتر بس
+     عشان ما نتعارض مع تصميم الموبايل، وبدون أي لمسة على مواضع العناصر الزخرفية أو التصميم العربي */
+  @media (min-width: 721px) {
+    html[dir="ltr"] .hero-content { max-width: calc(100% - 380px); width: calc(100% - 380px); }
+  }
   .hero-title { font-size: 32px; font-weight: 800; line-height: 1.35; margin: 0 0 14px; color: #163a5c; }
   .hero-highlight { color: #185fa5; }
   .hero-description { font-size: 17px; color: #4a5b6b; margin: 0 0 24px; line-height: 1.6; }
