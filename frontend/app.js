@@ -1372,9 +1372,9 @@ function renderPharmacyAuthForm() {
     <div class="auth-box">
       <h3 style="margin-top:0;">${t('pharm_login_title')}</h3>
       <p class="muted" style="margin-top:-8px;">${t('pharm_login_no_account')}</p>
-      <input id="login-username" type="text" placeholder="${t('username_placeholder')}">
+      <input id="login-username" type="text" placeholder="${t('username_placeholder')}" onkeydown="if(event.key==='Enter') login()">
       <div class="password-field">
-        <input id="login-password" type="password" placeholder="${t('password_placeholder')}">
+        <input id="login-password" type="password" placeholder="${t('password_placeholder')}" onkeydown="if(event.key==='Enter') login()">
         <button type="button" class="toggle-password" onclick="togglePassword('login-password', this)" aria-label="${t('show_password_aria')}">👁</button>
       </div>
       <button class="primary" onclick="login()">${t('login_btn')}</button>
@@ -1664,7 +1664,7 @@ function renderAdminAuthForm() {
   document.getElementById('admin-auth-section').innerHTML = `
     <div class="auth-box">
       <div class="password-field">
-        <input id="admin-password-input" type="password" placeholder="${t('admin_password_placeholder')}">
+        <input id="admin-password-input" type="password" placeholder="${t('admin_password_placeholder')}" onkeydown="if(event.key==='Enter') checkAdminPassword()">
         <button type="button" class="toggle-password" onclick="togglePassword('admin-password-input', this)" aria-label="${t('show_password_aria')}">👁</button>
       </div>
       <button class="primary" onclick="checkAdminPassword()">${t('login_btn')}</button>
@@ -1674,12 +1674,17 @@ function renderAdminAuthForm() {
 
 async function checkAdminPassword() {
   const password = document.getElementById('admin-password-input').value;
-  const res = await fetch(`${API}/pharmacies`, { headers: { 'x-admin-password': password } });
-  if (!res.ok) { customAlert(t('wrong_password'), 'error'); return; }
-  adminPassword = password;
-  document.getElementById('admin-auth-section').innerHTML = '';
-  document.getElementById('admin-panel').style.display = 'block';
-  renderAdminPanel();
+  try {
+    const res = await fetch(`${API}/pharmacies`, { headers: { 'x-admin-password': password } });
+    if (!res.ok) { customAlert(t('wrong_password'), 'error'); return; }
+    adminPassword = password;
+    document.getElementById('admin-auth-section').innerHTML = '';
+    document.getElementById('admin-panel').style.display = 'block';
+    renderAdminPanel();
+  } catch (err) {
+    // ترويسات HTTP لازم تكون بترميز ASCII — أي حرف غير إنكليزي (عربي مثلاً) برقم مرور الإدارة بيخلي fetch نفسها ترمي استثناء قبل ما توصل السيرفر
+    customAlert(t('wrong_password'), 'error');
+  }
 }
 
 function logoutAdmin() {
