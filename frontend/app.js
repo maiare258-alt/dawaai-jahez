@@ -427,6 +427,7 @@ function showView(view) {
   if (view === 'pharmacist' && !currentPharmacy) renderPharmacyAuthForm();
   if (view === 'admin' && !adminPassword) renderAdminAuthForm();
   if (view !== 'nursing') stopNursingPolling();
+  if (view !== 'admin') stopAdminRatingsPolling();
   updateCartVisibility();
 }
 
