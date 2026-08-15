@@ -124,7 +124,24 @@ const translations = {
     show_password_aria: 'إظهار كلمة المرور', hide_password_aria: 'إخفاء كلمة المرور',
     whatsapp_coming_soon: 'البحث عبر واتساب قريباً 💬 لسا عم نجهز رقم رسمي للمشروع.',
     contact_coming_soon: 'سيتم إضافة معلومات التواصل قريباً.',
-    invalid_credentials: 'بيانات الدخول غير صحيحة'
+    invalid_credentials: 'بيانات الدخول غير صحيحة',
+    bulk_import_title: '📥 استيراد أدوية من ملف',
+    bulk_import_desc: 'حمّل نموذج فارغ، انسخ فيه بيانات أدوية شركتك، ثم ارفعه هون لإضافتها دفعة وحدة إلى مخزونك.',
+    download_template_btn: '⬇️ تحميل نموذج فارغ (CSV)',
+    choose_file_btn: 'اختيار ملف CSV',
+    no_file_chosen: 'ما في ملف مختار',
+    bulk_import_preview_title: 'معاينة قبل الاستيراد',
+    bulk_import_valid_count: '{count} دواء جاهز للاستيراد',
+    bulk_import_invalid_count: '{count} صف فيه مشكلة (رح يتجاهل)',
+    bulk_import_confirm_btn: 'تأكيد الاستيراد',
+    bulk_import_cancel_btn: 'إلغاء',
+    bulk_import_empty_name_issue: 'اسم الدواء مفقود',
+    bulk_import_invalid_category_issue: 'تصنيف غير معروف (استخدم دواء أو مستحضر تجميل)',
+    bulk_import_parse_error: 'تعذّر قراءة الملف. تأكد إنه بصيغة CSV وبنفس تنسيق النموذج.',
+    bulk_import_no_valid_rows: 'ما في أي صف صالح للاستيراد بالملف.',
+    bulk_import_success: 'تم الاستيراد: {added} دواء جديد، {linked} مربوط بمخزونك، {skipped} تم تجاهله.',
+    bulk_import_col_name: 'الاسم', bulk_import_col_generic: 'المادة الفعالة',
+    bulk_import_col_alt: 'أسماء بديلة', bulk_import_col_category: 'التصنيف', bulk_import_col_issue: 'ملاحظة'
   },
   en: {
     nav_home: 'Home', nav_onduty: 'On-Duty Pharmacies', nav_pharmacist: 'Pharmacist Panel',
@@ -238,7 +255,24 @@ const translations = {
     show_password_aria: 'Show password', hide_password_aria: 'Hide password',
     whatsapp_coming_soon: "Search via WhatsApp coming soon 💬 We're setting up an official number for the project.",
     contact_coming_soon: 'Contact information will be added soon.',
-    invalid_credentials: 'Invalid login credentials'
+    invalid_credentials: 'Invalid login credentials',
+    bulk_import_title: '📥 Import medicines from file',
+    bulk_import_desc: "Download a blank template, copy your company's medicine data into it, then upload it here to add them all at once to your stock.",
+    download_template_btn: '⬇️ Download blank template (CSV)',
+    choose_file_btn: 'Choose CSV file',
+    no_file_chosen: 'No file chosen',
+    bulk_import_preview_title: 'Preview before import',
+    bulk_import_valid_count: '{count} medicines ready to import',
+    bulk_import_invalid_count: '{count} row(s) have an issue (will be skipped)',
+    bulk_import_confirm_btn: 'Confirm import',
+    bulk_import_cancel_btn: 'Cancel',
+    bulk_import_empty_name_issue: 'Medicine name is missing',
+    bulk_import_invalid_category_issue: 'Unknown category (use "دواء" or "مستحضر تجميل")',
+    bulk_import_parse_error: "Couldn't read the file. Make sure it's a CSV matching the template format.",
+    bulk_import_no_valid_rows: 'No valid rows found in the file.',
+    bulk_import_success: 'Import complete: {added} new medicines, {linked} linked to your stock, {skipped} skipped.',
+    bulk_import_col_name: 'Name', bulk_import_col_generic: 'Active ingredient',
+    bulk_import_col_alt: 'Alternative names', bulk_import_col_category: 'Category', bulk_import_col_issue: 'Note'
   }
 };
 
@@ -342,6 +376,14 @@ function applyLanguage() {
   document.getElementById('opt-cat-medicine').textContent = t('cat_medicine');
   document.getElementById('opt-cat-cosmetic').textContent = t('cat_cosmetic');
   document.getElementById('add-med-btn').textContent = t('add_med_btn');
+  document.getElementById('bulk-import-title').textContent = t('bulk_import_title');
+  document.getElementById('bulk-import-desc').textContent = t('bulk_import_desc');
+  document.getElementById('download-template-btn').textContent = t('download_template_btn');
+  document.getElementById('choose-file-label').textContent = t('choose_file_btn');
+  if (!document.getElementById('bulk-import-file').files.length) {
+    document.getElementById('bulk-import-filename').textContent = t('no_file_chosen');
+  }
+  if (bulkImportParsedRows.length > 0) renderBulkImportPreview();
   document.getElementById('stock-table-medicine').textContent = t('stock_table_medicine');
   document.getElementById('stock-table-status').textContent = t('stock_table_status');
   document.getElementById('delete-account-btn').textContent = t('delete_account_btn');
@@ -1511,6 +1553,139 @@ async function addMedicineSelf() {
   } catch (err) {
     customAlert(t('server_error_title'), 'error');
   }
+}
+
+// ---------- استيراد دفعة أدوية من ملف CSV ----------
+
+let bulkImportParsedRows = [];
+
+function downloadBulkImportTemplate() {
+  const headers = currentLang === 'en'
+    ? ['Name', 'Active ingredient', 'Alternative names', 'Category']
+    : ['اسم الدواء', 'المادة الفعالة', 'أسماء بديلة', 'التصنيف'];
+  const example = currentLang === 'en'
+    ? ['Panadol', 'Paracetamol', 'Panadol Extra;Acetaminophen', 'Medicine']
+    : ['بنادول', 'باراسيتامول', 'بندول;panadol', 'دواء'];
+  const csv = '\uFEFF' + headers.join(',') + '\n' + example.join(',') + '\n';
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'dawaai-jahez-medicines-template.csv';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// نص خانة التصنيف بالملف ممكن يجي عربي أو إنكليزي (حسب لغة النموذج يلي استخدمها الصيدلي) — نتحقق من الاثنين
+function parseCategoryLabel(raw) {
+  const v = (raw || '').trim().toLowerCase();
+  if (!v) return { value: 'medicine', invalid: false };
+  if (v === 'دواء' || v === 'medicine') return { value: 'medicine', invalid: false };
+  if (v === 'مستحضر تجميل' || v === 'cosmetic' || v === 'cosmetic product') return { value: 'cosmetic', invalid: false };
+  return { value: null, invalid: true };
+}
+
+// تقسيم بسيط لسطر CSV بفواصل عادية (النموذج محدد ومضبوط، فما في حاجة لمحلل CSV كامل مع دعم علامات اقتباس)
+function parseCsvLine(line) {
+  return line.split(',').map(s => s.trim());
+}
+
+function handleBulkImportFile(event) {
+  const file = event.target.files[0];
+  document.getElementById('bulk-import-filename').textContent = file ? file.name : t('no_file_chosen');
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      const text = e.target.result;
+      const lines = text.split(/\r\n|\n|\r/).filter(l => l.trim() !== '');
+      const dataLines = lines.slice(1); // أول سطر عناوين الأعمدة، نتجاوزه
+      bulkImportParsedRows = dataLines.map(line => {
+        const [name, generic_name, altRaw, categoryRaw] = parseCsvLine(line);
+        const alt_names = (altRaw || '').split(';').map(s => s.trim()).filter(Boolean);
+        const { value: category, invalid: invalidCategory } = parseCategoryLabel(categoryRaw);
+        const issues = [];
+        if (!name) issues.push(t('bulk_import_empty_name_issue'));
+        if (invalidCategory) issues.push(t('bulk_import_invalid_category_issue'));
+        return { name: name || '', generic_name: generic_name || '', alt_names, category: category || 'medicine', issues };
+      });
+      renderBulkImportPreview();
+    } catch (err) {
+      customAlert(t('bulk_import_parse_error'), 'error');
+    }
+  };
+  reader.readAsText(file, 'UTF-8');
+}
+
+function renderBulkImportPreview() {
+  const container = document.getElementById('bulk-import-preview');
+  const validRows = bulkImportParsedRows.filter(r => r.issues.length === 0);
+  const invalidRows = bulkImportParsedRows.filter(r => r.issues.length > 0);
+
+  if (bulkImportParsedRows.length === 0) {
+    container.style.display = 'block';
+    container.innerHTML = `<p class="muted">${t('bulk_import_no_valid_rows')}</p>`;
+    return;
+  }
+
+  container.style.display = 'block';
+  container.innerHTML = `
+    <p style="font-weight:700; margin-bottom:6px;">${t('bulk_import_preview_title')}</p>
+    <p class="muted" style="margin-top:0;">
+      ${tFormat('bulk_import_valid_count', { count: validRows.length })}
+      ${invalidRows.length > 0 ? ' — ' + tFormat('bulk_import_invalid_count', { count: invalidRows.length }) : ''}
+    </p>
+    <div class="stock-table-wrap" style="margin-bottom:14px;">
+      <div class="stock-scroll" style="max-height:260px;">
+        <div class="stock-table-header">
+          <span>${t('bulk_import_col_name')}</span>
+          <span class="col-status">${t('bulk_import_col_category')}</span>
+        </div>
+        ${bulkImportParsedRows.map(r => `
+          <div class="row" style="${r.issues.length > 0 ? 'opacity:0.6;' : ''}">
+            <span>
+              ${escapeHtml(r.name || '-')}
+              ${r.generic_name ? `<span class="muted" style="font-size:12px;"> - ${escapeHtml(r.generic_name)}</span>` : ''}
+              ${r.issues.length > 0 ? `<br><span style="color:#c0392b; font-size:12px;">⚠️ ${r.issues.join(' / ')}</span>` : ''}
+            </span>
+            <span class="muted" style="font-size:13px;">${r.category === 'cosmetic' ? t('cat_cosmetic') : t('cat_medicine')}</span>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+    <div style="display:flex; gap:10px;">
+      <button class="primary" onclick="confirmBulkImport()" ${validRows.length === 0 ? 'disabled' : ''}>${t('bulk_import_confirm_btn')}</button>
+      <button type="button" class="btn-outline blue small" onclick="cancelBulkImport()">${t('bulk_import_cancel_btn')}</button>
+    </div>
+  `;
+}
+
+async function confirmBulkImport() {
+  const validRows = bulkImportParsedRows.filter(r => r.issues.length === 0)
+    .map(({ name, generic_name, alt_names, category }) => ({ name, generic_name, alt_names, category }));
+  if (validRows.length === 0) return;
+  try {
+    const res = await fetch(`${API}/medicines/bulk-import`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: currentPharmacy.username, password: currentPharmacy.password, items: validRows })
+    });
+    const data = await res.json();
+    if (!res.ok) { customAlert(translateApiError(data.error), 'error'); return; }
+    await customAlert(tFormat('bulk_import_success', { added: data.added, linked: data.linked, skipped: data.skipped }), 'success');
+    cancelBulkImport();
+    refreshStock();
+  } catch (err) {
+    customAlert(t('server_error_title'), 'error');
+  }
+}
+
+function cancelBulkImport() {
+  bulkImportParsedRows = [];
+  document.getElementById('bulk-import-preview').style.display = 'none';
+  document.getElementById('bulk-import-preview').innerHTML = '';
+  document.getElementById('bulk-import-file').value = '';
+  document.getElementById('bulk-import-filename').textContent = t('no_file_chosen');
 }
 
 async function refreshStock() {
