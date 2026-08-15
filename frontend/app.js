@@ -1597,7 +1597,12 @@ function handleBulkImportFile(event) {
   const reader = new FileReader();
   reader.onload = (e) => {
     try {
-      const text = e.target.result;
+      const bytes = new Uint8Array(e.target.result);
+      // BOM (EF BB BF) بأول الملف معناها ترميز UTF-8 صحيح (متل النموذج يلي حمّلناه).
+      // بدون BOM، الأغلب الملف انحفظ بـ"CSV (Comma delimited)" العادية بإكسل، يلي بتستخدم ترميز الجهاز العربي الافتراضي (Windows-1256)
+      const hasBOM = bytes.length >= 3 && bytes[0] === 0xEF && bytes[1] === 0xBB && bytes[2] === 0xBF;
+      const decoder = new TextDecoder(hasBOM ? 'utf-8' : 'windows-1256');
+      const text = decoder.decode(hasBOM ? bytes.slice(3) : bytes);
       const lines = text.split(/\r\n|\n|\r/).filter(l => l.trim() !== '');
       const dataLines = lines.slice(1); // أول سطر عناوين الأعمدة، نتجاوزه
       bulkImportParsedRows = dataLines.map(line => {
@@ -1614,7 +1619,7 @@ function handleBulkImportFile(event) {
       customAlert(t('bulk_import_parse_error'), 'error');
     }
   };
-  reader.readAsText(file, 'UTF-8');
+  reader.readAsArrayBuffer(file);
 }
 
 function renderBulkImportPreview() {
