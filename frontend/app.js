@@ -126,7 +126,7 @@ const translations = {
     contact_coming_soon: 'سيتم إضافة معلومات التواصل قريباً.',
     invalid_credentials: 'بيانات الدخول غير صحيحة',
     bulk_import_title: '📥 استيراد أدوية من ملف',
-    bulk_import_desc: 'حمّل نموذج فارغ، انسخ فيه بيانات أدوية شركتك، ثم ارفعه هون لإضافتها دفعة وحدة إلى مخزونك.',
+    bulk_import_desc: 'حمّل نموذج فارغ، انسخ فيه بيانات أدوية الشركه، ثم ارفعه هنا لإضافتها دفعة وحدة إلى مخزونك في الصيدليه.',
     download_template_btn: '⬇️ تحميل نموذج فارغ (CSV)',
     choose_file_btn: 'اختيار ملف CSV',
     no_file_chosen: 'ما في ملف مختار',
