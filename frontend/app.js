@@ -127,6 +127,7 @@ const translations = {
     invalid_credentials: 'بيانات الدخول غير صحيحة',
     bulk_import_title: '📥 استيراد أدوية من ملف',
     bulk_import_desc: 'حمّل نموذج فارغ، انسخ فيه بيانات أدوية الشركه، ثم ارفعه هنا لإضافتها دفعة وحدة إلى مخزونك في الصيدليه.',
+    bulk_import_hint_alt_format: 'إذا طلعت الحروف العربية مشوّهة بعد الحفظ CSV، جرّب تحفظ الملف بصيغة "Unicode Text" بدلها من نفس نافذة الحفظ بإكسل.',
     download_template_btn: '⬇️ تحميل نموذج فارغ (CSV)',
     choose_file_btn: 'اختيار ملف CSV',
     no_file_chosen: 'ما في ملف مختار',
@@ -258,6 +259,7 @@ const translations = {
     invalid_credentials: 'Invalid login credentials',
     bulk_import_title: '📥 Import medicines from file',
     bulk_import_desc: "Download a blank template, copy your company's medicine data into it, then upload it here to add them all at once to your stock.",
+    bulk_import_hint_alt_format: 'If the Arabic text looks corrupted after saving as CSV, try saving the file as "Unicode Text" instead, from the same Save As window in Excel.',
     download_template_btn: '⬇️ Download blank template (CSV)',
     choose_file_btn: 'Choose CSV file',
     no_file_chosen: 'No file chosen',
@@ -378,6 +380,7 @@ function applyLanguage() {
   document.getElementById('add-med-btn').textContent = t('add_med_btn');
   document.getElementById('bulk-import-title').textContent = t('bulk_import_title');
   document.getElementById('bulk-import-desc').textContent = t('bulk_import_desc');
+  document.getElementById('bulk-import-hint-alt').textContent = '💡 ' + t('bulk_import_hint_alt_format');
   document.getElementById('download-template-btn').textContent = t('download_template_btn');
   document.getElementById('choose-file-label').textContent = t('choose_file_btn');
   if (!document.getElementById('bulk-import-file').files.length) {
@@ -1585,9 +1588,9 @@ function parseCategoryLabel(raw) {
   return { value: null, invalid: true };
 }
 
-// تقسيم بسيط لسطر CSV بفواصل عادية (النموذج محدد ومضبوط، فما في حاجة لمحلل CSV كامل مع دعم علامات اقتباس)
-function parseCsvLine(line) {
-  return line.split(',').map(s => s.trim());
+// تقسيم بسيط لسطر بفاصل معيّن (فاصلة أو تاب، حسب صيغة الملف المكتشفة)
+function parseCsvLine(line, delimiter) {
+  return line.split(delimiter).map(s => s.trim());
 }
 
 function handleBulkImportFile(event) {
@@ -1598,15 +1601,28 @@ function handleBulkImportFile(event) {
   reader.onload = (e) => {
     try {
       const bytes = new Uint8Array(e.target.result);
-      // BOM (EF BB BF) بأول الملف معناها ترميز UTF-8 صحيح (متل النموذج يلي حمّلناه).
-      // بدون BOM، الأغلب الملف انحفظ بـ"CSV (Comma delimited)" العادية بإكسل، يلي بتستخدم ترميز الجهاز العربي الافتراضي (Windows-1256)
-      const hasBOM = bytes.length >= 3 && bytes[0] === 0xEF && bytes[1] === 0xBB && bytes[2] === 0xBF;
-      const decoder = new TextDecoder(hasBOM ? 'utf-8' : 'windows-1256');
-      const text = decoder.decode(hasBOM ? bytes.slice(3) : bytes);
+      // نتعرّف على ترميز الملف من العلامة (BOM) بأوله، عشان ندعم أكتر من صيغة حفظ ممكنة بإكسل:
+      // UTF-8 (نموذجنا الأصلي أو CSV UTF-8) | UTF-16 (صيغة "Unicode Text" بإكسل) | بدون علامة (الأغلب CSV العادية بترميز الجهاز العربي)
+      let encoding, offset;
+      if (bytes.length >= 3 && bytes[0] === 0xEF && bytes[1] === 0xBB && bytes[2] === 0xBF) {
+        encoding = 'utf-8'; offset = 3;
+      } else if (bytes.length >= 2 && bytes[0] === 0xFF && bytes[1] === 0xFE) {
+        encoding = 'utf-16le'; offset = 2;
+      } else if (bytes.length >= 2 && bytes[0] === 0xFE && bytes[1] === 0xFF) {
+        encoding = 'utf-16be'; offset = 2;
+      } else {
+        encoding = 'windows-1256'; offset = 0;
+      }
+      const decoder = new TextDecoder(encoding);
+      const text = decoder.decode(bytes.slice(offset));
+
       const lines = text.split(/\r\n|\n|\r/).filter(l => l.trim() !== '');
+      if (lines.length === 0) { customAlert(t('bulk_import_parse_error'), 'error'); return; }
+      // صيغة "Unicode Text" بإكسل بتفصل الأعمدة بـ Tab بدل الفاصلة — نكتشف هيك أوتوماتيكياً
+      const delimiter = lines[0].includes('\t') ? '\t' : ',';
       const dataLines = lines.slice(1); // أول سطر عناوين الأعمدة، نتجاوزه
       bulkImportParsedRows = dataLines.map(line => {
-        const [name, generic_name, altRaw, categoryRaw] = parseCsvLine(line);
+        const [name, generic_name, altRaw, categoryRaw] = parseCsvLine(line, delimiter);
         const alt_names = (altRaw || '').split(';').map(s => s.trim()).filter(Boolean);
         const { value: category, invalid: invalidCategory } = parseCategoryLabel(categoryRaw);
         const issues = [];
