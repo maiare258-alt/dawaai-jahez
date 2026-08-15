@@ -957,11 +957,12 @@
       <div class="box" style="margin-bottom:20px;">
         <h3 style="margin-top:0;" id="bulk-import-title">📥 استيراد أدوية من ملف</h3>
         <p class="muted" style="margin-top:-8px;" id="bulk-import-desc">حمّل نموذج فارغ، انسخ فيه بيانات أدوية شركتك، ثم ارفعه هون لإضافتها دفعة وحدة إلى مخزونك.</p>
+        <p class="muted" style="font-size:13px; margin-top:-4px;" id="bulk-import-hint-alt">💡 إذا طلعت الحروف العربية مشوّهة بعد الحفظ CSV، جرّب تحفظ الملف بصيغة "Unicode Text" بدلها من نفس نافذة الحفظ بإكسل.</p>
         <button type="button" class="btn-outline blue small" onclick="downloadBulkImportTemplate()" id="download-template-btn" style="margin-bottom:12px;">⬇️ تحميل نموذج فارغ (CSV)</button>
         <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:14px;">
           <label class="btn-outline blue small" style="cursor:pointer; margin:0;">
             <span id="choose-file-label">اختيار ملف CSV</span>
-            <input type="file" accept=".csv" id="bulk-import-file" style="display:none;" onchange="handleBulkImportFile(event)">
+            <input type="file" accept=".csv,.txt" id="bulk-import-file" style="display:none;" onchange="handleBulkImportFile(event)">
           </label>
           <span class="muted" id="bulk-import-filename" style="font-size:13px;">ما في ملف مختار</span>
         </div>
