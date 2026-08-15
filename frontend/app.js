@@ -535,6 +535,7 @@ function headerGoPharmacist(link) {
 
 function headerGoAdmin(link) {
   showView('admin');
+  if (adminPassword) startAdminRatingsPolling();
   document.getElementById('view-admin').scrollIntoView({ behavior: 'smooth', block: 'start' });
   setActiveNav(link);
 }
