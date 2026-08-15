@@ -534,8 +534,10 @@ function headerGoPharmacist(link) {
 }
 
 function headerGoAdmin(link) {
+  // لو كنا أصلاً بلوحة الإدارة (مثلاً ضغط نفس الرابط مرتين)، ما منعيد الجلب — الفحص الدوري أصلاً شغال ومستمر
+  const wasOnAdmin = document.getElementById('view-admin').style.display !== 'none';
   showView('admin');
-  if (adminPassword) startAdminRatingsPolling();
+  if (adminPassword && !wasOnAdmin) renderAdminPanel();
   document.getElementById('view-admin').scrollIntoView({ behavior: 'smooth', block: 'start' });
   setActiveNav(link);
 }
