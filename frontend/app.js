@@ -1669,7 +1669,7 @@ function renderBulkImportPreview() {
               ${r.generic_name ? `<span class="muted" style="font-size:12px;"> - ${escapeHtml(r.generic_name)}</span>` : ''}
               ${r.issues.length > 0 ? `<br><span style="color:#c0392b; font-size:12px;">⚠️ ${r.issues.join(' / ')}</span>` : ''}
             </span>
-            <span class="muted" style="font-size:13px;">${r.category === 'cosmetic' ? t('cat_cosmetic') : t('cat_medicine')}</span>
+            <span class="muted" style="font-size:13px; min-width:104px; text-align:center;">${r.category === 'cosmetic' ? t('cat_cosmetic') : t('cat_medicine')}</span>
           </div>
         `).join('')}
       </div>
