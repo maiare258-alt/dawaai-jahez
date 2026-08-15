@@ -157,6 +157,15 @@ async function addMedicine({ name, generic_name, alt_names, category }) {
   return rows[0];
 }
 
+// بحث بالاسم الحرفي المطابق تماماً (نفس التصنيف) - يُستخدم بالاستيراد الجماعي لتفادي تكرار نفس الدواء
+async function findMedicineByExactName(name, category) {
+  const { rows } = await pool.query(
+    'SELECT * FROM medicines WHERE name = $1 AND category = $2 LIMIT 1',
+    [name, category]
+  );
+  return rows[0] || null;
+}
+
 async function getAllMedicines() {
   const { rows } = await pool.query('SELECT * FROM medicines ORDER BY id');
   return rows;
@@ -427,6 +436,7 @@ module.exports = {
   initDb,
   searchMedicines,
   addMedicine,
+  findMedicineByExactName,
   getAllMedicines,
   suggestMedicines,
   deleteMedicine,
