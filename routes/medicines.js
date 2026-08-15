@@ -103,6 +103,55 @@ router.post('/self', async (req, res) => {
   }
 });
 
+// استيراد دفعة أدوية دفعة وحدة من ملف (نفس صلاحية الإضافة الذاتية - اسم مستخدم وكلمة مرور الصيدلية، بدون كلمة مرور الإدارة)
+// كل دواء إما موجود أصلاً بالقائمة العامة (بيُربط بمخزون الصيدلية فقط) أو جديد بالكامل (بيُنشأ ثم يُربط)
+// POST /api/medicines/bulk-import  { username, password, items: [{name, generic_name, alt_names, category}, ...] }
+router.post('/bulk-import', async (req, res) => {
+  const { username, password, items } = req.body;
+  if (!username || !password) {
+    return res.status(400).json({ error: 'بيانات الدخول مطلوبة' });
+  }
+  if (!Array.isArray(items) || items.length === 0) {
+    return res.status(400).json({ error: 'لا توجد أدوية للاستيراد' });
+  }
+  if (items.length > 500) {
+    return res.status(400).json({ error: 'الحد الأقصى 500 دواء بالمرة الواحدة' });
+  }
+  try {
+    const pharmacy = await db.findPharmacyByUsername(username);
+    if (!pharmacy) return res.status(401).json({ error: 'بيانات الدخول غير صحيحة' });
+    const valid = await bcrypt.compare(password, pharmacy.owner_password_hash);
+    if (!valid) return res.status(401).json({ error: 'بيانات الدخول غير صحيحة' });
+
+    let added = 0, linked = 0, skipped = 0;
+    const errors = [];
+    for (const item of items) {
+      const name = (item.name || '').trim();
+      if (!name) { skipped++; continue; }
+      const { value: validCategory, error: categoryError } = validateCategory(item.category);
+      if (categoryError) { skipped++; errors.push(`${name}: ${categoryError}`); continue; }
+      try {
+        let medicine = await db.findMedicineByExactName(name, validCategory);
+        if (!medicine) {
+          medicine = await db.addMedicine({ name, generic_name: item.generic_name, alt_names: item.alt_names, category: validCategory });
+          added++;
+        } else {
+          linked++;
+        }
+        await db.setStock(pharmacy.id, medicine.id, true);
+      } catch (err) {
+        console.error(err);
+        skipped++;
+        errors.push(`${name}: حدث خطأ أثناء الإضافة`);
+      }
+    }
+    res.status(201).json({ success: true, added, linked, skipped, errors });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'حدث خطأ أثناء الاستيراد' });
+  }
+});
+
 // حذف دواء (للإدارة فقط)
 // DELETE /api/medicines/:id
 router.delete('/:id', adminAuth, async (req, res) => {
