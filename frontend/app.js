@@ -1253,9 +1253,9 @@ async function loadSuggestions() {
       return;
     }
     box.innerHTML = data.map((m, i) => `
-      <div class="suggestion-item" role="option" id="suggestion-${i}" aria-selected="false" onclick="pickSuggestion('${m.name}')">
-        ${t('suggest_did_you_mean')} <strong>${m.name}</strong>${t('q_mark')}
-        ${m.generic_name ? `<span class="generic-hint"> (${m.generic_name})</span>` : ''}
+      <div class="suggestion-item" role="option" id="suggestion-${i}" aria-selected="false" onclick="pickSuggestion('${escapeHtml(m.name)}')">
+        ${t('suggest_did_you_mean')} <strong>${escapeHtml(m.name)}</strong>${t('q_mark')}
+        ${m.generic_name ? `<span class="generic-hint"> (${escapeHtml(m.generic_name)})</span>` : ''}
       </div>
     `).join('');
     box.classList.add('show');
@@ -1347,8 +1347,8 @@ async function runSearch() {
             <div class="box">
               <p class="muted" style="margin-top:0;">${t('did_you_mean_results')}</p>
               ${suggestions.map(m => `
-                <div style="cursor:pointer; color:#185fa5; padding:6px 0;" onclick="pickSuggestion('${m.name}')">
-                  ${m.name}${m.generic_name ? ' - ' + m.generic_name : ''}
+                <div style="cursor:pointer; color:#185fa5; padding:6px 0;" onclick="pickSuggestion('${escapeHtml(m.name)}')">
+                  ${escapeHtml(m.name)}${m.generic_name ? ' - ' + escapeHtml(m.generic_name) : ''}
                 </div>
               `).join('')}
             </div>`;
@@ -1366,13 +1366,13 @@ async function runSearch() {
         cardsHtml += `
           <div class="result-card">
             <div class="result-card-top">
-              <span class="result-med-name"><span class="result-icon">${currentCategory === 'cosmetic' ? '💄' : '💊'}</span> ${item.medicine.name}</span>
+              <span class="result-med-name"><span class="result-icon">${currentCategory === 'cosmetic' ? '💄' : '💊'}</span> ${escapeHtml(item.medicine.name)}</span>
               <span class="badge ${a.available ? 'yes' : 'no'}">${a.available ? t('available_badge') : t('unavailable_badge')}</span>
             </div>
-            <div class="result-row">${t('active_ingredient_label')} ${item.medicine.generic_name || '-'}</div>
+            <div class="result-row">${t('active_ingredient_label')} ${escapeHtml(item.medicine.generic_name) || '-'}</div>
             <div class="result-pharmacy"><span class="result-icon">📍</span> ${a.pharmacy_name}${a.address ? ' - ' + a.address : ''}</div>
             ${a.phone ? `<div class="result-row"><span class="result-icon">📞</span> ${a.phone}</div>` : ''}
-            ${a.available ? `<button class="result-add-btn-full" onclick="addToCart('${item.medicine.name}', '${item.medicine.generic_name || ''}', '${a.pharmacy_name}', ${a.pharmacy_id}, this)">${t('add_to_cart_btn')}</button>` : ''}
+            ${a.available ? `<button class="result-add-btn-full" onclick="addToCart('${escapeHtml(item.medicine.name)}', '${escapeHtml(item.medicine.generic_name || '')}', '${a.pharmacy_name}', ${a.pharmacy_id}, this)">${t('add_to_cart_btn')}</button>` : ''}
           </div>
         `;
       });
@@ -1389,11 +1389,11 @@ async function runSearch() {
           if (alternatives.length > 0) {
             cardsHtml += `
               <div class="alt-suggestion-box">
-                <p class="alt-suggestion-title">${currentCategory === 'cosmetic' ? '💄' : '💊'} "${item.medicine.name}" ${t('alt_unavailable_but')} (${item.medicine.generic_name}):</p>
+                <p class="alt-suggestion-title">${currentCategory === 'cosmetic' ? '💄' : '💊'} "${escapeHtml(item.medicine.name)}" ${t('alt_unavailable_but')} (${escapeHtml(item.medicine.generic_name)}):</p>
                 ${alternatives.map(alt => alt.availability.map(a => `
                   <div class="alt-suggestion-row">
-                    <span>${alt.medicine.name} <span class="muted">- ${a.pharmacy_name}</span></span>
-                    <button class="btn-outline blue small" onclick="pickSuggestion('${alt.medicine.name}')">${t('alt_view_btn')}</button>
+                    <span>${escapeHtml(alt.medicine.name)} <span class="muted">- ${a.pharmacy_name}</span></span>
+                    <button class="btn-outline blue small" onclick="pickSuggestion('${escapeHtml(alt.medicine.name)}')">${t('alt_view_btn')}</button>
                   </div>
                 `).join('')).join('')}
               </div>
@@ -1721,7 +1721,7 @@ function renderStockUI() {
   const data = pharmacistStockCache;
   document.getElementById('stock-list').innerHTML = data.map(m => `
     <div class="row">
-      <span>${m.name} <span class="muted" style="font-size:12px;">${m.category === 'cosmetic' ? '💄' : '💊'}</span></span>
+      <span>${escapeHtml(m.name)} <span class="muted" style="font-size:12px;">${m.category === 'cosmetic' ? '💄' : '💊'}</span></span>
       <button class="toggle-btn ${m.available ? 'yes' : 'no'}" onclick="toggleStock(${m.medicine_id}, ${!m.available})">
         ${m.available ? t('available_badge') : t('unavailable_badge')}
       </button>
@@ -1989,8 +1989,8 @@ function renderAdminPanelUI() {
         <div class="stock-table-header"><span>${t('stock_table_medicine')}</span><span class="col-action">${t('action_col_header')}</span></div>
         ${medicines.map(m => `
           <div class="row">
-            <span>${m.name} <span class="muted" style="font-size:12px;">${m.category === 'cosmetic' ? '💄 ' + t('cat_cosmetic') : '💊 ' + t('cat_medicine')}</span></span>
-            <button class="btn-outline red small table-action-btn" onclick="deleteMedicineAdmin(${m.id}, '${m.name}')">${t('delete_btn')}</button>
+            <span>${escapeHtml(m.name)} <span class="muted" style="font-size:12px;">${m.category === 'cosmetic' ? '💄 ' + t('cat_cosmetic') : '💊 ' + t('cat_medicine')}</span></span>
+            <button class="btn-outline red small table-action-btn" onclick="deleteMedicineAdmin(${m.id}, '${escapeHtml(m.name)}')">${t('delete_btn')}</button>
           </div>
         `).join('')}
       </div>
