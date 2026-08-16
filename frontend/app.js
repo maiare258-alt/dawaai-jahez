@@ -2031,7 +2031,7 @@ function renderAdminPanelUI() {
                  <span>${n.name} <span class="muted" style="font-size:12px;">${n.specialty || ''}</span></span>
                  <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap; justify-content:flex-end;">
                    <button class="toggle-btn ${n.available ? 'yes' : 'no'}" onclick="toggleNurseAvailabilityAdmin(${n.id}, ${!n.available})">${n.available ? t('nurse_available_short') : t('nurse_unavailable_short')}</button>
-                   <button class="btn-outline red small table-action-btn" onclick="deleteNurseAdmin(${n.id}, '${n.name}')">${t('delete_btn')}</button>
+                   <button class="btn-outline red small table-action-btn" onclick="deleteNurseAdmin(${n.id})">${t('delete_btn')}</button>
                  </div>
                </div>
              `).join('')}`
@@ -2142,7 +2142,9 @@ async function addNurseAdmin() {
   renderAdminPanel();
 }
 
-async function deleteNurseAdmin(id, name) {
+async function deleteNurseAdmin(id) {
+  const nurse = adminDataCache.nurses.find(n => n.id === id);
+  const name = nurse ? nurse.name : '';
   const confirmed = await customConfirm(tFormat('delete_nurse_confirm', { name }), 'warning');
   if (!confirmed) return;
   await fetch(`${API}/nurses/${id}`, { method: 'DELETE', headers: adminHeaders() });
