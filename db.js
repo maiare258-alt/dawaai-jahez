@@ -433,6 +433,7 @@ async function rejectRating(ratingId) {
 }
 
 module.exports = {
+  pool,
   initDb,
   searchMedicines,
   addMedicine,
