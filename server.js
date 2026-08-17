@@ -28,39 +28,6 @@ app.use('/api/nurses', nursesRoutes);
 
 app.get('/health', (req, res) => res.json({ status: 'ok' }));
 
-// ⚠️ مسار مؤقت لمرة واحدة: نقل كل البيانات لقاعدة Supabase الجديدة — يُحذف بعد إتمام النقل
-app.get('/api/admin/migrate-to-supabase', async (req, res) => {
-  if (req.query.password !== process.env.ADMIN_PASSWORD) {
-    return res.status(401).json({ error: 'كلمة مرور خاطئة' });
-  }
-  try {
-    const runMigration = require('./migrate-to-supabase');
-    const summary = await runMigration();
-    res.json({ success: true, summary });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// ⚠️ مسار مؤقت لنقل البيانات لقاعدة جديدة — احذف هذا الجزء كامل بعد نجاح النقل
-app.get('/api/admin/migrate-temp', async (req, res) => {
-  if (req.query.password !== process.env.ADMIN_PASSWORD) {
-    return res.status(401).json({ error: 'كلمة مرور خاطئة' });
-  }
-  if (!process.env.NEW_DATABASE_URL) {
-    return res.status(400).json({ error: 'متغيّر NEW_DATABASE_URL غير موجود بإعدادات Render' });
-  }
-  try {
-    const { runMigration } = require('./migrate-temp');
-    const result = await runMigration();
-    res.json(result);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'فشل النقل', details: err.message });
-  }
-});
-
 db.initDb()
   .then(() => {
     app.listen(PORT, () => {
