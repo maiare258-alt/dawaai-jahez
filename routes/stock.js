@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const bcrypt = require('bcryptjs');
 const db = require('../db');
 
 // عرض كل الأدوية مع حالة توفرها لصيدلية معينة
@@ -13,13 +14,23 @@ router.get('/:pharmacyId', async (req, res) => {
   }
 });
 
-// تحديث حالة توفر دواء معين في صيدلية معينة
-// PUT /api/stock/:pharmacyId/:medicineId  { available: true|false }
+// تحديث حالة توفر دواء معين في صيدلية معينة (يتطلب تأكيد اسم المستخدم وكلمة مرور الصيدلية صاحبة المخزون)
+// pharmacyId بالرابط غير موثوق إطلاقاً — الصيدلية الحقيقية تُستخرج حصراً من بيانات الدخول، بنفس نمط bulk-import
+// PUT /api/stock/:pharmacyId/:medicineId  { available: true|false, username, password }
 router.put('/:pharmacyId/:medicineId', async (req, res) => {
-  const { pharmacyId, medicineId } = req.params;
-  const { available } = req.body;
+  const { medicineId } = req.params;
+  const { available, username, password } = req.body;
+  if (!username || !password) {
+    return res.status(400).json({ error: 'بيانات الدخول مطلوبة' });
+  }
   try {
-    await db.setStock(pharmacyId, medicineId, available);
+    const pharmacy = await db.findPharmacyByUsername(username);
+    if (!pharmacy) return res.status(401).json({ error: 'بيانات الدخول غير صحيحة' });
+
+    const valid = await bcrypt.compare(password, pharmacy.owner_password_hash);
+    if (!valid) return res.status(401).json({ error: 'بيانات الدخول غير صحيحة' });
+
+    await db.setStock(pharmacy.id, medicineId, available);
     res.json({ success: true });
   } catch (err) {
     console.error(err);
