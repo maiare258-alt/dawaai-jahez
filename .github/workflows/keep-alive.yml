@@ -1,0 +1,17 @@
+name: Keep Database Alive
+
+# نبضة حياة تلقائية: تطلب مسار حقيقي من الموقع بيستعلم من قاعدة البيانات
+# كل يومين تقريباً، عشان قاعدة Supabase المجانية ما توقف بسبب 7 أيام صفر نشاط.
+# صفر أثر على الزوار — تصير كاملاً بين سيرفرات GitHub والموقع.
+
+on:
+  schedule:
+    - cron: '0 6 */2 * *' # كل يومين تقريباً، الساعة 6 صباحاً UTC
+  workflow_dispatch: # يسمح بتشغيلها يدوياً من تبويب Actions بـGitHub للاختبار
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping the site (queries the database, keeps it active)
+        run: curl -sf --max-time 70 https://dawaai-jahez.onrender.com/api/pharmacies/on-duty
