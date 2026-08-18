@@ -1851,7 +1851,7 @@ async function toggleStock(medicineId, newValue) {
   await fetch(`${API}/stock/${currentPharmacy.id}/${medicineId}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ available: newValue })
+    body: JSON.stringify({ available: newValue, username: currentPharmacy.username, password: currentPharmacy.password })
   });
   refreshStock();
 }
