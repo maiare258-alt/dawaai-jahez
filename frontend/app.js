@@ -444,11 +444,16 @@ function showModal({ message, type = 'info', showCancel = false, okText, cancelT
     overlay.style.display = 'flex';
     document.body.classList.add('modal-open');
 
+    // Escape بينفّذ نفس سلوك زر الإلغاء بالضبط — نضيف المستمع وقت الفتح، ونشيله جوا cleanup عشان ما يتراكم أبداً
+    const escHandler = (e) => { if (e.key === 'Escape') cleanup(false); };
+    document.addEventListener('keydown', escHandler);
+
     const cleanup = (result) => {
       overlay.style.display = 'none';
       document.body.classList.remove('modal-open');
       okBtn.onclick = null;
       cancelBtn.onclick = null;
+      document.removeEventListener('keydown', escHandler);
       resolve(result);
     };
     okBtn.onclick = () => cleanup(true);
@@ -1339,6 +1344,7 @@ async function runSearch() {
     container.innerHTML = '';
     return;
   }
+  container.innerHTML = `<p class="muted">${t('loading_text')}</p>`;
   try {
     const res = await fetch(`${API}/medicines/search?q=${encodeURIComponent(q)}&category=${currentCategory}`);
     const data = await res.json();
@@ -1532,6 +1538,9 @@ async function saveDuty() {
 function logout() {
   currentPharmacy = null;
   stopOrdersPolling();
+  pharmacistStockCache = [];
+  pharmacistOrdersCache = [];
+  ordersLoadedOnce = false;
   document.getElementById('pharmacist-dashboard').style.display = 'none';
   renderPharmacyAuthForm();
 }
@@ -1723,6 +1732,10 @@ function cancelBulkImport() {
 }
 
 async function refreshStock() {
+  // نعرض "جاري التحميل" بس لو أول مرة (الكاش لسا فاضية) — تفادياً لأي وميض بالتحديثات اللاحقة (بعد تبديل توفر دواء مثلاً)
+  if (pharmacistStockCache.length === 0) {
+    document.getElementById('stock-list').innerHTML = `<p class="muted">${t('loading_text')}</p>`;
+  }
   const res = await fetch(`${API}/stock/${currentPharmacy.id}`);
   const data = await res.json();
   pharmacistStockCache = data;
@@ -1790,13 +1803,21 @@ function stopOrdersPolling() {
   }
 }
 
+// نتتبّع أول تحميل لكل جلسة دخول فقط، عشان مؤشر "جاري التحميل" ما يتكرر مع كل polling (تفادياً للوميض)
+let ordersLoadedOnce = false;
+
 async function loadOrders() {
+  if (!ordersLoadedOnce) {
+    document.getElementById('orders-wrap').style.display = 'block';
+    document.getElementById('orders-list').innerHTML = `<p class="muted">${t('loading_text')}</p>`;
+  }
   try {
     const res = await fetch(`${API}/orders/${currentPharmacy.id}`);
     const orders = await res.json();
     pharmacistOrdersCache = orders;
     renderOrdersUI();
   } catch (err) { /* تجاهل بصمت لو فشل الجلب، الأهم لوحة الصيدلي نفسها */ }
+  ordersLoadedOnce = true;
 }
 
 // إعادة رسم قائمة الطلبات من آخر بيانات محفوظة، بدون أي طلب شبكة — تُستخدم عند تبديل اللغة
@@ -1903,6 +1924,7 @@ async function checkAdminPassword() {
 function logoutAdmin() {
   adminPassword = null;
   stopAdminRatingsPolling();
+  adminPanelLoadedOnce = false;
   document.getElementById('admin-panel').style.display = 'none';
   document.getElementById('admin-panel').innerHTML = '';
   renderAdminAuthForm();
@@ -1915,7 +1937,13 @@ function adminHeaders() {
 // ذاكرة مؤقتة لآخر بيانات جُلبت من السيرفر — عشان تبديل اللغة يعيد الرسم بس، بدون طلبات شبكة جديدة
 let adminDataCache = { pharmacies: [], medicines: [], nurses: [], pendingRatings: [] };
 
+// نتتبّع أول تحميل لكل جلسة دخول إدارة فقط، عشان مؤشر "جاري التحميل" ما يتكرر بعد كل إجراء إداري (تفادياً للوميض)
+let adminPanelLoadedOnce = false;
+
 async function renderAdminPanel() {
+  if (!adminPanelLoadedOnce) {
+    document.getElementById('admin-panel').innerHTML = `<p class="muted" style="padding:20px;">${t('loading_text')}</p>`;
+  }
   const [pharmacies, medicines, nurses, pendingRatings] = await Promise.all([
     fetch(`${API}/pharmacies`, { headers: adminHeaders() }).then(r => r.json()),
     fetch(`${API}/medicines`, { headers: adminHeaders() }).then(r => r.json()),
@@ -1924,6 +1952,7 @@ async function renderAdminPanel() {
   ]);
   adminDataCache = { pharmacies, medicines, nurses, pendingRatings };
   renderAdminPanelUI();
+  adminPanelLoadedOnce = true;
 }
 
 // إعادة رسم اللوحة من آخر بيانات محفوظة بدون أي طلب شبكة جديد — تُستخدم عند تبديل اللغة بس
