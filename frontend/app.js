@@ -1733,13 +1733,21 @@ function cancelBulkImport() {
 
 async function refreshStock() {
   // نعرض "جاري التحميل" بس لو أول مرة (الكاش لسا فاضية) — تفادياً لأي وميض بالتحديثات اللاحقة (بعد تبديل توفر دواء مثلاً)
-  if (pharmacistStockCache.length === 0) {
+  const isFirstLoad = pharmacistStockCache.length === 0;
+  if (isFirstLoad) {
     document.getElementById('stock-list').innerHTML = `<p class="muted">${t('loading_text')}</p>`;
   }
-  const res = await fetch(`${API}/stock/${currentPharmacy.id}`);
-  const data = await res.json();
-  pharmacistStockCache = data;
-  renderStockUI();
+  try {
+    const res = await fetch(`${API}/stock/${currentPharmacy.id}`);
+    const data = await res.json();
+    pharmacistStockCache = data;
+    renderStockUI();
+  } catch (err) {
+    // فشل أول تحميل بس — لازم نستبدل "جاري التحميل" برسالة خطأ واضحة، عشان ما تضل عالقة للأبد
+    if (isFirstLoad) {
+      document.getElementById('stock-list').innerHTML = `<p class="muted">${t('server_error_title')}</p>`;
+    }
+  }
 }
 
 // إعادة رسم قائمة المخزون وبطاقات الإحصاء من آخر بيانات محفوظة، بدون أي طلب شبكة — تُستخدم عند تبديل اللغة
@@ -1807,7 +1815,8 @@ function stopOrdersPolling() {
 let ordersLoadedOnce = false;
 
 async function loadOrders() {
-  if (!ordersLoadedOnce) {
+  const wasFirstLoad = !ordersLoadedOnce;
+  if (wasFirstLoad) {
     document.getElementById('orders-wrap').style.display = 'block';
     document.getElementById('orders-list').innerHTML = `<p class="muted">${t('loading_text')}</p>`;
   }
@@ -1816,7 +1825,13 @@ async function loadOrders() {
     const orders = await res.json();
     pharmacistOrdersCache = orders;
     renderOrdersUI();
-  } catch (err) { /* تجاهل بصمت لو فشل الجلب، الأهم لوحة الصيدلي نفسها */ }
+  } catch (err) {
+    // فشل أول تحميل بس — نستبدل "جاري التحميل" برسالة خطأ واضحة، بدل ما تضل عالقة للأبد.
+    // فشل محاولة polling لاحقة (مش أول مرة) بيتجاهل بصمت زي ما كان أصلاً — البيانات القديمة تضل ظاهرة، والمحاولة الجاية بعد 12 ثانية ممكن تصلحها تلقائياً
+    if (wasFirstLoad) {
+      document.getElementById('orders-list').innerHTML = `<p class="muted">${t('server_error_title')}</p>`;
+    }
+  }
   ordersLoadedOnce = true;
 }
 
@@ -1941,18 +1956,27 @@ let adminDataCache = { pharmacies: [], medicines: [], nurses: [], pendingRatings
 let adminPanelLoadedOnce = false;
 
 async function renderAdminPanel() {
-  if (!adminPanelLoadedOnce) {
+  const wasFirstLoad = !adminPanelLoadedOnce;
+  if (wasFirstLoad) {
     document.getElementById('admin-panel').innerHTML = `<p class="muted" style="padding:20px;">${t('loading_text')}</p>`;
   }
-  const [pharmacies, medicines, nurses, pendingRatings] = await Promise.all([
-    fetch(`${API}/pharmacies`, { headers: adminHeaders() }).then(r => r.json()),
-    fetch(`${API}/medicines`, { headers: adminHeaders() }).then(r => r.json()),
-    fetch(`${API}/nurses`).then(r => r.json()),
-    fetch(`${API}/nurses/ratings/pending`, { headers: adminHeaders() }).then(r => r.json())
-  ]);
-  adminDataCache = { pharmacies, medicines, nurses, pendingRatings };
-  renderAdminPanelUI();
-  adminPanelLoadedOnce = true;
+  try {
+    const [pharmacies, medicines, nurses, pendingRatings] = await Promise.all([
+      fetch(`${API}/pharmacies`, { headers: adminHeaders() }).then(r => r.json()),
+      fetch(`${API}/medicines`, { headers: adminHeaders() }).then(r => r.json()),
+      fetch(`${API}/nurses`).then(r => r.json()),
+      fetch(`${API}/nurses/ratings/pending`, { headers: adminHeaders() }).then(r => r.json())
+    ]);
+    adminDataCache = { pharmacies, medicines, nurses, pendingRatings };
+    renderAdminPanelUI();
+    adminPanelLoadedOnce = true;
+  } catch (err) {
+    // فشل أول تحميل بس — نستبدل "جاري التحميل" برسالة خطأ واضحة، بدل ما تضل عالقة للأبد.
+    // فشل بعد إجراء إداري عادي (مش أول مرة) بيتجاهل بصمت — اللوحة بمحتواها القديم تضل ظاهرة بدل ما تُمحى
+    if (wasFirstLoad) {
+      document.getElementById('admin-panel').innerHTML = `<p class="muted" style="padding:20px;">${t('server_error_title')}</p>`;
+    }
+  }
 }
 
 // إعادة رسم اللوحة من آخر بيانات محفوظة بدون أي طلب شبكة جديد — تُستخدم عند تبديل اللغة بس
