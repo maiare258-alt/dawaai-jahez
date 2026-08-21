@@ -47,7 +47,7 @@ const translations = {
     server_error_title: 'تعذر الاتصال بالخادم', server_error_subtitle: 'تحقق من اتصالك بالإنترنت وحاول مرة أخرى.',
     cart_panel_title: 'عربة المشتريات', cart_panel_subtitle: 'راجع الأدوية قبل إتمام الطلب.',
     cart_items_count_label: 'عدد الأدوية', checkout_name_placeholder: 'الاسم الكامل',
-    checkout_phone_placeholder: 'رقم الهاتف', checkout_btn: 'إتمام الطلب', remove_aria: 'حذف',
+    checkout_phone_placeholder: 'رقم الهاتف', checkout_notes_placeholder: 'ملاحظات إضافية (اختياري) — مثلاً توضيح لو خط الروشتة مو واضح', checkout_btn: 'إتمام الطلب', remove_aria: 'حذف',
     checkout_missing_fields: 'الرجاء إدخال الاسم ورقم الهاتف لإتمام الطلب.',
     order_success_msg: 'تم إرسال طلبك بنجاح! الصيدلية رح تتواصل معك قريباً على الرقم يلي أدخلته.',
     modal_ok: 'حسناً', modal_cancel: 'إلغاء', modal_yes: 'نعم',
@@ -74,6 +74,8 @@ const translations = {
     generic_name_placeholder: 'المادة الفعالة (اختياري)', alt_names_placeholder: 'أسماء بديلة، افصل بينها بفاصلة (اختياري)',
     cat_medicine: 'دواء', cat_cosmetic: 'مستحضر تجميل', add_med_btn: 'إضافة الدواء',
     stock_table_medicine: 'الدواء', stock_table_status: 'الحالة', delete_account_btn: '🗑️ حذف حسابي نهائياً',
+    manufacture_date_label: 'تاريخ الصنع', expiry_date_label: 'تاريخ الانتهاء', save_dates_btn: 'حفظ التواريخ',
+    edit_dates_aria: 'تعديل تاريخي الصنع والانتهاء', expiry_expired_badge: 'منتهية الصلاحية', expiry_soon_badge: 'قربت تنتهي',
     day_sunday: 'الأحد', day_monday: 'الاثنين', day_tuesday: 'الثلاثاء', day_wednesday: 'الأربعاء',
     day_thursday: 'الخميس', day_friday: 'الجمعة', day_saturday: 'السبت',
     shift_allday: 'طوال اليوم', shift_morning: 'صباحاً فقط', shift_evening: 'مساءً فقط',
@@ -179,7 +181,7 @@ const translations = {
     server_error_title: 'Could not connect to the server', server_error_subtitle: 'Check your internet connection and try again.',
     cart_panel_title: 'Shopping Cart', cart_panel_subtitle: 'Review the items before checkout.',
     cart_items_count_label: 'Number of items', checkout_name_placeholder: 'Full name',
-    checkout_phone_placeholder: 'Phone number', checkout_btn: 'Checkout', remove_aria: 'Remove',
+    checkout_phone_placeholder: 'Phone number', checkout_notes_placeholder: 'Additional notes (optional) — e.g. if the prescription handwriting is unclear', checkout_btn: 'Checkout', remove_aria: 'Remove',
     checkout_missing_fields: 'Please enter your name and phone number to complete the order.',
     order_success_msg: 'Your order has been sent successfully! The pharmacy will contact you soon on the number you entered.',
     modal_ok: 'OK', modal_cancel: 'Cancel', modal_yes: 'Yes',
@@ -206,6 +208,8 @@ const translations = {
     generic_name_placeholder: 'Active ingredient (optional)', alt_names_placeholder: 'Alternative names, separate with commas (optional)',
     cat_medicine: 'Medicine', cat_cosmetic: 'Cosmetic product', add_med_btn: 'Add medicine',
     stock_table_medicine: 'Medicine', stock_table_status: 'Status', delete_account_btn: '🗑️ Delete my account permanently',
+    manufacture_date_label: 'Manufacture date', expiry_date_label: 'Expiry date', save_dates_btn: 'Save dates',
+    edit_dates_aria: 'Edit manufacture and expiry dates', expiry_expired_badge: 'Expired', expiry_soon_badge: 'Expiring soon',
     day_sunday: 'Sunday', day_monday: 'Monday', day_tuesday: 'Tuesday', day_wednesday: 'Wednesday',
     day_thursday: 'Thursday', day_friday: 'Friday', day_saturday: 'Saturday',
     shift_allday: 'All day', shift_morning: 'Morning only', shift_evening: 'Evening only',
@@ -703,9 +707,9 @@ function renderCart() {
       <div class="cart-item-card">
         <div class="cart-item-top">
           <div>
-            <div class="cart-item-name"><span>💊</span> ${item.medicineName}</div>
-            ${item.genericName ? `<div class="cart-item-generic">${item.genericName}</div>` : ''}
-            <div class="cart-item-pharmacy">${item.pharmacyName}</div>
+            <div class="cart-item-name"><span>💊</span> ${escapeHtml(item.medicineName)}</div>
+            ${item.genericName ? `<div class="cart-item-generic">${escapeHtml(item.genericName)}</div>` : ''}
+            <div class="cart-item-pharmacy">${escapeHtml(item.pharmacyName)}</div>
           </div>
           <button class="cart-remove-btn" onclick="removeFromCart(${i})" aria-label="${t('remove_aria')}">🗑️</button>
         </div>
@@ -722,6 +726,7 @@ function renderCart() {
       <div class="cart-summary-row"><span>${t('cart_items_count_label')}</span><span>${cart.length}</span></div>
       <input id="checkout-name" placeholder="${t('checkout_name_placeholder')}">
       <input id="checkout-phone" placeholder="${t('checkout_phone_placeholder')}" type="tel" inputmode="numeric" oninput="digitsOnly(this)">
+      <textarea id="checkout-notes" placeholder="${t('checkout_notes_placeholder')}" rows="2" style="width:100%; padding:10px 14px; border:1px solid #cfe0ef; border-radius:14px; font-family:inherit; font-size:15px; resize:vertical; margin-bottom:10px;"></textarea>
       <button class="checkout-btn" onclick="submitOrder()">${t('checkout_btn')}</button>
     </div>
   `;
@@ -730,6 +735,7 @@ function renderCart() {
 async function submitOrder() {
   const name = document.getElementById('checkout-name').value.trim();
   const phone = document.getElementById('checkout-phone').value.trim();
+  const notes = document.getElementById('checkout-notes').value.trim();
   if (!name || !phone) {
     customAlert(t('checkout_missing_fields'), 'warning');
     return;
@@ -741,6 +747,7 @@ async function submitOrder() {
       body: JSON.stringify({
         patient_name: name,
         patient_phone: phone,
+        notes: notes || null,
         items: cart.map(item => ({
           pharmacyId: item.pharmacyId,
           medicineName: item.medicineName,
@@ -1751,17 +1758,81 @@ async function refreshStock() {
 }
 
 // إعادة رسم قائمة المخزون وبطاقات الإحصاء من آخر بيانات محفوظة، بدون أي طلب شبكة — تُستخدم عند تبديل اللغة
+// تحسب حالة انتهاء صلاحية دواء معين بناءً على تاريخ الانتهاء (لو محدد) — أداة داخلية للصيدلي فقط، صفر ظهور للمريض
+function expiryStatus(expiryDate) {
+  if (!expiryDate) return null;
+  const daysLeft = Math.ceil((new Date(expiryDate) - new Date()) / 86400000);
+  if (daysLeft < 0) return 'expired';
+  if (daysLeft <= 30) return 'soon';
+  return null;
+}
+
 function renderStockUI() {
   const data = pharmacistStockCache;
-  document.getElementById('stock-list').innerHTML = data.map(m => `
-    <div class="row">
-      <span>${escapeHtml(m.name)} <span class="muted" style="font-size:12px;">${m.category === 'cosmetic' ? '💄' : '💊'}</span></span>
-      <button class="toggle-btn ${m.available ? 'yes' : 'no'}" onclick="toggleStock(${m.medicine_id}, ${!m.available})">
-        ${m.available ? t('available_badge') : t('unavailable_badge')}
-      </button>
+  document.getElementById('stock-list').innerHTML = data.map(m => {
+    const status = expiryStatus(m.expiry_date);
+    const badge = status === 'expired'
+      ? `<span class="expiry-badge expired">⚠️ ${t('expiry_expired_badge')}</span>`
+      : status === 'soon'
+      ? `<span class="expiry-badge soon">⏳ ${t('expiry_soon_badge')}</span>`
+      : '';
+    return `
+    <div class="row-wrap">
+      <div class="row">
+        <span>${escapeHtml(m.name)} <span class="muted" style="font-size:12px;">${m.category === 'cosmetic' ? '💄' : '💊'}</span> ${badge}</span>
+        <div style="display:flex; gap:6px; align-items:center;">
+          <button type="button" class="btn-outline blue small" onclick="toggleStockDates(${m.medicine_id})" aria-label="${t('edit_dates_aria')}">📅</button>
+          <button class="toggle-btn ${m.available ? 'yes' : 'no'}" onclick="toggleStock(${m.medicine_id}, ${!m.available})">
+            ${m.available ? t('available_badge') : t('unavailable_badge')}
+          </button>
+        </div>
+      </div>
+      <div id="stock-dates-${m.medicine_id}" class="stock-dates-panel" style="display:none;"></div>
     </div>
-  `).join('');
+  `;
+  }).join('');
   renderDashboardStats(data);
+}
+
+// فتح/إغلاق لوحة تعديل تاريخي الصنع والانتهاء لدواء معين
+function toggleStockDates(medicineId) {
+  const panel = document.getElementById(`stock-dates-${medicineId}`);
+  if (!panel) return;
+  if (panel.style.display === 'none') {
+    const m = pharmacistStockCache.find(x => x.medicine_id === medicineId);
+    panel.innerHTML = `
+      <div class="stock-dates-form">
+        <label class="muted" style="font-size:13px;">${t('manufacture_date_label')}
+          <input type="date" id="mfg-date-${medicineId}" value="${m && m.manufacture_date ? m.manufacture_date.slice(0, 10) : ''}">
+        </label>
+        <label class="muted" style="font-size:13px;">${t('expiry_date_label')}
+          <input type="date" id="exp-date-${medicineId}" value="${m && m.expiry_date ? m.expiry_date.slice(0, 10) : ''}">
+        </label>
+        <button type="button" class="btn-outline blue small" onclick="saveStockDates(${medicineId})">${t('save_dates_btn')}</button>
+      </div>
+    `;
+    panel.style.display = 'block';
+  } else {
+    panel.style.display = 'none';
+  }
+}
+
+async function saveStockDates(medicineId) {
+  const m = pharmacistStockCache.find(x => x.medicine_id === medicineId);
+  if (!m) return;
+  const manufactureDate = document.getElementById(`mfg-date-${medicineId}`).value || null;
+  const expiryDate = document.getElementById(`exp-date-${medicineId}`).value || null;
+  await fetch(`${API}/stock/${currentPharmacy.id}/${medicineId}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      available: m.available,
+      username: currentPharmacy.username,
+      password: currentPharmacy.password,
+      manufactureDate, expiryDate
+    })
+  });
+  refreshStock();
 }
 
 function renderDashboardStats(data) {
@@ -1848,15 +1919,16 @@ function renderOrdersUI() {
   list.innerHTML = orders.map(o => `
     <div class="order-card ${!o.seen ? 'is-new' : ''}">
       <div class="order-card-top">
-        <span class="order-patient-name">👤 ${o.patient_name}</span>
+        <span class="order-patient-name">👤 ${escapeHtml(o.patient_name)}</span>
         ${!o.seen ? `<span class="order-new-badge">${t('order_new_badge')}</span>` : ''}
         ${o.status === 'confirmed' ? `<span class="order-confirmed-badge">${t('order_confirmed_badge')}</span>` : ''}
       </div>
-      <div class="order-row"><span>📞</span> ${o.patient_phone}</div>
+      <div class="order-row"><span>📞</span> ${escapeHtml(o.patient_phone)}</div>
       <div class="order-row"><span>🕐</span> ${new Date(o.created_at).toLocaleString(currentLang === 'en' ? 'en-US' : 'ar-SY')}</div>
       <div class="order-items-list">
-        ${o.items.map(it => `<div class="order-item-line">💊 ${it.medicineName}${it.genericName ? ' - ' + it.genericName : ''} × ${it.quantity}</div>`).join('')}
+        ${o.items.map(it => `<div class="order-item-line">💊 ${escapeHtml(it.medicineName)}${it.genericName ? ' - ' + escapeHtml(it.genericName) : ''} × ${it.quantity}</div>`).join('')}
       </div>
+      ${o.notes ? `<div class="order-notes-row">📝 ${escapeHtml(o.notes)}</div>` : ''}
       <div class="order-actions-row">
         ${!o.seen ? `<button class="btn-outline blue small" onclick="dismissOrder(${o.id})">${t('order_dismiss_btn')}</button>` : ''}
         ${o.status !== 'confirmed' ? `<button class="btn-outline green small" onclick="confirmOrderAction(${o.id})">${t('order_confirm_btn')}</button>` : ''}
