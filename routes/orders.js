@@ -3,9 +3,9 @@ const router = express.Router();
 const db = require('../db');
 
 // إرسال طلب جديد من المريض (بتنقسم تلقائياً لعدة طلبات لو السلة فيها أكتر من صيدلية)
-// POST /api/orders  { patient_name, patient_phone, items: [{pharmacyId, medicineName, genericName, quantity}] }
+// POST /api/orders  { patient_name, patient_phone, items: [{pharmacyId, medicineName, genericName, quantity}], notes? }
 router.post('/', async (req, res) => {
-  const { patient_name, patient_phone, items } = req.body;
+  const { patient_name, patient_phone, items, notes } = req.body;
   if (!patient_name || !patient_phone || !Array.isArray(items) || items.length === 0) {
     return res.status(400).json({ error: 'الاسم ورقم الهاتف والأدوية مطلوبة لإتمام الطلب' });
   }
@@ -26,7 +26,7 @@ router.post('/', async (req, res) => {
 
     const orders = [];
     for (const pharmacyId of Object.keys(byPharmacy)) {
-      const order = await db.createOrder(Number(pharmacyId), patient_name, patient_phone, byPharmacy[pharmacyId]);
+      const order = await db.createOrder(Number(pharmacyId), patient_name, patient_phone, byPharmacy[pharmacyId], notes);
       orders.push(order);
     }
     res.status(201).json({ success: true, orders });
