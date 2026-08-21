@@ -952,6 +952,12 @@
         </div>
       </div>
       <div class="box" style="margin-bottom:20px;">
+        <h3 style="margin-top:0;" id="assistant-phone-title">📱 رقم صيدلي مساعد (اختياري)</h3>
+        <p class="muted" style="margin-top:-8px;" id="assistant-phone-desc">رقم تواصل إضافي يظهر للمرضى جنب رقمك الأساسي، مفيد وقت ضغط العمل.</p>
+        <input id="assistant-phone-input" type="tel" inputmode="numeric" oninput="digitsOnly(this)" placeholder="رقم الهاتف المساعد">
+        <button class="primary" onclick="saveAssistantPhone()" id="save-assistant-phone-btn">حفظ الرقم المساعد</button>
+      </div>
+      <div class="box" style="margin-bottom:20px;">
         <h3 style="margin-top:0;" id="add-med-title">💊 إضافة دواء غير موجود بالقائمة</h3>
         <p class="muted" style="margin-top:-8px;" id="add-med-desc">إذا لديك دواء في مخزن الصيدلية وغير متوفر ضمن القائمة يمكنك إضافته في خانات النص المبينة أدناه.</p>
         <input id="pharm-med-name" placeholder="اسم الدواء">
