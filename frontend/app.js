@@ -83,6 +83,9 @@ const translations = {
     stat_cosmetics: 'مستحضرات', stat_onduty_today: 'المناوبة اليوم', yes_word: 'نعم', no_word: 'لا',
     med_name_required: 'اسم الدواء مطلوب', med_added_success: 'تمت الإضافة بنجاح. فعّل حالة توفره من القائمة تحت.',
     duty_saved_success: 'تم حفظ حالة المناوبة بنجاح',
+    assistant_phone_title: '📱 رقم صيدلي مساعد (اختياري)', assistant_phone_desc: 'رقم تواصل إضافي يظهر للمرضى جنب رقمك الأساسي، مفيد وقت ضغط العمل.',
+    assistant_phone_input_placeholder: 'رقم الهاتف المساعد', save_assistant_phone_btn: 'حفظ الرقم المساعد',
+    assistant_phone_saved_success: 'تم حفظ الرقم المساعد بنجاح', assistant_phone_label: 'مساعد',
     order_new_badge: '🆕 جديد', order_confirmed_badge: '✅ تم الحجز',
     order_dismiss_btn: 'تم الاطلاع', order_confirm_btn: '✅ تأكيد الحجز', order_delete_btn: '🗑️ حذف الطلب',
     order_delete_confirm: 'متأكد إنك تعاملت مع هذا الطلب وبدك تحذفه نهائياً؟',
@@ -217,6 +220,9 @@ const translations = {
     stat_cosmetics: 'Cosmetics', stat_onduty_today: 'On duty today', yes_word: 'Yes', no_word: 'No',
     med_name_required: 'Medicine name is required', med_added_success: 'Added successfully. Enable its availability from the list below.',
     duty_saved_success: 'Duty status saved successfully',
+    assistant_phone_title: '📱 Assistant Pharmacist Phone (optional)', assistant_phone_desc: 'An additional contact number shown to patients alongside your main number — useful during busy hours.',
+    assistant_phone_input_placeholder: 'Assistant phone number', save_assistant_phone_btn: 'Save assistant phone',
+    assistant_phone_saved_success: 'Assistant phone saved successfully', assistant_phone_label: 'assistant',
     order_new_badge: '🆕 New', order_confirmed_badge: '✅ Reserved',
     order_dismiss_btn: 'Mark as seen', order_confirm_btn: '✅ Confirm reservation', order_delete_btn: '🗑️ Delete order',
     order_delete_confirm: "Confirm you've handled this order and want to delete it permanently?",
@@ -363,6 +369,10 @@ function applyLanguage() {
   document.getElementById('duty-hours-desc').textContent = t('duty_hours_desc');
   document.getElementById('duty-start-label').textContent = t('duty_start_label');
   document.getElementById('duty-end-label').textContent = t('duty_end_label');
+  document.getElementById('assistant-phone-title').textContent = t('assistant_phone_title');
+  document.getElementById('assistant-phone-desc').textContent = t('assistant_phone_desc');
+  document.getElementById('assistant-phone-input').placeholder = t('assistant_phone_input_placeholder');
+  document.getElementById('save-assistant-phone-btn').textContent = t('save_assistant_phone_btn');
   document.getElementById('opt-day-sun').textContent = t('day_sunday');
   document.getElementById('opt-day-mon').textContent = t('day_monday');
   document.getElementById('opt-day-tue').textContent = t('day_tuesday');
@@ -988,6 +998,7 @@ async function loadOnDuty() {
                 </div>
                 ${p.address ? `<div class="duty-card-row"><span class="duty-icon">📍</span> ${escapeHtml(p.address)}</div>` : ''}
                 ${p.phone ? `<div class="duty-card-row"><span class="duty-icon">📞</span> ${escapeHtml(p.phone)}</div>` : ''}
+                ${p.assistant_phone ? `<div class="duty-card-row"><span class="duty-icon">📱</span> ${escapeHtml(p.assistant_phone)} <span class="muted" style="font-size:12px;">(${t('assistant_phone_label')})</span></div>` : ''}
                 <div class="duty-card-row"><span class="duty-icon">🕐</span> ${timeLine}</div>
               </div>
             `;
@@ -1398,6 +1409,7 @@ async function runSearch() {
             <div class="result-row">${t('active_ingredient_label')} ${escapeHtml(item.medicine.generic_name) || '-'}</div>
             <div class="result-pharmacy"><span class="result-icon">📍</span> ${escapeHtml(a.pharmacy_name)}${a.address ? ' - ' + escapeHtml(a.address) : ''}</div>
             ${a.phone ? `<div class="result-row"><span class="result-icon">📞</span> ${escapeHtml(a.phone)}</div>` : ''}
+            ${a.assistant_phone ? `<div class="result-row"><span class="result-icon">📱</span> ${escapeHtml(a.assistant_phone)} <span class="muted" style="font-size:12px;">(${t('assistant_phone_label')})</span></div>` : ''}
             ${a.available ? `<button class="result-add-btn-full" onclick="addToCart(${item.medicine.id}, ${a.pharmacy_id}, this)">${t('add_to_cart_btn')}</button>` : ''}
           </div>
         `;
@@ -1483,6 +1495,7 @@ function loadDashboard() {
     <button class="action-pill-btn blue" onclick="logout()">${t('logout_btn')}</button>
   `;
   document.getElementById('duty-checkbox').checked = !!currentPharmacy.on_duty;
+  document.getElementById('assistant-phone-input').value = currentPharmacy.assistant_phone || '';
   document.getElementById('duty-day').disabled = !currentPharmacy.on_duty;
   document.getElementById('duty-shift').disabled = !currentPharmacy.on_duty;
   document.getElementById('duty-start-time').disabled = !currentPharmacy.on_duty;
@@ -1537,6 +1550,27 @@ async function saveDuty() {
     currentPharmacy.on_duty_end_time = data.on_duty_end_time;
     refreshStock();
     customAlert(t('duty_saved_success'), 'success');
+  } catch (err) {
+    customAlert(t('server_error_title'), 'error');
+  }
+}
+
+async function saveAssistantPhone() {
+  const assistant_phone = document.getElementById('assistant-phone-input').value.trim();
+  try {
+    const res = await fetch(`${API}/pharmacies/self/assistant-phone`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        username: currentPharmacy.username,
+        password: currentPharmacy.password,
+        assistant_phone
+      })
+    });
+    const data = await res.json();
+    if (!res.ok) { customAlert(translateApiError(data.error), 'error'); return; }
+    currentPharmacy.assistant_phone = data.assistant_phone;
+    customAlert(t('assistant_phone_saved_success'), 'success');
   } catch (err) {
     customAlert(t('server_error_title'), 'error');
   }
