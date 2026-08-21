@@ -1926,7 +1926,13 @@ async function loadOrders() {
     document.getElementById('orders-list').innerHTML = `<p class="muted">${t('loading_text')}</p>`;
   }
   try {
-    const res = await fetch(`${API}/orders/${currentPharmacy.id}`);
+    const res = await fetch(`${API}/orders/${currentPharmacy.id}`, {
+      headers: {
+        'x-pharmacy-username': currentPharmacy.username,
+        'x-pharmacy-password': currentPharmacy.password
+      }
+    });
+    if (!res.ok) throw new Error('unauthorized');
     const orders = await res.json();
     pharmacistOrdersCache = orders;
     renderOrdersUI();
