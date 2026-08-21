@@ -293,15 +293,19 @@ async function getStockForPharmacy(pharmacyId) {
 }
 
 // manufactureDate وexpiryDate اختياريان — لو ما انبعتوا (undefined)، القيم الموجودة أصلاً بالصف تضل زي ما هي (COALESCE)
+// manufactureDate/expiryDate === undefined يعني "ما لمسنا هالحقل إطلاقاً" (تبديل توفر عادي) — القيمة القديمة تضل زي ما هي
+// manufactureDate/expiryDate === null (أو تاريخ حقيقي) يعني "المستخدم حفظ من لوحة التواريخ قصداً" — حتى لو فاضي (تفريغ متعمد)، لازم يتحدث
 async function setStock(pharmacyId, medicineId, available, manufactureDate, expiryDate) {
+  const mfgProvided = manufactureDate !== undefined;
+  const expProvided = expiryDate !== undefined;
   await pool.query(
     `INSERT INTO stock (pharmacy_id, medicine_id, available, manufacture_date, expiry_date)
      VALUES ($1, $2, $3, $4, $5)
      ON CONFLICT (pharmacy_id, medicine_id) DO UPDATE SET
        available = $3,
-       manufacture_date = COALESCE($4, stock.manufacture_date),
-       expiry_date = COALESCE($5, stock.expiry_date)`,
-    [pharmacyId, medicineId, !!available, manufactureDate || null, expiryDate || null]
+       manufacture_date = CASE WHEN $6 THEN $4 ELSE stock.manufacture_date END,
+       expiry_date = CASE WHEN $7 THEN $5 ELSE stock.expiry_date END`,
+    [pharmacyId, medicineId, !!available, manufactureDate || null, expiryDate || null, mfgProvided, expProvided]
   );
 }
 
