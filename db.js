@@ -52,6 +52,9 @@ async function initDb() {
       PRIMARY KEY (pharmacy_id, medicine_id)
     );
   `);
+  // تاريخا الصنع والانتهاء خاصان بدفعة كل صيدلية من الدواء — أداة داخلية للصيدلي فقط، ما بتظهر للمريض إطلاقاً
+  await pool.query(`ALTER TABLE stock ADD COLUMN IF NOT EXISTS manufacture_date DATE;`);
+  await pool.query(`ALTER TABLE stock ADD COLUMN IF NOT EXISTS expiry_date DATE;`);
 
   // طلبات المرضى: كل طلب مرتبط بصيدلية واحدة (السلة الواحدة ممكن تنقسم لعدة طلبات لو فيها صيدليات مختلفة)
   await pool.query(`
@@ -66,6 +69,8 @@ async function initDb() {
       created_at TIMESTAMP DEFAULT NOW()
     );
   `);
+  // ملاحظة نصية اختيارية من المريض (مثلاً توضيح إضافي لو خط الطبيب مو واضح) — بتظهر للصيدلي مع الطلب
+  await pool.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS notes TEXT;`);
   await pool.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'pending';`);
 
   // خدمات التمريض
@@ -277,7 +282,8 @@ async function getAvailability(medicineId) {
 async function getStockForPharmacy(pharmacyId) {
   const { rows } = await pool.query(
     `SELECT m.id AS medicine_id, m.name, m.generic_name, m.category,
-            COALESCE(s.available, false) AS available
+            COALESCE(s.available, false) AS available,
+            s.manufacture_date, s.expiry_date
      FROM medicines m
      LEFT JOIN stock s ON s.medicine_id = m.id AND s.pharmacy_id = $1
      ORDER BY m.name`,
@@ -286,22 +292,26 @@ async function getStockForPharmacy(pharmacyId) {
   return rows;
 }
 
-async function setStock(pharmacyId, medicineId, available) {
+// manufactureDate وexpiryDate اختياريان — لو ما انبعتوا (undefined)، القيم الموجودة أصلاً بالصف تضل زي ما هي (COALESCE)
+async function setStock(pharmacyId, medicineId, available, manufactureDate, expiryDate) {
   await pool.query(
-    `INSERT INTO stock (pharmacy_id, medicine_id, available)
-     VALUES ($1, $2, $3)
-     ON CONFLICT (pharmacy_id, medicine_id) DO UPDATE SET available = $3`,
-    [pharmacyId, medicineId, !!available]
+    `INSERT INTO stock (pharmacy_id, medicine_id, available, manufacture_date, expiry_date)
+     VALUES ($1, $2, $3, $4, $5)
+     ON CONFLICT (pharmacy_id, medicine_id) DO UPDATE SET
+       available = $3,
+       manufacture_date = COALESCE($4, stock.manufacture_date),
+       expiry_date = COALESCE($5, stock.expiry_date)`,
+    [pharmacyId, medicineId, !!available, manufactureDate || null, expiryDate || null]
   );
 }
 
 // ---------- الطلبات ----------
 
-async function createOrder(pharmacyId, patientName, patientPhone, items) {
+async function createOrder(pharmacyId, patientName, patientPhone, items, notes) {
   const { rows } = await pool.query(
-    `INSERT INTO orders (pharmacy_id, patient_name, patient_phone, items)
-     VALUES ($1, $2, $3, $4) RETURNING *`,
-    [pharmacyId, patientName, patientPhone, JSON.stringify(items)]
+    `INSERT INTO orders (pharmacy_id, patient_name, patient_phone, items, notes)
+     VALUES ($1, $2, $3, $4, $5) RETURNING *`,
+    [pharmacyId, patientName, patientPhone, JSON.stringify(items), notes || null]
   );
   return rows[0];
 }
