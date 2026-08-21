@@ -630,6 +630,14 @@
   .stock-table-header .col-action { min-width: 78px; text-align: center; }
   .table-action-btn { min-width: 78px; text-align: center; }
   .stock-scroll .row { padding: 12px 18px; margin: 0; border-top: 1px solid #eef2f6; transition: background .2s ease; }
+  .expiry-badge { font-size: 12px; padding: 3px 9px; border-radius: 999px; margin-right: 4px; }
+  html[dir="ltr"] .expiry-badge { margin-right: 0; margin-left: 4px; }
+  .expiry-badge.expired { background: #fcebeb; color: #7a1f1f; }
+  .expiry-badge.soon { background: #fdf3d8; color: #7a5a0a; }
+  .stock-dates-panel { padding: 10px 18px 14px; background: #f7fafc; border-top: 1px solid #eef2f6; }
+  .stock-dates-form { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; }
+  .stock-dates-form label { display: flex; flex-direction: column; gap: 4px; }
+  .stock-dates-form input[type="date"] { padding: 6px 10px; border: 1px solid #cfe0ef; border-radius: 10px; font-family: inherit; }
   .stock-scroll .row:first-child { border-top: none; }
   .stock-scroll .row:hover { background: #f5f9fd; }
   .orders-wrap {
@@ -680,6 +688,7 @@
   }
   .order-row { font-size: 14px; color: #4a5b6b; margin-top: 4px; display: flex; align-items: center; gap: 6px; }
   .order-items-list { font-size: 14px; color: #3a4a58; margin-top: 8px; padding-top: 8px; border-top: 1px solid #eef2f6; }
+  .order-notes-row { font-size: 14px; color: #6b5a1f; background: #fdf7e6; padding: 8px 12px; border-radius: 10px; margin-top: 8px; }
   .order-item-line { padding: 2px 0; }
   .order-actions-row { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
 </style>
