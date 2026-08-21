@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const bcrypt = require('bcryptjs');
 const db = require('../db');
 
 // إرسال طلب جديد من المريض (بتنقسم تلقائياً لعدة طلبات لو السلة فيها أكتر من صيدلية)
@@ -53,11 +54,28 @@ router.get('/status', async (req, res) => {
   }
 });
 
-// جلب طلبات صيدلية معينة (للوحة الصيدلي)
-// GET /api/orders/:pharmacyId
+// جلب طلبات صيدلية معينة (للوحة الصيدلي) — يتطلب تأكيد اسم المستخدم وكلمة مرور الصيدلية صاحبة الطلبات
+// بما إنه هذا طلب GET (بلا body تقليدياً)، بيانات الدخول تُرسل عبر ترويسات مخصصة — نفس مبدأ x-admin-password الموجود أصلاً
+// pharmacyId بالرابط غير موثوق كمصدر بيانات — يُستخدم بس للمقارنة مع pharmacy.id المصادق، وليس لجلب بيانات صيدلية أخرى
+// GET /api/orders/:pharmacyId  Headers: { x-pharmacy-username, x-pharmacy-password }
 router.get('/:pharmacyId', async (req, res) => {
+  const username = req.headers['x-pharmacy-username'];
+  const password = req.headers['x-pharmacy-password'];
+  if (!username || !password) {
+    return res.status(401).json({ error: 'بيانات الدخول مطلوبة' });
+  }
   try {
-    const orders = await db.getOrdersForPharmacy(req.params.pharmacyId);
+    const pharmacy = await db.findPharmacyByUsername(username);
+    if (!pharmacy) return res.status(401).json({ error: 'بيانات الدخول غير صحيحة' });
+
+    const valid = await bcrypt.compare(password, pharmacy.owner_password_hash);
+    if (!valid) return res.status(401).json({ error: 'بيانات الدخول غير صحيحة' });
+
+    if (Number(req.params.pharmacyId) !== pharmacy.id) {
+      return res.status(403).json({ error: 'غير مصرح بالوصول لهذه البيانات' });
+    }
+
+    const orders = await db.getOrdersForPharmacy(pharmacy.id);
     res.json(orders);
   } catch (err) {
     console.error(err);
