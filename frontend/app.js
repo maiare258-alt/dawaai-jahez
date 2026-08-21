@@ -75,7 +75,7 @@ const translations = {
     cat_medicine: 'دواء', cat_cosmetic: 'مستحضر تجميل', add_med_btn: 'إضافة الدواء',
     stock_table_medicine: 'الدواء', stock_table_status: 'الحالة', delete_account_btn: '🗑️ حذف حسابي نهائياً',
     manufacture_date_label: 'تاريخ الصنع', expiry_date_label: 'تاريخ الانتهاء', save_dates_btn: 'حفظ التواريخ',
-    edit_dates_aria: 'تعديل تاريخي الصنع والانتهاء', expiry_expired_badge: 'منتهية الصلاحية', expiry_soon_badge: 'قربت تنتهي',
+    edit_dates_aria: 'تعديل تاريخي الصنع والانتهاء', expiry_expired_badge: 'منتهية الصلاحية', expiry_soon_badge: 'صلاحية الدواء شارفت على الانتهاء',
     day_sunday: 'الأحد', day_monday: 'الاثنين', day_tuesday: 'الثلاثاء', day_wednesday: 'الأربعاء',
     day_thursday: 'الخميس', day_friday: 'الجمعة', day_saturday: 'السبت',
     shift_allday: 'طوال اليوم', shift_morning: 'صباحاً فقط', shift_evening: 'مساءً فقط',
@@ -209,7 +209,7 @@ const translations = {
     cat_medicine: 'Medicine', cat_cosmetic: 'Cosmetic product', add_med_btn: 'Add medicine',
     stock_table_medicine: 'Medicine', stock_table_status: 'Status', delete_account_btn: '🗑️ Delete my account permanently',
     manufacture_date_label: 'Manufacture date', expiry_date_label: 'Expiry date', save_dates_btn: 'Save dates',
-    edit_dates_aria: 'Edit manufacture and expiry dates', expiry_expired_badge: 'Expired', expiry_soon_badge: 'Expiring soon',
+    edit_dates_aria: 'Edit manufacture and expiry dates', expiry_expired_badge: 'Expired', expiry_soon_badge: 'Medicine is nearing its expiry date',
     day_sunday: 'Sunday', day_monday: 'Monday', day_tuesday: 'Tuesday', day_wednesday: 'Wednesday',
     day_thursday: 'Thursday', day_friday: 'Friday', day_saturday: 'Saturday',
     shift_allday: 'All day', shift_morning: 'Morning only', shift_evening: 'Evening only',
@@ -1801,15 +1801,15 @@ function toggleStockDates(medicineId) {
   if (panel.style.display === 'none') {
     const m = pharmacistStockCache.find(x => x.medicine_id === medicineId);
     panel.innerHTML = `
-      <div class="stock-dates-form">
-        <label class="muted" style="font-size:13px;">${t('manufacture_date_label')}
+      <div class="stock-dates-inputs">
+        <label>${t('manufacture_date_label')}
           <input type="date" id="mfg-date-${medicineId}" value="${m && m.manufacture_date ? m.manufacture_date.slice(0, 10) : ''}">
         </label>
-        <label class="muted" style="font-size:13px;">${t('expiry_date_label')}
+        <label>${t('expiry_date_label')}
           <input type="date" id="exp-date-${medicineId}" value="${m && m.expiry_date ? m.expiry_date.slice(0, 10) : ''}">
         </label>
-        <button type="button" class="btn-outline blue small" onclick="saveStockDates(${medicineId})">${t('save_dates_btn')}</button>
       </div>
+      <button type="button" class="btn-outline blue small" onclick="saveStockDates(${medicineId})">${t('save_dates_btn')}</button>
     `;
     panel.style.display = 'block';
   } else {
