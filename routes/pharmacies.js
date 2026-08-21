@@ -65,6 +65,7 @@ router.post('/login', async (req, res) => {
       id: pharmacy.id,
       name: pharmacy.name,
       address: pharmacy.address,
+      assistant_phone: pharmacy.assistant_phone || null,
       on_duty: !!pharmacy.on_duty,
       on_duty_day: pharmacy.on_duty_day || null,
       on_duty_shift: pharmacy.on_duty_shift || null,
@@ -124,6 +125,28 @@ router.put('/self/duty', async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'حدث خطأ أثناء تحديث حالة المناوبة' });
+  }
+});
+
+// تحديث رقم الهاتف المساعد (الصيدلي لحسابه هو فقط)
+// PUT /api/pharmacies/self/assistant-phone  { username, password, assistant_phone }
+router.put('/self/assistant-phone', async (req, res) => {
+  const { username, password, assistant_phone } = req.body;
+  if (!username || !password) {
+    return res.status(400).json({ error: 'بيانات الدخول مطلوبة' });
+  }
+  try {
+    const pharmacy = await db.findPharmacyByUsername(username);
+    if (!pharmacy) return res.status(401).json({ error: 'بيانات الدخول غير صحيحة' });
+
+    const valid = await bcrypt.compare(password, pharmacy.owner_password_hash);
+    if (!valid) return res.status(401).json({ error: 'بيانات الدخول غير صحيحة' });
+
+    const updated = await db.setAssistantPhone(pharmacy.id, assistant_phone);
+    res.json({ assistant_phone: updated.assistant_phone });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'حدث خطأ أثناء تحديث الرقم المساعد' });
   }
 });
 
