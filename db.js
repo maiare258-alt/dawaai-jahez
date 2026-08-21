@@ -38,6 +38,8 @@ async function initDb() {
       on_duty_end_time TEXT
     );
   `);
+  // رقم هاتف مساعد اختياري، يظهر جنب الرقم الأساسي — لتخفيف ضغط العمل على رقم واحد بس
+  await pool.query(`ALTER TABLE pharmacies ADD COLUMN IF NOT EXISTS assistant_phone TEXT;`);
 
   // ترحيل آمن: يضيف الأعمدة الجديدة إذا كانت قاعدة البيانات منشأة من نسخة سابقة
   await pool.query(`ALTER TABLE pharmacies ADD COLUMN IF NOT EXISTS on_duty_shift TEXT;`);
@@ -258,9 +260,17 @@ async function setDutyStatus(pharmacyId, onDuty, day, shift, startTime, endTime)
   return rows[0];
 }
 
+async function setAssistantPhone(pharmacyId, assistantPhone) {
+  const { rows } = await pool.query(
+    `UPDATE pharmacies SET assistant_phone = $1 WHERE id = $2 RETURNING *`,
+    [assistantPhone || null, pharmacyId]
+  );
+  return rows[0];
+}
+
 async function getOnDutyPharmacies() {
   const { rows } = await pool.query(
-    'SELECT id, name, address, phone, on_duty, on_duty_day, on_duty_shift, on_duty_start_time, on_duty_end_time FROM pharmacies WHERE on_duty = true ORDER BY on_duty_shift, id'
+    'SELECT id, name, address, phone, assistant_phone, on_duty, on_duty_day, on_duty_shift, on_duty_start_time, on_duty_end_time FROM pharmacies WHERE on_duty = true ORDER BY on_duty_shift, id'
   );
   return rows;
 }
@@ -269,7 +279,7 @@ async function getOnDutyPharmacies() {
 
 async function getAvailability(medicineId) {
   const { rows } = await pool.query(
-    `SELECT p.id AS pharmacy_id, p.name AS pharmacy_name, p.address, p.phone,
+    `SELECT p.id AS pharmacy_id, p.name AS pharmacy_name, p.address, p.phone, p.assistant_phone,
             COALESCE(s.available, false) AS available
      FROM pharmacies p
      LEFT JOIN stock s ON s.pharmacy_id = p.id AND s.medicine_id = $1
@@ -461,6 +471,7 @@ module.exports = {
   addPharmacy,
   deletePharmacy,
   setDutyStatus,
+  setAssistantPhone,
   getOnDutyPharmacies,
   getAvailability,
   getStockForPharmacy,
