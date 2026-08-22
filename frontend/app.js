@@ -130,6 +130,7 @@ const translations = {
     whatsapp_coming_soon: 'البحث عبر واتساب قريباً 💬 لسا عم نجهز رقم رسمي للمشروع.',
     contact_coming_soon: 'سيتم إضافة معلومات التواصل قريباً.',
     invalid_credentials: 'بيانات الدخول غير صحيحة',
+    expiry_before_manufacture_error: 'تاريخ الانتهاء لا يمكن أن يكون قبل تاريخ الصنع', invalid_date_format_error: 'صيغة التاريخ غير صالحة',
     bulk_import_title: '📥 استيراد أدوية من ملف',
     bulk_import_desc: 'حمّل نموذج فارغ، انسخ فيه بيانات أدوية الشركه، ثم ارفعه هنا لإضافتها دفعة وحدة إلى مخزونك في الصيدليه.',
     bulk_import_hint_alt_format: 'إذا طلعت الحروف العربية مشوّهة بعد الحفظ CSV، جرّب تحفظ الملف بصيغة "Unicode Text" بدلها من نفس نافذة الحفظ بإكسل.',
@@ -267,6 +268,7 @@ const translations = {
     whatsapp_coming_soon: "Search via WhatsApp coming soon 💬 We're setting up an official number for the project.",
     contact_coming_soon: 'Contact information will be added soon.',
     invalid_credentials: 'Invalid login credentials',
+    expiry_before_manufacture_error: 'Expiry date cannot be before manufacture date', invalid_date_format_error: 'Invalid date format',
     bulk_import_title: '📥 Import medicines from file',
     bulk_import_desc: "Download a blank template, copy your company's medicine data into it, then upload it here to add them all at once to your stock.",
     bulk_import_hint_alt_format: 'If the Arabic text looks corrupted after saving as CSV, try saving the file as "Unicode Text" instead, from the same Save As window in Excel.',
@@ -301,7 +303,9 @@ function tFormat(key, values) {
 
 // بعض رسائل الخطأ جاية جاهزة عربي من الباك إند (ملفات routes) — نترجم عرضها هون بدون لمس الباك إند نفسه
 const BACKEND_ERROR_MAP = {
-  'بيانات الدخول غير صحيحة': 'invalid_credentials'
+  'بيانات الدخول غير صحيحة': 'invalid_credentials',
+  'تاريخ الانتهاء لا يمكن أن يكون قبل تاريخ الصنع': 'expiry_before_manufacture_error',
+  'صيغة التاريخ غير صالحة': 'invalid_date_format_error'
 };
 function translateApiError(rawError) {
   const key = BACKEND_ERROR_MAP[rawError];
@@ -1856,7 +1860,7 @@ async function saveStockDates(medicineId) {
   if (!m) return;
   const manufactureDate = document.getElementById(`mfg-date-${medicineId}`).value || null;
   const expiryDate = document.getElementById(`exp-date-${medicineId}`).value || null;
-  await fetch(`${API}/stock/${currentPharmacy.id}/${medicineId}`, {
+  const res = await fetch(`${API}/stock/${currentPharmacy.id}/${medicineId}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -1866,6 +1870,11 @@ async function saveStockDates(medicineId) {
       manufactureDate, expiryDate
     })
   });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    customAlert(translateApiError(data.error) || t('server_error_title'), 'error');
+    return;
+  }
   refreshStock();
 }
 
