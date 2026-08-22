@@ -24,6 +24,17 @@ router.put('/:pharmacyId/:medicineId', async (req, res) => {
   if (!username || !password) {
     return res.status(400).json({ error: 'بيانات الدخول مطلوبة' });
   }
+  // تحقق من منطقية التاريخين معاً — فقط لو الاثنين مُرسَلين فعلياً بقيمة حقيقية (مش تفريغ أو عدم إرسال)
+  if (manufactureDate && expiryDate) {
+    const mfg = new Date(manufactureDate);
+    const exp = new Date(expiryDate);
+    if (isNaN(mfg.getTime()) || isNaN(exp.getTime())) {
+      return res.status(400).json({ error: 'صيغة التاريخ غير صالحة' });
+    }
+    if (exp < mfg) {
+      return res.status(400).json({ error: 'تاريخ الانتهاء لا يمكن أن يكون قبل تاريخ الصنع' });
+    }
+  }
   try {
     const pharmacy = await db.findPharmacyByUsername(username);
     if (!pharmacy) return res.status(401).json({ error: 'بيانات الدخول غير صحيحة' });
