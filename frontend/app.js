@@ -131,6 +131,7 @@ const translations = {
     contact_coming_soon: 'سيتم إضافة معلومات التواصل قريباً.',
     invalid_credentials: 'بيانات الدخول غير صحيحة',
     expiry_before_manufacture_error: 'تاريخ الانتهاء لا يمكن أن يكون قبل تاريخ الصنع', invalid_date_format_error: 'صيغة التاريخ غير صالحة',
+    order_submit_error: 'حدث خطأ أثناء إرسال الطلب. حاول مرة أخرى، أو تواصل مع الصيدلية مباشرة إذا استمرت المشكلة.',
     bulk_import_title: '📥 استيراد أدوية من ملف',
     bulk_import_desc: 'حمّل نموذج فارغ، انسخ فيه بيانات أدوية الشركه، ثم ارفعه هنا لإضافتها دفعة وحدة إلى مخزونك في الصيدليه.',
     bulk_import_hint_alt_format: 'إذا طلعت الحروف العربية مشوّهة بعد الحفظ CSV، جرّب تحفظ الملف بصيغة "Unicode Text" بدلها من نفس نافذة الحفظ بإكسل.',
@@ -269,6 +270,7 @@ const translations = {
     contact_coming_soon: 'Contact information will be added soon.',
     invalid_credentials: 'Invalid login credentials',
     expiry_before_manufacture_error: 'Expiry date cannot be before manufacture date', invalid_date_format_error: 'Invalid date format',
+    order_submit_error: 'An error occurred while sending the order. Please try again, or contact the pharmacy directly if the issue persists.',
     bulk_import_title: '📥 Import medicines from file',
     bulk_import_desc: "Download a blank template, copy your company's medicine data into it, then upload it here to add them all at once to your stock.",
     bulk_import_hint_alt_format: 'If the Arabic text looks corrupted after saving as CSV, try saving the file as "Unicode Text" instead, from the same Save As window in Excel.',
@@ -305,7 +307,8 @@ function tFormat(key, values) {
 const BACKEND_ERROR_MAP = {
   'بيانات الدخول غير صحيحة': 'invalid_credentials',
   'تاريخ الانتهاء لا يمكن أن يكون قبل تاريخ الصنع': 'expiry_before_manufacture_error',
-  'صيغة التاريخ غير صالحة': 'invalid_date_format_error'
+  'صيغة التاريخ غير صالحة': 'invalid_date_format_error',
+  'حدث خطأ أثناء إرسال الطلب': 'order_submit_error'
 };
 function translateApiError(rawError) {
   const key = BACKEND_ERROR_MAP[rawError];
