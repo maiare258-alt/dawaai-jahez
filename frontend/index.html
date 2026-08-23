@@ -547,6 +547,41 @@
   .modal-btn-ok:hover { transform: translateY(-1px); filter: brightness(1.06); }
   .modal-btn-cancel { background: #f0f4f8; color: #3a4a58; }
   .modal-btn-cancel:hover { background: #e5ecf2; }
+  /* نافذة المحتوى الطويل (الأسئلة الشائعة، حول الموقع) — نفس روح تصميم النافذة القصيرة، بحجم أكبر وتمرير داخلي */
+  .info-modal-box {
+    background: #ffffff; border-radius: 20px; max-width: 640px; width: 100%; max-height: 82vh;
+    box-shadow: 0 20px 50px rgba(24,95,165,0.25); animation: modalPop .25s ease;
+    position: relative; z-index: 10001; display: flex; flex-direction: column; overflow: hidden;
+  }
+  .info-modal-header {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    padding: 20px 26px; border-bottom: 1px solid #eef2f6; flex-shrink: 0;
+  }
+  .info-modal-header h2 { font-size: 19px; font-weight: 700; color: #163a5c; margin: 0; }
+  .info-modal-close {
+    background: #f0f4f8; border: none; border-radius: 999px; width: 32px; height: 32px; font-size: 15px;
+    color: #3a4a58; cursor: pointer; flex-shrink: 0; transition: background .2s ease;
+  }
+  .info-modal-close:hover { background: #e5ecf2; }
+  .info-modal-body { padding: 22px 26px 28px; overflow-y: auto; font-size: 15px; line-height: 1.8; color: #3a4a58; }
+  .info-modal-body p { margin: 0 0 14px; }
+  .info-modal-body h3 { font-size: 16px; font-weight: 700; color: #163a5c; margin: 22px 0 10px; }
+  .info-modal-body h3:first-child { margin-top: 0; }
+  .faq-item { border-bottom: 1px solid #eef2f6; padding: 4px 0; }
+  .faq-item:last-child { border-bottom: none; }
+  .faq-item summary {
+    cursor: pointer; font-weight: 600; color: #163a5c; padding: 12px 4px; list-style: none;
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  }
+  .faq-item summary::-webkit-details-marker { display: none; }
+  .faq-item summary::after { content: '+'; font-size: 20px; color: #185fa5; flex-shrink: 0; transition: transform .2s ease; }
+  .faq-item[open] summary::after { transform: rotate(45deg); }
+  .faq-item p { padding: 0 4px 14px; color: #5f5e5a; margin: 0; }
+  @media (max-width: 480px) {
+    .info-modal-box { max-height: 88vh; }
+    .info-modal-header { padding: 16px 18px; }
+    .info-modal-body { padding: 16px 18px 22px; }
+  }
   .empty-state { text-align: center; padding: 40px 20px; }
   .empty-icon { font-size: 44px; margin-bottom: 12px; }
   .empty-title { font-size: 18px; font-weight: 700; color: #163a5c; margin: 0 0 6px; }
@@ -903,6 +938,10 @@
           <a onclick="headerGoOnDuty()" id="footer-onduty">الصيدليات المناوبة</a>
           <span class="footer-sep">|</span>
           <a onclick="footerContactComingSoon()" id="footer-contact">تواصل معنا</a>
+          <span class="footer-sep">|</span>
+          <a onclick="showFaq()" id="footer-faq">الأسئلة الشائعة</a>
+          <span class="footer-sep">|</span>
+          <a onclick="showAboutUs()" id="footer-about">حول الموقع</a>
         </div>
         <div class="footer-center" id="footer-center">منصة سورية للبحث عن توفر الأدوية في الصيدليات.</div>
         <div class="footer-copy" id="footer-copy">© دوائي جاهز — جميع الحقوق محفوظة</div>
@@ -1021,6 +1060,17 @@
     </div>
   </div>
 </div>
+
+<div id="info-modal-overlay" class="modal-overlay" style="display:none;">
+  <div class="info-modal-box">
+    <div class="info-modal-header">
+      <h2 id="info-modal-title"></h2>
+      <button type="button" class="info-modal-close" onclick="closeInfoModal()" aria-label="إغلاق">✕</button>
+    </div>
+    <div class="info-modal-body" id="info-modal-body"></div>
+  </div>
+</div>
+
 
 <script src="app.js"></script>
 </body>
