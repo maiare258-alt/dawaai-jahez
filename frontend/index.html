@@ -68,6 +68,10 @@
   }
   .site-nav a:hover { background: rgba(24,95,165,0.08); color: #185fa5; }
   .site-nav a.active { color: #185fa5; font-weight: 700; background: rgba(24,95,165,0.1); }
+  /* روابط بوابات الأدوار (لوحة الصيدلي / الإدارة) — نفس مكانها بالترتيب، بس بتمييز بصري خفيف
+     (حد رفيع + شفافية طفيفة) يوحي إنها بوابة دخول لنظام مختلف، مش تنقل رئيسي للمريض */
+  .site-nav a.nav-role-portal { border: 1px solid rgba(58,74,88,0.16); opacity: 0.8; }
+  .site-nav a.nav-role-portal:hover, .site-nav a.nav-role-portal.active { opacity: 1; }
   .nav-toggle {
     display: none; background: none; border: none; font-size: 22px; cursor: pointer; color: #185fa5; padding: 4px 8px;
   }
@@ -699,10 +703,10 @@
     <nav class="site-nav" id="site-nav">
       <a class="nav-link active" onclick="headerGoHome(this)" id="nav-home">الرئيسية</a>
       <a class="nav-link" onclick="headerGoOnDuty(this)" id="nav-onduty">الصيدليات المناوبة</a>
-      <a class="nav-link" onclick="headerGoPharmacist(this)" id="nav-pharmacist">لوحة الصيدلي</a>
+      <a class="nav-link nav-role-portal" onclick="headerGoPharmacist(this)" id="nav-pharmacist">لوحة الصيدلي</a>
       <a class="nav-link" onclick="headerGoCosmetics(this)" id="nav-cosmetics">مستحضرات تجميل</a>
       <a class="nav-link" onclick="headerGoNursing(this)" id="nav-nursing">خدمات تمريض</a>
-      <a class="nav-link" onclick="headerGoAdmin(this)" id="nav-admin">الإدارة</a>
+      <a class="nav-link nav-role-portal" onclick="headerGoAdmin(this)" id="nav-admin">الإدارة</a>
     </nav>
     <div class="site-header-right">
       <div class="site-logo">
