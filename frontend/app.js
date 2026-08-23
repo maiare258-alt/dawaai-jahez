@@ -129,6 +129,49 @@ const translations = {
     show_password_aria: 'إظهار كلمة المرور', hide_password_aria: 'إخفاء كلمة المرور',
     whatsapp_coming_soon: 'البحث عبر واتساب قريباً 💬 لسا عم نجهز رقم رسمي للمشروع.',
     contact_coming_soon: 'سيتم إضافة معلومات التواصل قريباً.',
+    footer_faq: 'الأسئلة الشائعة', footer_about: 'حول الموقع',
+    faq_title: 'الأسئلة الشائعة',
+    faq_section_patient: 'للمرضى والزوار', faq_section_pharmacist: 'للصيادلة',
+    faq_q1: 'شو هو موقع "دوائي جاهز"؟',
+    faq_a1: 'منصة إلكترونية سورية تساعدك على معرفة توفر دواء معيّن في الصيدليات القريبة منك، والتعرّف على الصيدليات المناوبة، والتواصل مع ممرضين لتقديم خدمات التمريض المنزلي.',
+    faq_q2: 'كيف أبحث عن دواء؟',
+    faq_a2: 'اكتب اسم الدواء أو المادة الفعالة بخانة البحث بالصفحة الرئيسية، وراح تظهرلك كل الصيدليات يلي عندها الدواء متوفر حالياً، مع عنوانها ورقم هاتفها.',
+    faq_q3: 'هل المعلومات المعروضة محدّثة لحظياً؟',
+    faq_a3: 'المعلومات يحدّثها أصحاب الصيدليات بأنفسهم كلما تغيّر مخزونهم. ننصحك دايماً بالتأكد من توفر الدواء مباشرة مع الصيدلية قبل ما تروح إلها، خصوصاً لو كنت بحاجة ماسة له.',
+    faq_q4: 'شو الفرق بين "متوفر" و"غير متوفر"؟',
+    faq_a4: '"متوفر" يعني الصيدلية علّمت هالدواء بأنه موجود عندها حالياً بالمخزون. "غير متوفر" يعني إما ما عندها الدواء أصلاً، أو ما حدّثت حالته بعد.',
+    faq_q5: 'كيف بعرف الصيدليات المناوبة اليوم؟',
+    faq_a5: 'من قائمة "الصيدليات المناوبة" بأعلى الصفحة — راح تشوف كل الصيدليات المناوبة حالياً، مع أوقات المناوبة وأرقام التواصل.',
+    faq_q6: 'هل فيني أطلب الدواء وتوصلني إياه الصيدلية؟',
+    faq_a6: 'الموقع بيسمحلك ترسل طلب بأسماء الأدوية يلي بدك ياها مباشرة للصيدلية، وهي يلي بتتواصل معك لتأكيد الطلب وطريقة الاستلام. الموقع نفسه ما بيبيع أو يوصّل أي دواء.',
+    faq_q7: 'هل خدمات التمريض المعروضة بالموقع مجانية؟',
+    faq_a7: 'الموقع بيعرّفك بس على الممرضين المتاحين وبيانات التواصل معهم. أي اتفاق على الخدمة والأجرة يصير مباشرة بينك وبين الممرض.',
+    faq_q8: 'كيف أسجّل صيدليتي على الموقع؟',
+    faq_a8: 'التسجيل حالياً يتم من خلال التواصل مع فريق إدارة الموقع مباشرة، وبعدها بيتم إنشاء حساب خاص بصيدليتك تقدر تسجّل فيه دخول بأي وقت.',
+    faq_q9: 'كيف أحدّث توفر دواء معيّن بمخزوني؟',
+    faq_a9: 'من لوحة الصيدلي، بلاقي جنب كل دواء زر يبيّن حالته (متوفر/غير متوفر) — بضغطة وحدة بتقدر تبدّل الحالة فوراً.',
+    faq_q10: 'كيف أضيف كمية كبيرة من الأدوية دفعة وحدة؟',
+    faq_a10: 'بلوحة الصيدلي في خيار "استيراد ملف CSV". حمّل النموذج الفارغ أول، وراح تلاقي 4 أعمدة: اسم الدواء، المادة الفعالة، أسماء بديلة (افصل بينهم بفاصلة منقوطة ; لو أكتر من اسم)، والتصنيف (دواء أو مستحضر تجميل). عبّي الأعمدة لكل دواء بصف جديد، احفظ الملف، وارفعه من نفس الصفحة. أقصى عدد مسموح دفعة وحدة هو 500 دواء.',
+    faq_q11: 'شو أعمل لو طلعت الحروف العربية مشوّهة بعد ما احفظ ملف الـCSV؟',
+    faq_a11: 'هاي مشكلة شائعة بإكسل. جرّب تحفظ الملف بصيغة "Unicode Text" بدل "CSV" العادية، من نفس نافذة "حفظ باسم".',
+    faq_q12: 'كيف أضيف رقم صيدلي مساعد؟',
+    faq_a12: 'من لوحة الصيدلي، في قسم "رقم صيدلي مساعد" — أدخل الرقم واضغط حفظ. هالرقم راح يظهر للمريض جنب رقمك الأساسي، مفيد وقت ضغط العمل.',
+    faq_q13: 'هل فيني أسجّل تاريخ صنع وانتهاء الأدوية؟',
+    faq_a13: 'إيه، جنب كل دواء بمخزونك في زر تقويم صغير (📅) بيفتحلك خانتين لتاريخ الصنع والانتهاء. هاي المعلومة داخلية لك أنت بس، ما بتظهر للمريض، وبتساعدك إنه الموقع ينبّهك لما تقرب صلاحية دواء تنتهي.',
+    faq_q14: 'هل استخدام الموقع مجاني للصيدليات؟',
+    faq_a14: 'إيه، استخدام الموقع مجاني بالكامل حالياً.',
+    about_title: 'حول الموقع',
+    about_content_html: `
+      <h3>عن دوائي جاهز</h3>
+      <p>"دوائي جاهز" منصة إلكترونية سورية تُعنى بتسهيل وصول المريض إلى المعلومة الصيدلانية التي يحتاجها في وقتها: معرفة توفر دواء معيّن في الصيدليات القريبة، التعرّف على الصيدليات المناوبة في أي لحظة، والتواصل مع ممرضين موثوقين لتقديم خدمات التمريض المنزلي.</p>
+      <p>نشأ هذا الموقع من حاجة حقيقية يعيشها كثير من الناس في سورية اليوم: صعوبة معرفة أي صيدلية تملك الدواء المطلوب، وأي صيدلية مناوبة في ساعة متأخرة من الليل. هدفنا الوحيد هو تقريب المسافة بين المريض والمعلومة، لا أكثر ولا أقل.</p>
+      <h3>طبيعة المعلومات المعروضة</h3>
+      <p>كل المعلومات الظاهرة في الموقع — عن توفر الأدوية، وحالة المناوبة، وبيانات الصيدليات والممرضين — يُدخلها ويحدّثها أصحاب الصيدليات والممرضون أنفسهم، كل فيما يخصه. "دوائي جاهز" لا يتحقق بنفسه من دقة هذه المعلومات في كل لحظة، ولا يضمن استمرار صحتها في كل وقت.</p>
+      <p>لذلك، ننصح كل مستخدم — قبل الاعتماد الكامل على أي معلومة تخص توفر دواء أو حالة صيدلية — بالتأكد منها مباشرة عبر التواصل مع الصيدلية المعنية.</p>
+      <h3>إخلاء المسؤولية</h3>
+      <p>"دوائي جاهز" منصة وسيطة لعرض المعلومات فقط، وليست صيدلية، ولا جهة طبية، ولا جهة رقابية أو تنظيمية. لا يقوم الموقع ببيع أي دواء أو صرفه، ولا يتدخّل في أي قرار طبي أو صيدلاني، وتبقى كل عملية صرف أو استشارة مسؤولية الصيدلية أو الكادر المختص وحده.</p>
+      <p>بناءً على ذلك، لا يتحمّل القائمون على هذا الموقع أي مسؤولية عن أي ضرر أو خطأ أو سوء فهم قد ينشأ عن استخدام المعلومات المعروضة فيه، سواء تعلّق الأمر بتوفر دواء، أو دقة بيانات صيدلية أو ممرض، أو أي تفاعل يحصل خارج نطاق الموقع بين مستخدميه.</p>
+    `,
     invalid_credentials: 'بيانات الدخول غير صحيحة',
     expiry_before_manufacture_error: 'تاريخ الانتهاء لا يمكن أن يكون قبل تاريخ الصنع', invalid_date_format_error: 'صيغة التاريخ غير صالحة',
     order_submit_error: 'حدث خطأ أثناء إرسال الطلب. حاول مرة أخرى، أو تواصل مع الصيدلية مباشرة إذا استمرت المشكلة.',
@@ -268,6 +311,49 @@ const translations = {
     show_password_aria: 'Show password', hide_password_aria: 'Hide password',
     whatsapp_coming_soon: "Search via WhatsApp coming soon 💬 We're setting up an official number for the project.",
     contact_coming_soon: 'Contact information will be added soon.',
+    footer_faq: 'FAQ', footer_about: 'About Us',
+    faq_title: 'Frequently Asked Questions',
+    faq_section_patient: 'For Patients & Visitors', faq_section_pharmacist: 'For Pharmacists',
+    faq_q1: 'What is "Dawaai Jahez"?',
+    faq_a1: 'A Syrian online platform that helps you check medicine availability at nearby pharmacies, find pharmacies currently on duty, and connect with nurses for home nursing services.',
+    faq_q2: 'How do I search for a medicine?',
+    faq_a2: 'Type the medicine name or its active ingredient in the search box on the homepage, and you\'ll see every pharmacy that currently has it in stock, along with its address and phone number.',
+    faq_q3: 'Is the displayed information updated in real time?',
+    faq_a3: 'Pharmacy owners update the information themselves whenever their stock changes. We always recommend confirming availability directly with the pharmacy before heading there, especially if you need the medicine urgently.',
+    faq_q4: 'What\'s the difference between "available" and "unavailable"?',
+    faq_a4: '"Available" means the pharmacy has marked this medicine as currently in stock. "Unavailable" means either they don\'t have it, or they simply haven\'t updated its status yet.',
+    faq_q5: 'How do I find today\'s on-duty pharmacies?',
+    faq_a5: 'From the "On-Duty Pharmacies" section at the top of the page — you\'ll see every pharmacy currently on duty, along with their duty hours and contact numbers.',
+    faq_q6: 'Can I order a medicine and have the pharmacy deliver it?',
+    faq_a6: 'The site lets you send a request with the medicines you need directly to the pharmacy, and they will contact you to confirm the order and pickup/delivery arrangement. The site itself does not sell or deliver any medicine.',
+    faq_q7: 'Are the nursing services shown on the site free?',
+    faq_a7: 'The site only introduces you to available nurses and their contact details. Any agreement on the service and its fee happens directly between you and the nurse.',
+    faq_q8: 'How do I register my pharmacy on the site?',
+    faq_a8: 'Registration is currently done by contacting the site\'s admin team directly, after which a dedicated account is created for your pharmacy that you can log into anytime.',
+    faq_q9: 'How do I update a medicine\'s availability in my stock?',
+    faq_a9: 'From the pharmacist dashboard, each medicine has a button showing its status (available/unavailable) — one click toggles it instantly.',
+    faq_q10: 'How do I add a large number of medicines at once?',
+    faq_a10: 'From the pharmacist dashboard, use the "Import CSV file" option. Download the blank template first — it has 4 columns: medicine name, active ingredient, alternative names (separate multiple names with a semicolon ;), and category (medicine or cosmetic). Fill in a new row per medicine, save the file, and upload it from the same page. The maximum allowed per upload is 500 medicines.',
+    faq_q11: 'What if the Arabic text looks corrupted after saving my CSV file?',
+    faq_a11: 'This is a common Excel issue. Try saving the file as "Unicode Text" instead of regular "CSV", from the same "Save As" window.',
+    faq_q12: 'How do I add an assistant pharmacist phone number?',
+    faq_a12: 'From the pharmacist dashboard, in the "Assistant Pharmacist Phone" section — enter the number and click save. It will appear to patients alongside your main number, useful during busy hours.',
+    faq_q13: 'Can I record manufacture and expiry dates for medicines?',
+    faq_a13: 'Yes, each medicine in your stock has a small calendar button (📅) that opens two fields for manufacture and expiry dates. This information is internal to you only, never shown to patients, and helps the site warn you as a medicine nears its expiry.',
+    faq_q14: 'Is using the site free for pharmacies?',
+    faq_a14: 'Yes, using the site is currently completely free.',
+    about_title: 'About Us',
+    about_content_html: `
+      <h3>About Dawaai Jahez</h3>
+      <p>"Dawaai Jahez" is a Syrian online platform dedicated to making it easier for patients to reach the pharmaceutical information they need, exactly when they need it: checking whether a specific medicine is available at nearby pharmacies, finding which pharmacies are currently on duty, and connecting with trusted nurses for home nursing services.</p>
+      <p>This site was born out of a real need many people in Syria face today: the difficulty of knowing which pharmacy has the medicine they're looking for, or which pharmacy is on duty late at night. Our only goal is to close the distance between the patient and the information — nothing more, nothing less.</p>
+      <h3>Nature of the Displayed Information</h3>
+      <p>All information shown on the site — medicine availability, duty status, and pharmacy and nurse details — is entered and updated by the pharmacy owners and nurses themselves, each for their own listing. Dawaai Jahez does not independently verify the accuracy of this information at any given moment, nor does it guarantee it remains accurate at all times.</p>
+      <p>We therefore recommend that every user, before fully relying on any information about medicine availability or a pharmacy's status, confirm it directly by contacting the pharmacy in question.</p>
+      <h3>Disclaimer</h3>
+      <p>Dawaai Jahez is solely an intermediary platform for displaying information. It is not a pharmacy, not a medical entity, and not a regulatory or governmental body. The site does not sell or dispense any medicine, and does not take part in any medical or pharmaceutical decision; every act of dispensing or consultation remains the sole responsibility of the pharmacy or the qualified professional involved.</p>
+      <p>Accordingly, those who operate this site bear no responsibility for any harm, error, or misunderstanding that may arise from the use of the information displayed on it — whether related to medicine availability, the accuracy of a pharmacy's or nurse's details, or any interaction that takes place outside the site between its users.</p>
+    `,
     invalid_credentials: 'Invalid login credentials',
     expiry_before_manufacture_error: 'Expiry date cannot be before manufacture date', invalid_date_format_error: 'Invalid date format',
     order_submit_error: 'An error occurred while sending the order. Please try again, or contact the pharmacy directly if the issue persists.',
@@ -352,6 +438,8 @@ function applyLanguage() {
   document.getElementById('footer-home').textContent = t('footer_home');
   document.getElementById('footer-onduty').textContent = t('footer_onduty');
   document.getElementById('footer-contact').textContent = t('footer_contact');
+  document.getElementById('footer-faq').textContent = t('footer_faq');
+  document.getElementById('footer-about').textContent = t('footer_about');
   document.getElementById('footer-center').textContent = t('footer_center');
   document.getElementById('footer-copy').textContent = t('footer_copy');
 
@@ -941,6 +1029,61 @@ function headerGoNursing(link) {
 
 function footerContactComingSoon() {
   customAlert(t('contact_coming_soon'), 'info');
+}
+
+// نافذة عامة لعرض محتوى طويل (الأسئلة الشائعة، حول الموقع) — منفصلة عن showModal المخصصة للتنبيهات القصيرة
+let infoModalEscHandler = null;
+
+function openInfoModal() {
+  document.getElementById('info-modal-overlay').style.display = 'flex';
+  document.body.classList.add('modal-open');
+  infoModalEscHandler = (e) => { if (e.key === 'Escape') closeInfoModal(); };
+  document.addEventListener('keydown', infoModalEscHandler);
+}
+
+function closeInfoModal() {
+  document.getElementById('info-modal-overlay').style.display = 'none';
+  document.body.classList.remove('modal-open');
+  if (infoModalEscHandler) {
+    document.removeEventListener('keydown', infoModalEscHandler);
+    infoModalEscHandler = null;
+  }
+}
+
+// أزواج مفاتيح (سؤال، جواب) — مقسّمة لقسمين (مريض/زائر، ثم صيدلي) — النصوص كلها ثابتة من قاموس الترجمة، مش بيانات مستخدم
+const FAQ_PATIENT_KEYS = [
+  ['faq_q1', 'faq_a1'], ['faq_q2', 'faq_a2'], ['faq_q3', 'faq_a3'], ['faq_q4', 'faq_a4'],
+  ['faq_q5', 'faq_a5'], ['faq_q6', 'faq_a6'], ['faq_q7', 'faq_a7']
+];
+const FAQ_PHARMACIST_KEYS = [
+  ['faq_q8', 'faq_a8'], ['faq_q9', 'faq_a9'], ['faq_q10', 'faq_a10'],
+  ['faq_q11', 'faq_a11'], ['faq_q12', 'faq_a12'], ['faq_q13', 'faq_a13'], ['faq_q14', 'faq_a14']
+];
+
+function renderFaqItems(keys) {
+  return keys.map(([qKey, aKey]) => `
+    <details class="faq-item">
+      <summary>${escapeHtml(t(qKey))}</summary>
+      <p>${escapeHtml(t(aKey))}</p>
+    </details>
+  `).join('');
+}
+
+function showFaq() {
+  document.getElementById('info-modal-title').textContent = t('faq_title');
+  document.getElementById('info-modal-body').innerHTML = `
+    <h3>${escapeHtml(t('faq_section_patient'))}</h3>
+    ${renderFaqItems(FAQ_PATIENT_KEYS)}
+    <h3>${escapeHtml(t('faq_section_pharmacist'))}</h3>
+    ${renderFaqItems(FAQ_PHARMACIST_KEYS)}
+  `;
+  openInfoModal();
+}
+
+function showAboutUs() {
+  document.getElementById('info-modal-title').textContent = t('about_title');
+  document.getElementById('info-modal-body').innerHTML = t('about_content_html');
+  openInfoModal();
 }
 
 function formatTime12(t) {
