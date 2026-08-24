@@ -167,7 +167,7 @@ const translations = {
       <p>نشأ هذا الموقع من حاجة حقيقية يعيشها كثير من الناس في سورية اليوم، تتمثّل في صعوبة معرفة أي صيدلية تملك الدواء المطلوب، وأي صيدلية مناوبة في ساعة متأخرة من الليل. وهدفنا الوحيد هو تقريب المسافة بين المريض والمعلومة، لا أكثر ولا أقل.</p>
       <h3>طبيعة المعلومات المعروضة</h3>
       <p>إنّ جميع المعلومات الظاهرة في الموقع، من توفر الأدوية وحالة المناوبة وبيانات الصيدليات والممرضين، يُدخلها ويحدّثها أصحاب الصيدليات والممرضون أنفسهم، كلّ فيما يخصّه. ولا يتحقق "دوائي جاهز" بنفسه من دقة هذه المعلومات في كل لحظة، ولا يضمن استمرار صحتها في كل وقت.</p>
-      <p>لذلك، ننصح كلّ مستخدم بألّا يعتمد اعتماداً كاملاً على أي معلومة تخصّ توفر دواء أو حالة صيدلية، قبل التأكد منها مباشرة عبر التواصل مع الصيدلية المعنية.</p>
+      <p>لذلك، ننصح كلّ مستخدم بألّا يعتمد اعتماداً كاملاً على أي معلومة تخصّ توفر دواء أو حالة صيدلية، قبل التأكد منها مباشرة عبر التواصل مع الصيدلية المعنية. كما لا يُعد الموقع بديلاً عن استشارة الطبيب أو المختص الصحي عند الحاجة.</p>
       <h3>إخلاء المسؤولية</h3>
       <p>"دوائي جاهز" منصة وسيطة لعرض المعلومات فقط، وليست صيدلية، ولا جهة طبية، ولا جهة رقابية أو تنظيمية. فلا يقوم الموقع ببيع أي دواء أو صرفه، ولا يتدخّل في أي قرار طبي أو صيدلاني، وتبقى كل عملية صرف أو استشارة مسؤولية الصيدلية أو الكادر المختص وحده.</p>
       <p>وبناءً على ذلك، لا يتحمّل القائمون على هذا الموقع أي مسؤولية عن أي ضرر أو خطأ أو سوء فهم قد ينشأ عن استخدام المعلومات المعروضة فيه، سواء تعلّق الأمر بتوفر دواء، أو دقة بيانات صيدلية أو ممرض، أو أي تفاعل يحصل خارج نطاق الموقع بين مستخدميه.</p>
@@ -349,7 +349,7 @@ const translations = {
       <p>This site was born out of a real need many people in Syria face today: the difficulty of knowing which pharmacy has the medicine they're looking for, or which pharmacy is on duty late at night. Our only goal is to close the distance between the patient and the information — nothing more, nothing less.</p>
       <h3>Nature of the Displayed Information</h3>
       <p>All information shown on the site — medicine availability, duty status, and pharmacy and nurse details — is entered and updated by the pharmacy owners and nurses themselves, each for their own listing. Dawaai Jahez does not independently verify the accuracy of this information at any given moment, nor does it guarantee it remains accurate at all times.</p>
-      <p>We therefore recommend that every user, before fully relying on any information about medicine availability or a pharmacy's status, confirm it directly by contacting the pharmacy in question.</p>
+      <p>We therefore recommend that every user, before fully relying on any information about medicine availability or a pharmacy's status, confirm it directly by contacting the pharmacy in question. The site is also not a substitute for consulting a doctor or a qualified health professional when needed.</p>
       <h3>Disclaimer</h3>
       <p>Dawaai Jahez is solely an intermediary platform for displaying information. It is not a pharmacy, not a medical entity, and not a regulatory or governmental body. The site does not sell or dispense any medicine, and does not take part in any medical or pharmaceutical decision; every act of dispensing or consultation remains the sole responsibility of the pharmacy or the qualified professional involved.</p>
       <p>Accordingly, those who operate this site bear no responsibility for any harm, error, or misunderstanding that may arise from the use of the information displayed on it — whether related to medicine availability, the accuracy of a pharmacy's or nurse's details, or any interaction that takes place outside the site between its users.</p>
@@ -2296,7 +2296,7 @@ function renderAdminPanelUI() {
           : `<div class="stock-table-header"><span>${t('pharmacies_table_header')}</span><span class="col-action">${t('action_col_header')}</span></div>
              ${pharmacies.map(p => `
                <div class="row">
-                 <span>${p.name} <span class="muted">(${p.owner_username})</span>${p.on_duty ? ` <span class="badge yes" style="margin-right:6px;">${t('onduty_badge_short')}</span>` : ''}</span>
+                 <span>${p.name} <span class="muted">(${p.owner_username})</span>${p.assistant_phone ? ` <span class="muted" style="font-size:12px;">📱 ${escapeHtml(p.assistant_phone)}</span>` : ''}${p.on_duty ? ` <span class="badge yes" style="margin-right:6px;">${t('onduty_badge_short')}</span>` : ''}</span>
                  <button class="btn-outline red small table-action-btn" onclick="deletePharmacyAdmin(${p.id})">${t('delete_btn')}</button>
                </div>
              `).join('')}`
