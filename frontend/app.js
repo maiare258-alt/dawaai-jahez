@@ -973,7 +973,7 @@ function renderBellPanel() {
 // تحديث خفيف بعد حذف إشعار: لو ما ضل أي طلب، لازم نعيد رسم السلة كاملة عشان يختفي صف الجرس نفسه.
 // لو ضل في طلبات، منحدّث بس العداد ومحتوى اللوحة (لو مفتوحة) بدون ما نقفلها أو نلمس باقي السلة.
 function refreshBellUI() {
-  if (myOrders.length === 0) { renderCart(); return; }
+  if (myOrders.length === 0) { updateBellBadge(); renderCart(); return; }
   updateBellBadge();
   const panel = document.getElementById('bell-panel');
   if (panel && panel.style.display !== 'none') renderBellPanel();
@@ -990,6 +990,7 @@ function dismissAllMyOrders() {
   myOrders = [];
   saveMyOrders();
   stopMyOrdersPolling();
+  updateBellBadge();
   renderCart();
 }
 
@@ -1030,12 +1031,12 @@ async function checkMyOrdersStatus() {
     const changed = newlyConfirmed || myOrders.length !== lengthBefore;
     if (changed) {
       saveMyOrders();
+      updateBellBadge();
       const cartSection = document.getElementById('cart-section');
       const cartOpen = cartSection && cartSection.style.display !== 'none';
       if (cartOpen && myOrders.length === 0) {
         renderCart(); // آخر طلب اختفى (حُذف من عند الصيدلية) — لازم نخفي صف الجرس بالكامل
       } else {
-        updateBellBadge();
         const panel = document.getElementById('bell-panel');
         if (panel && panel.style.display !== 'none') renderBellPanel();
       }
