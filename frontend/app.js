@@ -446,11 +446,9 @@ function applyLanguage() {
   document.getElementById('lang-toggle-btn').textContent = t('lang_toggle');
   document.getElementById('brand-name').textContent = t('brand_name');
 
-  renderCart(); // لتحديث نص حالة الفراغ لو العربة مفتوحة وفاضية
+  renderCart(); // لتحديث نص حالة الفراغ وحالة الطلبات لو العربة مفتوحة
   if (document.getElementById('search').value.trim()) runSearch(); // تحديث نتائج البحث الحالية لو موجودة
 
-  document.getElementById('bell-btn').setAttribute('aria-label', t('bell_aria_label'));
-  renderBellPanel();
   lastOnDutySnapshot = null; // نجبر إعادة رسم الصيدليات المناوبة حتى لو البيانات نفسها ما تغيّرت
   loadOnDuty();
 
@@ -602,7 +600,6 @@ function updateCartVisibility() {
     cartBtn.style.display = 'none';
     cartSection.style.display = 'none';
   }
-  updateBellVisibility();
 }
 
 // ---------- روابط الهيدر (المتحكم الوحيد بالتنقل بالموقع) ----------
@@ -788,13 +785,13 @@ function toggleCart() {
   } else {
     section.style.display = 'none';
   }
-  updateBellVisibility();
 }
 
 function renderCart() {
   const container = document.getElementById('cart-section');
+  const bellRow = renderBellRow();
   if (cart.length === 0) {
-    container.innerHTML = `
+    container.innerHTML = bellRow + `
       <div class="box cart-empty">
         <div class="cart-empty-icon">🛒</div>
         <p class="cart-empty-title">${t('cart_empty_title')}</p>
@@ -803,7 +800,7 @@ function renderCart() {
     `;
     return;
   }
-  container.innerHTML = `
+  container.innerHTML = bellRow + `
     <div class="cart-header">
       <h3 class="cart-title">${t('cart_panel_title')}</h3>
       <p class="cart-subtitle">${t('cart_panel_subtitle')}</p>
@@ -876,7 +873,7 @@ async function submitOrder() {
       myOrders.push({ id: o.id, pharmacyName: item ? item.pharmacyName : '', status: 'pending' });
     });
     saveMyOrders();
-    updateBellVisibility();
+    updateBellBadge();
     startMyOrdersPolling();
 
     await customAlert(t('order_success_msg'), 'success');
@@ -900,43 +897,40 @@ function saveMyOrders() {
   localStorage.setItem('myOrders', JSON.stringify(myOrders));
 }
 
-function updateBellVisibility() {
-  const btn = document.getElementById('bell-btn');
-  if (!btn) return;
-  const wrap = document.querySelector('.cart-section-wrap');
-  const cartSection = document.getElementById('cart-section');
-  const cartOpen = cartSection && cartSection.style.display !== 'none';
-  const hasOrders = myOrders.length > 0;
-  const showBell = hasOrders && cartOpen;
-  btn.style.display = showBell ? 'inline-flex' : 'none';
-  if (wrap) wrap.classList.toggle('has-bell', showBell);
-  if (!showBell) document.getElementById('bell-panel').style.display = 'none';
-}
-
 function updateBellBadge() {
-  const badge = document.getElementById('bell-badge');
-  const cartBadge = document.getElementById('cart-notify-badge');
   const confirmedCount = myOrders.filter(o => o.status === 'confirmed').length;
+  const badge = document.getElementById('bell-badge');
   if (badge) {
     badge.textContent = confirmedCount;
     badge.style.display = confirmedCount > 0 ? 'flex' : 'none';
   }
+  const cartBadge = document.getElementById('cart-notify-badge');
   if (cartBadge) {
     cartBadge.textContent = confirmedCount;
     cartBadge.style.display = confirmedCount > 0 ? 'flex' : 'none';
   }
 }
 
-function pulseBell() {
-  const btn = document.getElementById('bell-btn');
-  if (!btn) return;
-  btn.classList.remove('pulse');
-  void btn.offsetWidth; // يعيد تشغيل حركة الاهتزاز حتى لو صارت قبل شوي
-  btn.classList.add('pulse');
+// صف الجرس القابل للضغط — يُعرض كصف مستقل فوق عنوان السلة (بترتيب طبيعي بالصفحة، صفر تموضع عائم)
+// فما بيقدر يتراكب فوق أي نص، ويظهر بس لما يكون في طلبات مرسلة فعلاً
+function renderBellRow() {
+  if (!myOrders || myOrders.length === 0) return '';
+  const confirmedCount = myOrders.filter(o => o.status === 'confirmed').length;
+  return `
+    <div class="cart-bell-row">
+      <div class="cart-bell-wrap">
+        <button id="bell-btn" class="bell-btn-inline" onclick="toggleBellPanel()" aria-label="${t('bell_aria_label')}">
+          <span class="bell-icon">🔔</span>
+          <span class="bell-badge" id="bell-badge" style="${confirmedCount > 0 ? '' : 'display:none;'}">${confirmedCount}</span>
+        </button>
+        <div id="bell-panel" class="bell-panel" style="display:none"></div>
+      </div>
+    </div>`;
 }
 
 function toggleBellPanel() {
   const panel = document.getElementById('bell-panel');
+  if (!panel) return;
   const willShow = panel.style.display === 'none';
   panel.style.display = willShow ? 'block' : 'none';
   if (willShow) renderBellPanel();
@@ -944,6 +938,7 @@ function toggleBellPanel() {
 
 function renderBellPanel() {
   const panel = document.getElementById('bell-panel');
+  if (!panel) return;
   if (!myOrders || myOrders.length === 0) {
     panel.innerHTML = `<div class="bell-panel-empty">${t('bell_empty')}</div>`;
     return;
@@ -952,7 +947,7 @@ function renderBellPanel() {
     <div class="bell-panel-header">
       <button class="bell-clear-all-btn" onclick="dismissAllMyOrders()">${t('bell_clear_all')}</button>
     </div>`;
-  panel.innerHTML = clearAllBtn + myOrders.map(o => {
+  const items = myOrders.map(o => {
     if (o.status === 'confirmed') {
       return `
         <div class="order-status-banner confirmed">
@@ -972,24 +967,30 @@ function renderBellPanel() {
         <button class="order-status-dismiss" onclick="dismissMyOrder(${o.id})" aria-label="${t('bell_dismiss_aria')}">✕</button>
       </div>`;
   }).join('');
+  panel.innerHTML = clearAllBtn + items;
+}
+
+// تحديث خفيف بعد حذف إشعار: لو ما ضل أي طلب، لازم نعيد رسم السلة كاملة عشان يختفي صف الجرس نفسه.
+// لو ضل في طلبات، منحدّث بس العداد ومحتوى اللوحة (لو مفتوحة) بدون ما نقفلها أو نلمس باقي السلة.
+function refreshBellUI() {
+  if (myOrders.length === 0) { renderCart(); return; }
+  updateBellBadge();
+  const panel = document.getElementById('bell-panel');
+  if (panel && panel.style.display !== 'none') renderBellPanel();
 }
 
 function dismissMyOrder(id) {
   myOrders = myOrders.filter(o => o.id !== id);
   saveMyOrders();
-  updateBellBadge();
-  updateBellVisibility();
-  renderBellPanel();
+  refreshBellUI();
 }
 
-// مسح كل إشعارات الجرس دفعة وحدة (مفيد لتنظيف طلبات تجريبية/مكررة قديمة بضغطة وحدة)
+// مسح كل إشعارات حالة الطلبات دفعة وحدة (مفيد لتنظيف طلبات تجريبية/مكررة قديمة بضغطة وحدة)
 function dismissAllMyOrders() {
   myOrders = [];
   saveMyOrders();
   stopMyOrdersPolling();
-  updateBellBadge();
-  updateBellVisibility();
-  renderBellPanel();
+  renderCart();
 }
 
 let myOrdersPollInterval = null;
@@ -1008,7 +1009,7 @@ function stopMyOrdersPolling() {
 }
 
 async function checkMyOrdersStatus() {
-  if (!myOrders || myOrders.length === 0) { stopMyOrdersPolling(); updateBellVisibility(); return; }
+  if (!myOrders || myOrders.length === 0) { stopMyOrdersPolling(); return; }
   try {
     const ids = myOrders.map(o => o.id).join(',');
     const res = await fetch(`${API}/orders/status?ids=${ids}`);
@@ -1029,11 +1030,15 @@ async function checkMyOrdersStatus() {
     const changed = newlyConfirmed || myOrders.length !== lengthBefore;
     if (changed) {
       saveMyOrders();
-      updateBellBadge();
-      updateBellVisibility();
-      const panel = document.getElementById('bell-panel');
-      if (panel && panel.style.display !== 'none') renderBellPanel();
-      if (newlyConfirmed) pulseBell();
+      const cartSection = document.getElementById('cart-section');
+      const cartOpen = cartSection && cartSection.style.display !== 'none';
+      if (cartOpen && myOrders.length === 0) {
+        renderCart(); // آخر طلب اختفى (حُذف من عند الصيدلية) — لازم نخفي صف الجرس بالكامل
+      } else {
+        updateBellBadge();
+        const panel = document.getElementById('bell-panel');
+        if (panel && panel.style.display !== 'none') renderBellPanel();
+      }
     }
     if (myOrders.every(o => o.status === 'confirmed')) stopMyOrdersPolling();
   } catch (err) { /* تجاهل بصمت، رح يعيد المحاولة بالجولة الجاية */ }
@@ -2638,7 +2643,7 @@ document.addEventListener('click', (e) => {
   }
   const bellPanel = document.getElementById('bell-panel');
   const bellBtn = document.getElementById('bell-btn');
-  if (bellPanel && bellPanel.style.display !== 'none' && !bellPanel.contains(e.target) && !bellBtn.contains(e.target)) {
+  if (bellPanel && bellPanel.style.display !== 'none' && !bellPanel.contains(e.target) && bellBtn && !bellBtn.contains(e.target)) {
     bellPanel.style.display = 'none';
   }
 });
@@ -2649,6 +2654,5 @@ runSearch();
 loadOnDuty();
 updateCartCount();
 setInterval(loadOnDuty, 5000);
-updateBellVisibility();
 updateBellBadge();
 if (myOrders.length > 0) startMyOrdersPolling();
