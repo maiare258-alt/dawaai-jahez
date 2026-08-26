@@ -446,9 +446,13 @@ function applyLanguage() {
   document.getElementById('lang-toggle-btn').textContent = t('lang_toggle');
   document.getElementById('brand-name').textContent = t('brand_name');
 
-  renderCart(); // لتحديث نص حالة الفراغ وحالة الطلبات لو العربة مفتوحة
+  renderCart(); // لتحديث نص حالة الفراغ لو العربة مفتوحة وفاضية
   if (document.getElementById('search').value.trim()) runSearch(); // تحديث نتائج البحث الحالية لو موجودة
 
+  const bellBtnEl = document.getElementById('bell-btn');
+  if (bellBtnEl) bellBtnEl.setAttribute('aria-label', t('bell_aria_label'));
+  const bellPanelEl = document.getElementById('bell-panel');
+  if (bellPanelEl && bellPanelEl.style.display !== 'none') renderBellPanel();
   lastOnDutySnapshot = null; // نجبر إعادة رسم الصيدليات المناوبة حتى لو البيانات نفسها ما تغيّرت
   loadOnDuty();
 
@@ -600,6 +604,7 @@ function updateCartVisibility() {
     cartBtn.style.display = 'none';
     cartSection.style.display = 'none';
   }
+  updateBellVisibility();
 }
 
 // ---------- روابط الهيدر (المتحكم الوحيد بالتنقل بالموقع) ----------
@@ -785,13 +790,13 @@ function toggleCart() {
   } else {
     section.style.display = 'none';
   }
+  updateBellVisibility();
 }
 
 function renderCart() {
   const container = document.getElementById('cart-section');
-  const bellRow = renderBellRow();
   if (cart.length === 0) {
-    container.innerHTML = bellRow + `
+    container.innerHTML = `
       <div class="box cart-empty">
         <div class="cart-empty-icon">🛒</div>
         <p class="cart-empty-title">${t('cart_empty_title')}</p>
@@ -800,7 +805,7 @@ function renderCart() {
     `;
     return;
   }
-  container.innerHTML = bellRow + `
+  container.innerHTML = `
     <div class="cart-header">
       <h3 class="cart-title">${t('cart_panel_title')}</h3>
       <p class="cart-subtitle">${t('cart_panel_subtitle')}</p>
@@ -880,6 +885,7 @@ async function submitOrder() {
     cart = [];
     saveCart();
     renderCart();
+    updateBellVisibility();
   } catch (err) {
     customAlert(t('server_error_title'), 'error');
   } finally {
@@ -911,21 +917,21 @@ function updateBellBadge() {
   }
 }
 
-// صف الجرس القابل للضغط — يُعرض كصف مستقل فوق عنوان السلة (بترتيب طبيعي بالصفحة، صفر تموضع عائم)
-// فما بيقدر يتراكب فوق أي نص، ويظهر بس لما يكون في طلبات مرسلة فعلاً
-function renderBellRow() {
-  if (!myOrders || myOrders.length === 0) return '';
-  const confirmedCount = myOrders.filter(o => o.status === 'confirmed').length;
-  return `
-    <div class="cart-bell-row">
-      <div class="cart-bell-wrap">
-        <button id="bell-btn" class="bell-btn-inline" onclick="toggleBellPanel()" aria-label="${t('bell_aria_label')}">
-          <span class="bell-icon">🔔</span>
-          <span class="bell-badge" id="bell-badge" style="${confirmedCount > 0 ? '' : 'display:none;'}">${confirmedCount}</span>
-        </button>
-        <div id="bell-panel" class="bell-panel" style="display:none"></div>
-      </div>
-    </div>`;
+// يتحكم بإظهار/إخفاء زر الجرس العائم نفسه — بيظهر بس لما تكون السلة مفتوحة وعندك طلبات مرسلة فعلاً
+function updateBellVisibility() {
+  const btn = document.getElementById('bell-btn');
+  if (!btn) return;
+  const wrap = document.querySelector('.cart-section-wrap');
+  const cartSection = document.getElementById('cart-section');
+  const cartOpen = cartSection && cartSection.style.display !== 'none';
+  const hasOrders = myOrders.length > 0;
+  const showBell = hasOrders && cartOpen;
+  btn.style.display = showBell ? 'inline-flex' : 'none';
+  if (wrap) wrap.classList.toggle('has-bell', showBell);
+  if (!showBell) {
+    const panel = document.getElementById('bell-panel');
+    if (panel) panel.style.display = 'none';
+  }
 }
 
 function toggleBellPanel() {
@@ -970,11 +976,9 @@ function renderBellPanel() {
   panel.innerHTML = clearAllBtn + items;
 }
 
-// تحديث خفيف بعد حذف إشعار: لو ما ضل أي طلب، لازم نعيد رسم السلة كاملة عشان يختفي صف الجرس نفسه.
-// لو ضل في طلبات، منحدّث بس العداد ومحتوى اللوحة (لو مفتوحة) بدون ما نقفلها أو نلمس باقي السلة.
 function refreshBellUI() {
-  if (myOrders.length === 0) { updateBellBadge(); renderCart(); return; }
   updateBellBadge();
+  updateBellVisibility();
   const panel = document.getElementById('bell-panel');
   if (panel && panel.style.display !== 'none') renderBellPanel();
 }
@@ -991,7 +995,7 @@ function dismissAllMyOrders() {
   saveMyOrders();
   stopMyOrdersPolling();
   updateBellBadge();
-  renderCart();
+  updateBellVisibility();
 }
 
 let myOrdersPollInterval = null;
@@ -1010,7 +1014,7 @@ function stopMyOrdersPolling() {
 }
 
 async function checkMyOrdersStatus() {
-  if (!myOrders || myOrders.length === 0) { stopMyOrdersPolling(); return; }
+  if (!myOrders || myOrders.length === 0) { stopMyOrdersPolling(); updateBellVisibility(); return; }
   try {
     const ids = myOrders.map(o => o.id).join(',');
     const res = await fetch(`${API}/orders/status?ids=${ids}`);
@@ -1032,14 +1036,9 @@ async function checkMyOrdersStatus() {
     if (changed) {
       saveMyOrders();
       updateBellBadge();
-      const cartSection = document.getElementById('cart-section');
-      const cartOpen = cartSection && cartSection.style.display !== 'none';
-      if (cartOpen && myOrders.length === 0) {
-        renderCart(); // آخر طلب اختفى (حُذف من عند الصيدلية) — لازم نخفي صف الجرس بالكامل
-      } else {
-        const panel = document.getElementById('bell-panel');
-        if (panel && panel.style.display !== 'none') renderBellPanel();
-      }
+      updateBellVisibility();
+      const panel = document.getElementById('bell-panel');
+      if (panel && panel.style.display !== 'none') renderBellPanel();
     }
     if (myOrders.every(o => o.status === 'confirmed')) stopMyOrdersPolling();
   } catch (err) { /* تجاهل بصمت، رح يعيد المحاولة بالجولة الجاية */ }
@@ -2656,4 +2655,5 @@ loadOnDuty();
 updateCartCount();
 setInterval(loadOnDuty, 5000);
 updateBellBadge();
+updateBellVisibility();
 if (myOrders.length > 0) startMyOrdersPolling();
