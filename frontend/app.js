@@ -54,7 +54,7 @@ const translations = {
     onduty_title: '🟢 الصيدليات المناوبة اليوم', onduty_now_badge: '🟢 مناوبة الآن',
     onduty_empty_title: 'لا توجد صيدليات مناوبة حالياً',
     onduty_empty_subtitle: 'تحقق لاحقاً، أو تواصل مع صيدليتك المفضلة مباشرة.',
-    bell_empty: 'ما في إشعارات حالياً', bell_aria_label: 'إشعارات الطلبات', bell_dismiss_aria: 'إخفاء',
+    bell_empty: 'ما في إشعارات حالياً', bell_aria_label: 'إشعارات الطلبات', bell_dismiss_aria: 'إخفاء', bell_clear_all: '🗑️ مسح الكل',
     bell_confirmed_text: 'تم الاستجابة لطلبك من قبل الصيدلية',
     bell_pending_prefix: 'طلبك عند صيدلية', bell_pending_suffix: 'قيد المراجعة...',
     excess_quantity_confirm: 'لقد أضفت {qty} من {name} من {pharmacy} إلى عربتك. هل تريد إضافة المزيد؟',
@@ -236,7 +236,7 @@ const translations = {
     onduty_title: '🟢 Pharmacies on duty today', onduty_now_badge: '🟢 On duty now',
     onduty_empty_title: 'No pharmacies on duty right now',
     onduty_empty_subtitle: 'Check back later, or contact your usual pharmacy directly.',
-    bell_empty: 'No notifications yet', bell_aria_label: 'Order notifications', bell_dismiss_aria: 'Dismiss',
+    bell_empty: 'No notifications yet', bell_aria_label: 'Order notifications', bell_dismiss_aria: 'Dismiss', bell_clear_all: '🗑️ Clear all',
     bell_confirmed_text: 'Your order was confirmed by the pharmacy',
     bell_pending_prefix: 'Your order at', bell_pending_suffix: 'is under review...',
     excess_quantity_confirm: "You've added {qty} of {name} from {pharmacy} to your cart. Add more?",
@@ -948,7 +948,11 @@ function renderBellPanel() {
     panel.innerHTML = `<div class="bell-panel-empty">${t('bell_empty')}</div>`;
     return;
   }
-  panel.innerHTML = myOrders.map(o => {
+  const clearAllBtn = `
+    <div class="bell-panel-header">
+      <button class="bell-clear-all-btn" onclick="dismissAllMyOrders()">${t('bell_clear_all')}</button>
+    </div>`;
+  panel.innerHTML = clearAllBtn + myOrders.map(o => {
     if (o.status === 'confirmed') {
       return `
         <div class="order-status-banner confirmed">
@@ -965,6 +969,7 @@ function renderBellPanel() {
           <span class="order-status-icon">⏳</span>
           <span>${t('bell_pending_prefix')} (${o.pharmacyName}) ${t('bell_pending_suffix')}</span>
         </div>
+        <button class="order-status-dismiss" onclick="dismissMyOrder(${o.id})" aria-label="${t('bell_dismiss_aria')}">✕</button>
       </div>`;
   }).join('');
 }
@@ -972,6 +977,16 @@ function renderBellPanel() {
 function dismissMyOrder(id) {
   myOrders = myOrders.filter(o => o.id !== id);
   saveMyOrders();
+  updateBellBadge();
+  updateBellVisibility();
+  renderBellPanel();
+}
+
+// مسح كل إشعارات الجرس دفعة وحدة (مفيد لتنظيف طلبات تجريبية/مكررة قديمة بضغطة وحدة)
+function dismissAllMyOrders() {
+  myOrders = [];
+  saveMyOrders();
+  stopMyOrdersPolling();
   updateBellBadge();
   updateBellVisibility();
   renderBellPanel();
