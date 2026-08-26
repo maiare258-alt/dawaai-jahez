@@ -1545,9 +1545,13 @@ async function runSearch() {
     return;
   }
   container.innerHTML = `<p class="muted">${t('loading_text')}</p>`;
+  // لو المستخدم غيّر أو مسح خانة البحث وقت ما كنا منتظرين رد السيرفر، نتجاهل هالرد القديم بالكامل —
+  // تفادياً لمشكلة نتيجة بحث قديمة ترجع وتطلع فوق نتيجة أحدث أو فوق خانة بحث فاضية
+  const stillCurrent = () => document.getElementById('search').value.trim() === q;
   try {
     const res = await fetch(`${API}/medicines/search?q=${encodeURIComponent(q)}&category=${currentCategory}`);
     const data = await res.json();
+    if (!stillCurrent()) return;
     lastSearchResultsCache = data;
 
     if (data.length === 0) {
@@ -1573,6 +1577,7 @@ async function runSearch() {
             </div>`;
         }
       } catch (err) { /* تجاهل فشل الاقتراحات، النتيجة الأساسية أهم */ }
+      if (!stillCurrent()) return;
       container.innerHTML = html;
       return;
     }
@@ -1622,8 +1627,10 @@ async function runSearch() {
         } catch (err) { /* تجاهل فشل البحث عن بدائل، النتيجة الأساسية أهم */ }
       }
     }
+    if (!stillCurrent()) return;
     container.innerHTML = cardsHtml;
   } catch (err) {
+    if (!stillCurrent()) return;
     container.innerHTML = `
       <div class="empty-state">
         <div class="empty-icon">⚠️</div>
