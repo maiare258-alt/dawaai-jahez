@@ -837,7 +837,10 @@ function renderCart() {
   `;
 }
 
+let orderSubmitInProgress = false;
+
 async function submitOrder() {
+  if (orderSubmitInProgress) return; // منع إرسال مكرر لو الطلب السابق لسا قيد التنفيذ (مثلاً وقت تأخر استيقاظ سيرفر Render)
   const name = document.getElementById('checkout-name').value.trim();
   const phone = document.getElementById('checkout-phone').value.trim();
   const notes = document.getElementById('checkout-notes').value.trim();
@@ -845,6 +848,9 @@ async function submitOrder() {
     customAlert(t('checkout_missing_fields'), 'warning');
     return;
   }
+  const btn = document.querySelector('.checkout-btn');
+  orderSubmitInProgress = true;
+  if (btn) { btn.disabled = true; btn.style.opacity = '0.6'; }
   try {
     const res = await fetch(`${API}/orders`, {
       method: 'POST',
@@ -879,6 +885,12 @@ async function submitOrder() {
     renderCart();
   } catch (err) {
     customAlert(t('server_error_title'), 'error');
+  } finally {
+    orderSubmitInProgress = false;
+    // لو نجح الطلب، renderCart() أصلاً بتعيد بناء الزر من جديد (مفعّل تلقائياً)
+    // ولو فشل، الزر نفسه لسا موجود بالـDOM فلازم نرجعه يشتغل يدوياً
+    const stillThere = document.querySelector('.checkout-btn');
+    if (stillThere) { stillThere.disabled = false; stillThere.style.opacity = ''; }
   }
 }
 
@@ -2083,19 +2095,25 @@ async function loadOrders() {
   try {
     const res = await fetch(`${API}/orders/${currentPharmacy.id}`, {
       headers: {
-        'x-pharmacy-username': currentPharmacy.username,
-        'x-pharmacy-password': currentPharmacy.password
+        'x-pharmacy-username': encodeURIComponent(currentPharmacy.username),
+        'x-pharmacy-password': encodeURIComponent(currentPharmacy.password)
       }
     });
-    if (!res.ok) throw new Error('unauthorized');
+    if (!res.ok) {
+      let bodyText = '';
+      try { bodyText = await res.text(); } catch (e) { bodyText = '(تعذّرت قراءة نص الرد)'; }
+      throw new Error(`HTTP ${res.status} — ${bodyText}`);
+    }
     const orders = await res.json();
     pharmacistOrdersCache = orders;
     renderOrdersUI();
   } catch (err) {
-    // فشل أول تحميل بس — نستبدل "جاري التحميل" برسالة خطأ واضحة، بدل ما تضل عالقة للأبد.
-    // فشل محاولة polling لاحقة (مش أول مرة) بيتجاهل بصمت زي ما كان أصلاً — البيانات القديمة تضل ظاهرة، والمحاولة الجاية بعد 12 ثانية ممكن تصلحها تلقائياً
+    // تشخيص مؤقت: بنعرض رسالة الخطأ الحقيقية بدل الرسالة العامة، لحد ما نعرف السبب الجذري بالضبط
     if (wasFirstLoad) {
-      document.getElementById('orders-list').innerHTML = `<p class="muted">${t('server_error_title')}</p>`;
+      document.getElementById('orders-list').innerHTML =
+        `<p class="muted" style="direction:ltr; text-align:left; word-break:break-word; font-family:monospace; font-size:13px;">
+          🔧 رسالة تشخيص مؤقتة — خذلها لقطة شاشة وابعتهالي:<br><br>${escapeHtml(err.message || String(err))}
+        </p>`;
     }
   }
   ordersLoadedOnce = true;
