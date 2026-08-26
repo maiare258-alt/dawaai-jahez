@@ -1019,21 +1019,23 @@ async function checkMyOrdersStatus() {
     const ids = myOrders.map(o => o.id).join(',');
     const res = await fetch(`${API}/orders/status?ids=${ids}`);
     const rows = await res.json();
-    const lengthBefore = myOrders.length;
     let newlyConfirmed = false;
-    myOrders = myOrders.filter(local => {
+    myOrders.forEach(local => {
       const found = rows.find(r => r.id === local.id);
-      if (!found) return false; // الصيدلية حذفت الطلب من عندها
+      // لو الصيدلية حذفت الطلب من عندها (عادةً بعد ما تسلّمه/تجاوبت عليه)، منعتبره "تم التأكيد" ومنخليه
+      // ظاهر بإشعارات المريض — لحد ما يمسحه هو بنفسه يدوياً، بدل ما يختفي تلقائياً من غير علمه
+      if (!found) {
+        if (local.status !== 'confirmed') { local.status = 'confirmed'; newlyConfirmed = true; }
+        return;
+      }
       if (found.status === 'confirmed' && local.status !== 'confirmed') {
         local.status = 'confirmed';
         newlyConfirmed = true;
       }
-      return true;
     });
 
     // ما منلمس أي عنصر بالصفحة إلا إذا صار تغيير فعلي — تجنباً لأي إعادة رسم بلا داعي
-    const changed = newlyConfirmed || myOrders.length !== lengthBefore;
-    if (changed) {
+    if (newlyConfirmed) {
       saveMyOrders();
       updateBellBadge();
       updateBellVisibility();
