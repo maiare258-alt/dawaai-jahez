@@ -55,15 +55,24 @@ router.get('/status', async (req, res) => {
 });
 
 // جلب طلبات صيدلية معينة (للوحة الصيدلي) — يتطلب تأكيد اسم المستخدم وكلمة مرور الصيدلية صاحبة الطلبات
-// بما إنه هذا طلب GET (بلا body تقليدياً)، بيانات الدخول تُرسل عبر ترويسات مخصصة — نفس مبدأ x-admin-password الموجود أصلاً
-// pharmacyId بالرابط غير موثوق كمصدر بيانات — يُستخدم بس للمقارنة مع pharmacy.id المصادق، وليس لجلب بيانات صيدلية أخرى
 // GET /api/orders/:pharmacyId  Headers: { x-pharmacy-username, x-pharmacy-password }
+// ملاحظة: الترويسات تُرسل مشفّرة (encodeURIComponent) من الواجهة لتفادي كسرها لو احتوت على
+// أحرف غير إنكليزية (عربي مثلاً) — نفك التشفير هون قبل أي استخدام لها
 router.get('/:pharmacyId', async (req, res) => {
-  const username = req.headers['x-pharmacy-username'];
-  const password = req.headers['x-pharmacy-password'];
-  if (!username || !password) {
+  const rawUsername = req.headers['x-pharmacy-username'];
+  const rawPassword = req.headers['x-pharmacy-password'];
+  if (!rawUsername || !rawPassword) {
     return res.status(401).json({ error: 'بيانات الدخول مطلوبة' });
   }
+
+  let username, password;
+  try {
+    username = decodeURIComponent(rawUsername);
+    password = decodeURIComponent(rawPassword);
+  } catch (err) {
+    return res.status(401).json({ error: 'بيانات الدخول غير صحيحة' });
+  }
+
   try {
     const pharmacy = await db.findPharmacyByUsername(username);
     if (!pharmacy) return res.status(401).json({ error: 'بيانات الدخول غير صحيحة' });
