@@ -789,9 +789,9 @@ function toggleCart() {
 
 function renderCart() {
   const container = document.getElementById('cart-section');
-  const statusSection = renderOrdersStatusSection();
+  const bellRow = renderBellRow();
   if (cart.length === 0) {
-    container.innerHTML = statusSection + `
+    container.innerHTML = bellRow + `
       <div class="box cart-empty">
         <div class="cart-empty-icon">🛒</div>
         <p class="cart-empty-title">${t('cart_empty_title')}</p>
@@ -800,7 +800,7 @@ function renderCart() {
     `;
     return;
   }
-  container.innerHTML = statusSection + `
+  container.innerHTML = bellRow + `
     <div class="cart-header">
       <h3 class="cart-title">${t('cart_panel_title')}</h3>
       <p class="cart-subtitle">${t('cart_panel_subtitle')}</p>
@@ -899,6 +899,11 @@ function saveMyOrders() {
 
 function updateBellBadge() {
   const confirmedCount = myOrders.filter(o => o.status === 'confirmed').length;
+  const badge = document.getElementById('bell-badge');
+  if (badge) {
+    badge.textContent = confirmedCount;
+    badge.style.display = confirmedCount > 0 ? 'flex' : 'none';
+  }
   const cartBadge = document.getElementById('cart-notify-badge');
   if (cartBadge) {
     cartBadge.textContent = confirmedCount;
@@ -906,10 +911,39 @@ function updateBellBadge() {
   }
 }
 
-// يبني قسم "حالة طلباتي" ليُعرض جوا صندوق السلة نفسه — يظهر ويختفي مع فتح/إغلاق السلة فقط،
-// بدون أي أيقونة أو زر منفصل. لهيك ما في داعي لأي تموضع عائم يمكن يتراكب مع أي عنصر تاني.
-function renderOrdersStatusSection() {
+// صف الجرس القابل للضغط — عنصر عادي بترتيب محتوى السلة (صفر position:absolute)، فمستحيل يتراكب
+// مع العنوان أو أي نص. بيُبنى من جديد مع كل renderCart، وبيختفي تلقائياً مع إغلاق السلة لأنه جزء
+// من نفس محتواها بالضبط. بيظهر بس لما يكون في طلبات مرسلة فعلاً.
+function renderBellRow() {
   if (!myOrders || myOrders.length === 0) return '';
+  const confirmedCount = myOrders.filter(o => o.status === 'confirmed').length;
+  return `
+    <div class="cart-bell-row">
+      <div class="cart-bell-wrap">
+        <button id="bell-btn" class="bell-btn-inline" onclick="toggleBellPanel()" aria-label="${t('bell_aria_label')}">
+          <span class="bell-icon">🔔</span>
+          <span class="bell-badge" id="bell-badge" style="${confirmedCount > 0 ? '' : 'display:none;'}">${confirmedCount}</span>
+        </button>
+        <div id="bell-panel" class="bell-panel" style="display:none"></div>
+      </div>
+    </div>`;
+}
+
+function toggleBellPanel() {
+  const panel = document.getElementById('bell-panel');
+  if (!panel) return;
+  const willShow = panel.style.display === 'none';
+  panel.style.display = willShow ? 'block' : 'none';
+  if (willShow) renderBellPanel();
+}
+
+function renderBellPanel() {
+  const panel = document.getElementById('bell-panel');
+  if (!panel) return;
+  if (!myOrders || myOrders.length === 0) {
+    panel.innerHTML = `<div class="bell-panel-empty">${t('bell_empty')}</div>`;
+    return;
+  }
   const clearAllBtn = `
     <div class="orders-status-header">
       <button class="orders-clear-all-btn" onclick="dismissAllMyOrders()">${t('bell_clear_all')}</button>
@@ -934,10 +968,11 @@ function renderOrdersStatusSection() {
         <button class="order-status-dismiss" onclick="dismissMyOrder(${o.id})" aria-label="${t('bell_dismiss_aria')}">✕</button>
       </div>`;
   }).join('');
-  return `<div class="orders-status-section">${clearAllBtn}${items}</div>`;
+  panel.innerHTML = clearAllBtn + items;
 }
 
-// تحديث خفيف: بيحدّث العداد دائماً، وبيعيد رسم السلة بس لو كانت مفتوحة فعلاً وقت الحذف
+// تحديث خفيف: بيحدّث العداد دائماً، وبيعيد رسم السلة كاملة بس لو كانت مفتوحة فعلاً وقت الحذف
+// (لازم renderCart كاملة هون لأنه صف الجرس نفسه لازم يختفي لو صفرنا آخر طلب)
 function refreshBellUI() {
   updateBellBadge();
   const cartSection = document.getElementById('cart-section');
@@ -2606,6 +2641,11 @@ document.addEventListener('click', (e) => {
   if (box && !box.contains(e.target) && e.target !== input) {
     box.classList.remove('show');
     suggestionIndex = -1;
+  }
+  const bellPanel = document.getElementById('bell-panel');
+  const bellBtn = document.getElementById('bell-btn');
+  if (bellPanel && bellPanel.style.display !== 'none' && !bellPanel.contains(e.target) && bellBtn && !bellBtn.contains(e.target)) {
+    bellPanel.style.display = 'none';
   }
 });
 
