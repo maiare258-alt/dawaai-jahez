@@ -84,7 +84,7 @@
   .cart-section-wrap { position: relative; }
   /* صف الجرس: يُبنى ديناميكياً مع كل تحديث للسلة، جوا محتواها تماماً وتحت العنوان مباشرة —
      صفر position:absolute على مستوى الصفحة، فمستحيل يظهر برا صندوق السلة أو يتراكب مع العنوان */
-  .cart-bell-row { text-align: right; margin: 4px 0 14px; }
+  .cart-bell-row { position: absolute; top: 12px; right: 12px; z-index: 5; }
   .cart-bell-wrap { position: relative; display: inline-block; }
   .bell-btn {
     position: relative; display: inline-flex; align-items: center; justify-content: center;
@@ -584,7 +584,7 @@
   .empty-icon { font-size: 44px; margin-bottom: 12px; }
   .empty-title { font-size: 18px; font-weight: 700; color: #163a5c; margin: 0 0 6px; }
   .empty-subtitle { font-size: 15px; color: #5f5e5a; margin: 0; }
-  .cart-header { margin-bottom: 4px; }
+  .cart-header { position: relative; margin-bottom: 4px; padding-right: 56px; }
   .cart-title { font-size: 20px; font-weight: 700; color: #163a5c; margin: 0 0 2px; }
   .cart-subtitle { font-size: 14px; color: #5f5e5a; margin: 0 0 16px; }
   .cart-item-card {
@@ -619,7 +619,7 @@
     box-shadow: 0 6px 16px rgba(24,95,165,0.25);
   }
   .checkout-btn:hover { transform: translateY(-1px); filter: brightness(1.06); box-shadow: 0 10px 22px rgba(24,95,165,0.32); }
-  .cart-empty { text-align: center; padding: 36px 20px; }
+  .cart-empty { position: relative; text-align: center; padding: 36px 20px; }
   .cart-empty-icon { font-size: 44px; margin-bottom: 12px; }
   .cart-empty-title { font-size: 18px; font-weight: 700; color: #163a5c; margin: 0 0 6px; }
   .cart-empty-subtitle { font-size: 15px; color: #5f5e5a; margin: 0; }
