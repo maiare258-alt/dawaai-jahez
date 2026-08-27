@@ -795,6 +795,7 @@ function renderCart() {
   const container = document.getElementById('cart-section');
   const bellRow = renderBellRow();
   if (cart.length === 0) {
+    // السلة فاضية: هون بس بيظهر الجرس (بزاوية البطاقة العلوية اليمنى)
     container.innerHTML = `
       <div class="box cart-empty">
         ${bellRow}
@@ -805,9 +806,9 @@ function renderCart() {
     `;
     return;
   }
+  // السلة فيها أدوية: صفر جرس إطلاقاً
   container.innerHTML = `
     <div class="cart-header">
-      ${bellRow}
       <h3 class="cart-title">${t('cart_panel_title')}</h3>
       <p class="cart-subtitle">${t('cart_panel_subtitle')}</p>
     </div>
