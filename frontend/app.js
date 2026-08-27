@@ -446,9 +446,13 @@ function applyLanguage() {
   document.getElementById('lang-toggle-btn').textContent = t('lang_toggle');
   document.getElementById('brand-name').textContent = t('brand_name');
 
-  renderCart(); // لتحديث نص حالة الفراغ وحالة الطلبات لو العربة مفتوحة
+  renderCart(); // لتحديث نص حالة الفراغ لو العربة مفتوحة وفاضية
   if (document.getElementById('search').value.trim()) runSearch(); // تحديث نتائج البحث الحالية لو موجودة
 
+  const bellBtnEl = document.getElementById('bell-btn');
+  if (bellBtnEl) bellBtnEl.setAttribute('aria-label', t('bell_aria_label'));
+  const bellPanelEl = document.getElementById('bell-panel');
+  if (bellPanelEl && bellPanelEl.style.display !== 'none') renderBellPanel();
   lastOnDutySnapshot = null; // نجبر إعادة رسم الصيدليات المناوبة حتى لو البيانات نفسها ما تغيّرت
   loadOnDuty();
 
@@ -600,6 +604,7 @@ function updateCartVisibility() {
     cartBtn.style.display = 'none';
     cartSection.style.display = 'none';
   }
+  updateBellVisibility();
 }
 
 // ---------- روابط الهيدر (المتحكم الوحيد بالتنقل بالموقع) ----------
@@ -785,13 +790,13 @@ function toggleCart() {
   } else {
     section.style.display = 'none';
   }
+  updateBellVisibility();
 }
 
 function renderCart() {
   const container = document.getElementById('cart-section');
-  const bellRow = renderBellRow();
   if (cart.length === 0) {
-    container.innerHTML = bellRow + `
+    container.innerHTML = `
       <div class="box cart-empty">
         <div class="cart-empty-icon">🛒</div>
         <p class="cart-empty-title">${t('cart_empty_title')}</p>
@@ -800,7 +805,7 @@ function renderCart() {
     `;
     return;
   }
-  container.innerHTML = bellRow + `
+  container.innerHTML = `
     <div class="cart-header">
       <h3 class="cart-title">${t('cart_panel_title')}</h3>
       <p class="cart-subtitle">${t('cart_panel_subtitle')}</p>
@@ -832,6 +837,7 @@ function renderCart() {
       <button class="checkout-btn" onclick="submitOrder()">${t('checkout_btn')}</button>
     </div>
   `;
+  updateBellVisibility();
 }
 
 let orderSubmitInProgress = false;
@@ -911,22 +917,22 @@ function updateBellBadge() {
   }
 }
 
-// صف الجرس القابل للضغط — عنصر عادي بترتيب محتوى السلة (صفر position:absolute)، فمستحيل يتراكب
-// مع العنوان أو أي نص. بيُبنى من جديد مع كل renderCart، وبيختفي تلقائياً مع إغلاق السلة لأنه جزء
-// من نفس محتواها بالضبط. بيظهر بس لما يكون في طلبات مرسلة فعلاً.
-function renderBellRow() {
-  if (!myOrders || myOrders.length === 0) return '';
-  const confirmedCount = myOrders.filter(o => o.status === 'confirmed').length;
-  return `
-    <div class="cart-bell-row">
-      <div class="cart-bell-wrap">
-        <button id="bell-btn" class="bell-btn-inline" onclick="toggleBellPanel()" aria-label="${t('bell_aria_label')}">
-          <span class="bell-icon">🔔</span>
-          <span class="bell-badge" id="bell-badge" style="${confirmedCount > 0 ? '' : 'display:none;'}">${confirmedCount}</span>
-        </button>
-        <div id="bell-panel" class="bell-panel" style="display:none"></div>
-      </div>
-    </div>`;
+// يتحكم بإظهار/إخفاء زر الجرس الثابت (عنصر واحد بالـHTML، مثبّت بزاوية صندوق السلة نفسه) —
+// بيظهر بس لما تكون السلة مفتوحة وعندك طلبات مرسلة فعلاً، ويختفي تلقائياً مع إغلاق السلة
+function updateBellVisibility() {
+  const btn = document.getElementById('bell-btn');
+  if (!btn) return;
+  const wrap = document.querySelector('.cart-section-wrap');
+  const cartSection = document.getElementById('cart-section');
+  const cartOpen = cartSection && cartSection.style.display !== 'none';
+  const hasOrders = myOrders.length > 0;
+  const showBell = hasOrders && cartOpen;
+  btn.style.display = showBell ? 'inline-flex' : 'none';
+  if (wrap) wrap.classList.toggle('has-bell', showBell);
+  if (!showBell) {
+    const panel = document.getElementById('bell-panel');
+    if (panel) panel.style.display = 'none';
+  }
 }
 
 function toggleBellPanel() {
@@ -975,8 +981,7 @@ function renderBellPanel() {
 // (لازم renderCart كاملة هون لأنه صف الجرس نفسه لازم يختفي لو صفرنا آخر طلب)
 function refreshBellUI() {
   updateBellBadge();
-  const cartSection = document.getElementById('cart-section');
-  if (cartSection && cartSection.style.display !== 'none') renderCart();
+  updateBellVisibility();
 }
 
 function dismissMyOrder(id) {
@@ -2656,4 +2661,5 @@ loadOnDuty();
 updateCartCount();
 setInterval(loadOnDuty, 5000);
 updateBellBadge();
+updateBellVisibility();
 if (myOrders.length > 0) startMyOrdersPolling();
