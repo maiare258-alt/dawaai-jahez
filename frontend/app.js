@@ -800,8 +800,9 @@ function renderCart() {
         <div class="cart-empty-icon">🛒</div>
         <p class="cart-empty-title">${t('cart_empty_title')}</p>
         <p class="cart-empty-subtitle">${t('cart_empty_subtitle')}</p>
+        ${bellRow}
       </div>
-    ` + bellRow;
+    `;
     return;
   }
   container.innerHTML = `
