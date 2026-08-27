@@ -446,13 +446,9 @@ function applyLanguage() {
   document.getElementById('lang-toggle-btn').textContent = t('lang_toggle');
   document.getElementById('brand-name').textContent = t('brand_name');
 
-  renderCart(); // لتحديث نص حالة الفراغ لو العربة مفتوحة وفاضية
+  renderCart(); // لتحديث نص حالة الفراغ وحالة الطلبات لو العربة مفتوحة
   if (document.getElementById('search').value.trim()) runSearch(); // تحديث نتائج البحث الحالية لو موجودة
 
-  const bellBtnEl = document.getElementById('bell-btn');
-  if (bellBtnEl) bellBtnEl.setAttribute('aria-label', t('bell_aria_label'));
-  const bellPanelEl = document.getElementById('bell-panel');
-  if (bellPanelEl && bellPanelEl.style.display !== 'none') renderBellPanel();
   lastOnDutySnapshot = null; // نجبر إعادة رسم الصيدليات المناوبة حتى لو البيانات نفسها ما تغيّرت
   loadOnDuty();
 
@@ -604,7 +600,6 @@ function updateCartVisibility() {
     cartBtn.style.display = 'none';
     cartSection.style.display = 'none';
   }
-  updateBellVisibility();
 }
 
 // ---------- روابط الهيدر (المتحكم الوحيد بالتنقل بالموقع) ----------
@@ -790,13 +785,13 @@ function toggleCart() {
   } else {
     section.style.display = 'none';
   }
-  updateBellVisibility();
 }
 
 function renderCart() {
   const container = document.getElementById('cart-section');
+  const statusSection = renderOrdersStatusSection();
   if (cart.length === 0) {
-    container.innerHTML = `
+    container.innerHTML = statusSection + `
       <div class="box cart-empty">
         <div class="cart-empty-icon">🛒</div>
         <p class="cart-empty-title">${t('cart_empty_title')}</p>
@@ -805,7 +800,7 @@ function renderCart() {
     `;
     return;
   }
-  container.innerHTML = `
+  container.innerHTML = statusSection + `
     <div class="cart-header">
       <h3 class="cart-title">${t('cart_panel_title')}</h3>
       <p class="cart-subtitle">${t('cart_panel_subtitle')}</p>
@@ -885,7 +880,6 @@ async function submitOrder() {
     cart = [];
     saveCart();
     renderCart();
-    updateBellVisibility();
   } catch (err) {
     customAlert(t('server_error_title'), 'error');
   } finally {
@@ -905,11 +899,6 @@ function saveMyOrders() {
 
 function updateBellBadge() {
   const confirmedCount = myOrders.filter(o => o.status === 'confirmed').length;
-  const badge = document.getElementById('bell-badge');
-  if (badge) {
-    badge.textContent = confirmedCount;
-    badge.style.display = confirmedCount > 0 ? 'flex' : 'none';
-  }
   const cartBadge = document.getElementById('cart-notify-badge');
   if (cartBadge) {
     cartBadge.textContent = confirmedCount;
@@ -917,41 +906,13 @@ function updateBellBadge() {
   }
 }
 
-// يتحكم بإظهار/إخفاء زر الجرس العائم نفسه — بيظهر بس لما تكون السلة مفتوحة وعندك طلبات مرسلة فعلاً
-function updateBellVisibility() {
-  const btn = document.getElementById('bell-btn');
-  if (!btn) return;
-  const wrap = document.querySelector('.cart-section-wrap');
-  const cartSection = document.getElementById('cart-section');
-  const cartOpen = cartSection && cartSection.style.display !== 'none';
-  const hasOrders = myOrders.length > 0;
-  const showBell = hasOrders && cartOpen;
-  btn.style.display = showBell ? 'inline-flex' : 'none';
-  if (wrap) wrap.classList.toggle('has-bell', showBell);
-  if (!showBell) {
-    const panel = document.getElementById('bell-panel');
-    if (panel) panel.style.display = 'none';
-  }
-}
-
-function toggleBellPanel() {
-  const panel = document.getElementById('bell-panel');
-  if (!panel) return;
-  const willShow = panel.style.display === 'none';
-  panel.style.display = willShow ? 'block' : 'none';
-  if (willShow) renderBellPanel();
-}
-
-function renderBellPanel() {
-  const panel = document.getElementById('bell-panel');
-  if (!panel) return;
-  if (!myOrders || myOrders.length === 0) {
-    panel.innerHTML = `<div class="bell-panel-empty">${t('bell_empty')}</div>`;
-    return;
-  }
+// يبني قسم "حالة طلباتي" ليُعرض جوا صندوق السلة نفسه — يظهر ويختفي مع فتح/إغلاق السلة فقط،
+// بدون أي أيقونة أو زر منفصل. لهيك ما في داعي لأي تموضع عائم يمكن يتراكب مع أي عنصر تاني.
+function renderOrdersStatusSection() {
+  if (!myOrders || myOrders.length === 0) return '';
   const clearAllBtn = `
-    <div class="bell-panel-header">
-      <button class="bell-clear-all-btn" onclick="dismissAllMyOrders()">${t('bell_clear_all')}</button>
+    <div class="orders-status-header">
+      <button class="orders-clear-all-btn" onclick="dismissAllMyOrders()">${t('bell_clear_all')}</button>
     </div>`;
   const items = myOrders.map(o => {
     if (o.status === 'confirmed') {
@@ -973,14 +934,14 @@ function renderBellPanel() {
         <button class="order-status-dismiss" onclick="dismissMyOrder(${o.id})" aria-label="${t('bell_dismiss_aria')}">✕</button>
       </div>`;
   }).join('');
-  panel.innerHTML = clearAllBtn + items;
+  return `<div class="orders-status-section">${clearAllBtn}${items}</div>`;
 }
 
+// تحديث خفيف: بيحدّث العداد دائماً، وبيعيد رسم السلة بس لو كانت مفتوحة فعلاً وقت الحذف
 function refreshBellUI() {
   updateBellBadge();
-  updateBellVisibility();
-  const panel = document.getElementById('bell-panel');
-  if (panel && panel.style.display !== 'none') renderBellPanel();
+  const cartSection = document.getElementById('cart-section');
+  if (cartSection && cartSection.style.display !== 'none') renderCart();
 }
 
 function dismissMyOrder(id) {
@@ -994,8 +955,7 @@ function dismissAllMyOrders() {
   myOrders = [];
   saveMyOrders();
   stopMyOrdersPolling();
-  updateBellBadge();
-  updateBellVisibility();
+  refreshBellUI();
 }
 
 let myOrdersPollInterval = null;
@@ -1014,7 +974,7 @@ function stopMyOrdersPolling() {
 }
 
 async function checkMyOrdersStatus() {
-  if (!myOrders || myOrders.length === 0) { stopMyOrdersPolling(); updateBellVisibility(); return; }
+  if (!myOrders || myOrders.length === 0) { stopMyOrdersPolling(); return; }
   try {
     const ids = myOrders.map(o => o.id).join(',');
     const res = await fetch(`${API}/orders/status?ids=${ids}`);
@@ -1037,10 +997,7 @@ async function checkMyOrdersStatus() {
     // ما منلمس أي عنصر بالصفحة إلا إذا صار تغيير فعلي — تجنباً لأي إعادة رسم بلا داعي
     if (newlyConfirmed) {
       saveMyOrders();
-      updateBellBadge();
-      updateBellVisibility();
-      const panel = document.getElementById('bell-panel');
-      if (panel && panel.style.display !== 'none') renderBellPanel();
+      refreshBellUI();
     }
     if (myOrders.every(o => o.status === 'confirmed')) stopMyOrdersPolling();
   } catch (err) { /* تجاهل بصمت، رح يعيد المحاولة بالجولة الجاية */ }
@@ -2650,11 +2607,6 @@ document.addEventListener('click', (e) => {
     box.classList.remove('show');
     suggestionIndex = -1;
   }
-  const bellPanel = document.getElementById('bell-panel');
-  const bellBtn = document.getElementById('bell-btn');
-  if (bellPanel && bellPanel.style.display !== 'none' && !bellPanel.contains(e.target) && bellBtn && !bellBtn.contains(e.target)) {
-    bellPanel.style.display = 'none';
-  }
 });
 
 showView('patient');
@@ -2664,5 +2616,4 @@ loadOnDuty();
 updateCartCount();
 setInterval(loadOnDuty, 5000);
 updateBellBadge();
-updateBellVisibility();
 if (myOrders.length > 0) startMyOrdersPolling();
