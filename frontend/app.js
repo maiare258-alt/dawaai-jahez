@@ -797,20 +797,20 @@ function renderCart() {
   if (cart.length === 0) {
     container.innerHTML = `
       <div class="box cart-empty">
+        ${bellRow}
         <div class="cart-empty-icon">🛒</div>
         <p class="cart-empty-title">${t('cart_empty_title')}</p>
         <p class="cart-empty-subtitle">${t('cart_empty_subtitle')}</p>
-        ${bellRow}
       </div>
     `;
     return;
   }
   container.innerHTML = `
     <div class="cart-header">
+      ${bellRow}
       <h3 class="cart-title">${t('cart_panel_title')}</h3>
       <p class="cart-subtitle">${t('cart_panel_subtitle')}</p>
     </div>
-    ` + bellRow + `
     ${cart.map((item, i) => `
       <div class="cart-item-card">
         <div class="cart-item-top">
