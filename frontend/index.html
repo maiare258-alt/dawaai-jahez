@@ -82,18 +82,23 @@
   }
   .lang-toggle-btn:hover { background: #eef4fa; }
   .cart-section-wrap { position: relative; }
-  /* صف الجرس: عنصر عادي بترتيب محتوى السلة (صفر position:absolute)، فمستحيل يتراكب مع العنوان أو أي
-     نص — بيُبنى ويُمحى مع renderCart نفسها، فبيختفي تلقائياً وبشكل كامل مع إغلاق السلة */
-  .cart-bell-row { text-align: right; margin-bottom: 10px; }
-  .cart-bell-wrap { position: relative; }
-  .bell-btn-inline {
+  .cart-section-wrap.has-bell { min-height: 76px; }
+  /* لما الجرس ظاهر، بنحجز مسافة فاضية واسعة بأعلى يمين محتوى السلة عشان يبقى فراغ واضح ومريح
+     بينه وبين العنوان، مش بس تجنّب التراكب الحرفي */
+  .cart-section-wrap.has-bell .cart-header,
+  .cart-section-wrap.has-bell .cart-empty { padding-right: 90px; }
+  .cart-section-wrap .bell-wrap { position: absolute; top: 14px; right: 14px; z-index: 30; }
+  body.modal-open .bell-wrap {
+    visibility: hidden; opacity: 0; transition: opacity .15s ease;
+  }
+  .bell-btn {
     position: relative; display: inline-flex; align-items: center; justify-content: center;
     background: #fff; border: 1px solid #cfe0ef; cursor: pointer;
-    width: 40px; height: 40px; border-radius: 50%; font-size: 17px; color: #185fa5;
+    width: 44px; height: 44px; border-radius: 50%; font-size: 19px; color: #185fa5;
     box-shadow: 0 4px 14px rgba(24,95,165,0.12);
     transition: background .2s, transform .2s;
   }
-  .bell-btn-inline:hover { background: #eef4fa; transform: translateY(-2px); }
+  .bell-btn:hover { background: #eef4fa; transform: translateY(-2px); }
   .bell-badge {
     position: absolute; top: -2px; left: -2px;
     background: #d64545; color: #fff; font-size: 11px; font-weight: 700;
@@ -102,13 +107,13 @@
     box-shadow: 0 0 0 2px #fff;
   }
   .bell-panel {
-    position: absolute; top: calc(100% + 8px); left: 0; width: 280px; max-width: calc(100vw - 40px);
+    position: absolute; top: calc(100% + 10px); right: 0; width: 300px; max-width: calc(100vw - 40px);
     background: #fff; border: 1px solid #cfe0ef; border-radius: 16px;
     box-shadow: 0 14px 32px rgba(24,95,165,0.18); padding: 10px;
-    max-height: 340px; overflow-y: auto; z-index: 50;
+    max-height: 360px; overflow-y: auto; z-index: 200;
   }
   .bell-panel-empty { text-align: center; color: #7b8a97; font-size: 14px; padding: 18px 6px; }
-  .orders-status-header { display: flex; justify-content: flex-end; padding: 0 2px 8px; }
+  .orders-status-header { text-align: right; padding: 0 2px 8px; }
   .orders-clear-all-btn {
     background: none; border: none; color: #a33; font-size: 13px; font-weight: 600;
     cursor: pointer; font-family: inherit; padding: 4px 6px;
@@ -888,6 +893,13 @@
 
 <div class="container">
   <div class="cart-section-wrap">
+    <div class="bell-wrap">
+      <button id="bell-btn" class="bell-btn" onclick="toggleBellPanel()" aria-label="إشعارات الطلبات" style="display:none">
+        <span class="bell-icon">🔔</span>
+        <span class="bell-badge" id="bell-badge" style="display:none">0</span>
+      </button>
+      <div id="bell-panel" class="bell-panel" style="display:none"></div>
+    </div>
     <div id="cart-section" style="display:none; margin-bottom:16px;"></div>
   </div>
   <div id="view-patient">
