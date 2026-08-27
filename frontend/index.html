@@ -82,8 +82,32 @@
   }
   .lang-toggle-btn:hover { background: #eef4fa; }
   .cart-section-wrap { position: relative; }
-  /* قسم حالة الطلبات: عنصر عادي بترتيب محتوى السلة (صفر تموضع عائم)، فمستحيل يتراكب مع العنوان أو أي نص */
-  .orders-status-section { margin-bottom: 16px; }
+  /* صف الجرس: عنصر عادي بترتيب محتوى السلة (صفر position:absolute)، فمستحيل يتراكب مع العنوان أو أي
+     نص — بيُبنى ويُمحى مع renderCart نفسها، فبيختفي تلقائياً وبشكل كامل مع إغلاق السلة */
+  .cart-bell-row { display: flex; justify-content: flex-end; margin-bottom: 10px; }
+  .cart-bell-wrap { position: relative; }
+  .bell-btn-inline {
+    position: relative; display: inline-flex; align-items: center; justify-content: center;
+    background: #fff; border: 1px solid #cfe0ef; cursor: pointer;
+    width: 40px; height: 40px; border-radius: 50%; font-size: 17px; color: #185fa5;
+    box-shadow: 0 4px 14px rgba(24,95,165,0.12);
+    transition: background .2s, transform .2s;
+  }
+  .bell-btn-inline:hover { background: #eef4fa; transform: translateY(-2px); }
+  .bell-badge {
+    position: absolute; top: -2px; left: -2px;
+    background: #d64545; color: #fff; font-size: 11px; font-weight: 700;
+    min-width: 18px; height: 18px; border-radius: 999px;
+    display: flex; align-items: center; justify-content: center; padding: 0 4px;
+    box-shadow: 0 0 0 2px #fff;
+  }
+  .bell-panel {
+    position: absolute; top: calc(100% + 8px); left: 0; width: 280px; max-width: calc(100vw - 40px);
+    background: #fff; border: 1px solid #cfe0ef; border-radius: 16px;
+    box-shadow: 0 14px 32px rgba(24,95,165,0.18); padding: 10px;
+    max-height: 340px; overflow-y: auto; z-index: 50;
+  }
+  .bell-panel-empty { text-align: center; color: #7b8a97; font-size: 14px; padding: 18px 6px; }
   .orders-status-header { display: flex; justify-content: flex-end; padding: 0 2px 8px; }
   .orders-clear-all-btn {
     background: none; border: none; color: #a33; font-size: 13px; font-weight: 600;
