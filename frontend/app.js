@@ -839,8 +839,8 @@ function renderCart() {
     `).join('')}
     <div class="cart-summary">
       <div class="cart-summary-row"><span>${t('cart_items_count_label')}</span><span>${cart.length}</span></div>
-      <input id="checkout-name" placeholder="${t('checkout_name_placeholder')}">
-      <input id="checkout-phone" placeholder="${t('checkout_phone_placeholder')}" type="tel" inputmode="numeric" oninput="digitsOnly(this)">
+      <input id="checkout-name" placeholder="${t('checkout_name_placeholder')}" aria-label="${t('checkout_name_placeholder')}">
+      <input id="checkout-phone" placeholder="${t('checkout_phone_placeholder')}" aria-label="${t('checkout_phone_placeholder')}" type="tel" inputmode="numeric" oninput="digitsOnly(this)">
       <textarea id="checkout-notes" placeholder="${t('checkout_notes_placeholder')}" rows="2" style="width:100%; padding:10px 14px; border:1px solid #cfe0ef; border-radius:14px; font-family:inherit; font-size:15px; resize:vertical; margin-bottom:10px;"></textarea>
       <button class="checkout-btn" onclick="submitOrder()">${t('checkout_btn')}</button>
     </div>
