@@ -30,6 +30,11 @@
   ::-webkit-scrollbar-thumb { background: #c3ddf0; border-radius: 999px; }
   ::-webkit-scrollbar-thumb:hover { background: #a9cdea; }
   input:focus, select:focus { outline: none; border-color: #5c9bd8; }
+  /* مؤشر تركيز إضافي واضح للتنقل بلوحة المفاتيح تحديداً (Tab)، ما بيظهر مع نقر الماوس العادي
+     عشان نحافظ على الشكل الحالي الهادئ، وما بيغيّر أي أبعاد أو تخطيط (box-shadow بلا layout shift) */
+  input:focus-visible, select:focus-visible {
+    box-shadow: 0 0 0 3px rgba(92,155,216,0.5);
+  }
   body {
     font-family: 'Tahoma', 'Segoe UI', sans-serif;
     background: #eaf5fc;
@@ -331,6 +336,7 @@
     transition: border-color .2s ease, box-shadow .2s ease;
   }
   #search:focus { outline: none; border-color: #5c9bd8; box-shadow: 0 10px 30px rgba(24,95,165,0.28); }
+  #search:focus-visible { box-shadow: 0 10px 30px rgba(24,95,165,0.28), 0 0 0 3px rgba(92,155,216,0.55); }
   .search-icon {
     position: absolute; right: 22px; top: 50%; transform: translateY(-50%);
     font-size: 20px; color: #5c9bd8; pointer-events: none;
@@ -399,7 +405,7 @@
   }
   .toggle-btn.yes { background: #eaf3de; color: #27500a; border-color: #97c459; }
   .toggle-btn.no { background: #fcebeb; color: #7a1f1f; border-color: #f09595; }
-  .muted { color: #888780; font-size: 15px; }
+  .muted { color: #76756e; font-size: 15px; }
   .auth-box { background: white; border: 1px solid #cfe0ef; border-radius: 16px; padding: 22px; }
   .auth-box button.primary, button.primary {
     width: 100%; padding: 12px; color: white; border: none;
@@ -433,6 +439,7 @@
     border: none; flex: 1; padding: 12px 0; margin-bottom: 0; font-size: 16px; font-family: inherit;
   }
   .password-field input:focus { outline: none; }
+  .password-field input:focus-visible { box-shadow: 0 0 0 3px rgba(92,155,216,0.5); border-radius: 8px; }
   .password-field .toggle-password {
     background: none; border: none; cursor: pointer; font-size: 18px; color: #888780; padding: 12px;
     display: inline-flex; align-items: center; justify-content: center;
