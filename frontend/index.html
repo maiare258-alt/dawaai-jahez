@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>دوائي جاهز | توفر الأدوية في الصيدليات</title>
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#185fa5">
 <style>
   * { box-sizing: border-box; }
   html { scroll-behavior: smooth; }
@@ -1072,5 +1074,14 @@
 
 
 <script src="app.js"></script>
+<script>
+  // تسجيل الـService Worker (شرط أساسي لتحويل الموقع لتطبيق PWA قابل للتثبيت) —
+  // بشكل آمن تماماً: لو فشل التسجيل لأي سبب، الموقع بيستمر يشتغل عادي بدون أي تأثير
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('service-worker.js').catch(() => {});
+    });
+  }
+</script>
 </body>
 </html>
