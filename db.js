@@ -121,8 +121,6 @@ async function initDb() {
 
 // ---------- أدوات مساعدة للتشابه الإملائي ----------
 
-// تحسب "مسافة التحرير" بين كلمتين: أقل عدد تعديلات (إضافة/حذف/استبدال حرف)
-// لتحويل كلمة لأخرى. كل ما كانت الرقم أصغر، كل ما كانت الكلمتين أقرب لبعض
 function levenshtein(a, b) {
   const m = a.length, n = b.length;
   const dp = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));
@@ -164,7 +162,6 @@ async function addMedicine({ name, generic_name, alt_names, category }) {
   return rows[0];
 }
 
-// بحث بالاسم الحرفي المطابق تماماً (نفس التصنيف) - يُستخدم بالاستيراد الجماعي لتفادي تكرار نفس الدواء
 async function findMedicineByExactName(name, category) {
   const { rows } = await pool.query(
     'SELECT * FROM medicines WHERE name = $1 AND category = $2 LIMIT 1',
@@ -178,7 +175,6 @@ async function getAllMedicines() {
   return rows;
 }
 
-// تقترح أدوية/مستحضرات قريبة إملائياً من كلمة البحث (تتحمل خطأ حرف أو حرفين)، بنفس التصنيف
 async function suggestMedicines(query, category = 'medicine') {
   const q = query.trim().toLowerCase();
   if (q.length < 2) return [];
@@ -302,9 +298,6 @@ async function getStockForPharmacy(pharmacyId) {
   return rows;
 }
 
-// manufactureDate وexpiryDate اختياريان — لو ما انبعتوا (undefined)، القيم الموجودة أصلاً بالصف تضل زي ما هي (COALESCE)
-// manufactureDate/expiryDate === undefined يعني "ما لمسنا هالحقل إطلاقاً" (تبديل توفر عادي) — القيمة القديمة تضل زي ما هي
-// manufactureDate/expiryDate === null (أو تاريخ حقيقي) يعني "المستخدم حفظ من لوحة التواريخ قصداً" — حتى لو فاضي (تفريغ متعمد)، لازم يتحدث
 async function setStock(pharmacyId, medicineId, available, manufactureDate, expiryDate) {
   const mfgProvided = manufactureDate !== undefined;
   const expProvided = expiryDate !== undefined;
@@ -346,12 +339,10 @@ async function deleteOrder(orderId) {
   await pool.query(`DELETE FROM orders WHERE id = $1`, [orderId]);
 }
 
-// الصيدلي يأكد إنه استجاب للطلب وحجز الدواء
 async function confirmOrder(orderId) {
   await pool.query(`UPDATE orders SET status = 'confirmed' WHERE id = $1`, [orderId]);
 }
 
-// جلب حالة مجموعة طلبات معينة (للمريض، عشان يعرف إذا الصيدلية استجابت)
 async function getOrdersStatus(ids) {
   const { rows } = await pool.query(
     `SELECT o.id, o.status, p.name AS pharmacy_name
@@ -369,7 +360,6 @@ async function getAllNurses() {
   return rows;
 }
 
-// قائمة الممرضين مع متوسط تقييمهم وعدد التقييمات (الموافق عليها بس) - لواجهة المريض ولوحة الإدارة
 async function getNursesWithRatings() {
   const { rows } = await pool.query(`
     SELECT n.*,
@@ -405,9 +395,13 @@ async function setNurseAvailability(nurseId, available) {
 }
 
 // التقييمات الموافق عليها بس لممرض معين (تظهر للعموم بالتفاصيل)
+// ملاحظة: patient_name مقصود حذفه من هون تحديداً — الواجهة الأمامية العامة ما بتستخدمه إطلاقاً
+// (بتعرض بس النجوم والتعليق)، فما في داعي يترجع أصلاً بنقطة API عامة بلا مصادقة (تقليل البيانات
+// المُصدَّرة للحد الأدنى). لوحة الإدارة (getPendingRatings/getApprovedRatings) غير متأثرة إطلاقاً
+// وتضل ترجع كل الأعمدة (بما فيها patient_name وpatient_phone) لأنها محمية بـadminAuth ومحتاجتهم فعلياً
 async function getApprovedRatingsForNurse(nurseId) {
   const { rows } = await pool.query(
-    `SELECT id, patient_name, stars, comment, created_at
+    `SELECT id, stars, comment, created_at
      FROM nurse_ratings
      WHERE nurse_id = $1 AND status = 'approved'
      ORDER BY created_at DESC`,
@@ -416,7 +410,6 @@ async function getApprovedRatingsForNurse(nurseId) {
   return rows;
 }
 
-// إضافة تقييم جديد - بيروح حالة "قيد المراجعة" دايماً، ما بيظهر للعموم إلا بعد موافقة الإدارة
 async function addNurseRating({ nurse_id, patient_name, patient_phone, stars, comment }) {
   const { rows } = await pool.query(
     `INSERT INTO nurse_ratings (nurse_id, patient_name, patient_phone, stars, comment)
@@ -436,7 +429,6 @@ async function getPendingRatings() {
   return rows;
 }
 
-// كل التقييمات المنشورة (الموافق عليها) - لمراجعة الإدارة وحذف أي تعليق مسيء لاحقاً
 async function getApprovedRatings() {
   const { rows } = await pool.query(
     `SELECT r.*, n.name AS nurse_name
@@ -451,7 +443,6 @@ async function approveRating(ratingId) {
   await pool.query(`UPDATE nurse_ratings SET status = 'approved' WHERE id = $1`, [ratingId]);
 }
 
-// رفض تقييم = حذفه نهائياً (ما بضل أي أثر له، مش رح يظهر لا للإدارة ولا للعموم)
 async function rejectRating(ratingId) {
   await pool.query('DELETE FROM nurse_ratings WHERE id = $1', [ratingId]);
 }
