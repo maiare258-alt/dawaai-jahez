@@ -1384,8 +1384,8 @@ async function renderNurseDetail(nurseId) {
             ${[1, 2, 3, 4, 5].map(i => `<button type="button" onclick="setRatingStars(${nurseId}, ${i})" data-i="${i}" aria-label="${starAriaLabel(i)}" aria-pressed="false">☆</button>`).join('')}
           </div>
           <textarea id="rating-comment-${nurseId}" placeholder="${t('comment_placeholder')}" rows="2" style="width:100%; padding:10px 14px; border:1px solid #cfe0ef; border-radius:14px; font-family:inherit; font-size:15px; resize:vertical; margin-bottom:10px;"></textarea>
-          <input id="rating-name-${nurseId}" placeholder="${t('your_name_placeholder')}">
-          <input id="rating-phone-${nurseId}" placeholder="${t('your_phone_placeholder')}" type="tel" inputmode="numeric" oninput="digitsOnly(this)">
+          <input id="rating-name-${nurseId}" placeholder="${t('your_name_placeholder')}" aria-label="${t('your_name_placeholder')}">
+          <input id="rating-phone-${nurseId}" placeholder="${t('your_phone_placeholder')}" aria-label="${t('your_phone_placeholder')}" type="tel" inputmode="numeric" oninput="digitsOnly(this)">
           <button class="primary" onclick="submitNurseRating(${nurseId})">${t('submit_rating_btn')}</button>
         `}
     </div>
