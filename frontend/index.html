@@ -7,6 +7,12 @@
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#185fa5">
+<meta name="color-scheme" content="light">
+<!-- منع أندرويد/كروم من عكس ألوان الموقع تلقائياً عند تفعيل الوضع الليلي بالهاتف — هوية الموقع
+     (Baby Blue) مصممة لتبقى فاتحة دائماً بغض النظر عن إعدادات الجهاز، داخل الموقع والتطبيق سوا -->
+<style>
+  html { color-scheme: light only; }
+</style>
 <style>
   * { box-sizing: border-box; }
   html { scroll-behavior: smooth; }
