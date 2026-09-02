@@ -7,6 +7,10 @@ const adminAuth = require('../middleware/adminAuth');
 // التصنيفات المسموحة حصراً عند إنشاء دواء/مستحضر جديد
 const ALLOWED_CATEGORIES = ['medicine', 'cosmetic'];
 
+// رسالة موحّدة لحالة "الدواء موجود مسبقاً" — مطابقة تماماً لمفتاح الترجمة بالواجهة
+// (BACKEND_ERROR_MAP بملف app.js)، فأي تعديل هون لازم يتزامن معه هناك.
+const DUPLICATE_MEDICINE_ERROR = 'هذا الدواء موجود مسبقاً في القائمة العامة';
+
 // تتحقق من صحة category: غير موجودة إطلاقاً → القيمة الافتراضية (توافق مع السلوك القديم)
 // موجودة بس غير صحيحة → خطأ صريح، بدون أي تحويل تلقائي
 function validateCategory(category) {
@@ -65,11 +69,17 @@ router.get('/', adminAuth, async (req, res) => {
 // إضافة دواء أو مستحضر جديد (للإدارة فقط)
 // POST /api/medicines  { name, generic_name, alt_names: [], category }
 router.post('/', adminAuth, async (req, res) => {
-  const { name, generic_name, alt_names, category } = req.body;
+  const { generic_name, alt_names, category } = req.body;
+  // تنظيف المسافات الزائدة: بدونه "بنادول " و"بنادول" بيُعتبروا دواءين مختلفين تماماً
+  const name = (req.body.name || '').trim();
   if (!name) return res.status(400).json({ error: 'الاسم مطلوب' });
   const { value: validCategory, error: categoryError } = validateCategory(category);
   if (categoryError) return res.status(400).json({ error: categoryError });
   try {
+    // فحص التكرار قبل الإضافة: يعطي رسالة واضحة للإدارة بدل إضافة صامتة أو خطأ سيرفر
+    const existing = await db.findMedicineByExactName(name, validCategory);
+    if (existing) return res.status(409).json({ error: DUPLICATE_MEDICINE_ERROR });
+
     const medicine = await db.addMedicine({ name, generic_name, alt_names, category: validCategory });
     res.status(201).json(medicine);
   } catch (err) {
@@ -81,7 +91,8 @@ router.post('/', adminAuth, async (req, res) => {
 // إضافة دواء أو مستحضر جديد من قبل الصيدلي نفسه (يتطلب تأكيد اسم المستخدم وكلمة المرور، بدون كلمة مرور الإدارة)
 // POST /api/medicines/self  { username, password, name, generic_name, alt_names, category }
 router.post('/self', async (req, res) => {
-  const { username, password, name, generic_name, alt_names, category } = req.body;
+  const { username, password, generic_name, alt_names, category } = req.body;
+  const name = (req.body.name || '').trim();
   if (!username || !password) {
     return res.status(400).json({ error: 'بيانات الدخول مطلوبة' });
   }
@@ -94,6 +105,11 @@ router.post('/self', async (req, res) => {
 
     const valid = await bcrypt.compare(password, pharmacy.owner_password_hash);
     if (!valid) return res.status(401).json({ error: 'بيانات الدخول غير صحيحة' });
+
+    // فحص التكرار بعد المصادقة مباشرة: الصيدلي بيشوف رسالة مفهومة ("موجود مسبقاً")
+    // بدل ما يضيف نسخة ثانية تلوّث القائمة العامة على كل الصيدليات
+    const existing = await db.findMedicineByExactName(name, validCategory);
+    if (existing) return res.status(409).json({ error: DUPLICATE_MEDICINE_ERROR });
 
     const medicine = await db.addMedicine({ name, generic_name, alt_names, category: validCategory });
     res.status(201).json(medicine);
@@ -133,7 +149,10 @@ router.post('/bulk-import', async (req, res) => {
       try {
         let medicine = await db.findMedicineByExactName(name, validCategory);
         if (!medicine) {
+          // addMedicine صارت محمية بذاتها: لو انضاف نفس الدواء بنفس اللحظة من طلب آخر
+          // (رفع مزدوج مثلاً)، بترجع الموجود بدل ما تنشئ نسخة ثانية
           medicine = await db.addMedicine({ name, generic_name: item.generic_name, alt_names: item.alt_names, category: validCategory });
+          if (!medicine) { skipped++; errors.push(`${name}: تعذّرت الإضافة`); continue; }
           added++;
         } else {
           linked++;
