@@ -23,6 +23,18 @@ async function initDb() {
   `);
   await pool.query(`ALTER TABLE medicines ADD COLUMN IF NOT EXISTS category TEXT DEFAULT 'medicine';`);
 
+  // حماية جذرية من تكرار الدواء الواحد بالقائمة العامة، على مستوى قاعدة البيانات نفسها.
+  // بدون هذا الفهرس، فحص "هل الدواء موجود؟" بالكود ممكن ينخدع لو وصل طلبان بنفس اللحظة
+  // تماماً (مثلاً ضغط زر الرفع مرتين وقت بطء الشبكة): الاثنان بيفحصوا فيلاقوا الدواء غير
+  // موجود، فيضيفوه مرتين. الفهرس الفريد بيمنع هذا نهائياً لأن القاعدة نفسها بترفض الصف الثاني.
+  // ملاحظة: لو كانت القاعدة تحتوي مكررات قديمة، إنشاء الفهرس بيفشل — لهذا هو داخل try/catch
+  // حتى لا يتعطل إقلاع السيرفر بالكامل، مع طباعة تحذير واضح بالسجل (والكود يتعامل مع الحالتين).
+  try {
+    await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS medicines_name_category_unique ON medicines (name, category);`);
+  } catch (err) {
+    console.error('[تحذير] تعذّر إنشاء فهرس منع تكرار الأدوية — على الأرجح توجد أدوية مكررة بالقائمة العامة. نظّفها ثم أعد تشغيل الخادم.', err.message);
+  }
+
   await pool.query(`
     CREATE TABLE IF NOT EXISTS pharmacies (
       id SERIAL PRIMARY KEY,
@@ -154,12 +166,35 @@ async function searchMedicines(query, category = 'medicine') {
   return rows;
 }
 
+// إضافة دواء للقائمة العامة، بشكل آمن ضد التكرار.
+// لو كان الاسم + التصنيف موجودين أصلاً، ما بينضاف صف جديد إطلاقاً، وبترجع الدالة الدواء
+// الموجود بهدوء بدل ما ترمي خطأ — هيك المستخدم ما بيشوف رسالة خطأ سيرفر قبيحة، والنتيجة
+// النهائية صحيحة بكل الحالات (نسخة واحدة فقط بالقائمة العامة).
 async function addMedicine({ name, generic_name, alt_names, category }) {
-  const { rows } = await pool.query(
-    'INSERT INTO medicines (name, generic_name, alt_names, category) VALUES ($1, $2, $3, $4) RETURNING *',
-    [name, generic_name || null, alt_names || [], category || 'medicine']
-  );
-  return rows[0];
+  const finalCategory = category || 'medicine';
+  try {
+    const { rows } = await pool.query(
+      `INSERT INTO medicines (name, generic_name, alt_names, category)
+       VALUES ($1, $2, $3, $4)
+       ON CONFLICT (name, category) DO NOTHING
+       RETURNING *`,
+      [name, generic_name || null, alt_names || [], finalCategory]
+    );
+    if (rows[0]) return rows[0];
+    // ما رجع أي صف = القاعدة رفضت الإضافة لأن الدواء موجود مسبقاً → نجيب الموجود ونرجّعه
+    return await findMedicineByExactName(name, finalCategory);
+  } catch (err) {
+    // 42P10 = الفهرس الفريد غير موجود بقاعدة البيانات (حالة نادرة: فشل إنشاؤه بسبب مكررات قديمة).
+    // بهذه الحالة فقط نرجع للسلوك القديم (فحص يدوي ثم إضافة) حتى يبقى الموقع شغالاً.
+    if (err.code !== '42P10') throw err;
+    const existing = await findMedicineByExactName(name, finalCategory);
+    if (existing) return existing;
+    const { rows } = await pool.query(
+      'INSERT INTO medicines (name, generic_name, alt_names, category) VALUES ($1, $2, $3, $4) RETURNING *',
+      [name, generic_name || null, alt_names || [], finalCategory]
+    );
+    return rows[0];
+  }
 }
 
 async function findMedicineByExactName(name, category) {
