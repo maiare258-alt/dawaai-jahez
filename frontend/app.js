@@ -177,6 +177,7 @@ const translations = {
     order_submit_error: 'حدث خطأ أثناء إرسال الطلب. حاول مرة أخرى، أو تواصل مع الصيدلية مباشرة إذا استمرت المشكلة.',
     phone_digits_only_error: 'رقم الهاتف يجب أن يتكون من أرقام فقط',
     order_missing_fields_error: 'الاسم ورقم الهاتف والأدوية مطلوبة لإتمام الطلب',
+    medicine_already_exists_error: 'هذا الدواء موجود مسبقاً في القائمة العامة',
     bulk_import_title: '📥 استيراد أدوية من ملف',
     bulk_import_desc: 'حمّل نموذج فارغ، انسخ فيه بيانات أدوية الشركه، ثم ارفعه هنا لإضافتها دفعة وحدة إلى مخزونك في الصيدليه.',
     bulk_import_hint_alt_format: 'إذا طلعت الحروف العربية مشوّهة بعد الحفظ CSV، جرّب تحفظ الملف بصيغة "Unicode Text" بدلها من نفس نافذة الحفظ بإكسل.',
@@ -361,6 +362,7 @@ const translations = {
     order_submit_error: 'An error occurred while sending the order. Please try again, or contact the pharmacy directly if the issue persists.',
     phone_digits_only_error: 'Phone number must contain digits only',
     order_missing_fields_error: 'Name, phone number, and medicines are required to complete the order',
+    medicine_already_exists_error: 'This medicine already exists in the general list',
     bulk_import_title: '📥 Import medicines from file',
     bulk_import_desc: "Download a blank template, copy your company's medicine data into it, then upload it here to add them all at once to your stock.",
     bulk_import_hint_alt_format: 'If the Arabic text looks corrupted after saving as CSV, try saving the file as "Unicode Text" instead, from the same Save As window in Excel.',
@@ -400,7 +402,8 @@ const BACKEND_ERROR_MAP = {
   'صيغة التاريخ غير صالحة': 'invalid_date_format_error',
   'حدث خطأ أثناء إرسال الطلب': 'order_submit_error',
   'رقم الهاتف يجب أن يتكون من أرقام فقط': 'phone_digits_only_error',
-  'الاسم ورقم الهاتف والأدوية مطلوبة لإتمام الطلب': 'order_missing_fields_error'
+  'الاسم ورقم الهاتف والأدوية مطلوبة لإتمام الطلب': 'order_missing_fields_error',
+  'هذا الدواء موجود مسبقاً في القائمة العامة': 'medicine_already_exists_error'
 };
 function translateApiError(rawError) {
   const key = BACKEND_ERROR_MAP[rawError];
