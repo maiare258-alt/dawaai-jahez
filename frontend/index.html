@@ -430,8 +430,22 @@
   #suggestions {
     position: absolute; top: 100%; right: 0; left: 0; z-index: 10;
     background: white; border: 1px solid #cfe0ef; border-radius: 16px;
-    margin-top: -8px; overflow: hidden; display: none;
+    margin-top: -8px; display: none;
+    /* الهيرو عليه overflow:hidden عن قصد (لقص التوهج والجزيئات على حدوده الدائرية)، فأي
+       قائمة اقتراحات أطول من المساحة المتبقية تحت خانة البحث كانت تنقص من الأسفل.
+       الحل: سقف ارتفاع + تمرير داخلي — بدون أي مساس بتصميم الهيرو نفسه. */
+    overflow: hidden;               /* يحافظ على قص المحتوى عند الحواف الدائرية */
+    overflow-y: auto;               /* تمرير عمودي عند تجاوز السقف */
+    max-height: 200px;              /* قيمة احتياطية للمتصفحات القديمة التي لا تدعم min() */
+    max-height: min(200px, 32vh);   /* تتكيّف تلقائياً مع الشاشات القصيرة */
+    overscroll-behavior: contain;   /* التمرير داخل القائمة لا ينتقل للصفحة خلفها */
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin; scrollbar-color: #a9cdea transparent;
   }
+  /* شريط تمرير رفيع بلون الهوية بدل الشريط الافتراضي العريض */
+  #suggestions::-webkit-scrollbar { width: 8px; }
+  #suggestions::-webkit-scrollbar-track { background: transparent; }
+  #suggestions::-webkit-scrollbar-thumb { background: #a9cdea; border-radius: 999px; }
   #suggestions.show { display: block; }
   #suggestions .suggestion-item {
     padding: 12px 16px; cursor: pointer; font-size: 16px; border-top: 1px solid #eee;
