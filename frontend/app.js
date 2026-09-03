@@ -98,6 +98,12 @@ const translations = {
     registered_pharmacies_title: 'الصيدليات المسجّلة', no_pharmacies_yet: 'لا يوجد صيدليات مسجّلة بعد.',
     pharmacies_table_header: 'الصيدلية', action_col_header: 'إجراء', delete_btn: 'حذف', onduty_badge_short: '🟢 مناوبة',
     delete_pharmacy_confirm: 'متأكد إنك بدك تحذف صيدلية "{name}"؟', pharmacy_added_success: 'تمت إضافة صيدلية "{name}" بنجاح',
+    edit_name_btn: 'تعديل الاسم', save_name_btn: 'حفظ', cancel_edit_btn: 'إلغاء',
+    edit_name_aria: 'تعديل اسم الصيدلية',
+    pharmacy_name_required: 'اسم الصيدلية مطلوب',
+    duplicate_pharmacy_name_confirm: 'يوجد اسم مطابق: "{name}" (اسم المستخدم: {username}). هل تريد المتابعة؟',
+    pharmacy_name_updated: 'تم تحديث اسم الصيدلية إلى "{name}"',
+    pharmacy_name_update_error: 'تعذّر تعديل اسم الصيدلية. حاول مرة أخرى.',
     add_medicine_title_admin: '💊 إضافة دواء جديد', registered_medicines_title: 'الأدوية المسجّلة',
     item_added_success: 'تمت إضافة "{name}" بنجاح', delete_medicine_confirm: 'متأكد إنك بدك تحذف دواء "{name}" نهائياً؟',
     add_nurse_title: '🩺 إضافة ممرض جديد', nurse_name_placeholder: 'اسم الممرض', specialty_placeholder: 'التخصص',
@@ -283,6 +289,12 @@ const translations = {
     registered_pharmacies_title: 'Registered pharmacies', no_pharmacies_yet: 'No pharmacies registered yet.',
     pharmacies_table_header: 'Pharmacy', action_col_header: 'Action', delete_btn: 'Delete', onduty_badge_short: '🟢 On duty',
     delete_pharmacy_confirm: 'Are you sure you want to delete pharmacy "{name}"?', pharmacy_added_success: 'Pharmacy "{name}" added successfully',
+    edit_name_btn: 'Edit name', save_name_btn: 'Save', cancel_edit_btn: 'Cancel',
+    edit_name_aria: 'Edit pharmacy name',
+    pharmacy_name_required: 'Pharmacy name is required',
+    duplicate_pharmacy_name_confirm: 'A matching name already exists: "{name}" (username: {username}). Do you want to continue?',
+    pharmacy_name_updated: 'Pharmacy name updated to "{name}"',
+    pharmacy_name_update_error: 'Could not update the pharmacy name. Please try again.',
     add_medicine_title_admin: '💊 Add new medicine', registered_medicines_title: 'Registered medicines',
     item_added_success: '"{name}" added successfully', delete_medicine_confirm: 'Are you sure you want to permanently delete medicine "{name}"?',
     add_nurse_title: '🩺 Add new nurse', nurse_name_placeholder: 'Nurse name', specialty_placeholder: 'Specialty',
@@ -2276,6 +2288,10 @@ let adminDataCache = { pharmacies: [], medicines: [], nurses: [], pendingRatings
 
 // نتتبّع أول تحميل لكل جلسة دخول إدارة فقط، عشان مؤشر "جاري التحميل" ما يتكرر بعد كل إجراء إداري (تفادياً للوميض)
 let adminPanelLoadedOnce = false;
+// معرّف الصيدلية التي يجري تعديل اسمها حالياً بلوحة الإدارة (null = صفر تعديل جارٍ).
+// حالة واجهة بحتة، ما بتنحفظ ولا بتنرسل للسيرفر — بس بتخلي renderAdminPanelUI ترسم
+// صف التعديل بدل الصف العادي، بنفس أسلوب باقي اللوحة (إعادة رسم من الكاش، صفر طلب شبكة).
+let editingPharmacyId = null;
 
 async function renderAdminPanel() {
   const wasFirstLoad = !adminPanelLoadedOnce;
@@ -2349,10 +2365,26 @@ function renderAdminPanelUI() {
         ${pharmacies.length === 0
           ? `<p class="muted" style="padding:16px 18px; margin:0;">${t('no_pharmacies_yet')}</p>`
           : `<div class="stock-table-header"><span>${t('pharmacies_table_header')}</span><span class="col-action">${t('action_col_header')}</span></div>
-             ${pharmacies.map(p => `
+             ${pharmacies.map(p => p.id === editingPharmacyId
+               ? `
                <div class="row">
-                 <span>${p.name} <span class="muted">(${p.owner_username})</span>${p.assistant_phone ? ` <span class="muted" style="font-size:12px;">📱 ${escapeHtml(p.assistant_phone)}</span>` : ''}${p.on_duty ? ` <span class="badge yes" style="margin-right:6px;">${t('onduty_badge_short')}</span>` : ''}</span>
-                 <button class="btn-outline red small table-action-btn" onclick="deletePharmacyAdmin(${p.id})">${t('delete_btn')}</button>
+                 <span style="flex:1;">
+                   <input id="edit-ph-name-${p.id}" value="${escapeHtml(p.name)}" aria-label="${t('edit_name_aria')}"
+                          style="width:100%; margin:0;" onkeydown="onEditPharmacyNameKeydown(event, ${p.id})">
+                 </span>
+                 <span style="display:flex; gap:6px;">
+                   <button class="btn-outline small table-action-btn" onclick="savePharmacyName(${p.id})">${t('save_name_btn')}</button>
+                   <button class="btn-outline small table-action-btn" onclick="cancelEditPharmacyName()">${t('cancel_edit_btn')}</button>
+                 </span>
+               </div>
+             `
+               : `
+               <div class="row">
+                 <span>${escapeHtml(p.name)} <span class="muted">(${escapeHtml(p.owner_username)})</span>${p.assistant_phone ? ` <span class="muted" style="font-size:12px;">📱 ${escapeHtml(p.assistant_phone)}</span>` : ''}${p.on_duty ? ` <span class="badge yes" style="margin-right:6px;">${t('onduty_badge_short')}</span>` : ''}</span>
+                 <span style="display:flex; gap:6px;">
+                   <button class="btn-outline small table-action-btn" onclick="startEditPharmacyName(${p.id})">${t('edit_name_btn')}</button>
+                   <button class="btn-outline red small table-action-btn" onclick="deletePharmacyAdmin(${p.id})">${t('delete_btn')}</button>
+                 </span>
                </div>
              `).join('')}`
         }
@@ -2448,6 +2480,65 @@ async function addPharmacy() {
   if (!res.ok) { customAlert(translateApiError(data.error), 'error'); return; }
   customAlert(tFormat('pharmacy_added_success', { name: data.name }), 'success');
   renderAdminPanel();
+}
+
+// ---------- تعديل اسم الصيدلية (الإدارة حصراً) ----------
+
+function startEditPharmacyName(id) {
+  editingPharmacyId = id;
+  renderAdminPanelUI();
+  // تركيز الحقل وتحديد النص كله ليقدر يكتب فوقه مباشرة بدون مسح يدوي
+  const input = document.getElementById(`edit-ph-name-${id}`);
+  if (input) { input.focus(); input.select(); }
+}
+
+function cancelEditPharmacyName() {
+  editingPharmacyId = null;
+  renderAdminPanelUI();
+}
+
+// Enter بيحفظ، Escape بيلغي — نفس المتوقع بأي حقل تعديل سريع
+function onEditPharmacyNameKeydown(e, id) {
+  if (e.key === 'Enter') { e.preventDefault(); savePharmacyName(id); }
+  else if (e.key === 'Escape') { e.preventDefault(); cancelEditPharmacyName(); }
+}
+
+async function savePharmacyName(id) {
+  const input = document.getElementById(`edit-ph-name-${id}`);
+  if (!input) return;
+  const name = input.value.trim();
+  if (!name) { await customAlert(t('pharmacy_name_required'), 'warning'); return; }
+
+  const current = adminDataCache.pharmacies.find(p => p.id === id);
+  // صفر تغيير فعلي → نغلق وضع التعديل بهدوء بدون أي طلب للسيرفر
+  if (current && current.name === name) { cancelEditPharmacyName(); return; }
+
+  // تحذير الاسم المكرر: نعرض الصيدلية المطابقة بالاسم واسم المستخدم ليكون القرار واعياً.
+  // مقصود إنه تحذير وليس منعاً — صيدليتان بمحافظتين مختلفتين قد تحملان نفس الاسم بشكل مشروع.
+  const duplicate = adminDataCache.pharmacies.find(p => p.id !== id && p.name.trim() === name);
+  if (duplicate) {
+    const proceed = await customConfirm(
+      tFormat('duplicate_pharmacy_name_confirm', { name: duplicate.name, username: duplicate.owner_username }),
+      'warning'
+    );
+    if (!proceed) return;
+  }
+
+  try {
+    const res = await fetch(`${API}/pharmacies/${id}/name`, {
+      method: 'PUT', headers: adminHeaders(), body: JSON.stringify({ name })
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      await customAlert(translateApiError(data.error) || t('pharmacy_name_update_error'), 'error');
+      return;
+    }
+    editingPharmacyId = null;
+    await renderAdminPanel();
+    await customAlert(tFormat('pharmacy_name_updated', { name: data.name }), 'success');
+  } catch (err) {
+    await customAlert(t('pharmacy_name_update_error'), 'error');
+  }
 }
 
 async function deletePharmacyAdmin(id) {
