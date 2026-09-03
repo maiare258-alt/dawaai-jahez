@@ -299,6 +299,18 @@ async function setAssistantPhone(pharmacyId, assistantPhone) {
   return rows[0];
 }
 
+// تعديل اسم الصيدلية (الإدارة حصراً — يُستدعى من مسار محمي بـadminAuth).
+// عمداً لا يمس owner_username ولا owner_password_hash ولا أي بيانات أخرى: تغيير الاسم
+// تصحيح لواجهة العرض فقط، وليس نقل ملكية. لو تغيّر مالك الصيدلية فعلياً، الإجراء
+// الصحيح هو حذف الصيدلية وتسجيل واحدة جديدة، حتى لا يرث المالك الجديد بيانات غيره.
+async function setPharmacyName(pharmacyId, name) {
+  const { rows } = await pool.query(
+    `UPDATE pharmacies SET name = $1 WHERE id = $2 RETURNING *`,
+    [name, pharmacyId]
+  );
+  return rows[0];
+}
+
 async function getOnDutyPharmacies() {
   const { rows } = await pool.query(
     'SELECT id, name, address, phone, assistant_phone, on_duty, on_duty_day, on_duty_shift, on_duty_start_time, on_duty_end_time FROM pharmacies WHERE on_duty = true ORDER BY on_duty_shift, id'
@@ -498,6 +510,7 @@ module.exports = {
   deletePharmacy,
   setDutyStatus,
   setAssistantPhone,
+  setPharmacyName,
   getOnDutyPharmacies,
   getAvailability,
   getStockForPharmacy,
