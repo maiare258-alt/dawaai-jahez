@@ -150,6 +150,39 @@ router.put('/self/assistant-phone', async (req, res) => {
   }
 });
 
+// تعديل اسم صيدلية (للإدارة فقط)
+// PUT /api/pharmacies/:id/name  { name }
+//
+// قرار تصميمي مقصود: هذه الميزة للإدارة حصراً، وغير متاحة للصيدلي إطلاقاً.
+// السبب: اسم الصيدلية هوية عامة يراها كل المرضى بنتائج البحث وصفحة المناوبة، فلو تُرك
+// للصيدلي لأمكن انتحال اسم صيدلية أخرى أو استخدام اسم دعائي مضلل. الإدارة هي الجهة
+// الوحيدة التي تتحقق من الصيدليات، فيبقى الاسم بيدها.
+//
+// مقصود أيضاً: التعديل يشمل الاسم فقط. صفر مساس بـowner_username أو كلمة المرور أو
+// أي بيانات أخرى — تغيير الاسم ليس نقل ملكية.
+//
+// ملاحظة معمارية للمستقبل: صفر منع للأسماء المكررة هنا عن قصد، لأن التوسع خارج سلمية
+// يعني وجود صيدليات متطابقة الاسم بمحافظات مختلفة (وهو أمر مشروع تماماً). الواجهة
+// تعرض تحذيراً وتطلب تأكيداً. عند التوسع الوطني، الحل الصحيح إضافة عمود city
+// وجعل التفرّد على (name, city) وليس على الاسم وحده.
+router.put('/:id/name', adminAuth, async (req, res) => {
+  // تنظيف المسافات الزائدة: بدونه " صيدلية 1" و"صيدلية 1" اسمان مختلفان بالعرض
+  const name = (req.body.name || '').trim();
+  if (!name) return res.status(400).json({ error: 'اسم الصيدلية مطلوب' });
+  try {
+    const existing = await db.getPharmacyById(req.params.id);
+    if (!existing) return res.status(404).json({ error: 'الصيدلية غير موجودة' });
+
+    const updated = await db.setPharmacyName(req.params.id, name);
+    // نحذف الهاش من الرد بنفس أسلوب مسار التسجيل — صفر تسريب لبيانات المصادقة
+    const { owner_password_hash, ...safePharmacy } = updated;
+    res.json(safePharmacy);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'حدث خطأ أثناء تعديل اسم الصيدلية' });
+  }
+});
+
 // حذف أي صيدلية (للإدارة فقط)
 // DELETE /api/pharmacies/:id
 router.delete('/:id', adminAuth, async (req, res) => {
