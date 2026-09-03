@@ -2292,6 +2292,10 @@ let adminPanelLoadedOnce = false;
 // حالة واجهة بحتة، ما بتنحفظ ولا بتنرسل للسيرفر — بس بتخلي renderAdminPanelUI ترسم
 // صف التعديل بدل الصف العادي، بنفس أسلوب باقي اللوحة (إعادة رسم من الكاش، صفر طلب شبكة).
 let editingPharmacyId = null;
+// النص المكتوب حالياً بحقل التعديل. ضروري لأن أي إعادة رسم للوحة (أبرزها تبديل اللغة،
+// الذي يستدعي renderAdminPanelUI) بتعيد بناء الحقل من الكاش، فيضيع ما كتبه المستخدم.
+// بحفظ المسودة هون، النص بيبقى سليماً عبر أي إعادة رسم مهما كان مصدرها.
+let editingPharmacyNameDraft = '';
 
 async function renderAdminPanel() {
   const wasFirstLoad = !adminPanelLoadedOnce;
@@ -2367,12 +2371,13 @@ function renderAdminPanelUI() {
           : `<div class="stock-table-header"><span>${t('pharmacies_table_header')}</span><span class="col-action">${t('action_col_header')}</span></div>
              ${pharmacies.map(p => p.id === editingPharmacyId
                ? `
-               <div class="row">
-                 <span style="flex:1;">
-                   <input id="edit-ph-name-${p.id}" value="${escapeHtml(p.name)}" aria-label="${t('edit_name_aria')}"
-                          style="width:100%; margin:0;" onkeydown="onEditPharmacyNameKeydown(event, ${p.id})">
+               <div class="row" style="gap:12px;">
+                 <span style="flex:1; min-width:0;">
+                   <input id="edit-ph-name-${p.id}" value="${escapeHtml(editingPharmacyNameDraft)}" aria-label="${t('edit_name_aria')}"
+                          style="width:100%; margin:0;" oninput="onEditPharmacyNameInput(this)"
+                          onkeydown="onEditPharmacyNameKeydown(event, ${p.id})">
                  </span>
-                 <span style="display:flex; gap:6px;">
+                 <span style="display:flex; gap:6px; flex-shrink:0;">
                    <button class="btn-outline small table-action-btn" onclick="savePharmacyName(${p.id})">${t('save_name_btn')}</button>
                    <button class="btn-outline small table-action-btn" onclick="cancelEditPharmacyName()">${t('cancel_edit_btn')}</button>
                  </span>
@@ -2463,6 +2468,17 @@ function renderAdminPanelUI() {
   `;
 
   startAdminRatingsPolling();
+
+  // لو كان في تعديل اسم صيدلية جارٍ وقت إعادة الرسم (تبديل اللغة مثلاً)، الحقل انبنى من
+  // جديد وضاع منه التركيز. نرجّعه مع وضع المؤشر بآخر النص، حتى يكمل المستخدم كتابته
+  // بسلاسة بدل ما يضطر يضغط على الحقل من جديد.
+  if (editingPharmacyId !== null) {
+    const editInput = document.getElementById(`edit-ph-name-${editingPharmacyId}`);
+    if (editInput && document.activeElement !== editInput) {
+      editInput.focus();
+      editInput.setSelectionRange(editInput.value.length, editInput.value.length);
+    }
+  }
 }
 
 async function addPharmacy() {
@@ -2485,6 +2501,8 @@ async function addPharmacy() {
 // ---------- تعديل اسم الصيدلية (الإدارة حصراً) ----------
 
 function startEditPharmacyName(id) {
+  const pharmacy = adminDataCache.pharmacies.find(p => p.id === id);
+  editingPharmacyNameDraft = pharmacy ? pharmacy.name : '';
   editingPharmacyId = id;
   renderAdminPanelUI();
   // تركيز الحقل وتحديد النص كله ليقدر يكتب فوقه مباشرة بدون مسح يدوي
@@ -2492,8 +2510,14 @@ function startEditPharmacyName(id) {
   if (input) { input.focus(); input.select(); }
 }
 
+// كل حرف يُكتب يُحفظ بالمسودة فوراً، فما يضيع لو أُعيد رسم اللوحة لأي سبب
+function onEditPharmacyNameInput(el) {
+  editingPharmacyNameDraft = el.value;
+}
+
 function cancelEditPharmacyName() {
   editingPharmacyId = null;
+  editingPharmacyNameDraft = '';
   renderAdminPanelUI();
 }
 
@@ -2534,6 +2558,7 @@ async function savePharmacyName(id) {
       return;
     }
     editingPharmacyId = null;
+    editingPharmacyNameDraft = '';
     await renderAdminPanel();
     await customAlert(tFormat('pharmacy_name_updated', { name: data.name }), 'success');
   } catch (err) {
