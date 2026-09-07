@@ -53,6 +53,18 @@ async function initDb() {
   // رقم هاتف مساعد اختياري، يظهر جنب الرقم الأساسي — لتخفيف ضغط العمل على رقم واحد بس
   await pool.query(`ALTER TABLE pharmacies ADD COLUMN IF NOT EXISTS assistant_phone TEXT;`);
 
+  // عمود المدينة — أساس التوسع خارج سلمية.
+  // يُخزَّن كمفتاح إنكليزي ثابت (مثل 'salamiyah') وليس كاسم عربي، لسببين:
+  // (1) الترجمة: نفس السجل يُعرض "سلمية" بالعربي و"Salamiyah" بالإنكليزي.
+  // (2) منع تعدد الإملاء: "سلمية" و"سلميه" و"السلمية" كانت ستصبح ثلاث مدن مختلفة
+  //     فينكسر أي تجميع أو فلترة — نفس الدرس المستفاد من تكرار أسماء الأدوية.
+  // العمود اختياري (صفر NOT NULL) حفاظاً على توافق السجلات القديمة، تماماً كباقي
+  // الأعمدة المضافة لاحقاً (assistant_phone, on_duty_shift...).
+  await pool.query(`ALTER TABLE pharmacies ADD COLUMN IF NOT EXISTS city TEXT;`);
+  // تعبئة السجلات القديمة بسلمية — هي الواقع الفعلي لكل الصيدليات المسجّلة حتى الآن.
+  // آمن ومتكرر: يمس الصفوف الفارغة فقط، فتشغيله مراراً لا يغيّر أي مدينة محدّدة.
+  await pool.query(`UPDATE pharmacies SET city = 'salamiyah' WHERE city IS NULL;`);
+
   // ترحيل آمن: يضيف الأعمدة الجديدة إذا كانت قاعدة البيانات منشأة من نسخة سابقة
   await pool.query(`ALTER TABLE pharmacies ADD COLUMN IF NOT EXISTS on_duty_shift TEXT;`);
   await pool.query(`ALTER TABLE pharmacies ADD COLUMN IF NOT EXISTS on_duty_start_time TEXT;`);
@@ -246,7 +258,7 @@ async function deleteMedicine(medicineId) {
 
 async function getAllPharmacies() {
   const { rows } = await pool.query(
-    'SELECT id, name, address, phone, assistant_phone, owner_username, on_duty, on_duty_day, on_duty_shift, on_duty_start_time, on_duty_end_time FROM pharmacies ORDER BY id'
+    'SELECT id, name, address, phone, assistant_phone, city, owner_username, on_duty, on_duty_day, on_duty_shift, on_duty_start_time, on_duty_end_time FROM pharmacies ORDER BY id'
   );
   return rows;
 }
@@ -261,11 +273,11 @@ async function getPharmacyById(pharmacyId) {
   return rows[0];
 }
 
-async function addPharmacy({ name, address, phone, username, passwordHash }) {
+async function addPharmacy({ name, address, phone, city, username, passwordHash }) {
   const { rows } = await pool.query(
-    `INSERT INTO pharmacies (name, address, phone, owner_username, owner_password_hash)
-     VALUES ($1, $2, $3, $4, $5) RETURNING *`,
-    [name, address || null, phone || null, username, passwordHash]
+    `INSERT INTO pharmacies (name, address, phone, city, owner_username, owner_password_hash)
+     VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+    [name, address || null, phone || null, city || null, username, passwordHash]
   );
   return rows[0];
 }
@@ -311,23 +323,28 @@ async function setPharmacyName(pharmacyId, name) {
   return rows[0];
 }
 
-async function getOnDutyPharmacies() {
+async function getOnDutyPharmacies(city) {
   const { rows } = await pool.query(
-    'SELECT id, name, address, phone, assistant_phone, on_duty, on_duty_day, on_duty_shift, on_duty_start_time, on_duty_end_time FROM pharmacies WHERE on_duty = true ORDER BY on_duty_shift, id'
+    `SELECT id, name, address, phone, assistant_phone, city, on_duty, on_duty_day, on_duty_shift, on_duty_start_time, on_duty_end_time
+     FROM pharmacies WHERE on_duty = true AND ($1::text IS NULL OR city = $1) ORDER BY on_duty_shift, id`,
+    [city || null]
   );
   return rows;
 }
 
 // ---------- المخزون ----------
 
-async function getAvailability(medicineId) {
+// city اختياري: لو مُرِّر، تُعاد صيدليات تلك المدينة فقط. لو كان null أو غير مُمرَّر،
+// يبقى السلوك كما كان تماماً (كل الصيدليات) — صفر تأثير على أي استدعاء قديم.
+async function getAvailability(medicineId, city) {
   const { rows } = await pool.query(
-    `SELECT p.id AS pharmacy_id, p.name AS pharmacy_name, p.address, p.phone, p.assistant_phone,
+    `SELECT p.id AS pharmacy_id, p.name AS pharmacy_name, p.address, p.phone, p.assistant_phone, p.city,
             COALESCE(s.available, false) AS available
      FROM pharmacies p
      LEFT JOIN stock s ON s.pharmacy_id = p.id AND s.medicine_id = $1
+     WHERE ($2::text IS NULL OR p.city = $2)
      ORDER BY p.name`,
-    [medicineId]
+    [medicineId, city || null]
   );
   return rows;
 }
