@@ -323,6 +323,59 @@ async function setPharmacyName(pharmacyId, name) {
   return rows[0];
 }
 
+// ---------- إحصاءات لوحة الإدارة ----------
+// كل الأرقام محسوبة من البيانات المخزّنة أصلاً — صفر جدول تتبّع جديد وصفر نمو بالتخزين.
+// النوافذ الزمنية متدحرجة (آخر 24 ساعة / 7 أيام) وليست تقويمية عن قصد: خادم Render
+// يعمل بتوقيت UTC، فـ"اليوم" كان سيعني يوماً مختلفاً عن يوم المستخدم في سوريا.
+async function getAdminStats() {
+  const totalsQ = pool.query(`
+    SELECT
+      (SELECT COUNT(*) FROM pharmacies)::int AS pharmacies,
+      (SELECT COUNT(*) FROM pharmacies WHERE on_duty = true)::int AS pharmacies_on_duty,
+      (SELECT COUNT(*) FROM medicines WHERE category = 'medicine')::int AS medicines,
+      (SELECT COUNT(*) FROM medicines WHERE category = 'cosmetic')::int AS cosmetics,
+      (SELECT COUNT(*) FROM nurses)::int AS nurses,
+      (SELECT COUNT(*) FROM stock WHERE available = true)::int AS available_stock,
+      (SELECT COUNT(*) FROM orders)::int AS orders_total,
+      (SELECT COUNT(*) FROM orders WHERE created_at >= NOW() - INTERVAL '24 hours')::int AS orders_24h,
+      (SELECT COUNT(*) FROM orders WHERE created_at >= NOW() - INTERVAL '7 days')::int AS orders_7d,
+      (SELECT COUNT(*) FROM orders WHERE created_at >= NOW() - INTERVAL '30 days')::int AS orders_30d
+  `);
+
+  // أكثر الأدوية طلباً: تُستخرج من مصفوفة items بكل طلب (JSONB).
+  // COALESCE يحمي من صف قديم قيمته NULL قبل أن يصبح للعمود قيمة افتراضية.
+  const topMedicinesQ = pool.query(`
+    SELECT item->>'medicineName' AS name, COUNT(*)::int AS count
+    FROM orders, jsonb_array_elements(COALESCE(items, '[]'::jsonb)) AS item
+    WHERE item->>'medicineName' IS NOT NULL AND item->>'medicineName' <> ''
+    GROUP BY 1 ORDER BY count DESC, name ASC LIMIT 5
+  `);
+
+  // أنشط الصيدليات. LEFT JOIN مقصود: صيدلية بصفر طلبات تظهر بصفر، لا تختفي.
+  const topPharmaciesQ = pool.query(`
+    SELECT p.id, p.name, p.city, COUNT(o.id)::int AS orders_count
+    FROM pharmacies p LEFT JOIN orders o ON o.pharmacy_id = p.id
+    GROUP BY p.id, p.name, p.city
+    ORDER BY orders_count DESC, p.name ASC LIMIT 5
+  `);
+
+  const byCityQ = pool.query(`
+    SELECT city, COUNT(*)::int AS count
+    FROM pharmacies WHERE city IS NOT NULL
+    GROUP BY city ORDER BY count DESC, city ASC
+  `);
+
+  const [totals, topMedicines, topPharmacies, byCity] =
+    await Promise.all([totalsQ, topMedicinesQ, topPharmaciesQ, byCityQ]);
+
+  return {
+    totals: totals.rows[0],
+    topMedicines: topMedicines.rows,
+    topPharmacies: topPharmacies.rows,
+    byCity: byCity.rows
+  };
+}
+
 async function getOnDutyPharmacies(city) {
   const { rows } = await pool.query(
     `SELECT id, name, address, phone, assistant_phone, city, on_duty, on_duty_day, on_duty_shift, on_duty_start_time, on_duty_end_time
@@ -528,6 +581,7 @@ module.exports = {
   setDutyStatus,
   setAssistantPhone,
   setPharmacyName,
+  getAdminStats,
   getOnDutyPharmacies,
   getAvailability,
   getStockForPharmacy,
