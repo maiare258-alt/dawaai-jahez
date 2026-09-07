@@ -98,6 +98,12 @@ async function initDb() {
   // ملاحظة نصية اختيارية من المريض (مثلاً توضيح إضافي لو خط الطبيب مو واضح) — بتظهر للصيدلي مع الطلب
   await pool.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS notes TEXT;`);
   await pool.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'pending';`);
+  // حذف ناعم للطلبات. السبب: كل إحصاءات المنصة (إجمالي الطلبات، النوافذ الزمنية،
+  // أكثر الأدوية طلباً، أنشط الصيدليات) محسوبة من جدول orders. الحذف النهائي السابق
+  // كان يمحو الصف فتضيع معه الإحصاءات — أي أن الصيدلية الأنشط (التي تنظّف قائمتها
+  // باستمرار) كانت تظهر بأقل الأرقام، وهو عكس المطلوب تماماً.
+  // الآن يُعلَّم الصف كمحذوف فيختفي عن الصيدلي، ويبقى محسوباً بالإحصاءات.
+  await pool.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP;`);
 
   // خدمات التمريض
   await pool.query(`
@@ -442,29 +448,39 @@ async function createOrder(pharmacyId, patientName, patientPhone, items, notes) 
 
 async function getOrdersForPharmacy(pharmacyId) {
   const { rows } = await pool.query(
-    `SELECT * FROM orders WHERE pharmacy_id = $1 ORDER BY created_at DESC`,
+    `SELECT * FROM orders WHERE pharmacy_id = $1 AND deleted_at IS NULL ORDER BY created_at DESC`,
     [pharmacyId]
   );
   return rows;
 }
 
 async function markOrderSeen(orderId) {
-  await pool.query(`UPDATE orders SET seen = true WHERE id = $1`, [orderId]);
+  await pool.query(`UPDATE orders SET seen = true WHERE id = $1 AND deleted_at IS NULL`, [orderId]);
 }
 
+// حذف ناعم: الصف يبقى للإحصاءات، وهوية المريض تُمحى فعلياً.
+// ما يبقى (اسم الدواء، التاريخ، الصيدلية) لا يدل على شخص بعينه، فالنتيجة خصوصية
+// أفضل من السابق: قبل هذا التغيير كان اسم المريض ورقمه يبقيان مخزَّنين ما دام
+// الصيدلي لم يحذف الطلب — أي شهوراً أحياناً.
+// patient_name عمود NOT NULL، فيُستبدل بنص ثابت بدل NULL حفاظاً على القيد.
 async function deleteOrder(orderId) {
-  await pool.query(`DELETE FROM orders WHERE id = $1`, [orderId]);
+  await pool.query(
+    `UPDATE orders
+     SET deleted_at = NOW(), patient_name = '[محذوف]', patient_phone = '', notes = NULL
+     WHERE id = $1 AND deleted_at IS NULL`,
+    [orderId]
+  );
 }
 
 async function confirmOrder(orderId) {
-  await pool.query(`UPDATE orders SET status = 'confirmed' WHERE id = $1`, [orderId]);
+  await pool.query(`UPDATE orders SET status = 'confirmed' WHERE id = $1 AND deleted_at IS NULL`, [orderId]);
 }
 
 async function getOrdersStatus(ids) {
   const { rows } = await pool.query(
     `SELECT o.id, o.status, p.name AS pharmacy_name
      FROM orders o JOIN pharmacies p ON o.pharmacy_id = p.id
-     WHERE o.id = ANY($1::int[])`,
+     WHERE o.id = ANY($1::int[]) AND o.deleted_at IS NULL`,
     [ids]
   );
   return rows;
