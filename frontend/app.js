@@ -158,6 +158,23 @@ const translations = {
     delete_pharmacy_confirm: 'متأكد إنك بدك تحذف صيدلية "{name}"؟', pharmacy_added_success: 'تمت إضافة صيدلية "{name}" بنجاح',
     edit_name_btn: 'تعديل الاسم', save_name_btn: 'حفظ', cancel_edit_btn: 'إلغاء',
     edit_name_aria: 'تعديل اسم الصيدلية',
+    change_password_title: '🔑 تغيير كلمة المرور',
+    change_password_desc: 'غيّر كلمة مرورك في أي وقت. ستحتاج كلمتك الحالية للتأكيد.',
+    current_password_placeholder: 'كلمة المرور الحالية',
+    new_password_placeholder: 'كلمة المرور الجديدة',
+    confirm_new_password_placeholder: 'تأكيد كلمة المرور الجديدة',
+    change_password_btn: 'تغيير كلمة المرور',
+    password_changed_success: 'تم تغيير كلمة المرور بنجاح',
+    passwords_not_matching: 'كلمتا المرور الجديدتان غير متطابقتين',
+    new_password_required_error: 'كلمة المرور الجديدة مطلوبة',
+    new_password_too_short_error: 'كلمة المرور الجديدة قصيرة جداً، الحد الأدنى 8 محارف',
+    new_password_same_error: 'كلمة المرور الجديدة مطابقة للحالية',
+    reset_password_btn: 'إعادة تعيين كلمة المرور',
+    reset_password_confirm: 'إعادة تعيين كلمة مرور "{name}"؟ سيتم توليد كلمة جديدة ولن يستطيع الصيدلي الدخول بالقديمة. المخزون والطلبات لن تتأثر.',
+    reset_password_done_title: 'كلمة المرور الجديدة لـ"{name}"',
+    reset_password_done_hint: 'انسخها الآن وسلّمها للصيدلي، لن تظهر مرة أخرى.',
+    reset_password_error: 'تعذّرت إعادة تعيين كلمة المرور',
+    copy_btn: 'نسخ', copied_msg: 'تم النسخ',
     stats_title: '📊 نظرة عامة على المنصة', stats_load_error: 'تعذّر جلب الإحصاءات',
     stat_pharmacies: 'صيدلية مسجّلة', stat_on_duty: 'مناوبة الآن',
     stat_medicines: 'دواء بالقائمة العامة', stat_cosmetics: 'مستحضر تجميل',
@@ -363,6 +380,23 @@ const translations = {
     delete_pharmacy_confirm: 'Are you sure you want to delete pharmacy "{name}"?', pharmacy_added_success: 'Pharmacy "{name}" added successfully',
     edit_name_btn: 'Edit name', save_name_btn: 'Save', cancel_edit_btn: 'Cancel',
     edit_name_aria: 'Edit pharmacy name',
+    change_password_title: '🔑 Change password',
+    change_password_desc: 'Change your password any time. You will need your current password to confirm.',
+    current_password_placeholder: 'Current password',
+    new_password_placeholder: 'New password',
+    confirm_new_password_placeholder: 'Confirm new password',
+    change_password_btn: 'Change password',
+    password_changed_success: 'Password changed successfully',
+    passwords_not_matching: 'The two new passwords do not match',
+    new_password_required_error: 'New password is required',
+    new_password_too_short_error: 'New password is too short, minimum 8 characters',
+    new_password_same_error: 'New password is the same as the current one',
+    reset_password_btn: 'Reset password',
+    reset_password_confirm: 'Reset the password for "{name}"? A new password will be generated and the pharmacist will no longer be able to log in with the old one. Stock and orders are not affected.',
+    reset_password_done_title: 'New password for "{name}"',
+    reset_password_done_hint: 'Copy it now and hand it to the pharmacist, it will not be shown again.',
+    reset_password_error: 'Could not reset the password',
+    copy_btn: 'Copy', copied_msg: 'Copied',
     stats_title: '📊 Platform overview', stats_load_error: 'Could not load statistics',
     stat_pharmacies: 'registered pharmacies', stat_on_duty: 'on duty now',
     stat_medicines: 'medicines in general list', stat_cosmetics: 'cosmetic products',
@@ -503,7 +537,10 @@ const BACKEND_ERROR_MAP = {
   'الاسم ورقم الهاتف والأدوية مطلوبة لإتمام الطلب': 'order_missing_fields_error',
   'هذا الدواء موجود مسبقاً في القائمة العامة': 'medicine_already_exists_error',
   'المدينة مطلوبة': 'city_required_error',
-  'مدينة غير صالحة': 'invalid_city_error'
+  'مدينة غير صالحة': 'invalid_city_error',
+  'كلمة المرور الجديدة مطلوبة': 'new_password_required_error',
+  'كلمة المرور الجديدة قصيرة جداً': 'new_password_too_short_error',
+  'كلمة المرور الجديدة مطابقة للحالية': 'new_password_same_error'
 };
 function translateApiError(rawError) {
   const key = BACKEND_ERROR_MAP[rawError];
@@ -620,6 +657,14 @@ function applyLanguage() {
   } else if (document.getElementById('pharmacist-auth-section').innerHTML.trim()) {
     renderPharmacyAuthForm();
   }
+
+  // ---------- نموذج تغيير كلمة المرور بلوحة الصيدلي ----------
+  document.getElementById('change-password-title').textContent = t('change_password_title');
+  document.getElementById('change-password-desc').textContent = t('change_password_desc');
+  document.getElementById('current-password-input').placeholder = t('current_password_placeholder');
+  document.getElementById('new-password-input').placeholder = t('new_password_placeholder');
+  document.getElementById('confirm-password-input').placeholder = t('confirm_new_password_placeholder');
+  document.getElementById('change-password-btn').textContent = t('change_password_btn');
 
   // ---------- فلتر المدينة بالهيرو ----------
   // إعادة تعبئة القائمة عند تبديل اللغة حتى تُترجم أسماء المدن، مع الحفاظ على الاختيار الحالي
@@ -2576,6 +2621,7 @@ function renderAdminPanelUI() {
                  <span>${escapeHtml(p.name)} <span class="muted">(${escapeHtml(p.owner_username)})</span>${p.city ? ` <span class="muted" style="font-size:12px;">📍 ${escapeHtml(cityName(p.city))}</span>` : ''}${p.assistant_phone ? ` <span class="muted" style="font-size:12px;">📱 ${escapeHtml(p.assistant_phone)}</span>` : ''}${p.on_duty ? ` <span class="badge yes" style="margin-right:6px;">${t('onduty_badge_short')}</span>` : ''}</span>
                  <span style="display:flex; gap:6px;">
                    <button class="btn-outline small table-action-btn" onclick="startEditPharmacyName(${p.id})">${t('edit_name_btn')}</button>
+                   <button class="btn-outline small table-action-btn" onclick="resetPharmacyPassword(${p.id})">${t('reset_password_btn')}</button>
                    <button class="btn-outline red small table-action-btn" onclick="deletePharmacyAdmin(${p.id})">${t('delete_btn')}</button>
                  </span>
                </div>
@@ -2685,6 +2731,73 @@ async function addPharmacy() {
   if (!res.ok) { customAlert(translateApiError(data.error), 'error'); return; }
   customAlert(tFormat('pharmacy_added_success', { name: data.name }), 'success');
   renderAdminPanel();
+}
+
+// ---------- كلمة المرور ----------
+
+// تغيير الصيدلي كلمته بنفسه
+async function changeMyPassword() {
+  const current = document.getElementById('current-password-input').value;
+  const next = document.getElementById('new-password-input').value;
+  const confirm = document.getElementById('confirm-password-input').value;
+
+  if (!next) { await customAlert(t('new_password_required_error'), 'warning'); return; }
+  if (next.length < 8) { await customAlert(t('new_password_too_short_error'), 'warning'); return; }
+  if (next !== confirm) { await customAlert(t('passwords_not_matching'), 'warning'); return; }
+
+  try {
+    const res = await fetch(`${API}/pharmacies/self/password`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        username: currentPharmacy.username,
+        // الكلمة الحالية تُؤخذ من الحقل لا من الذاكرة: هكذا يثبت المستخدم أنه يعرفها
+        // فعلاً، ولا يكفي أن يكون تركَ الجلسة مفتوحة على جهاز مشترك.
+        password: current,
+        new_password: next
+      })
+    });
+    const data = await res.json();
+    if (!res.ok) { await customAlert(translateApiError(data.error), 'error'); return; }
+
+    // حاسم: الواجهة تحفظ كلمة المرور بالذاكرة وترسلها مع كل طلب لاحق (مناوبة، مخزون،
+    // طلبات...). بدون تحديثها هنا كانت كل عملية بعد التغيير ستفشل بـ401 حتى يخرج
+    // الصيدلي ويدخل من جديد.
+    currentPharmacy.password = next;
+
+    document.getElementById('current-password-input').value = '';
+    document.getElementById('new-password-input').value = '';
+    document.getElementById('confirm-password-input').value = '';
+    await customAlert(t('password_changed_success'), 'success');
+  } catch (err) {
+    await customAlert(t('server_error_title'), 'error');
+  }
+}
+
+// إعادة تعيين كلمة مرور صيدلية من لوحة الإدارة
+async function resetPharmacyPassword(id) {
+  const pharmacy = adminDataCache.pharmacies.find(p => p.id === id);
+  const name = pharmacy ? pharmacy.name : '';
+
+  const proceed = await customConfirm(tFormat('reset_password_confirm', { name }), 'warning');
+  if (!proceed) return;
+
+  try {
+    const res = await fetch(`${API}/pharmacies/${id}/reset-password`, {
+      method: 'POST', headers: adminHeaders()
+    });
+    const data = await res.json();
+    if (!res.ok) { await customAlert(translateApiError(data.error) || t('reset_password_error'), 'error'); return; }
+
+    // الكلمة تُعرض مرة واحدة فقط — غير مخزّنة بأي مكان، والمحفوظ بالقاعدة هو الهاش.
+    // نعرضها بمربع منفصل قابل للتحديد بسهولة ليسهل نسخها وإملاؤها هاتفياً.
+    await customAlert(
+      `${tFormat('reset_password_done_title', { name: data.name })}\n\n${data.new_password}\n\n${t('reset_password_done_hint')}`,
+      'success'
+    );
+  } catch (err) {
+    await customAlert(t('reset_password_error'), 'error');
+  }
 }
 
 // ---------- تعديل اسم الصيدلية (الإدارة حصراً) ----------
