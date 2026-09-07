@@ -28,12 +28,18 @@ function validateCategory(category) {
 router.get('/search', async (req, res) => {
   const q = req.query.q || '';
   const category = req.query.category || 'medicine';
+  // فلتر مدينة اختياري. أي قيمة غير معروفة تُعامل كـ"كل المدن" بدل رمي خطأ —
+  // البحث واجهة مريض عامة، وتعطيلها بسبب معامل تالف سلوك سيئ.
+  const city = req.query.city || null;
   try {
     const medicines = await db.searchMedicines(q, category);
-    const results = await Promise.all(medicines.map(async medicine => ({
+    let results = await Promise.all(medicines.map(async medicine => ({
       medicine,
-      availability: await db.getAvailability(medicine.id)
+      availability: await db.getAvailability(medicine.id, city)
     })));
+    // عند الفلترة بمدينة، نستبعد الأدوية التي لا توجد لها أي صيدلية بتلك المدينة،
+    // وإلا ظهرت بطاقة دواء فارغة بلا أي صيدلية تحتها.
+    if (city) results = results.filter(r => r.availability.length > 0);
     res.json(results);
   } catch (err) {
     console.error(err);
