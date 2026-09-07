@@ -2619,7 +2619,7 @@ function renderAdminPanelUI() {
                  <div class="admin-ph-info">
                    <span class="admin-ph-name">${escapeHtml(p.name)}</span>
                    <span class="admin-ph-meta">
-                     <span>@${escapeHtml(p.owner_username)}</span>
+                     <span>👤 ${escapeHtml(p.owner_username)}</span>
                      ${p.city ? `<span class="admin-ph-sep">•</span><span>📍 ${escapeHtml(cityName(p.city))}</span>` : ''}
                      ${p.assistant_phone ? `<span class="admin-ph-sep">•</span><span>📱 ${escapeHtml(p.assistant_phone)}</span>` : ''}
                      ${p.on_duty ? `<span class="badge yes">${t('onduty_badge_short')}</span>` : ''}
