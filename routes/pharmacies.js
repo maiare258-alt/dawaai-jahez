@@ -4,11 +4,23 @@ const bcrypt = require('bcryptjs');
 const db = require('../db');
 const adminAuth = require('../middleware/adminAuth');
 
+// المدن المسموحة — مراكز المحافظات السورية الأربع عشرة + سلمية (نقطة الانطلاق).
+// تُخزَّن بقاعدة البيانات كمفاتيح إنكليزية ثابتة، وتُترجم للعرض بالواجهة.
+// ⚠️ عند إضافة مدينة جديدة هنا، يجب إضافة ترجمتها في CITIES بملف frontend/app.js
+//    وإلا ظهر المفتاح الخام (مثل 'homs') للمستخدم بدل اسم المدينة.
+const ALLOWED_CITIES = [
+  'damascus', 'rif_dimashq', 'aleppo', 'homs', 'hama', 'salamiyah',
+  'latakia', 'tartus', 'idlib', 'deir_ez_zor', 'hasakah', 'raqqa',
+  'daraa', 'suwayda', 'quneitra'
+];
+
 // عرض الصيدليات المناوبة حالياً (متاح للجميع - واجهة المريض)
 // GET /api/pharmacies/on-duty
 router.get('/on-duty', async (req, res) => {
+  // فلتر مدينة اختياري: أي قيمة غير معروفة تُتجاهل بأمان فتُعاد كل الصيدليات
+  const city = ALLOWED_CITIES.includes(req.query.city) ? req.query.city : null;
   try {
-    res.json(await db.getOnDutyPharmacies());
+    res.json(await db.getOnDutyPharmacies(city));
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'حدث خطأ أثناء جلب الصيدليات المناوبة' });
@@ -29,16 +41,22 @@ router.get('/', adminAuth, async (req, res) => {
 // تسجيل صيدلية جديدة (للإدارة فقط)
 // POST /api/pharmacies/register  { name, address, phone, username, password }
 router.post('/register', adminAuth, async (req, res) => {
-  const { name, address, phone, username, password } = req.body;
+  const { name, address, phone, city, username, password } = req.body;
   if (!name || !username || !password) {
     return res.status(400).json({ error: 'الاسم واسم المستخدم وكلمة المرور مطلوبة' });
+  }
+  // المدينة مطلوبة للصيدليات الجديدة: بدونها تنكسر الفلترة وتفقد المنصة قابلية التوسع.
+  // السجلات القديمة تبقى صالحة لأن العمود اختياري بقاعدة البيانات (عُبِّئت بسلمية).
+  if (!city) return res.status(400).json({ error: 'المدينة مطلوبة' });
+  if (!ALLOWED_CITIES.includes(city)) {
+    return res.status(400).json({ error: 'مدينة غير صالحة' });
   }
   try {
     if (await db.findPharmacyByUsername(username)) {
       return res.status(409).json({ error: 'اسم المستخدم مستخدم مسبقاً' });
     }
     const passwordHash = await bcrypt.hash(password, 10);
-    const pharmacy = await db.addPharmacy({ name, address, phone, username, passwordHash });
+    const pharmacy = await db.addPharmacy({ name, address, phone, city, username, passwordHash });
     const { owner_password_hash, ...safePharmacy } = pharmacy;
     res.status(201).json(safePharmacy);
   } catch (err) {
@@ -65,6 +83,7 @@ router.post('/login', async (req, res) => {
       id: pharmacy.id,
       name: pharmacy.name,
       address: pharmacy.address,
+      city: pharmacy.city || null,
       assistant_phone: pharmacy.assistant_phone || null,
       on_duty: !!pharmacy.on_duty,
       on_duty_day: pharmacy.on_duty_day || null,
