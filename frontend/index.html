@@ -427,49 +427,6 @@
     transform: translateY(-1px); filter: brightness(1.06); box-shadow: 0 10px 22px rgba(24,95,165,0.28);
   }
   .box { background: white; border: 1px solid #cfe0ef; border-radius: 16px; padding: 18px 20px; margin-top: 10px; }
-  /* صف فلتر المدينة بالهيرو — تحت خانة البحث مباشرة */
-  .hero-city-row {
-    display: flex; align-items: center; gap: 10px;
-    margin: 14px 0 6px; flex-wrap: wrap;
-  }
-  .hero-city-label {
-    font-size: 14px; color: #4a5a68; font-weight: 600;
-    display: inline-flex; align-items: center; gap: 4px;
-  }
-  .hero-city-select {
-    /* إخفاء سهم المتصفح الافتراضي واستبداله بسهم مرسوم، لأن الافتراضي يختلف شكلاً
-       وموضعاً بين المتصفحات وكان يبدو ملتصقاً بالحافة وبعيداً عن النص. */
-    appearance: none; -webkit-appearance: none; -moz-appearance: none;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8' fill='none'%3E%3Cpath d='M1 1.5L6 6.5L11 1.5' stroke='%23185fa5' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
-    background-repeat: no-repeat;
-    /* عربي: النص يمين والسهم يسار */
-    background-position: left 16px center;
-    padding: 10px 18px 10px 42px;
-    border: 1.5px solid #a9cdea; border-radius: 999px;
-    background-color: white; color: #185fa5;
-    font-size: 15px; font-family: inherit; font-weight: 600;
-    cursor: pointer; min-height: 46px;
-    /* صفر عرض ثابت: المتصفح يقيسه على أطول مدينة، فيبقى السهم قريباً من النص
-       بدل الفجوة الكبيرة التي كان يسببها max-width الثابت. */
-    min-width: 158px;
-    box-shadow: 0 2px 6px rgba(24,95,165,0.07);
-    transition: border-color .15s ease, box-shadow .15s ease;
-  }
-  /* إنكليزي: ينعكس الاتجاه فينتقل السهم لليمين */
-  html[dir="ltr"] .hero-city-select {
-    background-position: right 16px center;
-    padding: 10px 42px 10px 18px;
-  }
-  .hero-city-select:hover { border-color: #6aa9d9; box-shadow: 0 3px 10px rgba(24,95,165,0.13); }
-  .hero-city-select:focus-visible { outline: 2px solid #185fa5; outline-offset: 2px; }
-  /* الخيارات داخل القائمة المفتوحة يرسمها النظام، والمتاح لنا فقط لون النص والخلفية */
-  .hero-city-select option { color: #23303a; background: #ffffff; }
-
-  @media (max-width: 640px) {
-    .hero-city-row { gap: 8px; }
-    .hero-city-select { width: 100%; max-width: 100%; min-width: 0; }
-  }
-
   #suggestions {
     position: absolute; top: 100%; right: 0; left: 0; z-index: 10;
     background: white; border: 1px solid #cfe0ef; border-radius: 16px;
@@ -946,12 +903,6 @@
         <button type="button" class="search-btn" id="search-btn" onclick="submitSearch()">بحث</button>
         <div id="suggestions" role="listbox" aria-label="اقتراحات البحث"></div>
       </div>
-      <div class="hero-city-row">
-        <label class="hero-city-label" for="city-filter" id="city-filter-label">📍 المدينة</label>
-        <select id="city-filter" class="hero-city-select" aria-label="تصفية النتائج حسب المدينة" onchange="onCityFilterChange(this)">
-          <option value="">كل المدن</option>
-        </select>
-      </div>
       <p class="hero-search-hint" id="hero-search-hint">اكتب اسم الدواء للبحث عن توفره في صيدليات سلمية.</p>
       <div class="hero-actions-row">
         <button id="cart-toggle-btn" class="hero-cart-btn" onclick="toggleCart()">
@@ -1102,6 +1053,23 @@
           <div class="stock-table-header"><span id="stock-table-medicine">الدواء</span><span class="col-status" id="stock-table-status">الحالة</span></div>
           <div id="stock-list"></div>
         </div>
+      </div>
+      <div class="box" style="margin-top:24px; margin-bottom:20px;">
+        <h3 style="margin-top:0;" id="change-password-title">🔑 تغيير كلمة المرور</h3>
+        <p class="muted" style="margin-top:-8px;" id="change-password-desc">غيّر كلمة مرورك في أي وقت. ستحتاج كلمتك الحالية للتأكيد.</p>
+        <div class="password-field">
+          <input id="current-password-input" type="password" placeholder="كلمة المرور الحالية" autocomplete="current-password">
+          <button type="button" class="toggle-password" onclick="togglePassword('current-password-input', this)" aria-label="إظهار كلمة المرور">👁</button>
+        </div>
+        <div class="password-field">
+          <input id="new-password-input" type="password" placeholder="كلمة المرور الجديدة" autocomplete="new-password">
+          <button type="button" class="toggle-password" onclick="togglePassword('new-password-input', this)" aria-label="إظهار كلمة المرور">👁</button>
+        </div>
+        <div class="password-field">
+          <input id="confirm-password-input" type="password" placeholder="تأكيد كلمة المرور الجديدة" autocomplete="new-password">
+          <button type="button" class="toggle-password" onclick="togglePassword('confirm-password-input', this)" aria-label="إظهار كلمة المرور">👁</button>
+        </div>
+        <button class="primary" onclick="changeMyPassword()" id="change-password-btn">تغيير كلمة المرور</button>
       </div>
       <p style="margin-top:32px;">
         <button class="action-pill-btn red" onclick="deleteMyAccount()" id="delete-account-btn">🗑️ حذف حسابي نهائياً</button>
