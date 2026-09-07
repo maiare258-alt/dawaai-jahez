@@ -158,6 +158,17 @@ const translations = {
     delete_pharmacy_confirm: 'متأكد إنك بدك تحذف صيدلية "{name}"؟', pharmacy_added_success: 'تمت إضافة صيدلية "{name}" بنجاح',
     edit_name_btn: 'تعديل الاسم', save_name_btn: 'حفظ', cancel_edit_btn: 'إلغاء',
     edit_name_aria: 'تعديل اسم الصيدلية',
+    stats_title: '📊 نظرة عامة على المنصة', stats_load_error: 'تعذّر جلب الإحصاءات',
+    stat_pharmacies: 'صيدلية مسجّلة', stat_on_duty: 'مناوبة الآن',
+    stat_medicines: 'دواء بالقائمة العامة', stat_cosmetics: 'مستحضر تجميل',
+    stat_nurses: 'ممرض', stat_available_stock: 'دواء متوفر بالصيدليات',
+    stat_orders_total: 'إجمالي الطلبات', stat_orders_24h: 'طلب آخر ٢٤ ساعة',
+    stat_orders_7d: 'طلب آخر ٧ أيام', stat_orders_30d: 'طلب آخر ٣٠ يوماً',
+    stats_top_medicines: 'أكثر الأدوية طلباً', stats_top_pharmacies: 'أنشط الصيدليات',
+    stats_by_city: 'الصيدليات حسب المدينة',
+    stats_orders_count_unit: 'طلب', stats_times_unit: 'مرة', stats_pharmacy_unit: 'صيدلية',
+    stats_no_orders_yet: 'لا توجد طلبات بعد — ستظهر هنا فور وصول أول طلب.',
+    stats_refresh_btn: 'تحديث',
     city_placeholder: 'المدينة', city_label: 'المدينة', all_cities: 'كل المدن',
     filter_by_city_aria: 'تصفية النتائج حسب المدينة',
     city_required_error: 'المدينة مطلوبة', invalid_city_error: 'مدينة غير صالحة',
@@ -352,6 +363,17 @@ const translations = {
     delete_pharmacy_confirm: 'Are you sure you want to delete pharmacy "{name}"?', pharmacy_added_success: 'Pharmacy "{name}" added successfully',
     edit_name_btn: 'Edit name', save_name_btn: 'Save', cancel_edit_btn: 'Cancel',
     edit_name_aria: 'Edit pharmacy name',
+    stats_title: '📊 Platform overview', stats_load_error: 'Could not load statistics',
+    stat_pharmacies: 'registered pharmacies', stat_on_duty: 'on duty now',
+    stat_medicines: 'medicines in general list', stat_cosmetics: 'cosmetic products',
+    stat_nurses: 'nurses', stat_available_stock: 'medicines in stock',
+    stat_orders_total: 'total orders', stat_orders_24h: 'orders in last 24h',
+    stat_orders_7d: 'orders in last 7 days', stat_orders_30d: 'orders in last 30 days',
+    stats_top_medicines: 'Most requested medicines', stats_top_pharmacies: 'Most active pharmacies',
+    stats_by_city: 'Pharmacies by city',
+    stats_orders_count_unit: 'orders', stats_times_unit: 'times', stats_pharmacy_unit: 'pharmacies',
+    stats_no_orders_yet: 'No orders yet — they will appear here as soon as the first one arrives.',
+    stats_refresh_btn: 'Refresh',
     city_placeholder: 'City', city_label: 'City', all_cities: 'All cities',
     filter_by_city_aria: 'Filter results by city',
     city_required_error: 'City is required', invalid_city_error: 'Invalid city',
@@ -2356,7 +2378,7 @@ function adminHeaders() {
 }
 
 // ذاكرة مؤقتة لآخر بيانات جُلبت من السيرفر — عشان تبديل اللغة يعيد الرسم بس، بدون طلبات شبكة جديدة
-let adminDataCache = { pharmacies: [], medicines: [], nurses: [], pendingRatings: [] };
+let adminDataCache = { pharmacies: [], medicines: [], nurses: [], pendingRatings: [], stats: null };
 
 // نتتبّع أول تحميل لكل جلسة دخول إدارة فقط، عشان مؤشر "جاري التحميل" ما يتكرر بعد كل إجراء إداري (تفادياً للوميض)
 let adminPanelLoadedOnce = false;
@@ -2375,13 +2397,15 @@ async function renderAdminPanel() {
     document.getElementById('admin-panel').innerHTML = `<p class="muted" style="padding:20px;">${t('loading_text')}</p>`;
   }
   try {
-    const [pharmacies, medicines, nurses, pendingRatings] = await Promise.all([
+    const [pharmacies, medicines, nurses, pendingRatings, stats] = await Promise.all([
       fetch(`${API}/pharmacies`, { headers: adminHeaders() }).then(r => r.json()),
       fetch(`${API}/medicines`, { headers: adminHeaders() }).then(r => r.json()),
       fetch(`${API}/nurses`).then(r => r.json()),
-      fetch(`${API}/nurses/ratings/pending`, { headers: adminHeaders() }).then(r => r.json())
+      fetch(`${API}/nurses/ratings/pending`, { headers: adminHeaders() }).then(r => r.json()),
+      // فشل الإحصاءات وحدها يجب ألا يُسقط اللوحة كلها — تُعاد null فيُخفى القسم فقط
+      fetch(`${API}/stats`, { headers: adminHeaders() }).then(r => r.ok ? r.json() : null).catch(() => null)
     ]);
-    adminDataCache = { pharmacies, medicines, nurses, pendingRatings };
+    adminDataCache = { pharmacies, medicines, nurses, pendingRatings, stats };
     renderAdminPanelUI();
     adminPanelLoadedOnce = true;
   } catch (err) {
@@ -2394,8 +2418,94 @@ async function renderAdminPanel() {
 }
 
 // إعادة رسم اللوحة من آخر بيانات محفوظة بدون أي طلب شبكة جديد — تُستخدم عند تبديل اللغة بس
+// ---------- قسم الإحصاءات بلوحة الإدارة ----------
+// يُبنى من كائن stats القادم من GET /api/stats. لو كان null (فشل الطلب) يُخفى القسم
+// بالكامل بدل عرض أصفار مضلّلة — رقم خاطئ أسوأ من غياب الرقم.
+function renderStatsSection(stats) {
+  if (!stats || !stats.totals) return '';
+  const s = stats.totals;
+
+  // صف واحد من جدول ترتيب: اسم على جهة، رقم على الأخرى
+  const rankRow = (label, value, unit) => `
+    <div class="row">
+      <span>${escapeHtml(label)}</span>
+      <span class="muted">${value} ${escapeHtml(unit)}</span>
+    </div>`;
+
+  const emptyNote = `<p class="muted" style="padding:8px 0; margin:0;">${t('stats_no_orders_yet')}</p>`;
+
+  const topMeds = (stats.topMedicines || []).length
+    ? stats.topMedicines.map(m => rankRow(m.name, m.count, t('stats_times_unit'))).join('')
+    : emptyNote;
+
+  const topPhs = (stats.topPharmacies || []).length
+    ? stats.topPharmacies.map(p =>
+        rankRow(p.city ? `${p.name} - ${cityName(p.city)}` : p.name, p.orders_count, t('stats_orders_count_unit'))
+      ).join('')
+    : emptyNote;
+
+  const byCity = (stats.byCity || []).length
+    ? stats.byCity.map(c => rankRow(cityName(c.city), c.count, t('stats_pharmacy_unit'))).join('')
+    : '';
+
+  return `
+    <div class="box" style="margin-bottom:20px;">
+      <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px;">
+        <h3 style="margin:0;">${t('stats_title')}</h3>
+        <button class="btn-outline blue small" onclick="renderAdminPanel()">${t('stats_refresh_btn')}</button>
+      </div>
+
+      <div class="stats-grid" style="margin-top:14px;">
+        <div class="stat-card">
+          <div class="stat-value">${s.orders_total}</div>
+          <div class="stat-label">${t('stat_orders_total')}</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value stat-green">${s.orders_24h}</div>
+          <div class="stat-label">${t('stat_orders_24h')}</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value">${s.orders_7d}</div>
+          <div class="stat-label">${t('stat_orders_7d')}</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value">${s.orders_30d}</div>
+          <div class="stat-label">${t('stat_orders_30d')}</div>
+        </div>
+      </div>
+
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-value">${s.available_stock}</div>
+          <div class="stat-label">${t('stat_available_stock')}</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value">${s.cosmetics}</div>
+          <div class="stat-label">${t('stat_cosmetics')}</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value">${s.nurses}</div>
+          <div class="stat-label">${t('stat_nurses')}</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value stat-green">${s.pharmacies_on_duty}</div>
+          <div class="stat-label">${t('stat_on_duty')}</div>
+        </div>
+      </div>
+
+      <h4 style="margin:18px 0 8px;">${t('stats_top_medicines')}</h4>
+      ${topMeds}
+
+      <h4 style="margin:18px 0 8px;">${t('stats_top_pharmacies')}</h4>
+      ${topPhs}
+
+      ${byCity ? `<h4 style="margin:18px 0 8px;">${t('stats_by_city')}</h4>${byCity}` : ''}
+    </div>
+  `;
+}
+
 function renderAdminPanelUI() {
-  const { pharmacies, medicines, nurses, pendingRatings } = adminDataCache;
+  const { pharmacies, medicines, nurses, pendingRatings, stats } = adminDataCache;
 
   approvedRatingsLoaded = false;
   lastPendingRatingsSnapshot = JSON.stringify(pendingRatings);
@@ -2421,6 +2531,8 @@ function renderAdminPanelUI() {
         <div class="stat-label">${t('stat_onduty_pharmacies')}</div>
       </div>
     </div>
+
+    ${renderStatsSection(stats)}
 
     <div class="box" style="margin-bottom:20px;">
       <h3 style="margin-top:0;">${t('add_pharmacy_title')}</h3>
