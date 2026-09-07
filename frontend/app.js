@@ -2604,26 +2604,32 @@ function renderAdminPanelUI() {
           : `<div class="stock-table-header"><span>${t('pharmacies_table_header')}</span><span class="col-action">${t('action_col_header')}</span></div>
              ${pharmacies.map(p => p.id === editingPharmacyId
                ? `
-               <div class="row" style="gap:12px;">
-                 <span style="flex:1; min-width:0;">
-                   <input id="edit-ph-name-${p.id}" value="${escapeHtml(editingPharmacyNameDraft)}" aria-label="${t('edit_name_aria')}"
-                          style="width:100%; margin:0;" oninput="onEditPharmacyNameInput(this)"
-                          onkeydown="onEditPharmacyNameKeydown(event, ${p.id})">
-                 </span>
-                 <span style="display:flex; gap:6px; flex-shrink:0;">
-                   <button class="btn-outline small table-action-btn" onclick="savePharmacyName(${p.id})">${t('save_name_btn')}</button>
-                   <button class="btn-outline small table-action-btn" onclick="cancelEditPharmacyName()">${t('cancel_edit_btn')}</button>
-                 </span>
+               <div class="admin-ph-row">
+                 <input id="edit-ph-name-${p.id}" class="admin-ph-edit-input" value="${escapeHtml(editingPharmacyNameDraft)}"
+                        aria-label="${t('edit_name_aria')}" oninput="onEditPharmacyNameInput(this)"
+                        onkeydown="onEditPharmacyNameKeydown(event, ${p.id})">
+                 <div class="admin-ph-actions">
+                   <button class="btn-outline blue" onclick="savePharmacyName(${p.id})">${t('save_name_btn')}</button>
+                   <button class="btn-outline" onclick="cancelEditPharmacyName()">${t('cancel_edit_btn')}</button>
+                 </div>
                </div>
              `
                : `
-               <div class="row">
-                 <span>${escapeHtml(p.name)} <span class="muted">(${escapeHtml(p.owner_username)})</span>${p.city ? ` <span class="muted" style="font-size:12px;">📍 ${escapeHtml(cityName(p.city))}</span>` : ''}${p.assistant_phone ? ` <span class="muted" style="font-size:12px;">📱 ${escapeHtml(p.assistant_phone)}</span>` : ''}${p.on_duty ? ` <span class="badge yes" style="margin-right:6px;">${t('onduty_badge_short')}</span>` : ''}</span>
-                 <span style="display:flex; gap:6px;">
-                   <button class="btn-outline small table-action-btn" onclick="startEditPharmacyName(${p.id})">${t('edit_name_btn')}</button>
-                   <button class="btn-outline small table-action-btn" onclick="resetPharmacyPassword(${p.id})">${t('reset_password_btn')}</button>
-                   <button class="btn-outline red small table-action-btn" onclick="deletePharmacyAdmin(${p.id})">${t('delete_btn')}</button>
-                 </span>
+               <div class="admin-ph-row">
+                 <div class="admin-ph-info">
+                   <span class="admin-ph-name">${escapeHtml(p.name)}</span>
+                   <span class="admin-ph-meta">
+                     <span>@${escapeHtml(p.owner_username)}</span>
+                     ${p.city ? `<span class="admin-ph-sep">•</span><span>📍 ${escapeHtml(cityName(p.city))}</span>` : ''}
+                     ${p.assistant_phone ? `<span class="admin-ph-sep">•</span><span>📱 ${escapeHtml(p.assistant_phone)}</span>` : ''}
+                     ${p.on_duty ? `<span class="badge yes">${t('onduty_badge_short')}</span>` : ''}
+                   </span>
+                 </div>
+                 <div class="admin-ph-actions">
+                   <button class="btn-outline" onclick="startEditPharmacyName(${p.id})">${t('edit_name_btn')}</button>
+                   <button class="btn-outline blue" onclick="resetPharmacyPassword(${p.id})">${t('reset_password_btn')}</button>
+                   <button class="btn-outline red" onclick="deletePharmacyAdmin(${p.id})">${t('delete_btn')}</button>
+                 </div>
                </div>
              `).join('')}`
         }
