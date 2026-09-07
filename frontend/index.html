@@ -427,6 +427,19 @@
     transform: translateY(-1px); filter: brightness(1.06); box-shadow: 0 10px 22px rgba(24,95,165,0.28);
   }
   .box { background: white; border: 1px solid #cfe0ef; border-radius: 16px; padding: 18px 20px; margin-top: 10px; }
+  /* صف فلتر المدينة بالهيرو — تحت خانة البحث مباشرة */
+  .hero-city-row {
+    display: flex; align-items: center; gap: 10px;
+    margin: 12px 0 4px; flex-wrap: wrap;
+  }
+  .hero-city-label { font-size: 14px; color: #4a5a68; font-weight: 600; }
+  .hero-city-select {
+    padding: 9px 14px; border: 1px solid #a9cdea; border-radius: 999px;
+    background: white; color: #185fa5; font-size: 15px; font-family: inherit;
+    cursor: pointer; min-height: 44px; max-width: 220px;
+  }
+  .hero-city-select:focus-visible { outline: 2px solid #185fa5; outline-offset: 2px; }
+
   #suggestions {
     position: absolute; top: 100%; right: 0; left: 0; z-index: 10;
     background: white; border: 1px solid #cfe0ef; border-radius: 16px;
@@ -902,6 +915,12 @@
         <input id="search" type="text" placeholder="ابحث عن دواء أو مادة فعالة..." aria-label="البحث عن دواء أو مادة فعالة" oninput="onSearch()" onkeydown="onSearchKeydown(event)" autocomplete="off">
         <button type="button" class="search-btn" id="search-btn" onclick="submitSearch()">بحث</button>
         <div id="suggestions" role="listbox" aria-label="اقتراحات البحث"></div>
+      </div>
+      <div class="hero-city-row">
+        <label class="hero-city-label" for="city-filter" id="city-filter-label">📍 المدينة</label>
+        <select id="city-filter" class="hero-city-select" aria-label="تصفية النتائج حسب المدينة" onchange="onCityFilterChange(this)">
+          <option value="">كل المدن</option>
+        </select>
       </div>
       <p class="hero-search-hint" id="hero-search-hint">اكتب اسم الدواء للبحث عن توفره في صيدليات سلمية.</p>
       <div class="hero-actions-row">
