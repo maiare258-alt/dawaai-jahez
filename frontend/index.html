@@ -697,6 +697,37 @@
   .stock-table-header .col-status { min-width: 104px; text-align: center; }
   .stock-table-header .col-action { min-width: 78px; text-align: center; }
   .table-action-btn { min-width: 78px; text-align: center; }
+
+  /* ---- صف الصيدلية بلوحة الإدارة ----
+     أُفرد بأصنافه الخاصة بدل .row العام، لأن أزراره صارت ثلاثة بنصوص متفاوتة الطول
+     ("حذف" مقابل "إعادة تعيين كلمة المرور")، فكان النص يلتف على سطرين ويعطي كل زر
+     عرضاً وارتفاعاً مختلفاً، وتنزل شارة المناوبة تحت الاسم. الحل: معلومات الصيدلية
+     بسطرين (اسم بارز + بيانات ثانوية)، والأزرار بسطر واحد بلا التفاف. */
+  .admin-ph-row {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 14px; padding: 14px 2px; border-top: 1px solid #eef2f6; flex-wrap: wrap;
+  }
+  .admin-ph-row:first-of-type { border-top: none; }
+  .admin-ph-info { display: flex; flex-direction: column; gap: 5px; min-width: 0; flex: 1 1 240px; }
+  .admin-ph-name { font-size: 16px; font-weight: 600; color: #163a5c; overflow-wrap: anywhere; }
+  .admin-ph-meta {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px;
+    font-size: 13px; color: #6b7a87;
+  }
+  .admin-ph-meta .badge { font-size: 12px; padding: 3px 10px; }
+  .admin-ph-sep { color: #c7d3dd; }
+  .admin-ph-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+  /* nowrap هو جوهر الإصلاح: يمنع التفاف نص الزر فيتساوى ارتفاع الأزرار الثلاثة */
+  .admin-ph-actions .btn-outline {
+    white-space: nowrap; min-width: 0; padding: 9px 15px; font-size: 14px;
+    border-radius: 12px; line-height: 1.2;
+  }
+  .admin-ph-edit-input { flex: 1 1 220px; min-width: 0; margin: 0 !important; }
+
+  @media (max-width: 700px) {
+    .admin-ph-actions { width: 100%; }
+    .admin-ph-actions .btn-outline { flex: 1; text-align: center; }
+  }
   .stock-scroll .row { padding: 12px 18px; margin: 0; border-top: 1px solid #eef2f6; transition: background .2s ease; }
   .expiry-badge { font-size: 14px; font-weight: 600; padding: 5px 12px; border-radius: 999px; margin-right: 6px; display: inline-block; }
   html[dir="ltr"] .expiry-badge { margin-right: 0; margin-left: 6px; }
