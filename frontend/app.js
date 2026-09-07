@@ -4,12 +4,70 @@ let adminPassword = null;
 let cart = JSON.parse(localStorage.getItem('cart') || '[]');
 // التصنيف الحالي لصفحة البحث: 'medicine' (الرئيسية) أو 'cosmetic' (مستحضرات تجميل)
 let currentCategory = 'medicine';
+// فلتر المدينة بواجهة المريض. '' = كل المدن (السلوك الافتراضي، مطابق لما قبل الميزة).
+// حالة واجهة فقط: لا تُحفظ ولا تؤثر على أي بيانات مخزّنة.
+let currentCity = '';
 // طلبات المريض المرسلة من هذا المتصفح (لتتبع رد الصيدلية عليها)
 let myOrders = JSON.parse(localStorage.getItem('myOrders') || '[]');
 
 // ---------- نظام تعدد اللغات (عربي/إنكليزي) — المرحلة 1: الصفحة الرئيسية ----------
 
 let currentLang = localStorage.getItem('lang') || 'ar';
+
+// المدن المدعومة — مراكز المحافظات السورية + سلمية.
+// المفتاح هو ما يُخزَّن بقاعدة البيانات، والقيمة هي الاسم المعروض بكل لغة.
+// ⚠️ يجب أن تبقى المفاتيح مطابقة تماماً لـALLOWED_CITIES في routes/pharmacies.js
+const CITIES = {
+  damascus:    { ar: 'دمشق',      en: 'Damascus' },
+  rif_dimashq: { ar: 'ريف دمشق',  en: 'Rif Dimashq' },
+  aleppo:      { ar: 'حلب',       en: 'Aleppo' },
+  homs:        { ar: 'حمص',       en: 'Homs' },
+  hama:        { ar: 'حماة',      en: 'Hama' },
+  salamiyah:   { ar: 'سلمية',     en: 'Salamiyah' },
+  latakia:     { ar: 'اللاذقية',  en: 'Latakia' },
+  tartus:      { ar: 'طرطوس',     en: 'Tartus' },
+  idlib:       { ar: 'إدلب',      en: 'Idlib' },
+  deir_ez_zor: { ar: 'دير الزور', en: 'Deir ez-Zor' },
+  hasakah:     { ar: 'الحسكة',    en: 'Al-Hasakah' },
+  raqqa:       { ar: 'الرقة',     en: 'Raqqa' },
+  daraa:       { ar: 'درعا',      en: 'Daraa' },
+  suwayda:     { ar: 'السويداء',  en: 'As-Suwayda' },
+  quneitra:    { ar: 'القنيطرة',  en: 'Quneitra' }
+};
+
+// اسم المدينة باللغة الحالية. المفتاح غير المعروف يُعاد كما هو بدل ما يختفي —
+// أفضل من عرض فراغ لو أُضيفت مدينة بالخلفية ونُسيت ترجمتها هنا.
+// يستدعيها عنصر <select> بالهيرو. إعادة البحث فوراً لو كان المستخدم كاتباً شيئاً أصلاً.
+function onCityFilterChange(el) {
+  currentCity = el.value;
+  const q = document.getElementById('search').value.trim();
+  if (q) submitSearch();
+}
+
+// تعبئة قائمة المدن بالهيرو — تُستدعى عند الإقلاع وعند تبديل اللغة (لتترجم الأسماء)
+function renderCityFilter() {
+  const sel = document.getElementById('city-filter');
+  if (!sel) return;
+  sel.innerHTML = `<option value="">${t('all_cities')}</option>` + cityOptionsHtml(currentCity);
+  sel.value = currentCity;
+  sel.setAttribute('aria-label', t('filter_by_city_aria'));
+  const lbl = document.getElementById('city-filter-label');
+  if (lbl) lbl.textContent = `📍 ${t('city_label')}`;
+}
+
+function cityName(key) {
+  if (!key) return '';
+  return (CITIES[key] && CITIES[key][currentLang]) || key;
+}
+
+// خيارات <option> لقائمة المدن، مرتبة أبجدياً حسب اللغة المعروضة
+function cityOptionsHtml(selected) {
+  return Object.keys(CITIES)
+    .map(k => ({ k, label: cityName(k) }))
+    .sort((a, b) => a.label.localeCompare(b.label, currentLang === 'ar' ? 'ar' : 'en'))
+    .map(c => `<option value="${c.k}"${c.k === selected ? ' selected' : ''}>${escapeHtml(c.label)}</option>`)
+    .join('');
+}
 
 const translations = {
   ar: {
@@ -100,6 +158,9 @@ const translations = {
     delete_pharmacy_confirm: 'متأكد إنك بدك تحذف صيدلية "{name}"؟', pharmacy_added_success: 'تمت إضافة صيدلية "{name}" بنجاح',
     edit_name_btn: 'تعديل الاسم', save_name_btn: 'حفظ', cancel_edit_btn: 'إلغاء',
     edit_name_aria: 'تعديل اسم الصيدلية',
+    city_placeholder: 'المدينة', city_label: 'المدينة', all_cities: 'كل المدن',
+    filter_by_city_aria: 'تصفية النتائج حسب المدينة',
+    city_required_error: 'المدينة مطلوبة', invalid_city_error: 'مدينة غير صالحة',
     pharmacy_name_required: 'اسم الصيدلية مطلوب',
     duplicate_pharmacy_name_confirm: 'يوجد اسم مطابق: "{name}" (اسم المستخدم: {username}). هل تريد المتابعة؟',
     pharmacy_name_updated: 'تم تحديث اسم الصيدلية إلى "{name}"',
@@ -291,6 +352,9 @@ const translations = {
     delete_pharmacy_confirm: 'Are you sure you want to delete pharmacy "{name}"?', pharmacy_added_success: 'Pharmacy "{name}" added successfully',
     edit_name_btn: 'Edit name', save_name_btn: 'Save', cancel_edit_btn: 'Cancel',
     edit_name_aria: 'Edit pharmacy name',
+    city_placeholder: 'City', city_label: 'City', all_cities: 'All cities',
+    filter_by_city_aria: 'Filter results by city',
+    city_required_error: 'City is required', invalid_city_error: 'Invalid city',
     pharmacy_name_required: 'Pharmacy name is required',
     duplicate_pharmacy_name_confirm: 'A matching name already exists: "{name}" (username: {username}). Do you want to continue?',
     pharmacy_name_updated: 'Pharmacy name updated to "{name}"',
@@ -415,7 +479,9 @@ const BACKEND_ERROR_MAP = {
   'حدث خطأ أثناء إرسال الطلب': 'order_submit_error',
   'رقم الهاتف يجب أن يتكون من أرقام فقط': 'phone_digits_only_error',
   'الاسم ورقم الهاتف والأدوية مطلوبة لإتمام الطلب': 'order_missing_fields_error',
-  'هذا الدواء موجود مسبقاً في القائمة العامة': 'medicine_already_exists_error'
+  'هذا الدواء موجود مسبقاً في القائمة العامة': 'medicine_already_exists_error',
+  'المدينة مطلوبة': 'city_required_error',
+  'مدينة غير صالحة': 'invalid_city_error'
 };
 function translateApiError(rawError) {
   const key = BACKEND_ERROR_MAP[rawError];
@@ -532,6 +598,10 @@ function applyLanguage() {
   } else if (document.getElementById('pharmacist-auth-section').innerHTML.trim()) {
     renderPharmacyAuthForm();
   }
+
+  // ---------- فلتر المدينة بالهيرو ----------
+  // إعادة تعبئة القائمة عند تبديل اللغة حتى تُترجم أسماء المدن، مع الحفاظ على الاختيار الحالي
+  renderCityFilter();
 
   // ---------- لوحة الإدارة ----------
   if (adminPassword) {
@@ -1197,7 +1267,7 @@ async function loadOnDuty() {
             return `
               <div class="duty-card">
                 <div class="duty-card-top">
-                  <span class="duty-card-name">${escapeHtml(p.name)}</span>
+                  <span class="duty-card-name">${escapeHtml(p.name)}${p.city ? ` <span class="muted" style="font-size:13px;">- ${escapeHtml(cityName(p.city))}</span>` : ''}</span>
                   <span class="duty-status-badge">${t('onduty_now_badge')}</span>
                 </div>
                 ${p.address ? `<div class="duty-card-row"><span class="duty-icon">📍</span> ${escapeHtml(p.address)}</div>` : ''}
@@ -1571,7 +1641,8 @@ async function runSearch() {
   // تفادياً لمشكلة نتيجة بحث قديمة ترجع وتطلع فوق نتيجة أحدث أو فوق خانة بحث فاضية
   const stillCurrent = () => document.getElementById('search').value.trim() === q;
   try {
-    const res = await fetch(`${API}/medicines/search?q=${encodeURIComponent(q)}&category=${currentCategory}`);
+    const cityParam = currentCity ? `&city=${encodeURIComponent(currentCity)}` : '';
+    const res = await fetch(`${API}/medicines/search?q=${encodeURIComponent(q)}&category=${currentCategory}${cityParam}`);
     const data = await res.json();
     if (!stillCurrent()) return;
     lastSearchResultsCache = data;
@@ -1616,7 +1687,7 @@ async function runSearch() {
               <span class="badge ${a.available ? 'yes' : 'no'}">${a.available ? t('available_badge') : t('unavailable_badge')}</span>
             </div>
             <div class="result-row">${t('active_ingredient_label')} ${escapeHtml(item.medicine.generic_name) || '-'}</div>
-            <div class="result-pharmacy"><span class="result-icon">📍</span> ${escapeHtml(a.pharmacy_name)}${a.address ? ' - ' + escapeHtml(a.address) : ''}</div>
+            <div class="result-pharmacy"><span class="result-icon">📍</span> ${escapeHtml(a.pharmacy_name)}${a.city ? ' - ' + escapeHtml(cityName(a.city)) : ''}${a.address ? ' - ' + escapeHtml(a.address) : ''}</div>
             ${a.phone ? `<div class="result-row"><span class="result-icon">📞</span> ${escapeHtml(a.phone)}</div>` : ''}
             ${a.assistant_phone ? `<div class="result-row"><span class="result-icon">📱</span> ${escapeHtml(a.assistant_phone)} <span class="muted" style="font-size:12px;">(${t('assistant_phone_label')})</span></div>` : ''}
             ${a.available ? `<button class="result-add-btn-full" onclick="addToCart(${item.medicine.id}, ${a.pharmacy_id}, this)">${t('add_to_cart_btn')}</button>` : ''}
@@ -1626,7 +1697,8 @@ async function runSearch() {
 
       if (!anyAvailable && item.medicine.generic_name) {
         try {
-          const altRes = await fetch(`${API}/medicines/search?q=${encodeURIComponent(item.medicine.generic_name)}&category=${currentCategory}`);
+          const altCityParam = currentCity ? `&city=${encodeURIComponent(currentCity)}` : '';
+          const altRes = await fetch(`${API}/medicines/search?q=${encodeURIComponent(item.medicine.generic_name)}&category=${currentCategory}${altCityParam}`);
           const altData = await altRes.json();
           const alternatives = altData
             .filter(alt => alt.medicine.id !== item.medicine.id)
@@ -2354,6 +2426,10 @@ function renderAdminPanelUI() {
       <h3 style="margin-top:0;">${t('add_pharmacy_title')}</h3>
       <input id="ph-name" placeholder="${t('pharmacy_name_placeholder')}">
       <input id="ph-address" placeholder="${t('address_placeholder')}">
+      <select id="ph-city" aria-label="${t('city_label')}">
+        <option value="">${t('city_placeholder')}</option>
+        ${cityOptionsHtml('')}
+      </select>
       <input id="ph-phone" placeholder="${t('phone_placeholder')}">
       <input id="ph-username" placeholder="${t('username_placeholder')}">
       <div class="password-field">
@@ -2385,7 +2461,7 @@ function renderAdminPanelUI() {
              `
                : `
                <div class="row">
-                 <span>${escapeHtml(p.name)} <span class="muted">(${escapeHtml(p.owner_username)})</span>${p.assistant_phone ? ` <span class="muted" style="font-size:12px;">📱 ${escapeHtml(p.assistant_phone)}</span>` : ''}${p.on_duty ? ` <span class="badge yes" style="margin-right:6px;">${t('onduty_badge_short')}</span>` : ''}</span>
+                 <span>${escapeHtml(p.name)} <span class="muted">(${escapeHtml(p.owner_username)})</span>${p.city ? ` <span class="muted" style="font-size:12px;">📍 ${escapeHtml(cityName(p.city))}</span>` : ''}${p.assistant_phone ? ` <span class="muted" style="font-size:12px;">📱 ${escapeHtml(p.assistant_phone)}</span>` : ''}${p.on_duty ? ` <span class="badge yes" style="margin-right:6px;">${t('onduty_badge_short')}</span>` : ''}</span>
                  <span style="display:flex; gap:6px;">
                    <button class="btn-outline small table-action-btn" onclick="startEditPharmacyName(${p.id})">${t('edit_name_btn')}</button>
                    <button class="btn-outline red small table-action-btn" onclick="deletePharmacyAdmin(${p.id})">${t('delete_btn')}</button>
@@ -2485,6 +2561,7 @@ async function addPharmacy() {
   const body = {
     name: document.getElementById('ph-name').value,
     address: document.getElementById('ph-address').value,
+    city: document.getElementById('ph-city').value,
     phone: document.getElementById('ph-phone').value,
     username: document.getElementById('ph-username').value,
     password: document.getElementById('ph-password').value,
