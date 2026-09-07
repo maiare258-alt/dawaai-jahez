@@ -321,6 +321,17 @@ async function setAssistantPhone(pharmacyId, assistantPhone) {
 // عمداً لا يمس owner_username ولا owner_password_hash ولا أي بيانات أخرى: تغيير الاسم
 // تصحيح لواجهة العرض فقط، وليس نقل ملكية. لو تغيّر مالك الصيدلية فعلياً، الإجراء
 // الصحيح هو حذف الصيدلية وتسجيل واحدة جديدة، حتى لا يرث المالك الجديد بيانات غيره.
+// تحديث هاش كلمة مرور الصيدلية. تستقبل الهاش جاهزاً لا الكلمة الصريحة، حتى تبقى
+// عملية التشفير (bcrypt) في طبقة المسارات مكاناً واحداً، ولا تمر كلمة مرور صريحة
+// عبر طبقة قاعدة البيانات إطلاقاً.
+async function setPharmacyPassword(pharmacyId, passwordHash) {
+  const { rows } = await pool.query(
+    `UPDATE pharmacies SET owner_password_hash = $1 WHERE id = $2 RETURNING id, name`,
+    [passwordHash, pharmacyId]
+  );
+  return rows[0];
+}
+
 async function setPharmacyName(pharmacyId, name) {
   const { rows } = await pool.query(
     `UPDATE pharmacies SET name = $1 WHERE id = $2 RETURNING *`,
@@ -597,6 +608,7 @@ module.exports = {
   setDutyStatus,
   setAssistantPhone,
   setPharmacyName,
+  setPharmacyPassword,
   getAdminStats,
   getOnDutyPharmacies,
   getAvailability,
