@@ -427,6 +427,45 @@
     transform: translateY(-1px); filter: brightness(1.06); box-shadow: 0 10px 22px rgba(24,95,165,0.28);
   }
   .box { background: white; border: 1px solid #cfe0ef; border-radius: 16px; padding: 18px 20px; margin-top: 10px; }
+  /* ---- فلتر المدينة بالهيرو ---- */
+  .hero-city-row {
+    display: flex; align-items: center; gap: 10px;
+    margin: 14px 0 6px; flex-wrap: wrap;
+  }
+  .hero-city-label {
+    font-size: 14px; color: #4a5a68; font-weight: 600;
+    display: inline-flex; align-items: center; gap: 4px;
+  }
+  .hero-city-select {
+    /* إخفاء سهم المتصفح الافتراضي واستبداله بسهم مرسوم: الافتراضي يختلف شكلاً وموضعاً
+       بين المتصفحات وكان يظهر ملتصقاً بالحافة بعيداً عن النص. */
+    appearance: none; -webkit-appearance: none; -moz-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8' fill='none'%3E%3Cpath d='M1 1.5L6 6.5L11 1.5' stroke='%23185fa5' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: left 16px center;   /* عربي: النص يمين والسهم يسار */
+    padding: 10px 18px 10px 42px;
+    border: 1.5px solid #a9cdea; border-radius: 999px;
+    background-color: white; color: #185fa5;
+    font-size: 15px; font-family: inherit; font-weight: 600;
+    cursor: pointer; min-height: 46px;
+    /* صفر عرض ثابت: المتصفح يقيسه على أطول مدينة فيبقى السهم قريباً من النص */
+    min-width: 158px;
+    box-shadow: 0 2px 6px rgba(24,95,165,0.07);
+    transition: border-color .15s ease, box-shadow .15s ease;
+  }
+  html[dir="ltr"] .hero-city-select {
+    background-position: right 16px center;
+    padding: 10px 42px 10px 18px;
+  }
+  .hero-city-select:hover { border-color: #6aa9d9; box-shadow: 0 3px 10px rgba(24,95,165,0.13); }
+  .hero-city-select:focus-visible { outline: 2px solid #185fa5; outline-offset: 2px; }
+  .hero-city-select option { color: #23303a; background: #ffffff; }
+
+  @media (max-width: 640px) {
+    .hero-city-row { gap: 8px; }
+    .hero-city-select { width: 100%; max-width: 100%; min-width: 0; }
+  }
+
   #suggestions {
     position: absolute; top: 100%; right: 0; left: 0; z-index: 10;
     background: white; border: 1px solid #cfe0ef; border-radius: 16px;
@@ -724,9 +763,17 @@
   }
   .admin-ph-edit-input { flex: 1 1 220px; min-width: 0; margin: 0 !important; }
 
+  /* تبديل نص الزر حسب عرض الشاشة: النص الكامل على الحاسوب، ومختصر على الموبايل.
+     التبديل بـCSS لا بـJS، فلا يحتاج إعادة رسم عند تغيير حجم النافذة. */
+  .btn-label-short { display: none; }
+
   @media (max-width: 700px) {
-    .admin-ph-actions { width: 100%; }
-    .admin-ph-actions .btn-outline { flex: 1; text-align: center; }
+    /* شبكة أمان: لو ضاقت الشاشة أكثر مما نتوقع، ينزل الزر لسطر ثانٍ بدل أن يُقصّ نصه.
+       زر مقصوص غير مفهوم إطلاقاً، وزر على سطر ثانٍ مفهوم تماماً. */
+    .admin-ph-actions { width: 100%; flex-wrap: wrap; }
+    .admin-ph-actions .btn-outline { flex: 1 1 auto; text-align: center; }
+    .btn-label-full { display: none; }
+    .btn-label-short { display: inline; }
   }
   .stock-scroll .row { padding: 12px 18px; margin: 0; border-top: 1px solid #eef2f6; transition: background .2s ease; }
   .expiry-badge { font-size: 14px; font-weight: 600; padding: 5px 12px; border-radius: 999px; margin-right: 6px; display: inline-block; }
@@ -933,6 +980,12 @@
         <input id="search" type="text" placeholder="ابحث عن دواء أو مادة فعالة..." aria-label="البحث عن دواء أو مادة فعالة" oninput="onSearch()" onkeydown="onSearchKeydown(event)" autocomplete="off">
         <button type="button" class="search-btn" id="search-btn" onclick="submitSearch()">بحث</button>
         <div id="suggestions" role="listbox" aria-label="اقتراحات البحث"></div>
+      </div>
+      <div class="hero-city-row">
+        <label class="hero-city-label" for="city-filter" id="city-filter-label">📍 المدينة</label>
+        <select id="city-filter" class="hero-city-select" aria-label="تصفية النتائج حسب المدينة" onchange="onCityFilterChange(this)">
+          <option value="">كل المدن</option>
+        </select>
       </div>
       <p class="hero-search-hint" id="hero-search-hint">اكتب اسم الدواء للبحث عن توفره في صيدليات سلمية.</p>
       <div class="hero-actions-row">
