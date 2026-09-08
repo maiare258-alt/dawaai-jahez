@@ -169,7 +169,7 @@ const translations = {
     new_password_required_error: 'كلمة المرور الجديدة مطلوبة',
     new_password_too_short_error: 'كلمة المرور الجديدة قصيرة جداً، الحد الأدنى 8 محارف',
     new_password_same_error: 'كلمة المرور الجديدة مطابقة للحالية',
-    reset_password_btn: 'إعادة تعيين كلمة المرور',
+    reset_password_btn: 'إعادة تعيين كلمة المرور', reset_password_btn_short: '🔑 كلمة المرور',
     reset_password_confirm: 'إعادة تعيين كلمة مرور "{name}"؟ سيتم توليد كلمة جديدة ولن يستطيع الصيدلي الدخول بالقديمة. المخزون والطلبات لن تتأثر.',
     reset_password_done_title: 'كلمة المرور الجديدة لـ"{name}"',
     reset_password_done_hint: 'انسخها الآن وسلّمها للصيدلي، لن تظهر مرة أخرى.',
@@ -391,7 +391,7 @@ const translations = {
     new_password_required_error: 'New password is required',
     new_password_too_short_error: 'New password is too short, minimum 8 characters',
     new_password_same_error: 'New password is the same as the current one',
-    reset_password_btn: 'Reset password',
+    reset_password_btn: 'Reset password', reset_password_btn_short: '🔑 Password',
     reset_password_confirm: 'Reset the password for "{name}"? A new password will be generated and the pharmacist will no longer be able to log in with the old one. Stock and orders are not affected.',
     reset_password_done_title: 'New password for "{name}"',
     reset_password_done_hint: 'Copy it now and hand it to the pharmacist, it will not be shown again.',
@@ -2627,7 +2627,7 @@ function renderAdminPanelUI() {
                  </div>
                  <div class="admin-ph-actions">
                    <button class="btn-outline" onclick="startEditPharmacyName(${p.id})">${t('edit_name_btn')}</button>
-                   <button class="btn-outline blue" onclick="resetPharmacyPassword(${p.id})">${t('reset_password_btn')}</button>
+                   <button class="btn-outline blue" onclick="resetPharmacyPassword(${p.id})" title="${t('reset_password_btn')}"><span class="btn-label-full">${t('reset_password_btn')}</span><span class="btn-label-short">${t('reset_password_btn_short')}</span></button>
                    <button class="btn-outline red" onclick="deletePharmacyAdmin(${p.id})">${t('delete_btn')}</button>
                  </div>
                </div>
