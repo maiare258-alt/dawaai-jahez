@@ -649,7 +649,7 @@ function applyLanguage() {
   document.getElementById('delete-account-btn').textContent = t('delete_account_btn');
   if (currentPharmacy) {
     document.getElementById('pharmacy-label').innerHTML = `
-      <span style="font-weight:500; font-size:16px;">${t('pharmacy_label_prefix')} ${currentPharmacy.name}</span>
+      <span style="font-weight:500; font-size:16px;">${t('pharmacy_label_prefix')} ${escapeHtml(currentPharmacy.name)}</span>
       <button class="action-pill-btn blue" onclick="logout()">${t('logout_btn')}</button>
     `;
     renderStockUI();
@@ -1119,7 +1119,7 @@ function renderBellPanel() {
         <div class="order-status-banner confirmed">
           <div class="order-status-banner-text">
             <span class="order-status-icon">✅</span>
-            <span>${t('bell_confirmed_text')} (${o.pharmacyName})</span>
+            <span>${t('bell_confirmed_text')} (${escapeHtml(o.pharmacyName)})</span>
           </div>
           <button class="order-status-dismiss" onclick="dismissMyOrder(${o.id})" aria-label="${t('bell_dismiss_aria')}">✕</button>
         </div>`;
@@ -1128,7 +1128,7 @@ function renderBellPanel() {
       <div class="order-status-banner pending">
         <div class="order-status-banner-text">
           <span class="order-status-icon">⏳</span>
-          <span>${t('bell_pending_prefix')} (${o.pharmacyName}) ${t('bell_pending_suffix')}</span>
+          <span>${t('bell_pending_prefix')} (${escapeHtml(o.pharmacyName)}) ${t('bell_pending_suffix')}</span>
         </div>
         <button class="order-status-dismiss" onclick="dismissMyOrder(${o.id})" aria-label="${t('bell_dismiss_aria')}">✕</button>
       </div>`;
@@ -1841,7 +1841,7 @@ function loadDashboard() {
   document.getElementById('pharmacist-auth-section').innerHTML = '';
   document.getElementById('pharmacist-dashboard').style.display = 'block';
   document.getElementById('pharmacy-label').innerHTML = `
-    <span style="font-weight:500; font-size:16px;">${t('pharmacy_label_prefix')} ${currentPharmacy.name}</span>
+    <span style="font-weight:500; font-size:16px;">${t('pharmacy_label_prefix')} ${escapeHtml(currentPharmacy.name)}</span>
     <button class="action-pill-btn blue" onclick="logout()">${t('logout_btn')}</button>
   `;
   document.getElementById('duty-checkbox').checked = !!currentPharmacy.on_duty;
@@ -2339,20 +2339,29 @@ function renderOrdersUI() {
   `).join('');
 }
 
+// ترويسات مصادقة الصيدلي. تُشفَّر لأن الترويسات لا تقبل أحرفاً غير لاتينية،
+// واسم المستخدم قد يكون عربياً. الخلفية تفكّها قبل الاستخدام.
+function pharmacyHeaders() {
+  return {
+    'x-pharmacy-username': encodeURIComponent(currentPharmacy.username),
+    'x-pharmacy-password': encodeURIComponent(currentPharmacy.password)
+  };
+}
+
 async function dismissOrder(id) {
-  await fetch(`${API}/orders/${id}/seen`, { method: 'PUT' });
+  await fetch(`${API}/orders/${id}/seen`, { method: 'PUT', headers: pharmacyHeaders() });
   loadOrders();
 }
 
 async function confirmOrderAction(id) {
-  await fetch(`${API}/orders/${id}/confirm`, { method: 'PUT' });
+  await fetch(`${API}/orders/${id}/confirm`, { method: 'PUT', headers: pharmacyHeaders() });
   loadOrders();
 }
 
 async function removeOrder(id) {
   const confirmed = await customConfirm(t('order_delete_confirm'), 'warning');
   if (!confirmed) return;
-  await fetch(`${API}/orders/${id}`, { method: 'DELETE' });
+  await fetch(`${API}/orders/${id}`, { method: 'DELETE', headers: pharmacyHeaders() });
   loadOrders();
 }
 
