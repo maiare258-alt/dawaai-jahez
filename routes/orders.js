@@ -2,6 +2,52 @@ const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcryptjs');
 const db = require('../db');
+const rateLimit = require('../middleware/rateLimit');
+
+// وسيط مصادقة الصيدلي عبر الترويسات، مع فحص ملكية الطلب.
+// أُفرد كوسيط بدل تكراره في كل مسار: أي مسار جديد يُحمى بإضافة اسمه فقط،
+// فلا يتكرر خطأ ترك مسار كتابة مكشوفاً كما حدث سابقاً.
+//
+// الترويسات تُرسل مشفّرة (encodeURIComponent) من الواجهة لتفادي كسرها لو احتوت
+// أحرفاً غير إنكليزية — نفكّها هنا قبل أي استخدام.
+async function pharmacyOwnsOrder(req, res, next) {
+  const rawUsername = req.headers['x-pharmacy-username'];
+  const rawPassword = req.headers['x-pharmacy-password'];
+  if (!rawUsername || !rawPassword) {
+    return res.status(401).json({ error: 'بيانات الدخول مطلوبة' });
+  }
+
+  let username, password;
+  try {
+    username = decodeURIComponent(rawUsername);
+    password = decodeURIComponent(rawPassword);
+  } catch (err) {
+    return res.status(401).json({ error: 'بيانات الدخول غير صحيحة' });
+  }
+
+  try {
+    const pharmacy = await db.findPharmacyByUsername(username);
+    if (!pharmacy) return res.status(401).json({ error: 'بيانات الدخول غير صحيحة' });
+
+    const valid = await bcrypt.compare(password, pharmacy.owner_password_hash);
+    if (!valid) return res.status(401).json({ error: 'بيانات الدخول غير صحيحة' });
+
+    const order = await db.getOrderOwner(req.params.id);
+    if (!order) return res.status(404).json({ error: 'الطلب غير موجود' });
+
+    // جوهر العزل: هوية الصيدلية تُستخرج من المصادقة نفسها، وصفر ثقة بأي معرّف
+    // قادم من الرابط. صيدلية لا تستطيع لمس طلب صيدلية أخرى بأي حال.
+    if (order.pharmacy_id !== pharmacy.id) {
+      return res.status(403).json({ error: 'غير مصرح بالوصول لهذه البيانات' });
+    }
+
+    req.pharmacy = pharmacy;
+    next();
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'حدث خطأ أثناء التحقق من الصلاحية' });
+  }
+}
 
 // إرسال طلب جديد من المريض (بتنقسم تلقائياً لعدة طلبات لو السلة فيها أكتر من صيدلية)
 // POST /api/orders  { patient_name, patient_phone, items: [{pharmacyId, medicineName, genericName, quantity}], notes? }
@@ -58,7 +104,7 @@ router.get('/status', async (req, res) => {
 // GET /api/orders/:pharmacyId  Headers: { x-pharmacy-username, x-pharmacy-password }
 // ملاحظة: الترويسات تُرسل مشفّرة (encodeURIComponent) من الواجهة لتفادي كسرها لو احتوت على
 // أحرف غير إنكليزية (عربي مثلاً) — نفك التشفير هون قبل أي استخدام لها
-router.get('/:pharmacyId', async (req, res) => {
+router.get('/:pharmacyId', rateLimit(60, 15 * 60 * 1000), async (req, res) => {
   const rawUsername = req.headers['x-pharmacy-username'];
   const rawPassword = req.headers['x-pharmacy-password'];
   if (!rawUsername || !rawPassword) {
@@ -94,7 +140,7 @@ router.get('/:pharmacyId', async (req, res) => {
 
 // تعليم طلب كمُطّلع عليه
 // PUT /api/orders/:id/seen
-router.put('/:id/seen', async (req, res) => {
+router.put('/:id/seen', pharmacyOwnsOrder, async (req, res) => {
   try {
     await db.markOrderSeen(req.params.id);
     res.json({ success: true });
@@ -106,7 +152,7 @@ router.put('/:id/seen', async (req, res) => {
 
 // تأكيد إنه الصيدلية استجابت للطلب وحجزت الدواء
 // PUT /api/orders/:id/confirm
-router.put('/:id/confirm', async (req, res) => {
+router.put('/:id/confirm', pharmacyOwnsOrder, async (req, res) => {
   try {
     await db.confirmOrder(req.params.id);
     res.json({ success: true });
@@ -118,7 +164,7 @@ router.put('/:id/confirm', async (req, res) => {
 
 // حذف طلب نهائياً (بعد ما يتعامل الصيدلي معه)
 // DELETE /api/orders/:id
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', pharmacyOwnsOrder, async (req, res) => {
   try {
     await db.deleteOrder(req.params.id);
     res.json({ success: true });
