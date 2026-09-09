@@ -465,6 +465,17 @@ async function getOrdersForPharmacy(pharmacyId) {
   return rows;
 }
 
+// جلب طلب واحد — يُستخدم للتحقق من ملكيته قبل السماح بأي تعديل عليه.
+// نُرجع pharmacy_id فقط (لا بيانات المريض) لأن هذا كل ما يحتاجه فحص الصلاحية،
+// فلا تمر بيانات شخصية في مسار لا يحتاجها.
+async function getOrderOwner(orderId) {
+  const { rows } = await pool.query(
+    `SELECT id, pharmacy_id FROM orders WHERE id = $1 AND deleted_at IS NULL`,
+    [orderId]
+  );
+  return rows[0] || null;
+}
+
 async function markOrderSeen(orderId) {
   await pool.query(`UPDATE orders SET seen = true WHERE id = $1 AND deleted_at IS NULL`, [orderId]);
 }
@@ -616,6 +627,7 @@ module.exports = {
   setStock,
   createOrder,
   getOrdersForPharmacy,
+  getOrderOwner,
   markOrderSeen,
   deleteOrder,
   confirmOrder,
