@@ -4,6 +4,7 @@ const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 const db = require('../db');
 const adminAuth = require('../middleware/adminAuth');
+const rateLimit = require('../middleware/rateLimit');
 
 // المدن المسموحة — مراكز المحافظات السورية الأربع عشرة + سلمية (نقطة الانطلاق).
 // تُخزَّن بقاعدة البيانات كمفاتيح إنكليزية ثابتة، وتُترجم للعرض بالواجهة.
@@ -85,7 +86,9 @@ router.post('/register', adminAuth, async (req, res) => {
 
 // تسجيل دخول الصيدلي
 // POST /api/pharmacies/login  { username, password }
-router.post('/login', async (req, res) => {
+// 10 محاولات كل 15 دقيقة لكل عنوان. رقم متعمَّد الاعتدال: صيدلي ينسى كلمته
+// ويحاول مرات قليلة لن يُحظر، بينما التخمين الآلي (آلاف المحاولات) يُقطع فوراً.
+router.post('/login', rateLimit(10, 15 * 60 * 1000), async (req, res) => {
   const { username, password } = req.body;
   if (!username || !password) {
     return res.status(400).json({ error: 'اسم المستخدم وكلمة المرور مطلوبان' });
@@ -193,7 +196,7 @@ router.put('/self/assistant-phone', async (req, res) => {
 // الاستخدام الروتيني: الصيدلي يعرف كلمته ويريد تغييرها (شكّ بتسريبها، أو استلم كلمة
 // مولّدة من الإدارة ويريد واحدة يتذكرها). بدون هذا المسار كان كل تغيير يمر عبر
 // الإدارة فتتحول لمكتب دعم فني.
-router.put('/self/password', async (req, res) => {
+router.put('/self/password', rateLimit(10, 15 * 60 * 1000), async (req, res) => {
   const { username, password, new_password } = req.body;
   if (!username || !password) {
     return res.status(400).json({ error: 'بيانات الدخول مطلوبة' });
