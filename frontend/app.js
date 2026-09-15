@@ -237,6 +237,7 @@ const translations = {
     stats_refresh_btn: 'تحديث',
     page_title: 'دوائي جاهز | ابحث عن توفر الدواء في صيدليات سلمية وسوريا',
     page_description: 'ابحث عن توفر الدواء في الصيدليات القريبة منك في سلمية وسوريا لحظياً، واعرف الصيدليات المناوبة الليلة، واطلب دواءك مباشرة من الصيدلية. منصة سورية مجانية.',
+    refresh_results_btn: '↻ تحديث النتائج', refreshing_results: '⏳ جارٍ التحديث...',
     verified_badge: 'موثَّقة', verified_badge_title: 'صيدلية سجّلتها إدارة المنصة بعد تحقق من بياناتها',
     stock_updated_prefix: 'آخر تحديث للمخزون:',
     time_just_now: 'قبل لحظات', time_minutes: 'قبل {n} دقيقة', time_hours: 'قبل {n} ساعة',
@@ -467,6 +468,7 @@ const translations = {
     stats_refresh_btn: 'Refresh',
     page_title: 'Dawaai Jahez | Find medicine availability in Syrian pharmacies',
     page_description: 'Instantly check which nearby pharmacy in Salamiyah and across Syria has your medicine, see tonight\'s on-duty pharmacies, and order directly. Free Syrian platform.',
+    refresh_results_btn: '↻ Refresh results', refreshing_results: '⏳ Refreshing...',
     verified_badge: 'Verified', verified_badge_title: 'A pharmacy registered by the platform admin after verifying its details',
     stock_updated_prefix: 'Stock last updated:',
     time_just_now: 'just now', time_minutes: '{n} min ago', time_hours: '{n} h ago',
@@ -730,6 +732,10 @@ function applyLanguage() {
   document.getElementById('new-password-input').placeholder = t('new_password_placeholder');
   document.getElementById('confirm-password-input').placeholder = t('confirm_new_password_placeholder');
   document.getElementById('change-password-btn').textContent = t('change_password_btn');
+
+  // ---------- زر تحديث النتائج ----------
+  const refreshBtn = document.getElementById('refresh-results-btn');
+  if (refreshBtn && !refreshBtn.disabled) refreshBtn.textContent = t('refresh_results_btn');
 
   // ---------- وسوم محركات البحث ----------
   // تحديث عنوان الصفحة ووصفها مع اللغة: يفيد المستخدم (اسم التبويب) ومحركات البحث معاً.
@@ -1767,11 +1773,31 @@ async function submitSearch() {
   document.getElementById('results').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
+// إظهار شريط "تحديث النتائج" فقط حين توجد نتائج معروضة فعلاً
+function setResultsToolbar(visible) {
+  const bar = document.getElementById('results-toolbar');
+  if (bar) bar.style.display = visible ? 'flex' : 'none';
+}
+
+// إعادة تنفيذ البحث نفسه بنقرة. السبب: نتائج البحث لقطة للحظة تنفيذها، وقد يبدّل
+// الصيدلي التوفر بينما المريض ينظر إليها — فبدل أن يمسح الكلمة ويكتبها من جديد، ينقر هنا.
+async function refreshResults(btn) {
+  if (btn) { btn.disabled = true; btn.textContent = t('refreshing_results'); }
+  try {
+    await runSearch();
+  } finally {
+    // الزر قد يكون أُعيد بناؤه أثناء التحديث، فنجلبه من جديد بدل الاعتماد على المرجع القديم
+    const b = document.getElementById('refresh-results-btn');
+    if (b) { b.disabled = false; b.textContent = t('refresh_results_btn'); }
+  }
+}
+
 async function runSearch() {
   const q = document.getElementById('search').value.trim();
   const container = document.getElementById('results');
   if (!q) {
     container.innerHTML = '';
+    setResultsToolbar(false);
     return;
   }
   container.innerHTML = `<p class="muted">${t('loading_text')}</p>`;
@@ -1784,6 +1810,7 @@ async function runSearch() {
     const data = await res.json();
     if (!stillCurrent()) return;
     lastSearchResultsCache = data;
+    setResultsToolbar(true);
 
     if (data.length === 0) {
       const notFoundTitle = currentCategory === 'cosmetic' ? t('not_found_title_cosmetic') : t('not_found_title_medicine');
@@ -3209,3 +3236,10 @@ updateCartCount();
 setInterval(loadOnDuty, 5000);
 updateBellBadge();
 if (myOrders.length > 0) startMyOrdersPolling();
+
+// المستخدم قد يكون بدأ الكتابة بالبحث قبل تحميل هذا الملف (حارس التحميل المبكر بالـHTML
+// يسجّل ذلك في __pendingSearch). ننفّذ بحثه الآن بدل أن يضيع تفاعله ويضطر لإعادة الكتابة.
+if (window.__pendingSearch && document.getElementById('search').value.trim()) {
+  runSearch();
+}
+window.__pendingSearch = false;
