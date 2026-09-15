@@ -55,6 +55,55 @@ function renderCityFilter() {
   if (lbl) lbl.textContent = `📍 ${t('city_label')}`;
 }
 
+// ---------- وقت آخر تحديث للمخزون ----------
+// نعرض الوقت نسبياً ("قبل ساعتين") لا تاريخاً مطلقاً: المريض يريد أن يعرف
+// هل المعلومة طازجة، لا متى حُدّثت بالضبط. والنسبي مفهوم فوراً بلا حساب ذهني.
+//
+// الحساب على جهاز المستخدم بمقارنة التوقيتين، فيصح مهما كانت منطقته الزمنية.
+function relativeTime(iso) {
+  if (!iso) return null;
+  const then = new Date(iso);
+  if (isNaN(then.getTime())) return null;
+  const mins = Math.floor((Date.now() - then.getTime()) / 60000);
+  // توقيت مستقبلي (انحراف ساعة الجهاز مثلاً) يُعامل كـ"قبل لحظات" بدل رقم سالب مربك
+  if (mins < 2) return t('time_just_now');
+  if (mins < 60) return tFormat('time_minutes', { n: mins });
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return tFormat('time_hours', { n: hours });
+  const days = Math.floor(hours / 24);
+  if (days < 7) return tFormat('time_days', { n: days });
+  const weeks = Math.floor(days / 7);
+  if (weeks <= 4) return tFormat('time_weeks', { n: weeks });
+  return t('time_long_ago');
+}
+
+// معلومة قديمة أخطر من غياب المعلومة: بعد 3 أيام ننبّه المريض بدل أن نتركه يثق برقم بائت
+const STOCK_STALE_HOURS = 72;
+function isStockStale(iso) {
+  if (!iso) return true;
+  const then = new Date(iso);
+  if (isNaN(then.getTime())) return true;
+  return (Date.now() - then.getTime()) > STOCK_STALE_HOURS * 3600000;
+}
+
+// سطر "آخر تحديث" ببطاقة نتيجة البحث. يُعرض فقط حين يكون للسجل وقت فعلي —
+// السجلات القديمة (قبل إضافة العمود) لا نعرف وقتها، وادعاء وقت لم يحدث تضليل.
+function stockFreshnessHtml(iso) {
+  const rel = relativeTime(iso);
+  if (!rel) return '';
+  const stale = isStockStale(iso);
+  return `<div class="stock-freshness${stale ? ' stale' : ''}">
+    <span class="result-icon">${stale ? '⚠️' : '🕒'}</span> ${t('stock_updated_prefix')} ${escapeHtml(rel)}
+    ${stale ? `<div class="stock-stale-note">${t('stock_stale_warning')}</div>` : ''}
+  </div>`;
+}
+
+// شارة التوثيق. تُعرض فقط لمن verified = true فعلاً، فتبقى معلومة حقيقية لا زينة.
+function verifiedBadgeHtml(isVerified) {
+  if (!isVerified) return '';
+  return `<span class="verified-badge" title="${t('verified_badge_title')}">✓ ${t('verified_badge')}</span>`;
+}
+
 function cityName(key) {
   if (!key) return '';
   return (CITIES[key] && CITIES[key][currentLang]) || key;
@@ -186,6 +235,14 @@ const translations = {
     stats_orders_count_unit: 'طلب', stats_times_unit: 'مرة', stats_pharmacy_unit: 'صيدلية',
     stats_no_orders_yet: 'لا توجد طلبات بعد، ستظهر هنا فور وصول أول طلب.',
     stats_refresh_btn: 'تحديث',
+    page_title: 'دوائي جاهز | ابحث عن توفر الدواء في صيدليات سلمية وسوريا',
+    page_description: 'ابحث عن توفر الدواء في الصيدليات القريبة منك في سلمية وسوريا لحظياً، واعرف الصيدليات المناوبة الليلة، واطلب دواءك مباشرة من الصيدلية. منصة سورية مجانية.',
+    verified_badge: 'موثَّقة', verified_badge_title: 'صيدلية سجّلتها إدارة المنصة بعد تحقق من بياناتها',
+    stock_updated_prefix: 'آخر تحديث للمخزون:',
+    time_just_now: 'قبل لحظات', time_minutes: 'قبل {n} دقيقة', time_hours: 'قبل {n} ساعة',
+    time_days: 'قبل {n} يوم', time_weeks: 'قبل {n} أسبوع', time_long_ago: 'منذ أكثر من شهر',
+    stock_never_updated: 'لم يُحدَّث بعد',
+    stock_stale_warning: 'قد لا تكون هذه المعلومة حديثة — يُنصح بالاتصال بالصيدلية للتأكد',
     city_placeholder: 'المدينة', city_label: 'المدينة', all_cities: 'كل المدن',
     filter_by_city_aria: 'تصفية النتائج حسب المدينة',
     city_required_error: 'المدينة مطلوبة', invalid_city_error: 'مدينة غير صالحة',
@@ -408,6 +465,14 @@ const translations = {
     stats_orders_count_unit: 'orders', stats_times_unit: 'times', stats_pharmacy_unit: 'pharmacies',
     stats_no_orders_yet: 'No orders yet, they will appear here as soon as the first one arrives.',
     stats_refresh_btn: 'Refresh',
+    page_title: 'Dawaai Jahez | Find medicine availability in Syrian pharmacies',
+    page_description: 'Instantly check which nearby pharmacy in Salamiyah and across Syria has your medicine, see tonight\'s on-duty pharmacies, and order directly. Free Syrian platform.',
+    verified_badge: 'Verified', verified_badge_title: 'A pharmacy registered by the platform admin after verifying its details',
+    stock_updated_prefix: 'Stock last updated:',
+    time_just_now: 'just now', time_minutes: '{n} min ago', time_hours: '{n} h ago',
+    time_days: '{n} days ago', time_weeks: '{n} weeks ago', time_long_ago: 'over a month ago',
+    stock_never_updated: 'not updated yet',
+    stock_stale_warning: 'This may not be current — calling the pharmacy to confirm is recommended',
     city_placeholder: 'City', city_label: 'City', all_cities: 'All cities',
     filter_by_city_aria: 'Filter results by city',
     city_required_error: 'City is required', invalid_city_error: 'Invalid city',
@@ -665,6 +730,12 @@ function applyLanguage() {
   document.getElementById('new-password-input').placeholder = t('new_password_placeholder');
   document.getElementById('confirm-password-input').placeholder = t('confirm_new_password_placeholder');
   document.getElementById('change-password-btn').textContent = t('change_password_btn');
+
+  // ---------- وسوم محركات البحث ----------
+  // تحديث عنوان الصفحة ووصفها مع اللغة: يفيد المستخدم (اسم التبويب) ومحركات البحث معاً.
+  document.title = t('page_title');
+  const metaDesc = document.querySelector('meta[name="description"]');
+  if (metaDesc) metaDesc.setAttribute('content', t('page_description'));
 
   // ---------- فلتر المدينة بالهيرو ----------
   // إعادة تعبئة القائمة عند تبديل اللغة حتى تُترجم أسماء المدن، مع الحفاظ على الاختيار الحالي
@@ -1334,7 +1405,7 @@ async function loadOnDuty() {
             return `
               <div class="duty-card">
                 <div class="duty-card-top">
-                  <span class="duty-card-name">${escapeHtml(p.name)}${p.city ? ` <span class="muted" style="font-size:13px;">- ${escapeHtml(cityName(p.city))}</span>` : ''}</span>
+                  <span class="duty-card-name">${escapeHtml(p.name)}${verifiedBadgeHtml(p.verified)}${p.city ? ` <span class="muted" style="font-size:13px;">- ${escapeHtml(cityName(p.city))}</span>` : ''}</span>
                   <span class="duty-status-badge">${t('onduty_now_badge')}</span>
                 </div>
                 ${p.address ? `<div class="duty-card-row"><span class="duty-icon">📍</span> ${escapeHtml(p.address)}</div>` : ''}
@@ -1754,9 +1825,10 @@ async function runSearch() {
               <span class="badge ${a.available ? 'yes' : 'no'}">${a.available ? t('available_badge') : t('unavailable_badge')}</span>
             </div>
             <div class="result-row">${t('active_ingredient_label')} ${escapeHtml(item.medicine.generic_name) || '-'}</div>
-            <div class="result-pharmacy"><span class="result-icon">📍</span> ${escapeHtml(a.pharmacy_name)}${a.city ? ' - ' + escapeHtml(cityName(a.city)) : ''}${a.address ? ' - ' + escapeHtml(a.address) : ''}</div>
+            <div class="result-pharmacy"><span class="result-icon">📍</span> ${escapeHtml(a.pharmacy_name)}${verifiedBadgeHtml(a.verified)}${a.city ? ' - ' + escapeHtml(cityName(a.city)) : ''}${a.address ? ' - ' + escapeHtml(a.address) : ''}</div>
             ${a.phone ? `<div class="result-row"><span class="result-icon">📞</span> ${escapeHtml(a.phone)}</div>` : ''}
             ${a.assistant_phone ? `<div class="result-row"><span class="result-icon">📱</span> ${escapeHtml(a.assistant_phone)} <span class="muted" style="font-size:12px;">(${t('assistant_phone_label')})</span></div>` : ''}
+            ${stockFreshnessHtml(a.stock_updated_at)}
             ${a.available ? `<button class="result-add-btn-full" onclick="addToCart(${item.medicine.id}, ${a.pharmacy_id}, this)">${t('add_to_cart_btn')}</button>` : ''}
           </div>
         `;
@@ -2155,6 +2227,11 @@ function renderStockUI() {
   const data = pharmacistStockCache;
   document.getElementById('stock-list').innerHTML = data.map(m => {
     const status = expiryStatus(m.expiry_date);
+    // نُظهر للصيدلي نفس ما يراه المريض عن عمر معلومته — حافز مباشر للتحديث
+    const rel = relativeTime(m.updated_at);
+    const freshness = rel
+      ? `<span class="muted stock-row-time${isStockStale(m.updated_at) ? ' stale' : ''}">🕒 ${escapeHtml(rel)}</span>`
+      : `<span class="muted stock-row-time stale">🕒 ${t('stock_never_updated')}</span>`;
     const badge = status === 'expired'
       ? `<span class="expiry-badge expired">⚠️ ${t('expiry_expired_badge')}</span>`
       : status === 'soon'
@@ -2163,7 +2240,7 @@ function renderStockUI() {
     return `
     <div class="row-wrap">
       <div class="row">
-        <span>${escapeHtml(m.name)} <span class="muted" style="font-size:12px;">${m.category === 'cosmetic' ? '💄' : '💊'}</span> ${badge}</span>
+        <span>${escapeHtml(m.name)} <span class="muted" style="font-size:12px;">${m.category === 'cosmetic' ? '💄' : '💊'}</span> ${badge}${freshness}</span>
         <div style="display:flex; gap:6px; align-items:center;">
           <button type="button" class="btn-outline blue small" onclick="toggleStockDates(${m.medicine_id})" aria-label="${t('edit_dates_aria')}">📅</button>
           <button class="toggle-btn ${m.available ? 'yes' : 'no'}" onclick="toggleStock(${m.medicine_id}, ${!m.available})">
@@ -2629,6 +2706,7 @@ function renderAdminPanelUI() {
                    <span class="admin-ph-name">${escapeHtml(p.name)}</span>
                    <span class="admin-ph-meta">
                      <span>👤 ${escapeHtml(p.owner_username)}</span>
+                     ${p.verified ? `<span class="admin-ph-sep">•</span><span>✓ ${t('verified_badge')}</span>` : ''}
                      ${p.city ? `<span class="admin-ph-sep">•</span><span>📍 ${escapeHtml(cityName(p.city))}</span>` : ''}
                      ${p.assistant_phone ? `<span class="admin-ph-sep">•</span><span>📱 ${escapeHtml(p.assistant_phone)}</span>` : ''}
                      ${p.on_duty ? `<span class="badge yes">${t('onduty_badge_short')}</span>` : ''}
