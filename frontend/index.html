@@ -3,7 +3,55 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>دوائي جاهز | توفر الأدوية في الصيدليات</title>
+<title>دوائي جاهز | ابحث عن توفر الدواء في صيدليات سلمية وسوريا</title>
+
+<!-- ===== وسوم محركات البحث =====
+     الوصف هو ما يظهر تحت العنوان في نتائج جوجل، وهو ما يقرر إن كان الباحث سيضغط أم لا.
+     كُتب ليجيب على سؤال الباحث مباشرة، لا ليصف الموقع من الداخل. -->
+<meta name="description" content="ابحث عن توفر الدواء في الصيدليات القريبة منك في سلمية وسوريا لحظياً، واعرف الصيدليات المناوبة الليلة، واطلب دواءك مباشرة من الصيدلية. منصة سورية مجانية.">
+<meta name="keywords" content="توفر الأدوية سوريا, صيدليات سلمية, الصيدليات المناوبة, البحث عن دواء, صيدلية مناوبة سلمية, دوائي جاهز, أدوية سوريا">
+<meta name="author" content="دوائي جاهز">
+<meta name="robots" content="index, follow, max-image-preview:large">
+<link rel="canonical" href="https://dawaai-jahez.onrender.com/">
+
+<!-- بطاقة المشاركة على واتساب وفيسبوك ولينكدإن: بدونها يظهر الرابط عارياً بلا صورة أو وصف،
+     وهذا يقلل النقر كثيراً — ومعظم انتشارك سيكون عبر واتساب. -->
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="دوائي جاهز">
+<meta property="og:locale" content="ar_SY">
+<meta property="og:title" content="دوائي جاهز | ابحث عن توفر الدواء في الصيدليات">
+<meta property="og:description" content="اعرف أي صيدلية عندها دواؤك قبل أن تخرج من البيت. بحث لحظي عن توفر الأدوية، والصيدليات المناوبة، وخدمات التمريض المنزلي.">
+<meta property="og:url" content="https://dawaai-jahez.onrender.com/">
+<meta property="og:image" content="https://dawaai-jahez.onrender.com/icon-512.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="دوائي جاهز | ابحث عن توفر الدواء في الصيدليات">
+<meta name="twitter:description" content="اعرف أي صيدلية عندها دواؤك قبل أن تخرج من البيت.">
+<meta name="twitter:image" content="https://dawaai-jahez.onrender.com/icon-512.png">
+
+<!-- بيانات منظَّمة (JSON-LD): تشرح لجوجل ماهية الموقع بلغة يفهمها، فيعرض نتيجة أغنى.
+     نوع WebApplication لأن الموقع أداة لا صفحة محتوى، وHealth لأن القطاع صحي. -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebApplication",
+  "name": "دوائي جاهز",
+  "alternateName": "Dawaai Jahez",
+  "url": "https://dawaai-jahez.onrender.com/",
+  "description": "منصة سورية للبحث عن توفر الأدوية في الصيدليات القريبة، ومعرفة الصيدليات المناوبة، وخدمات التمريض المنزلي.",
+  "applicationCategory": "HealthApplication",
+  "operatingSystem": "Web, Android",
+  "inLanguage": ["ar", "en"],
+  "isAccessibleForFree": true,
+  "offers": { "@type": "Offer", "price": "0", "priceCurrency": "SYP" },
+  "areaServed": { "@type": "Country", "name": "سوريا" },
+  "potentialAction": {
+    "@type": "SearchAction",
+    "target": "https://dawaai-jahez.onrender.com/?q={search_term_string}",
+    "query-input": "required name=search_term_string"
+  }
+}
+</script>
+
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
@@ -427,6 +475,30 @@
     transform: translateY(-1px); filter: brightness(1.06); box-shadow: 0 10px 22px rgba(24,95,165,0.28);
   }
   .box { background: white; border: 1px solid #cfe0ef; border-radius: 16px; padding: 18px 20px; margin-top: 10px; }
+  /* ---- شارة التوثيق ---- */
+  .verified-badge {
+    display: inline-flex; align-items: center; gap: 3px;
+    background: #e8f7f0; color: #0f7a52; border: 1px solid #b6e3cf;
+    font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 999px;
+    margin: 0 6px; white-space: nowrap; vertical-align: middle;
+    cursor: help;  /* يلمّح إلى وجود شرح عند التحويم (title) */
+  }
+
+  /* ---- وقت آخر تحديث للمخزون ---- */
+  .stock-freshness {
+    font-size: 12.5px; color: #6b7a87; margin-top: 8px;
+    padding-top: 8px; border-top: 1px dashed #e3ebf3;
+  }
+  /* التنبيه أصفر لا أحمر عن قصد: المعلومة قديمة لا خاطئة، والأحمر يوحي بعطل */
+  .stock-freshness.stale { color: #9a6b00; }
+  .stock-stale-note {
+    margin-top: 4px; font-size: 12px; color: #9a6b00;
+    background: #fff8e6; border: 1px solid #ffe3a3;
+    border-radius: 8px; padding: 6px 9px; line-height: 1.45;
+  }
+  .stock-row-time { font-size: 11.5px; margin: 0 6px; white-space: nowrap; }
+  .stock-row-time.stale { color: #9a6b00; font-weight: 600; }
+
   /* ---- فلتر المدينة بالهيرو ---- */
   .hero-city-row {
     display: flex; align-items: center; gap: 10px;
