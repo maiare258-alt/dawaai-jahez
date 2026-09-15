@@ -1,0 +1,11 @@
+# دوائي جاهز — إرشادات زواحف محركات البحث
+
+User-agent: *
+Allow: /
+
+# منع فهرسة نقاط الـAPI: ليست صفحات للقراءة، وفهرستها تهدر ميزانية الزحف
+# وقد تُظهر بيانات خام في نتائج البحث بدل صفحات الموقع.
+Disallow: /api/
+Disallow: /health
+
+Sitemap: https://dawaai-jahez.onrender.com/sitemap.xml
