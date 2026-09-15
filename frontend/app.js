@@ -2201,7 +2201,8 @@ async function refreshStock() {
     document.getElementById('stock-list').innerHTML = `<p class="muted">${t('loading_text')}</p>`;
   }
   try {
-    const res = await fetch(`${API}/stock/${currentPharmacy.id}`);
+    // no-store: وقت التحديث يتغيّر بالثانية، وأي تخزين مؤقت بالمتصفح يعرض وقتاً بائتاً
+    const res = await fetch(`${API}/stock/${currentPharmacy.id}`, { cache: 'no-store' });
     const data = await res.json();
     pharmacistStockCache = data;
     renderStockUI();
@@ -2443,11 +2444,35 @@ async function removeOrder(id) {
 }
 
 async function toggleStock(medicineId, newValue) {
-  await fetch(`${API}/stock/${currentPharmacy.id}/${medicineId}`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ available: newValue, username: currentPharmacy.username, password: currentPharmacy.password })
-  });
+  // تحديث فوري بالواجهة قبل انتظار رد السيرفر (Optimistic update).
+  // السبب: الخادم قد يستغرق ثوانيَ للرد (خصوصاً بعد استيقاظه على الخطة المجانية)،
+  // فكان الصيدلي يضغط الزر ولا يرى "قبل لحظات" تظهر إلا بعد تأخير أو بعد تحديث الصفحة.
+  // الآن يرى الأثر لحظة الضغط، ثم يُعاد الجلب من السيرفر ليؤكد الحالة الحقيقية.
+  const cached = pharmacistStockCache.find(x => x.medicine_id === medicineId);
+  const previous = cached ? { available: cached.available, updated_at: cached.updated_at } : null;
+  if (cached) {
+    cached.available = newValue;
+    cached.updated_at = new Date().toISOString();
+    renderStockUI();
+  }
+
+  try {
+    const res = await fetch(`${API}/stock/${currentPharmacy.id}/${medicineId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ available: newValue, username: currentPharmacy.username, password: currentPharmacy.password })
+    });
+    if (!res.ok) throw new Error('save failed');
+  } catch (err) {
+    // فشل الحفظ: نرجّع الحالة السابقة بدل ترك الصيدلي يظن أن التغيير حُفظ وهو لم يُحفظ
+    if (cached && previous) {
+      cached.available = previous.available;
+      cached.updated_at = previous.updated_at;
+      renderStockUI();
+    }
+    await customAlert(t('server_error_title'), 'error');
+    return;
+  }
   refreshStock();
 }
 
