@@ -61,6 +61,17 @@ async function initDb() {
   // العمود اختياري (صفر NOT NULL) حفاظاً على توافق السجلات القديمة، تماماً كباقي
   // الأعمدة المضافة لاحقاً (assistant_phone, on_duty_shift...).
   await pool.query(`ALTER TABLE pharmacies ADD COLUMN IF NOT EXISTS city TEXT;`);
+  // شارة التوثيق: كل صيدلية على المنصة سجّلتها الإدارة يدوياً بعد تحقق بشري، لا تسجيل ذاتي.
+  // العمود يجعل هذه الحقيقة قابلة للعرض للمريض، ويترك الباب مفتوحاً لسحب التوثيق
+  // من صيدلية بعينها مستقبلاً دون حذف حسابها.
+  await pool.query(`ALTER TABLE pharmacies ADD COLUMN IF NOT EXISTS verified BOOLEAN DEFAULT true;`);
+  await pool.query(`UPDATE pharmacies SET verified = true WHERE verified IS NULL;`);
+
+  // وقت آخر تحديث للمخزون — أهم عمود لثقة المريض.
+  // بدونه يرى "متوفر" دون أن يعرف إن كانت المعلومة عمرها ساعة أم شهر.
+  // يبقى NULL للسجلات القديمة عمداً: لا نعرف متى حُدّثت فعلاً، وادعاء وقت لم يحدث
+  // أسوأ من عدم عرض شيء. تُملأ تلقائياً عند أول تحديث يقوم به الصيدلي.
+  await pool.query(`ALTER TABLE stock ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP;`);
   // تعبئة السجلات القديمة بسلمية — هي الواقع الفعلي لكل الصيدليات المسجّلة حتى الآن.
   // آمن ومتكرر: يمس الصفوف الفارغة فقط، فتشغيله مراراً لا يغيّر أي مدينة محدّدة.
   await pool.query(`UPDATE pharmacies SET city = 'salamiyah' WHERE city IS NULL;`);
@@ -264,7 +275,7 @@ async function deleteMedicine(medicineId) {
 
 async function getAllPharmacies() {
   const { rows } = await pool.query(
-    'SELECT id, name, address, phone, assistant_phone, city, owner_username, on_duty, on_duty_day, on_duty_shift, on_duty_start_time, on_duty_end_time FROM pharmacies ORDER BY id'
+    'SELECT id, name, address, phone, assistant_phone, city, verified, owner_username, on_duty, on_duty_day, on_duty_shift, on_duty_start_time, on_duty_end_time FROM pharmacies ORDER BY id'
   );
   return rows;
 }
@@ -395,7 +406,8 @@ async function getAdminStats() {
 
 async function getOnDutyPharmacies(city) {
   const { rows } = await pool.query(
-    `SELECT id, name, address, phone, assistant_phone, city, on_duty, on_duty_day, on_duty_shift, on_duty_start_time, on_duty_end_time
+    `SELECT id, name, address, phone, assistant_phone, city, COALESCE(verified, false) AS verified,
+            on_duty, on_duty_day, on_duty_shift, on_duty_start_time, on_duty_end_time
      FROM pharmacies WHERE on_duty = true AND ($1::text IS NULL OR city = $1) ORDER BY on_duty_shift, id`,
     [city || null]
   );
@@ -409,7 +421,9 @@ async function getOnDutyPharmacies(city) {
 async function getAvailability(medicineId, city) {
   const { rows } = await pool.query(
     `SELECT p.id AS pharmacy_id, p.name AS pharmacy_name, p.address, p.phone, p.assistant_phone, p.city,
-            COALESCE(s.available, false) AS available
+            COALESCE(p.verified, false) AS verified,
+            COALESCE(s.available, false) AS available,
+            s.updated_at AS stock_updated_at
      FROM pharmacies p
      LEFT JOIN stock s ON s.pharmacy_id = p.id AND s.medicine_id = $1
      WHERE ($2::text IS NULL OR p.city = $2)
@@ -423,7 +437,7 @@ async function getStockForPharmacy(pharmacyId) {
   const { rows } = await pool.query(
     `SELECT m.id AS medicine_id, m.name, m.generic_name, m.category,
             COALESCE(s.available, false) AS available,
-            s.manufacture_date, s.expiry_date
+            s.manufacture_date, s.expiry_date, s.updated_at
      FROM medicines m
      LEFT JOIN stock s ON s.medicine_id = m.id AND s.pharmacy_id = $1
      ORDER BY m.name`,
@@ -436,10 +450,11 @@ async function setStock(pharmacyId, medicineId, available, manufactureDate, expi
   const mfgProvided = manufactureDate !== undefined;
   const expProvided = expiryDate !== undefined;
   await pool.query(
-    `INSERT INTO stock (pharmacy_id, medicine_id, available, manufacture_date, expiry_date)
-     VALUES ($1, $2, $3, $4, $5)
+    `INSERT INTO stock (pharmacy_id, medicine_id, available, manufacture_date, expiry_date, updated_at)
+     VALUES ($1, $2, $3, $4, $5, NOW())
      ON CONFLICT (pharmacy_id, medicine_id) DO UPDATE SET
        available = $3,
+       updated_at = NOW(),
        manufacture_date = CASE WHEN $6 THEN $4 ELSE stock.manufacture_date END,
        expiry_date = CASE WHEN $7 THEN $5 ELSE stock.expiry_date END`,
     [pharmacyId, medicineId, !!available, manufactureDate || null, expiryDate || null, mfgProvided, expProvided]
