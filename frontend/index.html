@@ -540,8 +540,7 @@
   .wa-result-btn:focus-visible, .wa-chat-btn:focus-visible { outline: 2px solid #15703f; outline-offset: 2px; }
   .wa-icon { font-size: 16px; }
 
-  /* فواصل بطاقة النتيجة: خارج عناصر bdi عمداً حتى لا تنقلب مع النص المعزول */
-  .result-sep { color: #b7c6d3; }
+  /* الفاصل النقطي بين المدينة والعنوان — خارج bdi عمداً حتى لا ينقلب مع النص المعزول */
 
   /* صف أزرار بطاقة النتيجة: السلة تتمدد وواتساب بعرض محتواه */
   .result-actions { display: flex; gap: 10px; align-items: stretch; margin-top: 12px; flex-wrap: wrap; }
@@ -741,9 +740,21 @@
   }
   .result-med-name { font-size: 18px; font-weight: 700; color: #163a5c; display: flex; align-items: center; gap: 8px; }
   .result-row { font-size: 14px; color: #6b7a87; margin-top: 4px; }
+  /* سطر الصيدلية: كان صفاً مرناً واحداً بلا التفاف، فتنضغط العناصر ويلتف النص داخلها —
+     ينزل الرقم تحت الاسم وتتباعد المقاطع عن فواصلها، خصوصاً بالإنكليزية على شاشة ضيقة
+     حيث يختلط اتجاهان في سطر واحد. الحل: سطران — اسم بارز، وبيانات ثانوية تحته. */
   .result-pharmacy {
-    display: flex; align-items: center; gap: 6px;
-    font-size: 14px; color: #3a4a58; font-weight: 500; margin-top: 6px;
+    display: flex; align-items: flex-start; gap: 8px;
+    font-size: 14px; color: #3a4a58; font-weight: 500; margin-top: 8px;
+  }
+  .result-pharmacy-info { display: flex; flex-direction: column; gap: 3px; min-width: 0; flex: 1; }
+  .result-pharmacy-name {
+    display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+    font-weight: 600; color: #23303a; overflow-wrap: anywhere;
+  }
+  .result-pharmacy-meta {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px;
+    font-size: 13px; color: #6b7a87; font-weight: 400; overflow-wrap: anywhere;
   }
   .result-icon { font-size: 14px; }
   .result-add-btn-full {
