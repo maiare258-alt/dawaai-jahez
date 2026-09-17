@@ -27,6 +27,43 @@ function generatePassword(length = 12) {
   return out;
 }
 
+// ===== تنسيق رقم واتساب السوري =====
+// روابط wa.me تتطلب الصيغة الدولية بلا "+" ولا أصفار بادئة ولا مسافات:
+// 963932985852. والصيادلة سيكتبون الرقم بصيغ مختلفة، فنوحّدها كلها هنا
+// في مكان واحد بدل ترك التنسيق للواجهة (الواجهة قابلة للتجاوز، والخلفية لا).
+//
+// الصيغ المقبولة كلها تعطي النتيجة نفسها:
+//   0932985852 · 932985852 · +963932985852 · 00963932985852 · 963 932 985 852
+//
+// الرقم المحمول السوري: 9XXXXXXXX (تسع خانات تبدأ بـ9) بعد رمز الدولة 963.
+const SYRIA_CODE = '963';
+function normalizeWhatsappPhone(raw) {
+  if (raw === undefined || raw === null) return { value: null, error: null };
+  const asText = String(raw).trim();
+  if (asText === '') return { value: null, error: null };   // مسح الرقم إجراء مشروع
+
+  // نحذف كل ما ليس رقماً: المسافات والشرطات والأقواس و"+" — ونحتفظ بالأرقام العربية الشرقية
+  // بعد تحويلها، لأن الصيدلي قد يكتب بلوحة مفاتيح عربية.
+  const arabicDigits = '٠١٢٣٤٥٦٧٨٩';
+  let digits = '';
+  for (const ch of asText) {
+    const ai = arabicDigits.indexOf(ch);
+    if (ai >= 0) digits += String(ai);
+    else if (ch >= '0' && ch <= '9') digits += ch;
+  }
+  if (!digits) return { value: null, error: 'رقم واتساب غير صالح' };
+
+  if (digits.startsWith('00' + SYRIA_CODE)) digits = digits.slice(2);        // 00963...
+  else if (digits.startsWith(SYRIA_CODE)) { /* 963... جاهز */ }
+  else if (digits.startsWith('0')) digits = SYRIA_CODE + digits.slice(1);    // 09... محلي
+  else if (digits.length === 9 && digits.startsWith('9')) digits = SYRIA_CODE + digits; // 9...
+
+  // التحقق النهائي: 963 + تسع خانات تبدأ بـ9 = 12 خانة
+  const ok = digits.length === 12 && digits.startsWith(SYRIA_CODE + '9');
+  if (!ok) return { value: null, error: 'رقم واتساب غير صالح' };
+  return { value: digits, error: null };
+}
+
 const ALLOWED_CITIES = [
   'damascus', 'rif_dimashq', 'aleppo', 'homs', 'hama', 'salamiyah',
   'latakia', 'tartus', 'idlib', 'deir_ez_zor', 'hasakah', 'raqqa',
@@ -46,6 +83,22 @@ router.get('/on-duty', async (req, res) => {
   }
 });
 
+// الصيدليات التي لديها واتساب (متاح للجميع — واجهة المريض)
+// GET /api/pharmacies/whatsapp?city=salamiyah
+//
+// تخدم قائمة "الاستشارة الدوائية" بالصفحة الرئيسية: أسئلة لا تبدأ من بحث عن دواء
+// (وصفة غير واضحة، جرعة، بديل دوائي). لهذا هي مسار مستقل عن نتائج البحث.
+// صفر بيانات حساسة بالاستجابة: لا كلمات مرور ولا أسماء مستخدمين.
+router.get('/whatsapp', async (req, res) => {
+  const city = ALLOWED_CITIES.includes(req.query.city) ? req.query.city : null;
+  try {
+    res.json(await db.getWhatsappPharmacies(city));
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'حدث خطأ أثناء جلب الصيدليات' });
+  }
+});
+
 // عرض كل الصيدليات (للإدارة فقط)
 // GET /api/pharmacies
 router.get('/', adminAuth, async (req, res) => {
@@ -60,7 +113,7 @@ router.get('/', adminAuth, async (req, res) => {
 // تسجيل صيدلية جديدة (للإدارة فقط)
 // POST /api/pharmacies/register  { name, address, phone, username, password }
 router.post('/register', adminAuth, async (req, res) => {
-  const { name, address, phone, city, username, password } = req.body;
+  const { name, address, phone, city, whatsapp_phone, username, password } = req.body;
   if (!name || !username || !password) {
     return res.status(400).json({ error: 'الاسم واسم المستخدم وكلمة المرور مطلوبة' });
   }
@@ -70,12 +123,16 @@ router.post('/register', adminAuth, async (req, res) => {
   if (!ALLOWED_CITIES.includes(city)) {
     return res.status(400).json({ error: 'مدينة غير صالحة' });
   }
+  // رقم واتساب اختياري بالتسجيل — لكن لو أُدخل فيجب أن يكون صالحاً،
+  // فرقم تالف يُنتج رابطاً ميتاً يراه المريض كعطل بالمنصة.
+  const { value: waPhone, error: waError } = normalizeWhatsappPhone(whatsapp_phone);
+  if (waError) return res.status(400).json({ error: waError });
   try {
     if (await db.findPharmacyByUsername(username)) {
       return res.status(409).json({ error: 'اسم المستخدم مستخدم مسبقاً' });
     }
     const passwordHash = await bcrypt.hash(password, 10);
-    const pharmacy = await db.addPharmacy({ name, address, phone, city, username, passwordHash });
+    const pharmacy = await db.addPharmacy({ name, address, phone, city, whatsappPhone: waPhone, username, passwordHash });
     const { owner_password_hash, ...safePharmacy } = pharmacy;
     res.status(201).json(safePharmacy);
   } catch (err) {
@@ -106,6 +163,7 @@ router.post('/login', rateLimit(10, 15 * 60 * 1000), async (req, res) => {
       address: pharmacy.address,
       city: pharmacy.city || null,
       assistant_phone: pharmacy.assistant_phone || null,
+      whatsapp_phone: pharmacy.whatsapp_phone || null,
       on_duty: !!pharmacy.on_duty,
       on_duty_day: pharmacy.on_duty_day || null,
       on_duty_shift: pharmacy.on_duty_shift || null,
@@ -252,6 +310,33 @@ router.post('/:id/reset-password', adminAuth, async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'حدث خطأ أثناء إعادة تعيين كلمة المرور' });
+  }
+});
+
+// تحديث رقم واتساب الصيدلية (الصيدلي لحسابه هو فقط)
+// PUT /api/pharmacies/self/whatsapp  { username, password, whatsapp_phone }
+//
+// الصيدلي يملك رقمه ويعرف أيّه يعمل على واتساب، فهو الجهة الصحيحة لإدخاله.
+// إرسال قيمة فارغة يمسح الرقم — إجراء مشروع لمن أوقف واتساب عمله.
+router.put('/self/whatsapp', async (req, res) => {
+  const { username, password, whatsapp_phone } = req.body;
+  if (!username || !password) {
+    return res.status(400).json({ error: 'بيانات الدخول مطلوبة' });
+  }
+  const { value: waPhone, error: waError } = normalizeWhatsappPhone(whatsapp_phone);
+  if (waError) return res.status(400).json({ error: waError });
+  try {
+    const pharmacy = await db.findPharmacyByUsername(username);
+    if (!pharmacy) return res.status(401).json({ error: 'بيانات الدخول غير صحيحة' });
+
+    const valid = await bcrypt.compare(password, pharmacy.owner_password_hash);
+    if (!valid) return res.status(401).json({ error: 'بيانات الدخول غير صحيحة' });
+
+    const updated = await db.setWhatsappPhone(pharmacy.id, waPhone);
+    res.json({ whatsapp_phone: updated.whatsapp_phone });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'حدث خطأ أثناء تحديث رقم واتساب' });
   }
 });
 
