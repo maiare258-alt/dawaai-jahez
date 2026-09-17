@@ -280,6 +280,28 @@ const translations = {
     rating_submitted_success: 'تم إرسال تقييمك بنجاح! رح يظهر للعموم بعد موافقة الإدارة عليه.',
     nursing_page_title: 'خدمات تمريض 🩺', nursing_page_desc: 'تواصل مع ممرضين موثوقين لتلقي الرعاية التمريضية بمنزلك.',
     show_password_aria: 'إظهار كلمة المرور', hide_password_aria: 'إخفاء كلمة المرور',
+    wa_consult_btn_label: 'استشر صيدلياً عبر واتساب',
+    wa_consult_title: '💬 استشر صيدلياً عبر واتساب',
+    wa_consult_desc: 'وصفة غير واضحة؟ سؤال عن جرعة أو بديل دوائي؟ تواصل مباشرة مع صيدلي.',
+    wa_consult_empty: 'لا توجد صيدليات مفعّلة على واتساب بعد.',
+    wa_consult_empty_city: 'لا توجد صيدليات مفعّلة على واتساب في هذه المدينة. جرّب اختيار "كل المدن".',
+    wa_consult_loading: 'جارٍ تحميل الصيدليات...',
+    wa_consult_error: 'تعذّر تحميل الصيدليات. حاول مرة أخرى.',
+    wa_chat_btn: 'مراسلة عبر واتساب',
+    wa_close_btn: 'إغلاق',
+    wa_disclaimer: 'المنصة وسيط معلومات فقط. المحادثة تتم مباشرة بينك وبين الصيدلية، ولا تُغني عن استشارة الطبيب.',
+    wa_result_btn: 'واتساب',
+    wa_msg_consult: 'السلام عليكم، أود استشارتكم بخصوص دواء. (وصلتكم عبر منصة دوائي جاهز)',
+    wa_msg_medicine: 'السلام عليكم، وجدت لديكم دواء "{medicine}" عبر منصة دوائي جاهز. هل هو متوفر الآن؟',
+    wa_onduty_now: 'مناوبة الآن',
+    whatsapp_phone_section_title: '💬 رقم واتساب الصيدلية',
+    whatsapp_phone_input_placeholder: 'رقم واتساب (مثال: 0932985852)',
+    save_whatsapp_btn: 'حفظ رقم واتساب',
+    whatsapp_saved_success: 'تم حفظ رقم واتساب بنجاح',
+    whatsapp_cleared_success: 'تم مسح رقم واتساب',
+    invalid_whatsapp_error: 'رقم واتساب غير صالح. اكتب رقم موبايل سوري مثل 0932985852',
+    whatsapp_phone_hint: 'سيظهر زر مراسلتك للمرضى فقط إذا أدخلت رقماً. اتركه فارغاً لإخفائه.',
+    whatsapp_admin_label: 'واتساب',
     whatsapp_coming_soon: 'البحث عبر واتساب قريباً 💬 لسا عم نجهز رقم رسمي للمشروع.',
     contact_coming_soon: 'سيتم إضافة معلومات التواصل قريباً.',
     footer_faq: 'الأسئلة الشائعة', footer_about: 'حول الموقع',
@@ -511,6 +533,28 @@ const translations = {
     rating_submitted_success: 'Your rating was submitted successfully! It will appear publicly after admin approval.',
     nursing_page_title: 'Nursing Services 🩺', nursing_page_desc: 'Connect with trusted nurses for home nursing care.',
     show_password_aria: 'Show password', hide_password_aria: 'Hide password',
+    wa_consult_btn_label: 'Ask a pharmacist on WhatsApp',
+    wa_consult_title: '💬 Ask a pharmacist on WhatsApp',
+    wa_consult_desc: 'Unclear prescription? A question about a dose or an alternative? Message a pharmacist directly.',
+    wa_consult_empty: 'No pharmacies have WhatsApp enabled yet.',
+    wa_consult_empty_city: 'No pharmacies with WhatsApp in this city. Try selecting "All cities".',
+    wa_consult_loading: 'Loading pharmacies...',
+    wa_consult_error: 'Could not load pharmacies. Please try again.',
+    wa_chat_btn: 'Message on WhatsApp',
+    wa_close_btn: 'Close',
+    wa_disclaimer: 'This platform is an information service only. The conversation is directly between you and the pharmacy, and does not replace a doctor consultation.',
+    wa_result_btn: 'WhatsApp',
+    wa_msg_consult: 'Hello, I would like to ask you about a medicine. (Reached you via the Dawaai Jahez platform)',
+    wa_msg_medicine: 'Hello, I found "{medicine}" listed at your pharmacy on Dawaai Jahez. Is it available now?',
+    wa_onduty_now: 'On duty now',
+    whatsapp_phone_section_title: '💬 Pharmacy WhatsApp number',
+    whatsapp_phone_input_placeholder: 'WhatsApp number (e.g. 0932985852)',
+    save_whatsapp_btn: 'Save WhatsApp number',
+    whatsapp_saved_success: 'WhatsApp number saved successfully',
+    whatsapp_cleared_success: 'WhatsApp number cleared',
+    invalid_whatsapp_error: 'Invalid WhatsApp number. Enter a Syrian mobile number such as 0932985852',
+    whatsapp_phone_hint: 'The message button appears to patients only if you enter a number. Leave it empty to hide it.',
+    whatsapp_admin_label: 'WhatsApp',
     whatsapp_coming_soon: "Search via WhatsApp coming soon 💬 We're setting up an official number for the project.",
     contact_coming_soon: 'Contact information will be added soon.',
     footer_faq: 'FAQ', footer_about: 'About Us',
@@ -607,7 +651,8 @@ const BACKEND_ERROR_MAP = {
   'مدينة غير صالحة': 'invalid_city_error',
   'كلمة المرور الجديدة مطلوبة': 'new_password_required_error',
   'كلمة المرور الجديدة قصيرة جداً': 'new_password_too_short_error',
-  'كلمة المرور الجديدة مطابقة للحالية': 'new_password_same_error'
+  'كلمة المرور الجديدة مطابقة للحالية': 'new_password_same_error',
+  'رقم واتساب غير صالح': 'invalid_whatsapp_error'
 };
 function translateApiError(rawError) {
   const key = BACKEND_ERROR_MAP[rawError];
@@ -637,7 +682,19 @@ function applyLanguage() {
   refreshCurrentHeroText();
   document.getElementById('search-btn').textContent = t('search_btn');
   document.getElementById('cart-btn-label').textContent = t('cart_btn');
-  document.getElementById('whatsapp-btn-label').textContent = t('whatsapp_btn');
+  document.getElementById('whatsapp-btn-label').textContent = t('wa_consult_btn_label');
+  // ---------- لوحة استشارة واتساب ----------
+  document.getElementById('wa-panel-title').textContent = t('wa_consult_title');
+  document.getElementById('wa-panel-desc').textContent = t('wa_consult_desc');
+  document.getElementById('wa-panel-disclaimer').textContent = t('wa_disclaimer');
+  document.getElementById('wa-panel-close').textContent = t('wa_close_btn');
+  // إعادة بناء القائمة بلغتها الجديدة لو كانت اللوحة مفتوحة وقت التبديل
+  if (waPanelOpen) loadWhatsappPharmacies();
+  // ---------- حقل رقم واتساب بلوحة الصيدلي ----------
+  document.getElementById('whatsapp-phone-section-title').textContent = t('whatsapp_phone_section_title');
+  document.getElementById('whatsapp-phone-input').placeholder = t('whatsapp_phone_input_placeholder');
+  document.getElementById('whatsapp-phone-hint').textContent = t('whatsapp_phone_hint');
+  document.getElementById('save-whatsapp-btn').textContent = t('save_whatsapp_btn');
 
   document.getElementById('feature1-title').textContent = t('feature1_title');
   document.getElementById('feature1-desc').textContent = t('feature1_desc');
@@ -1280,6 +1337,129 @@ async function checkMyOrdersStatus() {
   } catch (err) { /* تجاهل بصمت، رح يعيد المحاولة بالجولة الجاية */ }
 }
 
+// ================= تكامل واتساب =================
+// قرار تصميمي: روابط wa.me مباشرة، صفر WhatsApp Business API.
+// السبب: الـAPI الرسمي يتطلب حساب أعمال موثَّقاً ورقماً مخصصاً وتكلفة شهرية لكل محادثة
+// وموافقة من Meta، وخادماً يستقبل Webhooks لا ينام — وخطة Render المجانية تنام.
+// رابط wa.me يحقق الهدف نفسه للمريض بصفر تكلفة وصفر تبعية خارجية.
+//
+// قرار ثانٍ: المنصة لا تتوسط المحادثة. المريض يراسل الصيدلية مباشرة، فلا تتحول
+// المنصة (ولا مالكها) إلى مكتب دعم يتلقى أسئلة دوائية ليلاً — وهذا يجعل النموذج
+// قابلاً للتوسع فعلاً.
+
+// بناء رابط واتساب. نرجّع null لا رابطاً معطوباً حين لا يوجد رقم،
+// حتى يقرر المستدعي إخفاء الزر بدل عرض رابط ميت.
+function waLink(phone, message) {
+  const digits = String(phone || '').replace(/\D/g, '');
+  if (!digits) return null;
+  return `https://wa.me/${digits}?text=${encodeURIComponent(message || '')}`;
+}
+
+// فتح محادثة واتساب. noopener/noreferrer إلزامي أمنياً مع target=_blank:
+// بدونه تستطيع الصفحة المفتوحة التحكم بصفحتنا عبر window.opener.
+function openWhatsapp(phone, message) {
+  const url = waLink(phone, message);
+  if (!url) return;
+  window.open(url, '_blank', 'noopener,noreferrer');
+}
+
+// زر واتساب داخل بطاقة نتيجة البحث — برسالة جاهزة تذكر اسم الدواء.
+// فائدتها مزدوجة: المريض لا يكتب شيئاً، والصيدلي يعرف عمّ يُسأل فور فتح المحادثة.
+function waResultBtnHtml(phone, medicineName) {
+  if (!phone) return '';
+  const msg = tFormat('wa_msg_medicine', { medicine: medicineName });
+  // نمرّر القيم عبر data-* لا داخل onclick: أسماء الأدوية قد تحوي علامات اقتباس
+  // تكسر السمة، وescapeHtml وحده لا يكفي داخل سياق JavaScript.
+  return `<button type="button" class="wa-result-btn" data-wa-phone="${escapeHtml(phone)}"
+            data-wa-msg="${escapeHtml(msg)}" onclick="onWaResultClick(this)">
+            <span class="wa-icon">💬</span> ${t('wa_result_btn')}
+          </button>`;
+}
+
+function onWaResultClick(btn) {
+  openWhatsapp(btn.getAttribute('data-wa-phone'), btn.getAttribute('data-wa-msg'));
+}
+
+// ---------- لوحة الاستشارة الدوائية ----------
+// مدخل مستقل عن البحث عن دواء عن قصد: أسئلة الوصفة غير الواضحة والجرعة والبديل
+// الدوائي لا تبدأ باسم دواء، فلا يخدمها زر داخل نتيجة بحث.
+let waPanelOpen = false;
+
+function openWhatsappPanel() {
+  const panel = document.getElementById('wa-panel');
+  if (!panel) return;
+  waPanelOpen = true;
+  panel.style.display = 'flex';
+  document.body.classList.add('wa-panel-lock');   // منع تمرير الصفحة خلف اللوحة
+  loadWhatsappPharmacies();
+  // نقل التركيز للوحة: ضروري لمستخدمي لوحة المفاتيح وقارئات الشاشة
+  const closeBtn = document.getElementById('wa-panel-close');
+  if (closeBtn) closeBtn.focus();
+}
+
+function closeWhatsappPanel() {
+  const panel = document.getElementById('wa-panel');
+  if (!panel) return;
+  waPanelOpen = false;
+  panel.style.display = 'none';
+  document.body.classList.remove('wa-panel-lock');
+}
+
+// إغلاق بالنقر على الخلفية فقط، لا على محتوى اللوحة نفسه
+function onWaOverlayClick(e, el) {
+  if (e.target === el) closeWhatsappPanel();
+}
+
+async function loadWhatsappPharmacies() {
+  const list = document.getElementById('wa-panel-list');
+  if (!list) return;
+  list.innerHTML = `<p class="muted" style="padding:14px 2px;">${t('wa_consult_loading')}</p>`;
+  try {
+    // نحترم فلتر المدينة المختار بالصفحة الرئيسية: المريض يريد صيدلية يمكنه زيارتها
+    const cityParam = currentCity ? `?city=${encodeURIComponent(currentCity)}` : '';
+    const res = await fetch(`${API}/pharmacies/whatsapp${cityParam}`, { cache: 'no-store' });
+    if (!res.ok) throw new Error('fetch failed');
+    const data = await res.json();
+    // اللوحة قد تُغلق بينما الطلب جارٍ — نتجاهل النتيجة حينها بدل الكتابة فوق DOM مخفي
+    if (!waPanelOpen) return;
+
+    if (!Array.isArray(data) || data.length === 0) {
+      list.innerHTML = `<p class="muted" style="padding:14px 2px;">${currentCity ? t('wa_consult_empty_city') : t('wa_consult_empty')}</p>`;
+      return;
+    }
+    list.innerHTML = data.map(p => {
+      const msg = t('wa_msg_consult');
+      return `
+        <div class="wa-pharmacy-row">
+          <div class="wa-pharmacy-info">
+            <span class="wa-pharmacy-name">${escapeHtml(p.name)}${verifiedBadgeHtml(p.verified)}</span>
+            <span class="wa-pharmacy-meta">
+              ${p.city ? `<span>📍 ${escapeHtml(cityName(p.city))}</span>` : ''}
+              ${p.address ? `<span class="admin-ph-sep">•</span><span>${escapeHtml(p.address)}</span>` : ''}
+              ${p.on_duty ? `<span class="badge yes">${t('wa_onduty_now')}</span>` : ''}
+            </span>
+          </div>
+          <button type="button" class="wa-chat-btn" data-wa-phone="${escapeHtml(p.whatsapp_phone)}"
+                  data-wa-msg="${escapeHtml(msg)}" onclick="onWaResultClick(this)">
+            <span class="wa-icon">💬</span> ${t('wa_chat_btn')}
+          </button>
+        </div>`;
+    }).join('');
+  } catch (err) {
+    if (!waPanelOpen) return;
+    list.innerHTML = `<p class="muted" style="padding:14px 2px;">${t('wa_consult_error')}</p>`;
+  }
+}
+
+// Escape يغلق اللوحة — متوقَّع في أي نافذة منبثقة، وضروري لمن يتنقل بلوحة المفاتيح.
+// نستخدم capture ونتحقق من فتح اللوحة أولاً حتى لا نعترض Escape الخاص بأي عنصر آخر.
+document.addEventListener('keydown', function (e) {
+  if (e.key === 'Escape' && waPanelOpen) {
+    e.preventDefault();
+    closeWhatsappPanel();
+  }
+});
+
 function whatsappComingSoon() {
   customAlert(t('whatsapp_coming_soon'), 'info');
 }
@@ -1856,7 +2036,10 @@ async function runSearch() {
             ${a.phone ? `<div class="result-row"><span class="result-icon">📞</span> ${escapeHtml(a.phone)}</div>` : ''}
             ${a.assistant_phone ? `<div class="result-row"><span class="result-icon">📱</span> ${escapeHtml(a.assistant_phone)} <span class="muted" style="font-size:12px;">(${t('assistant_phone_label')})</span></div>` : ''}
             ${stockFreshnessHtml(a.stock_updated_at)}
-            ${a.available ? `<button class="result-add-btn-full" onclick="addToCart(${item.medicine.id}, ${a.pharmacy_id}, this)">${t('add_to_cart_btn')}</button>` : ''}
+            <div class="result-actions">
+              ${a.available ? `<button class="result-add-btn-full" onclick="addToCart(${item.medicine.id}, ${a.pharmacy_id}, this)">${t('add_to_cart_btn')}</button>` : ''}
+              ${waResultBtnHtml(a.whatsapp_phone, item.medicine.name)}
+            </div>
           </div>
         `;
       });
@@ -1945,6 +2128,7 @@ function loadDashboard() {
   `;
   document.getElementById('duty-checkbox').checked = !!currentPharmacy.on_duty;
   document.getElementById('assistant-phone-input').value = currentPharmacy.assistant_phone || '';
+  document.getElementById('whatsapp-phone-input').value = currentPharmacy.whatsapp_phone || '';
   document.getElementById('duty-day').disabled = !currentPharmacy.on_duty;
   document.getElementById('duty-shift').disabled = !currentPharmacy.on_duty;
   document.getElementById('duty-start-time').disabled = !currentPharmacy.on_duty;
@@ -2001,6 +2185,35 @@ async function saveDuty() {
     customAlert(t('duty_saved_success'), 'success');
   } catch (err) {
     customAlert(t('server_error_title'), 'error');
+  }
+}
+
+async function saveWhatsappPhone() {
+  const raw = document.getElementById('whatsapp-phone-input').value.trim();
+  const btn = document.getElementById('save-whatsapp-btn');
+  if (btn) btn.disabled = true;
+  try {
+    const res = await fetch(`${API}/pharmacies/self/whatsapp`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        username: currentPharmacy.username,
+        password: currentPharmacy.password,
+        whatsapp_phone: raw
+      })
+    });
+    const data = await res.json();
+    if (!res.ok) { await customAlert(translateApiError(data.error), 'error'); return; }
+
+    // نحفظ الرقم المنسّق العائد من الخلفية لا ما كتبه الصيدلي:
+    // الخلفية هي مصدر الحقيقة للتنسيق، فيرى الصيدلي الصيغة المخزَّنة فعلاً.
+    currentPharmacy.whatsapp_phone = data.whatsapp_phone || null;
+    document.getElementById('whatsapp-phone-input').value = data.whatsapp_phone || '';
+    await customAlert(data.whatsapp_phone ? t('whatsapp_saved_success') : t('whatsapp_cleared_success'), 'success');
+  } catch (err) {
+    await customAlert(t('server_error_title'), 'error');
+  } finally {
+    if (btn) btn.disabled = false;
   }
 }
 
@@ -2726,6 +2939,7 @@ function renderAdminPanelUI() {
         ${cityOptionsHtml('')}
       </select>
       <input id="ph-phone" placeholder="${t('phone_placeholder')}">
+      <input id="ph-whatsapp" type="tel" inputmode="numeric" placeholder="${t('whatsapp_phone_input_placeholder')}">
       <input id="ph-username" placeholder="${t('username_placeholder')}">
       <div class="password-field">
         <input id="ph-password" type="password" placeholder="${t('password_placeholder')}">
@@ -2759,6 +2973,7 @@ function renderAdminPanelUI() {
                    <span class="admin-ph-meta">
                      <span>👤 ${escapeHtml(p.owner_username)}</span>
                      ${p.verified ? `<span class="admin-ph-sep">•</span><span>✓ ${t('verified_badge')}</span>` : ''}
+                     ${p.whatsapp_phone ? `<span class="admin-ph-sep">•</span><span>💬 ${t('whatsapp_admin_label')}</span>` : ''}
                      ${p.city ? `<span class="admin-ph-sep">•</span><span>📍 ${escapeHtml(cityName(p.city))}</span>` : ''}
                      ${p.assistant_phone ? `<span class="admin-ph-sep">•</span><span>📱 ${escapeHtml(p.assistant_phone)}</span>` : ''}
                      ${p.on_duty ? `<span class="badge yes">${t('onduty_badge_short')}</span>` : ''}
@@ -2866,6 +3081,7 @@ async function addPharmacy() {
     address: document.getElementById('ph-address').value,
     city: document.getElementById('ph-city').value,
     phone: document.getElementById('ph-phone').value,
+    whatsapp_phone: document.getElementById('ph-whatsapp').value,
     username: document.getElementById('ph-username').value,
     password: document.getElementById('ph-password').value,
   };
