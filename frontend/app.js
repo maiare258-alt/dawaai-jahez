@@ -280,7 +280,7 @@ const translations = {
     rating_submitted_success: 'تم إرسال تقييمك بنجاح! رح يظهر للعموم بعد موافقة الإدارة عليه.',
     nursing_page_title: 'خدمات تمريض 🩺', nursing_page_desc: 'تواصل مع ممرضين موثوقين لتلقي الرعاية التمريضية بمنزلك.',
     show_password_aria: 'إظهار كلمة المرور', hide_password_aria: 'إخفاء كلمة المرور',
-    wa_consult_btn_label: 'استشر صيدلياً عبر واتساب',
+    wa_consult_btn_label: 'استشر صيدلياً',
     wa_consult_title: '💬 استشر صيدلياً عبر واتساب',
     wa_consult_desc: 'وصفة غير واضحة؟ سؤال عن جرعة أو بديل دوائي؟ تواصل مباشرة مع صيدلي.',
     wa_consult_empty: 'لا توجد صيدليات مفعّلة على واتساب بعد.',
@@ -292,7 +292,7 @@ const translations = {
     wa_disclaimer: 'المنصة وسيط معلومات فقط. المحادثة تتم مباشرة بينك وبين الصيدلية، ولا تُغني عن استشارة الطبيب.',
     wa_result_btn: 'واتساب',
     wa_msg_consult: 'السلام عليكم، أود استشارتكم بخصوص دواء. (وصلتكم عبر منصة دوائي جاهز)',
-    wa_msg_medicine: 'السلام عليكم، وجدت لديكم دواء "{medicine}" عبر منصة دوائي جاهز. هل هو متوفر الآن؟',
+    wa_msg_medicine: 'مرحباً، أريد شراء دواء "{medicine}" من لديكم عبر الموقع.',
     wa_onduty_now: 'مناوبة الآن',
     whatsapp_phone_section_title: '💬 رقم واتساب الصيدلية',
     whatsapp_phone_input_placeholder: 'رقم واتساب (مثال: 0932985852)',
@@ -533,7 +533,7 @@ const translations = {
     rating_submitted_success: 'Your rating was submitted successfully! It will appear publicly after admin approval.',
     nursing_page_title: 'Nursing Services 🩺', nursing_page_desc: 'Connect with trusted nurses for home nursing care.',
     show_password_aria: 'Show password', hide_password_aria: 'Hide password',
-    wa_consult_btn_label: 'Ask a pharmacist on WhatsApp',
+    wa_consult_btn_label: 'Ask a pharmacist',
     wa_consult_title: '💬 Ask a pharmacist on WhatsApp',
     wa_consult_desc: 'Unclear prescription? A question about a dose or an alternative? Message a pharmacist directly.',
     wa_consult_empty: 'No pharmacies have WhatsApp enabled yet.',
@@ -545,7 +545,7 @@ const translations = {
     wa_disclaimer: 'This platform is an information service only. The conversation is directly between you and the pharmacy, and does not replace a doctor consultation.',
     wa_result_btn: 'WhatsApp',
     wa_msg_consult: 'Hello, I would like to ask you about a medicine. (Reached you via the Dawaai Jahez platform)',
-    wa_msg_medicine: 'Hello, I found "{medicine}" listed at your pharmacy on Dawaai Jahez. Is it available now?',
+    wa_msg_medicine: 'Hello, I would like to buy "{medicine}" from your pharmacy, found via the website.',
     wa_onduty_now: 'On duty now',
     whatsapp_phone_section_title: '💬 Pharmacy WhatsApp number',
     whatsapp_phone_input_placeholder: 'WhatsApp number (e.g. 0932985852)',
@@ -1432,10 +1432,10 @@ async function loadWhatsappPharmacies() {
       return `
         <div class="wa-pharmacy-row">
           <div class="wa-pharmacy-info">
-            <span class="wa-pharmacy-name">${escapeHtml(p.name)}${verifiedBadgeHtml(p.verified)}</span>
+            <span class="wa-pharmacy-name"><bdi>${escapeHtml(p.name)}</bdi>${verifiedBadgeHtml(p.verified)}</span>
             <span class="wa-pharmacy-meta">
-              ${p.city ? `<span>📍 ${escapeHtml(cityName(p.city))}</span>` : ''}
-              ${p.address ? `<span class="admin-ph-sep">•</span><span>${escapeHtml(p.address)}</span>` : ''}
+              ${p.city ? `<span>📍 <bdi>${escapeHtml(cityName(p.city))}</bdi></span>` : ''}
+              ${p.address ? `<span class="admin-ph-sep">•</span><span><bdi>${escapeHtml(p.address)}</bdi></span>` : ''}
               ${p.on_duty ? `<span class="badge yes">${t('wa_onduty_now')}</span>` : ''}
             </span>
           </div>
@@ -2032,7 +2032,7 @@ async function runSearch() {
               <span class="badge ${a.available ? 'yes' : 'no'}">${a.available ? t('available_badge') : t('unavailable_badge')}</span>
             </div>
             <div class="result-row">${t('active_ingredient_label')} ${escapeHtml(item.medicine.generic_name) || '-'}</div>
-            <div class="result-pharmacy"><span class="result-icon">📍</span> ${escapeHtml(a.pharmacy_name)}${verifiedBadgeHtml(a.verified)}${a.city ? ' - ' + escapeHtml(cityName(a.city)) : ''}${a.address ? ' - ' + escapeHtml(a.address) : ''}</div>
+            <div class="result-pharmacy"><span class="result-icon">📍</span> <bdi>${escapeHtml(a.pharmacy_name)}</bdi>${verifiedBadgeHtml(a.verified)}${a.city ? ' <span class="result-sep">-</span> <bdi>' + escapeHtml(cityName(a.city)) + '</bdi>' : ''}${a.address ? ' <span class="result-sep">-</span> <bdi>' + escapeHtml(a.address) + '</bdi>' : ''}</div>
             ${a.phone ? `<div class="result-row"><span class="result-icon">📞</span> ${escapeHtml(a.phone)}</div>` : ''}
             ${a.assistant_phone ? `<div class="result-row"><span class="result-icon">📱</span> ${escapeHtml(a.assistant_phone)} <span class="muted" style="font-size:12px;">(${t('assistant_phone_label')})</span></div>` : ''}
             ${stockFreshnessHtml(a.stock_updated_at)}
@@ -2969,7 +2969,7 @@ function renderAdminPanelUI() {
                : `
                <div class="admin-ph-row">
                  <div class="admin-ph-info">
-                   <span class="admin-ph-name">${escapeHtml(p.name)}</span>
+                   <span class="admin-ph-name"><bdi>${escapeHtml(p.name)}</bdi></span>
                    <span class="admin-ph-meta">
                      <span>👤 ${escapeHtml(p.owner_username)}</span>
                      ${p.verified ? `<span class="admin-ph-sep">•</span><span>✓ ${t('verified_badge')}</span>` : ''}
