@@ -511,19 +511,37 @@
   .refresh-results-btn[disabled] { opacity: .55; cursor: default; }
 
   /* ---- تكامل واتساب ---- */
-  /* أخضر واتساب الرسمي #25D366 — المستخدم يتعرف عليه فوراً بلا قراءة */
-  .wa-result-btn, .wa-chat-btn {
+  /* لون واتساب الرسمي #25D366 فاقع جداً على خلفية فاتحة ومع ظل متوهج — مرهق للعين
+     ويسحب الانتباه من الإجراء الأساسي (إضافة إلى السلة).
+     الحل: أخضر أعمق ومشبع أقل (#1E8E4E) بلا توهج. يبقى معروفاً كواتساب، ويهدأ. */
+
+  /* زر البطاقة: إجراء ثانوي بجانب "إضافة إلى السلة"، فيأخذ شكلاً محدَّداً لا مملوءاً —
+     يبقى واضحاً دون أن ينافس الزر الأساسي بصرياً. */
+  .wa-result-btn {
     display: inline-flex; align-items: center; justify-content: center; gap: 7px;
-    background: #25D366; color: #fff; border: none;
+    background: #f2faf5; color: #15703f; border: 1.5px solid #9fd9b8;
     border-radius: 14px; padding: 12px 18px; font-size: 15px; font-weight: 700;
     font-family: inherit; cursor: pointer; min-height: 46px; white-space: nowrap;
-    box-shadow: 0 4px 12px rgba(37,211,102,0.26);
-    transition: transform .12s ease, box-shadow .12s ease, background .12s ease;
+    transition: background .14s ease, border-color .14s ease, color .14s ease;
   }
-  .wa-result-btn:hover, .wa-chat-btn:hover { background: #1fb457; transform: translateY(-1px); box-shadow: 0 7px 18px rgba(37,211,102,0.32); }
-  .wa-result-btn:active, .wa-chat-btn:active { transform: translateY(0); }
-  .wa-result-btn:focus-visible, .wa-chat-btn:focus-visible { outline: 2px solid #0f7a52; outline-offset: 2px; }
+  .wa-result-btn:hover { background: #e4f4ea; border-color: #6fc394; color: #0f5c32; }
+
+  /* زر اللوحة: هو الإجراء الأساسي هناك، فيبقى مملوءاً — لكن بأخضر هادئ وظل خفيف */
+  .wa-chat-btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+    background: #1E8E4E; color: #fff; border: none;
+    border-radius: 14px; padding: 12px 18px; font-size: 15px; font-weight: 700;
+    font-family: inherit; cursor: pointer; min-height: 46px; white-space: nowrap;
+    box-shadow: 0 2px 6px rgba(21,112,63,0.16);
+    transition: background .14s ease, box-shadow .14s ease;
+  }
+  .wa-chat-btn:hover { background: #17753f; box-shadow: 0 4px 10px rgba(21,112,63,0.22); }
+  .wa-result-btn:active, .wa-chat-btn:active { transform: translateY(1px); }
+  .wa-result-btn:focus-visible, .wa-chat-btn:focus-visible { outline: 2px solid #15703f; outline-offset: 2px; }
   .wa-icon { font-size: 16px; }
+
+  /* فواصل بطاقة النتيجة: خارج عناصر bdi عمداً حتى لا تنقلب مع النص المعزول */
+  .result-sep { color: #b7c6d3; }
 
   /* صف أزرار بطاقة النتيجة: السلة تتمدد وواتساب بعرض محتواه */
   .result-actions { display: flex; gap: 10px; align-items: stretch; margin-top: 12px; flex-wrap: wrap; }
