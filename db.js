@@ -65,6 +65,13 @@ async function initDb() {
   // العمود يجعل هذه الحقيقة قابلة للعرض للمريض، ويترك الباب مفتوحاً لسحب التوثيق
   // من صيدلية بعينها مستقبلاً دون حذف حسابها.
   await pool.query(`ALTER TABLE pharmacies ADD COLUMN IF NOT EXISTS verified BOOLEAN DEFAULT true;`);
+
+  // رقم واتساب الصيدلية — عمود منفصل عن phone عن قصد وليس اختصاراً كسولاً:
+  // كثير من الصيدليات السورية تسجّل رقماً أرضياً لا واتساب له، ورابط wa.me على رقم
+  // أرضي يفتح واتساب برسالة "هذا الرقم غير مسجّل" — فيقرأها المريض كعطل في المنصة
+  // لا كخطأ في الرقم. بعمود منفصل يظهر زر واتساب فقط لمن أدخل رقماً فعلياً،
+  // فلا يوجد رابط ميت إطلاقاً. يُخزَّن بصيغة دولية منسّقة (مثال: 963932985852).
+  await pool.query(`ALTER TABLE pharmacies ADD COLUMN IF NOT EXISTS whatsapp_phone TEXT;`);
   await pool.query(`UPDATE pharmacies SET verified = true WHERE verified IS NULL;`);
 
   // وقت آخر تحديث للمخزون — أهم عمود لثقة المريض.
@@ -275,7 +282,7 @@ async function deleteMedicine(medicineId) {
 
 async function getAllPharmacies() {
   const { rows } = await pool.query(
-    'SELECT id, name, address, phone, assistant_phone, city, verified, owner_username, on_duty, on_duty_day, on_duty_shift, on_duty_start_time, on_duty_end_time FROM pharmacies ORDER BY id'
+    'SELECT id, name, address, phone, assistant_phone, city, whatsapp_phone, verified, owner_username, on_duty, on_duty_day, on_duty_shift, on_duty_start_time, on_duty_end_time FROM pharmacies ORDER BY id'
   );
   return rows;
 }
@@ -290,11 +297,11 @@ async function getPharmacyById(pharmacyId) {
   return rows[0];
 }
 
-async function addPharmacy({ name, address, phone, city, username, passwordHash }) {
+async function addPharmacy({ name, address, phone, city, whatsappPhone, username, passwordHash }) {
   const { rows } = await pool.query(
-    `INSERT INTO pharmacies (name, address, phone, city, owner_username, owner_password_hash)
-     VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
-    [name, address || null, phone || null, city || null, username, passwordHash]
+    `INSERT INTO pharmacies (name, address, phone, city, whatsapp_phone, owner_username, owner_password_hash)
+     VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
+    [name, address || null, phone || null, city || null, whatsappPhone || null, username, passwordHash]
   );
   return rows[0];
 }
@@ -316,6 +323,32 @@ async function setDutyStatus(pharmacyId, onDuty, day, shift, startTime, endTime)
       onDuty ? (endTime || null) : null,
       pharmacyId
     ]
+  );
+  return rows[0];
+}
+
+// تحديث رقم واتساب الصيدلية. يستقبل الرقم منسّقاً مسبقاً من طبقة المسارات
+// (normalizeWhatsappPhone) حتى يبقى التنسيق في مكان واحد ولا يدخل القاعدة رقم تالف.
+// الصيدليات التي لديها رقم واتساب — لقائمة الاستشارة الدوائية بالصفحة الرئيسية.
+// نُرجع الحقول العامة فقط: صفر كلمات مرور، صفر أسماء مستخدمين.
+// city اختياري: يسمح للمريض بحصر القائمة بمدينته.
+async function getWhatsappPharmacies(city) {
+  const { rows } = await pool.query(
+    `SELECT id, name, address, city, whatsapp_phone, COALESCE(verified, false) AS verified,
+            COALESCE(on_duty, false) AS on_duty
+     FROM pharmacies
+     WHERE whatsapp_phone IS NOT NULL AND whatsapp_phone <> ''
+       AND ($1::text IS NULL OR city = $1)
+     ORDER BY on_duty DESC, name`,
+    [city || null]
+  );
+  return rows;
+}
+
+async function setWhatsappPhone(pharmacyId, whatsappPhone) {
+  const { rows } = await pool.query(
+    `UPDATE pharmacies SET whatsapp_phone = $1 WHERE id = $2 RETURNING *`,
+    [whatsappPhone || null, pharmacyId]
   );
   return rows[0];
 }
@@ -406,7 +439,7 @@ async function getAdminStats() {
 
 async function getOnDutyPharmacies(city) {
   const { rows } = await pool.query(
-    `SELECT id, name, address, phone, assistant_phone, city, COALESCE(verified, false) AS verified,
+    `SELECT id, name, address, phone, assistant_phone, city, whatsapp_phone, COALESCE(verified, false) AS verified,
             on_duty, on_duty_day, on_duty_shift, on_duty_start_time, on_duty_end_time
      FROM pharmacies WHERE on_duty = true AND ($1::text IS NULL OR city = $1) ORDER BY on_duty_shift, id`,
     [city || null]
@@ -421,7 +454,7 @@ async function getOnDutyPharmacies(city) {
 async function getAvailability(medicineId, city) {
   const { rows } = await pool.query(
     `SELECT p.id AS pharmacy_id, p.name AS pharmacy_name, p.address, p.phone, p.assistant_phone, p.city,
-            COALESCE(p.verified, false) AS verified,
+            COALESCE(p.verified, false) AS verified, p.whatsapp_phone,
             COALESCE(s.available, false) AS available,
             s.updated_at AS stock_updated_at
      FROM pharmacies p
@@ -633,6 +666,8 @@ module.exports = {
   deletePharmacy,
   setDutyStatus,
   setAssistantPhone,
+  setWhatsappPhone,
+  getWhatsappPharmacies,
   setPharmacyName,
   setPharmacyPassword,
   getAdminStats,
