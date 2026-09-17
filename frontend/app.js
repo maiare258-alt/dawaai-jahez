@@ -291,7 +291,7 @@ const translations = {
     wa_close_btn: 'إغلاق',
     wa_disclaimer: 'المنصة وسيط معلومات فقط. المحادثة تتم مباشرة بينك وبين الصيدلية، ولا تُغني عن استشارة الطبيب.',
     wa_result_btn: 'واتساب',
-    wa_msg_consult: 'السلام عليكم، أود استشارتكم بخصوص دواء. (وصلتكم عبر منصة دوائي جاهز)',
+    wa_msg_consult: 'مرحباً، أود استشارتكم بخصوص دواء. وجدتكم عبر موقع دوائي جاهز.',
     wa_msg_medicine: 'مرحباً، أريد شراء دواء "{medicine}" من لديكم عبر الموقع.',
     wa_onduty_now: 'مناوبة الآن',
     whatsapp_phone_section_title: '💬 رقم واتساب الصيدلية',
@@ -544,8 +544,8 @@ const translations = {
     wa_close_btn: 'Close',
     wa_disclaimer: 'This platform is an information service only. The conversation is directly between you and the pharmacy, and does not replace a doctor consultation.',
     wa_result_btn: 'WhatsApp',
-    wa_msg_consult: 'Hello, I would like to ask you about a medicine. (Reached you via the Dawaai Jahez platform)',
-    wa_msg_medicine: 'Hello, I would like to buy "{medicine}" from your pharmacy, found via the website.',
+    wa_msg_consult: 'Hello, I would like to ask you about a medicine. I found you on Dawaai Jahez.',
+    wa_msg_medicine: 'Hello, I would like to buy "{medicine}" from your pharmacy. I found it on Dawaai Jahez.',
     wa_onduty_now: 'On duty now',
     whatsapp_phone_section_title: '💬 Pharmacy WhatsApp number',
     whatsapp_phone_input_placeholder: 'WhatsApp number (e.g. 0932985852)',
@@ -2032,7 +2032,17 @@ async function runSearch() {
               <span class="badge ${a.available ? 'yes' : 'no'}">${a.available ? t('available_badge') : t('unavailable_badge')}</span>
             </div>
             <div class="result-row">${t('active_ingredient_label')} ${escapeHtml(item.medicine.generic_name) || '-'}</div>
-            <div class="result-pharmacy"><span class="result-icon">📍</span> <bdi>${escapeHtml(a.pharmacy_name)}</bdi>${verifiedBadgeHtml(a.verified)}${a.city ? ' <span class="result-sep">-</span> <bdi>' + escapeHtml(cityName(a.city)) + '</bdi>' : ''}${a.address ? ' <span class="result-sep">-</span> <bdi>' + escapeHtml(a.address) + '</bdi>' : ''}</div>
+            <div class="result-pharmacy">
+              <span class="result-icon">📍</span>
+              <span class="result-pharmacy-info">
+                <span class="result-pharmacy-name"><bdi>${escapeHtml(a.pharmacy_name)}</bdi>${verifiedBadgeHtml(a.verified)}</span>
+                ${(a.city || a.address) ? `<span class="result-pharmacy-meta">
+                  ${a.city ? `<bdi>${escapeHtml(cityName(a.city))}</bdi>` : ''}
+                  ${(a.city && a.address) ? '<span class="admin-ph-sep">•</span>' : ''}
+                  ${a.address ? `<bdi>${escapeHtml(a.address)}</bdi>` : ''}
+                </span>` : ''}
+              </span>
+            </div>
             ${a.phone ? `<div class="result-row"><span class="result-icon">📞</span> ${escapeHtml(a.phone)}</div>` : ''}
             ${a.assistant_phone ? `<div class="result-row"><span class="result-icon">📱</span> ${escapeHtml(a.assistant_phone)} <span class="muted" style="font-size:12px;">(${t('assistant_phone_label')})</span></div>` : ''}
             ${stockFreshnessHtml(a.stock_updated_at)}
