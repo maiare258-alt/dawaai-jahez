@@ -72,6 +72,14 @@ async function initDb() {
   // لا كخطأ في الرقم. بعمود منفصل يظهر زر واتساب فقط لمن أدخل رقماً فعلياً،
   // فلا يوجد رابط ميت إطلاقاً. يُخزَّن بصيغة دولية منسّقة (مثال: 963932985852).
   await pool.query(`ALTER TABLE pharmacies ADD COLUMN IF NOT EXISTS whatsapp_phone TEXT;`);
+
+  // إحداثيات الصيدلية على الخريطة — تُمكّن زر "الاتجاهات" الذي يفتح ملاحة جوجل للمريض.
+  // DOUBLE PRECISION لا NUMERIC: الحسابات الجغرافية عشرية بطبعها، والدقة أكثر من كافية
+  // (ست خانات عشرية ≈ 11 سم على الأرض).
+  // العمودان اختياريان: صيدلية بلا موقع تبقى تعمل بالكامل، ولا يظهر لها زر اتجاهات
+  // بدل أن يظهر زر يقود المريض إلى لا مكان — نفس مبدأ زر واتساب.
+  await pool.query(`ALTER TABLE pharmacies ADD COLUMN IF NOT EXISTS latitude DOUBLE PRECISION;`);
+  await pool.query(`ALTER TABLE pharmacies ADD COLUMN IF NOT EXISTS longitude DOUBLE PRECISION;`);
   await pool.query(`UPDATE pharmacies SET verified = true WHERE verified IS NULL;`);
 
   // وقت آخر تحديث للمخزون — أهم عمود لثقة المريض.
@@ -282,7 +290,7 @@ async function deleteMedicine(medicineId) {
 
 async function getAllPharmacies() {
   const { rows } = await pool.query(
-    'SELECT id, name, address, phone, assistant_phone, city, whatsapp_phone, verified, owner_username, on_duty, on_duty_day, on_duty_shift, on_duty_start_time, on_duty_end_time FROM pharmacies ORDER BY id'
+    'SELECT id, name, address, phone, assistant_phone, city, whatsapp_phone, latitude, longitude, verified, owner_username, on_duty, on_duty_day, on_duty_shift, on_duty_start_time, on_duty_end_time FROM pharmacies ORDER BY id'
   );
   return rows;
 }
@@ -343,6 +351,18 @@ async function getWhatsappPharmacies(city) {
     [city || null]
   );
   return rows;
+}
+
+// حفظ إحداثيات الصيدلية. تستقبل القيم مُتحقَّقاً منها ومقرَّبة من طبقة المسارات،
+// فلا يدخل القاعدة رقم تالف. تمرير null للاثنين يمسح الموقع — إجراء مشروع.
+// نحفظهما معاً دائماً: إحداثي واحد بلا الآخر بلا معنى، وقد يُنتج زراً معطوباً.
+async function setPharmacyLocation(pharmacyId, latitude, longitude) {
+  const { rows } = await pool.query(
+    `UPDATE pharmacies SET latitude = $1, longitude = $2 WHERE id = $3
+     RETURNING id, name, latitude, longitude`,
+    [latitude, longitude, pharmacyId]
+  );
+  return rows[0];
 }
 
 async function setWhatsappPhone(pharmacyId, whatsappPhone) {
@@ -439,7 +459,8 @@ async function getAdminStats() {
 
 async function getOnDutyPharmacies(city) {
   const { rows } = await pool.query(
-    `SELECT id, name, address, phone, assistant_phone, city, whatsapp_phone, COALESCE(verified, false) AS verified,
+    `SELECT id, name, address, phone, assistant_phone, city, whatsapp_phone, latitude, longitude,
+            COALESCE(verified, false) AS verified,
             on_duty, on_duty_day, on_duty_shift, on_duty_start_time, on_duty_end_time
      FROM pharmacies WHERE on_duty = true AND ($1::text IS NULL OR city = $1) ORDER BY on_duty_shift, id`,
     [city || null]
@@ -455,6 +476,7 @@ async function getAvailability(medicineId, city) {
   const { rows } = await pool.query(
     `SELECT p.id AS pharmacy_id, p.name AS pharmacy_name, p.address, p.phone, p.assistant_phone, p.city,
             COALESCE(p.verified, false) AS verified, p.whatsapp_phone,
+            p.latitude, p.longitude,
             COALESCE(s.available, false) AS available,
             s.updated_at AS stock_updated_at
      FROM pharmacies p
@@ -667,6 +689,7 @@ module.exports = {
   setDutyStatus,
   setAssistantPhone,
   setWhatsappPhone,
+  setPharmacyLocation,
   getWhatsappPharmacies,
   setPharmacyName,
   setPharmacyPassword,
