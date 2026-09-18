@@ -243,7 +243,7 @@ const translations = {
     time_just_now: 'قبل لحظات', time_minutes: 'قبل {n} دقيقة', time_hours: 'قبل {n} ساعة',
     time_days: 'قبل {n} يوم', time_weeks: 'قبل {n} أسبوع', time_long_ago: 'منذ أكثر من شهر',
     stock_never_updated: 'لم يُحدَّث بعد',
-    stock_stale_warning: 'قد لا تكون هذه المعلومة حديثة — يُنصح بالاتصال بالصيدلية للتأكد',
+    stock_stale_warning: 'قد لا تكون هذه المعلومة حديثة، يُنصح بالاتصال بالصيدلية للتأكد',
     city_placeholder: 'المدينة', city_label: 'المدينة', all_cities: 'كل المدن',
     filter_by_city_aria: 'تصفية النتائج حسب المدينة',
     city_required_error: 'المدينة مطلوبة', invalid_city_error: 'مدينة غير صالحة',
@@ -287,7 +287,7 @@ const translations = {
     detect_location_btn: '📍 تحديد موقعي الحالي',
     detecting_location: '⏳ جارٍ تحديد الموقع...',
     location_paste_placeholder: 'أو الصق الإحداثيات هنا: 35.011667, 37.053056',
-    location_paste_hint: 'من خرائط جوجل: اضغط مطوّلاً على موقع صيدليتك، ثم انسخ الأرقام والصقها هنا.',
+    location_paste_hint: 'من خرائط جوجل: اضغط مطوّلاً على موقع صيدليتك، ثم انسخ السطر الذي يحوي N و E (مثل 35°00\'57.8"N 37°03\'25.3"E) والصقه هنا. هذه الصيغة لا تلتبس.',
     save_location_btn: 'حفظ الموقع',
     clear_location_btn: 'مسح الموقع',
     location_saved_success: 'تم حفظ موقع الصيدلية بنجاح',
@@ -302,6 +302,8 @@ const translations = {
     geo_timeout: 'انتهت مهلة تحديد الموقع. حاول مرة أخرى.',
     geo_low_accuracy: 'الدقة ضعيفة ({n} متر تقريباً). حاول في مكان مكشوف، أو احفظ إن كان الموقع صحيحاً.',
     location_confirm_detected: 'تم تحديد موقعك بدقة {n} متر تقريباً. هل تحفظه كموقع للصيدلية؟',
+    location_outside_syria: 'هذه الإحداثيات تقع خارج سوريا. تأكد أنك لم تعكس الرقمين. هل تريد حفظها رغم ذلك؟',
+    location_swap_suggest: 'يبدو أن الرقمين معكوسان. الموقع الصحيح على الأرجح: {coords}\n\nهل تريد حفظه هكذا؟',
     location_admin_label: 'موقع',
     wa_consult_btn_label: 'استشر صيدلياً',
     wa_consult_title: '💬 استشر صيدلياً عبر واتساب',
@@ -519,7 +521,7 @@ const translations = {
     time_just_now: 'just now', time_minutes: '{n} min ago', time_hours: '{n} h ago',
     time_days: '{n} days ago', time_weeks: '{n} weeks ago', time_long_ago: 'over a month ago',
     stock_never_updated: 'not updated yet',
-    stock_stale_warning: 'This may not be current — calling the pharmacy to confirm is recommended',
+    stock_stale_warning: 'This may not be current, so calling the pharmacy to confirm is recommended',
     city_placeholder: 'City', city_label: 'City', all_cities: 'All cities',
     filter_by_city_aria: 'Filter results by city',
     city_required_error: 'City is required', invalid_city_error: 'Invalid city',
@@ -563,7 +565,7 @@ const translations = {
     detect_location_btn: '📍 Detect my current location',
     detecting_location: '⏳ Detecting location...',
     location_paste_placeholder: 'Or paste coordinates here: 35.011667, 37.053056',
-    location_paste_hint: 'From Google Maps: long-press your pharmacy location, then copy the numbers and paste them here.',
+    location_paste_hint: 'From Google Maps: long-press your pharmacy location, then copy the line containing N and E (e.g. 35°00\'57.8"N 37°03\'25.3"E) and paste it here. That format is unambiguous.',
     save_location_btn: 'Save location',
     clear_location_btn: 'Clear location',
     location_saved_success: 'Pharmacy location saved successfully',
@@ -578,6 +580,8 @@ const translations = {
     geo_timeout: 'Location request timed out. Please try again.',
     geo_low_accuracy: 'Accuracy is low (about {n} m). Try in an open area, or save if the location looks right.',
     location_confirm_detected: 'Your location was detected with about {n} m accuracy. Save it as the pharmacy location?',
+    location_outside_syria: 'These coordinates are outside Syria. Make sure you did not swap the two numbers. Save anyway?',
+    location_swap_suggest: 'The two numbers look swapped. The correct location is most likely: {coords}\n\nSave it that way?',
     location_admin_label: 'location',
     wa_consult_btn_label: 'Ask a pharmacist',
     wa_consult_title: '💬 Ask a pharmacist on WhatsApp',
@@ -2331,10 +2335,43 @@ async function saveDuty() {
 // وحده يعرف إن كانت النقطة صحيحة رغم ضعف الدقة المعلَنة.
 const LOCATION_ACCURACY_WARN_METERS = 100;
 
+// حدود سوريا التقريبية — تُستخدم للتنبيه فقط لا للمنع.
+// فائدتها الحقيقية: كشف انعكاس الرقمين، وهو الخطأ الأشيع عند اللصق من خرائط
+// جوجل بواجهة عربية، حيث يعرض المتصفح السطر الرقمي معكوساً بصرياً فينسخ
+// المستخدم ما يراه لا ما هو مخزَّن — فينتهي الموقع في تركيا بدل سوريا.
+const SYRIA_BOUNDS = { minLat: 32.0, maxLat: 37.5, minLng: 35.5, maxLng: 42.5 };
+function isInsideSyria(lat, lng) {
+  return lat >= SYRIA_BOUNDS.minLat && lat <= SYRIA_BOUNDS.maxLat
+      && lng >= SYRIA_BOUNDS.minLng && lng <= SYRIA_BOUNDS.maxLng;
+}
+
+// صيغة الدرجات والدقائق والثواني: 35°00'57.8"N 37°03'25.3"E
+// نقبلها لأنها الصيغة الوحيدة غير القابلة للالتباس: حرف N/S يحدد خط العرض
+// وE/W يحدد خط الطول، فلا يهم ترتيب ظهورهما ولا اتجاه عرض الواجهة.
+function parseDmsCoordinates(text) {
+  const re = /(\d+(?:\.\d+)?)\s*°\s*(\d+(?:\.\d+)?)\s*'\s*(\d+(?:\.\d+)?)\s*"?\s*([NSEW])/gi;
+  const found = {};
+  let m;
+  while ((m = re.exec(text)) !== null) {
+    const deg = Number(m[1]), min = Number(m[2]), sec = Number(m[3]);
+    const dir = m[4].toUpperCase();
+    let val = deg + min / 60 + sec / 3600;
+    if (dir === 'S' || dir === 'W') val = -val;
+    if (dir === 'N' || dir === 'S') found.lat = Math.round(val * 1e6) / 1e6;
+    else found.lng = Math.round(val * 1e6) / 1e6;
+  }
+  if (found.lat === undefined || found.lng === undefined) return null;
+  return hasLocation(found.lat, found.lng) ? { lat: found.lat, lng: found.lng } : null;
+}
+
 // يقبل ما تنسخه خرائط جوجل مباشرة: "35.011667, 37.053056"
+// أو صيغة الدرجات: 35°00'57.8"N 37°03'25.3"E
 // ويتسامح مع الفاصلة العربية والمسافات والأقواس وعلامات الاتجاه غير المرئية.
 function parsePastedCoordinates(raw) {
   if (!raw) return null;
+  // الدرجات أولاً: صيغة قاطعة لا تحتمل انعكاساً، فنفضّلها متى وُجدت
+  const dms = parseDmsCoordinates(String(raw));
+  if (dms) return dms;
   const cleaned = String(raw)
     .replace(/[\u200e\u200f\u202a-\u202e]/g, '')   // محارف اتجاه غير مرئية من اللصق
     .replace(/[()]/g, ' ')
@@ -2409,7 +2446,24 @@ async function saveLocationFromInput() {
   if (!raw) { await customAlert(t('invalid_location_error'), 'warning'); return; }
   const parsed = parsePastedCoordinates(raw);
   if (!parsed) { await customAlert(t('invalid_location_error'), 'warning'); return; }
-  await savePharmacyLocation(parsed.lat, parsed.lng);
+
+  let { lat, lng } = parsed;
+
+  // كشف الانعكاس: إن كان الزوج خارج سوريا بينما عكسه داخلها، فالسبب شبه مؤكد
+  // أن المستخدم نسخ السطر الرقمي كما رآه من واجهة عربية تعرضه معكوساً.
+  // نقترح التصحيح ولا نفرضه — الصيدلي وحده يعرف موقعه.
+  if (!isInsideSyria(lat, lng) && isInsideSyria(lng, lat)) {
+    const suggested = `${lng}, ${lat}`;
+    const swap = await customConfirm(tFormat('location_swap_suggest', { coords: suggested }), 'warning');
+    if (swap) { const tmp = lat; lat = lng; lng = tmp; }
+  } else if (!isInsideSyria(lat, lng)) {
+    // خارج سوريا والعكس لا يساعد: قد يكون مقصوداً (توسع مستقبلي) فننبّه ونسمح
+    const anyway = await customConfirm(t('location_outside_syria'), 'warning');
+    if (!anyway) return;
+  }
+
+  document.getElementById('location-paste-input').value = `${lat}, ${lng}`;
+  await savePharmacyLocation(lat, lng);
 }
 
 async function clearPharmacyLocation() {
