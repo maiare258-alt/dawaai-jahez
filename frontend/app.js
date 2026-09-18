@@ -280,6 +280,29 @@ const translations = {
     rating_submitted_success: 'تم إرسال تقييمك بنجاح! رح يظهر للعموم بعد موافقة الإدارة عليه.',
     nursing_page_title: 'خدمات تمريض 🩺', nursing_page_desc: 'تواصل مع ممرضين موثوقين لتلقي الرعاية التمريضية بمنزلك.',
     show_password_aria: 'إظهار كلمة المرور', hide_password_aria: 'إخفاء كلمة المرور',
+    directions_btn: 'الاتجاهات',
+    directions_btn_title: 'افتح الاتجاهات إلى الصيدلية في خرائط جوجل',
+    location_section_title: '📍 موقع الصيدلية على الخريطة',
+    location_section_desc: 'حدّد موقعك مرة واحدة، فيظهر للمريض زر يفتح له الاتجاهات إليك مباشرة.',
+    detect_location_btn: '📍 تحديد موقعي الحالي',
+    detecting_location: '⏳ جارٍ تحديد الموقع...',
+    location_paste_placeholder: 'أو الصق الإحداثيات هنا: 35.011667, 37.053056',
+    location_paste_hint: 'من خرائط جوجل: اضغط مطوّلاً على موقع صيدليتك، ثم انسخ الأرقام والصقها هنا.',
+    save_location_btn: 'حفظ الموقع',
+    clear_location_btn: 'مسح الموقع',
+    location_saved_success: 'تم حفظ موقع الصيدلية بنجاح',
+    location_cleared_success: 'تم مسح موقع الصيدلية',
+    location_current_label: 'الموقع المحفوظ حالياً:',
+    location_preview_btn: 'معاينة على الخريطة',
+    location_none: 'لم يُحدَّد موقع بعد',
+    invalid_location_error: 'إحداثيات غير صالحة. تأكد من الأرقام وحاول مرة أخرى.',
+    geo_unsupported: 'متصفحك لا يدعم تحديد الموقع. استخدم اللصق اليدوي بدلاً منه.',
+    geo_denied: 'رُفض إذن الموقع. فعّله من إعدادات المتصفح، أو استخدم اللصق اليدوي.',
+    geo_unavailable: 'تعذّر تحديد موقعك. تأكد من تشغيل GPS وحاول في مكان مكشوف.',
+    geo_timeout: 'انتهت مهلة تحديد الموقع. حاول مرة أخرى.',
+    geo_low_accuracy: 'الدقة ضعيفة ({n} متر تقريباً). حاول في مكان مكشوف، أو احفظ إن كان الموقع صحيحاً.',
+    location_confirm_detected: 'تم تحديد موقعك بدقة {n} متر تقريباً. هل تحفظه كموقع للصيدلية؟',
+    location_admin_label: 'موقع',
     wa_consult_btn_label: 'استشر صيدلياً',
     wa_consult_title: '💬 استشر صيدلياً عبر واتساب',
     wa_consult_desc: 'وصفة غير واضحة؟ سؤال عن جرعة أو بديل دوائي؟ تواصل مباشرة مع صيدلي.',
@@ -533,6 +556,29 @@ const translations = {
     rating_submitted_success: 'Your rating was submitted successfully! It will appear publicly after admin approval.',
     nursing_page_title: 'Nursing Services 🩺', nursing_page_desc: 'Connect with trusted nurses for home nursing care.',
     show_password_aria: 'Show password', hide_password_aria: 'Hide password',
+    directions_btn: 'Directions',
+    directions_btn_title: 'Open directions to this pharmacy in Google Maps',
+    location_section_title: '📍 Pharmacy location on the map',
+    location_section_desc: 'Set your location once, and patients get a button that opens directions straight to you.',
+    detect_location_btn: '📍 Detect my current location',
+    detecting_location: '⏳ Detecting location...',
+    location_paste_placeholder: 'Or paste coordinates here: 35.011667, 37.053056',
+    location_paste_hint: 'From Google Maps: long-press your pharmacy location, then copy the numbers and paste them here.',
+    save_location_btn: 'Save location',
+    clear_location_btn: 'Clear location',
+    location_saved_success: 'Pharmacy location saved successfully',
+    location_cleared_success: 'Pharmacy location cleared',
+    location_current_label: 'Currently saved location:',
+    location_preview_btn: 'Preview on map',
+    location_none: 'No location set yet',
+    invalid_location_error: 'Invalid coordinates. Check the numbers and try again.',
+    geo_unsupported: 'Your browser does not support location detection. Use manual paste instead.',
+    geo_denied: 'Location permission denied. Enable it in your browser settings, or use manual paste.',
+    geo_unavailable: 'Could not determine your location. Make sure GPS is on and try in an open area.',
+    geo_timeout: 'Location request timed out. Please try again.',
+    geo_low_accuracy: 'Accuracy is low (about {n} m). Try in an open area, or save if the location looks right.',
+    location_confirm_detected: 'Your location was detected with about {n} m accuracy. Save it as the pharmacy location?',
+    location_admin_label: 'location',
     wa_consult_btn_label: 'Ask a pharmacist',
     wa_consult_title: '💬 Ask a pharmacist on WhatsApp',
     wa_consult_desc: 'Unclear prescription? A question about a dose or an alternative? Message a pharmacist directly.',
@@ -652,7 +698,8 @@ const BACKEND_ERROR_MAP = {
   'كلمة المرور الجديدة مطلوبة': 'new_password_required_error',
   'كلمة المرور الجديدة قصيرة جداً': 'new_password_too_short_error',
   'كلمة المرور الجديدة مطابقة للحالية': 'new_password_same_error',
-  'رقم واتساب غير صالح': 'invalid_whatsapp_error'
+  'رقم واتساب غير صالح': 'invalid_whatsapp_error',
+  'إحداثيات غير صالحة': 'invalid_location_error'
 };
 function translateApiError(rawError) {
   const key = BACKEND_ERROR_MAP[rawError];
@@ -695,6 +742,16 @@ function applyLanguage() {
   document.getElementById('whatsapp-phone-input').placeholder = t('whatsapp_phone_input_placeholder');
   document.getElementById('whatsapp-phone-hint').textContent = t('whatsapp_phone_hint');
   document.getElementById('save-whatsapp-btn').textContent = t('save_whatsapp_btn');
+  // ---------- قسم موقع الصيدلية ----------
+  document.getElementById('location-section-title').textContent = t('location_section_title');
+  document.getElementById('location-section-desc').textContent = t('location_section_desc');
+  document.getElementById('location-paste-input').placeholder = t('location_paste_placeholder');
+  document.getElementById('location-paste-hint').textContent = t('location_paste_hint');
+  document.getElementById('save-location-btn').textContent = t('save_location_btn');
+  document.getElementById('clear-location-btn').textContent = t('clear_location_btn');
+  const detectBtn = document.getElementById('detect-location-btn');
+  if (detectBtn && !detectBtn.disabled) detectBtn.textContent = t('detect_location_btn');
+  renderSavedLocation();
 
   document.getElementById('feature1-title').textContent = t('feature1_title');
   document.getElementById('feature1-desc').textContent = t('feature1_desc');
@@ -1337,6 +1394,67 @@ async function checkMyOrdersStatus() {
   } catch (err) { /* تجاهل بصمت، رح يعيد المحاولة بالجولة الجاية */ }
 }
 
+// ================= الاتجاهات على الخريطة =================
+// قرار تصميمي: رابط خرائط جوجل، لا خريطة مدمجة.
+// السبب: الخريطة المدمجة تتطلب مفتاح Google Maps API وحساب فوترة ببطاقة — غير متاح
+// من سوريا. والرابط مجاني تماماً، ويعطي المريض أكثر مما تعطيه أي خريطة مدمجة:
+// ملاحة صوتية ومساراً وزحاماً مباشرة داخل تطبيق الخرائط على هاتفه.
+//
+// قرار ثانٍ: لا يظهر الزر إلا لصيدلية لها إحداثيات محفوظة — نفس مبدأ زر واتساب.
+// البديل (بحث بالاسم والمدينة) يقود المريض غالباً إلى لا نتيجة، وزر لا يوصل
+// إلى شيء يقرأه المريض كعطل في المنصة لا كنقص في بيانات الصيدلية.
+
+// هل للصيدلية موقع صالح؟ نتحقق من الاثنين معاً: إحداثي واحد بلا الآخر بلا معنى.
+function hasLocation(lat, lng) {
+  // نرفض الفراغ صراحةً قبل التحويل: Number(null) و Number('') يعطيان صفراً،
+  // فنصف موقع (خط عرض موجود وخط طول مفقود) كان يمر كنقطة (35.01, 0) —
+  // موقع حقيقي على الخريطة لكنه ليس موقع الصيدلية إطلاقاً.
+  const blank = v => v === undefined || v === null
+    || (typeof v === 'string' && v.trim() === '')
+    || (typeof v !== 'number' && typeof v !== 'string');
+  if (blank(lat) || blank(lng)) return false;
+
+  const a = Number(lat), b = Number(lng);
+  if (!Number.isFinite(a) || !Number.isFinite(b)) return false;
+  if (a === 0 && b === 0) return false;           // خطأ شائع لا موقع حقيقي
+  return a >= -90 && a <= 90 && b >= -180 && b <= 180;
+}
+
+// رابط الاتجاهات. api=1 هي الصيغة العامة الموثَّقة من جوجل: تفتح التطبيق على
+// الهاتف والموقع على الحاسوب، وتبدأ المسار من موقع المستخدم الحالي تلقائياً.
+function directionsLink(lat, lng) {
+  if (!hasLocation(lat, lng)) return null;
+  return `https://www.google.com/maps/dir/?api=1&destination=${Number(lat)},${Number(lng)}`;
+}
+
+// رابط معاينة نقطة (يستخدمه الصيدلي للتأكد من موقعه المحفوظ)
+function mapPreviewLink(lat, lng) {
+  if (!hasLocation(lat, lng)) return null;
+  return `https://www.google.com/maps/search/?api=1&query=${Number(lat)},${Number(lng)}`;
+}
+
+// noopener/noreferrer إلزامي أمنياً مع target=_blank: بدونه تتحكم الصفحة المفتوحة
+// بصفحتنا عبر window.opener.
+function openDirections(lat, lng) {
+  const url = directionsLink(lat, lng);
+  if (!url) return;
+  window.open(url, '_blank', 'noopener,noreferrer');
+}
+
+function onDirectionsClick(btn) {
+  openDirections(btn.getAttribute('data-lat'), btn.getAttribute('data-lng'));
+}
+
+// زر الاتجاهات ببطاقة النتيجة وبطاقة المناوبة
+function directionsBtnHtml(lat, lng) {
+  if (!hasLocation(lat, lng)) return '';
+  return `<button type="button" class="directions-btn" data-lat="${escapeHtml(String(lat))}"
+            data-lng="${escapeHtml(String(lng))}" title="${t('directions_btn_title')}"
+            onclick="onDirectionsClick(this)">
+            <span class="directions-icon">🗺️</span> ${t('directions_btn')}
+          </button>`;
+}
+
 // ================= تكامل واتساب =================
 // قرار تصميمي: روابط wa.me مباشرة، صفر WhatsApp Business API.
 // السبب: الـAPI الرسمي يتطلب حساب أعمال موثَّقاً ورقماً مخصصاً وتكلفة شهرية لكل محادثة
@@ -1591,7 +1709,8 @@ async function loadOnDuty() {
             return `
               <div class="duty-card">
                 <div class="duty-card-top">
-                  <span class="duty-card-name">${escapeHtml(p.name)}${verifiedBadgeHtml(p.verified)}${p.city ? ` <span class="muted" style="font-size:13px;">- ${escapeHtml(cityName(p.city))}</span>` : ''}</span>
+                  <span class="duty-card-name"><bdi>${escapeHtml(p.name)}</bdi>${verifiedBadgeHtml(p.verified)}${p.city ? ` <span class="muted" style="font-size:13px;">- <bdi>${escapeHtml(cityName(p.city))}</bdi></span>` : ''}</span>
+                  ${hasLocation(p.latitude, p.longitude) ? `<div class="duty-card-actions">${directionsBtnHtml(p.latitude, p.longitude)}</div>` : ''}
                   <span class="duty-status-badge">${t('onduty_now_badge')}</span>
                 </div>
                 ${p.address ? `<div class="duty-card-row"><span class="duty-icon">📍</span> ${escapeHtml(p.address)}</div>` : ''}
@@ -2048,7 +2167,10 @@ async function runSearch() {
             ${stockFreshnessHtml(a.stock_updated_at)}
             <div class="result-actions">
               ${a.available ? `<button class="result-add-btn-full" onclick="addToCart(${item.medicine.id}, ${a.pharmacy_id}, this)">${t('add_to_cart_btn')}</button>` : ''}
-              ${waResultBtnHtml(a.whatsapp_phone, item.medicine.name)}
+              ${(a.whatsapp_phone || hasLocation(a.latitude, a.longitude)) ? `<div class="result-actions-secondary">
+                ${waResultBtnHtml(a.whatsapp_phone, item.medicine.name)}
+                ${directionsBtnHtml(a.latitude, a.longitude)}
+              </div>` : ''}
             </div>
           </div>
         `;
@@ -2139,6 +2261,10 @@ function loadDashboard() {
   document.getElementById('duty-checkbox').checked = !!currentPharmacy.on_duty;
   document.getElementById('assistant-phone-input').value = currentPharmacy.assistant_phone || '';
   document.getElementById('whatsapp-phone-input').value = currentPharmacy.whatsapp_phone || '';
+  document.getElementById('location-paste-input').value =
+    hasLocation(currentPharmacy.latitude, currentPharmacy.longitude)
+      ? `${currentPharmacy.latitude}, ${currentPharmacy.longitude}` : '';
+  renderSavedLocation();
   document.getElementById('duty-day').disabled = !currentPharmacy.on_duty;
   document.getElementById('duty-shift').disabled = !currentPharmacy.on_duty;
   document.getElementById('duty-start-time').disabled = !currentPharmacy.on_duty;
@@ -2195,6 +2321,129 @@ async function saveDuty() {
     customAlert(t('duty_saved_success'), 'success');
   } catch (err) {
     customAlert(t('server_error_title'), 'error');
+  }
+}
+
+// ---------- تحديد موقع الصيدلية (لوحة الصيدلي) ----------
+
+// عتبة الدقة التي ننبّه عندها. GPS داخل مبنى قد يعطي دقة مئات الأمتار،
+// وحفظ نقطة كهذه يرسل المريض لشارع مجاور — فننبّه ولا نمنع، لأن الصيدلي
+// وحده يعرف إن كانت النقطة صحيحة رغم ضعف الدقة المعلَنة.
+const LOCATION_ACCURACY_WARN_METERS = 100;
+
+// يقبل ما تنسخه خرائط جوجل مباشرة: "35.011667, 37.053056"
+// ويتسامح مع الفاصلة العربية والمسافات والأقواس وعلامات الاتجاه غير المرئية.
+function parsePastedCoordinates(raw) {
+  if (!raw) return null;
+  const cleaned = String(raw)
+    .replace(/[\u200e\u200f\u202a-\u202e]/g, '')   // محارف اتجاه غير مرئية من اللصق
+    .replace(/[()]/g, ' ')
+    .replace(/،/g, ',')                             // الفاصلة العربية
+    .replace(/[٠-٩]/g, ch => String('٠١٢٣٤٥٦٧٨٩'.indexOf(ch)))
+    .trim();
+  const parts = cleaned.split(/[,\s]+/).filter(Boolean);
+  if (parts.length !== 2) return null;
+  const lat = Number(parts[0]), lng = Number(parts[1]);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+  if (!hasLocation(lat, lng)) return null;
+  return { lat, lng };
+}
+
+// عرض الموقع المحفوظ حالياً بلوحة الصيدلي
+function renderSavedLocation() {
+  const box = document.getElementById('location-current');
+  if (!box) return;
+  const lat = currentPharmacy && currentPharmacy.latitude;
+  const lng = currentPharmacy && currentPharmacy.longitude;
+  if (!hasLocation(lat, lng)) {
+    box.innerHTML = `<span class="muted">${t('location_none')}</span>`;
+    return;
+  }
+  const preview = mapPreviewLink(lat, lng);
+  box.innerHTML = `
+    <span class="muted">${t('location_current_label')}</span>
+    <bdi class="location-coords">${escapeHtml(String(lat))}, ${escapeHtml(String(lng))}</bdi>
+    <a class="location-preview-link" href="${preview}" target="_blank" rel="noopener noreferrer">${t('location_preview_btn')}</a>`;
+}
+
+// قراءة موقع الجهاز. enableHighAccuracy يطلب GPS لا تقدير الشبكة —
+// أبطأ قليلاً لكنه الفارق بين دقة أمتار ودقة كيلومتر.
+function detectMyLocation() {
+  const btn = document.getElementById('detect-location-btn');
+  if (!navigator.geolocation) { customAlert(t('geo_unsupported'), 'warning'); return; }
+  if (btn) { btn.disabled = true; btn.textContent = t('detecting_location'); }
+
+  const restore = () => { if (btn) { btn.disabled = false; btn.textContent = t('detect_location_btn'); } };
+
+  navigator.geolocation.getCurrentPosition(
+    async (pos) => {
+      restore();
+      const lat = Math.round(pos.coords.latitude * 1e6) / 1e6;
+      const lng = Math.round(pos.coords.longitude * 1e6) / 1e6;
+      const acc = Math.round(pos.coords.accuracy || 0);
+
+      // تأكيد قبل الحفظ: الصيدلي قد يضغط الزر وهو في بيته لا صيدليته
+      const proceed = await customConfirm(tFormat('location_confirm_detected', { n: acc }), 'warning');
+      if (!proceed) return;
+      if (acc > LOCATION_ACCURACY_WARN_METERS) {
+        const anyway = await customConfirm(tFormat('geo_low_accuracy', { n: acc }), 'warning');
+        if (!anyway) return;
+      }
+      document.getElementById('location-paste-input').value = `${lat}, ${lng}`;
+      await savePharmacyLocation(lat, lng);
+    },
+    (err) => {
+      restore();
+      let key = 'geo_unavailable';
+      if (err && err.code === 1) key = 'geo_denied';
+      else if (err && err.code === 3) key = 'geo_timeout';
+      customAlert(t(key), 'warning');
+    },
+    { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 }
+  );
+}
+
+// حفظ من الحقل الملصوق
+async function saveLocationFromInput() {
+  const raw = document.getElementById('location-paste-input').value.trim();
+  if (!raw) { await customAlert(t('invalid_location_error'), 'warning'); return; }
+  const parsed = parsePastedCoordinates(raw);
+  if (!parsed) { await customAlert(t('invalid_location_error'), 'warning'); return; }
+  await savePharmacyLocation(parsed.lat, parsed.lng);
+}
+
+async function clearPharmacyLocation() {
+  await savePharmacyLocation('', '');
+}
+
+// الحفظ الفعلي. الخلفية هي مصدر الحقيقة للتنسيق، فنعرض ما أعادته لا ما كُتب.
+async function savePharmacyLocation(lat, lng) {
+  const saveBtn = document.getElementById('save-location-btn');
+  if (saveBtn) saveBtn.disabled = true;
+  try {
+    const res = await fetch(`${API}/pharmacies/self/location`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        username: currentPharmacy.username,
+        password: currentPharmacy.password,
+        latitude: lat,
+        longitude: lng
+      })
+    });
+    const data = await res.json();
+    if (!res.ok) { await customAlert(translateApiError(data.error), 'error'); return; }
+
+    currentPharmacy.latitude = data.latitude;
+    currentPharmacy.longitude = data.longitude;
+    document.getElementById('location-paste-input').value =
+      hasLocation(data.latitude, data.longitude) ? `${data.latitude}, ${data.longitude}` : '';
+    renderSavedLocation();
+    await customAlert(hasLocation(data.latitude, data.longitude) ? t('location_saved_success') : t('location_cleared_success'), 'success');
+  } catch (err) {
+    await customAlert(t('server_error_title'), 'error');
+  } finally {
+    if (saveBtn) saveBtn.disabled = false;
   }
 }
 
@@ -2984,6 +3233,7 @@ function renderAdminPanelUI() {
                      <span>👤 ${escapeHtml(p.owner_username)}</span>
                      ${p.verified ? `<span class="admin-ph-sep">•</span><span>✓ ${t('verified_badge')}</span>` : ''}
                      ${p.whatsapp_phone ? `<span class="admin-ph-sep">•</span><span>💬 ${t('whatsapp_admin_label')}</span>` : ''}
+                     ${hasLocation(p.latitude, p.longitude) ? `<span class="admin-ph-sep">•</span><span>📍 ${t('location_admin_label')}</span>` : ''}
                      ${p.city ? `<span class="admin-ph-sep">•</span><span>📍 ${escapeHtml(cityName(p.city))}</span>` : ''}
                      ${p.assistant_phone ? `<span class="admin-ph-sep">•</span><span>📱 ${escapeHtml(p.assistant_phone)}</span>` : ''}
                      ${p.on_duty ? `<span class="badge yes">${t('onduty_badge_short')}</span>` : ''}
