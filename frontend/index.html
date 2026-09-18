@@ -64,7 +64,9 @@
   (function () {
     var early = ['onSearch','onSearchKeydown','submitSearch','onCityFilterChange','toggleCart',
                  'toggleLanguage','toggleNav','whatsappComingSoon','openWhatsappPanel','closeWhatsappPanel',
-                 'onWaOverlayClick','onWaResultClick','saveWhatsappPhone','headerGoHome','headerGoOnDuty',
+                 'onWaOverlayClick','onWaResultClick','saveWhatsappPhone','onDirectionsClick',
+                 'detectMyLocation','saveLocationFromInput','clearPharmacyLocation',
+                 'headerGoHome','headerGoOnDuty',
                  'headerGoPharmacist','headerGoCosmetics','headerGoNursing','headerGoAdmin'];
     early.forEach(function (name) {
       window[name] = function () {
@@ -509,6 +511,50 @@
   .refresh-results-btn:hover { border-color: #6aa9d9; background: #f4f8fc; }
   .refresh-results-btn:focus-visible { outline: 2px solid #185fa5; outline-offset: 2px; }
   .refresh-results-btn[disabled] { opacity: .55; cursor: default; }
+
+  /* ---- زر الاتجاهات ---- */
+  /* أزرق هادئ يميّزه عن أخضر واتساب، وبنفس بنية الزر المحدَّد ليتناسقا بصرياً */
+  .directions-btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+    background: #f3f8fd; color: #17548f; border: 1.5px solid #a9cdea;
+    border-radius: 14px; padding: 12px 18px; font-size: 15px; font-weight: 700;
+    font-family: inherit; cursor: pointer; min-height: 46px; white-space: nowrap;
+    transition: background .14s ease, border-color .14s ease, color .14s ease;
+  }
+  .directions-btn:hover { background: #e6f0fa; border-color: #6aa9d9; color: #114472; }
+  .directions-btn:active { transform: translateY(1px); }
+  .directions-btn:focus-visible { outline: 2px solid #185fa5; outline-offset: 2px; }
+  .directions-icon { font-size: 16px; }
+
+  /* صف الأزرار الثانوية: واتساب والاتجاهات جنباً إلى جنب بعرض متساوٍ.
+     الأساسي (إضافة إلى السلة) يبقى بعرض كامل فوقهما، فلا يتنافس ثلاثة أزرار
+     على سطر واحد ويضيق كل منها — وهي المشكلة التي تظهر أولاً على الهاتف. */
+  .result-actions { display: flex; flex-direction: column; gap: 10px; margin-top: 12px; }
+  .result-actions .result-add-btn-full { margin-top: 0; width: 100%; }
+  .result-actions-secondary { display: flex; gap: 10px; }
+  .result-actions-secondary > button { flex: 1 1 0; min-width: 0; }
+
+  /* زر الاتجاهات ببطاقة المناوبة */
+  .duty-card-actions { margin-top: 10px; }
+  .duty-card-actions .directions-btn { padding: 9px 15px; min-height: 40px; font-size: 14px; }
+
+  /* ---- قسم موقع الصيدلية بلوحة الصيدلي ---- */
+  .location-current {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px;
+    background: #f4f8fc; border: 1px solid #e3ebf3; border-radius: 12px;
+    padding: 10px 14px; margin-bottom: 12px; font-size: 13.5px;
+  }
+  .location-coords { font-weight: 700; color: #163a5c; direction: ltr; }
+  .location-preview-link { color: #185fa5; font-weight: 600; text-decoration: underline; }
+  .location-detect-btn { margin-bottom: 12px; }
+  /* الإحداثيات أرقام لاتينية دائماً — نثبّت الاتجاه حتى لا تنقلب بواجهة عربية */
+  #location-paste-input { direction: ltr; text-align: left; }
+  .location-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+  .location-actions > button { flex: 1 1 160px; }
+
+  @media (max-width: 700px) {
+    .location-actions > button { flex: 1 1 100%; }
+  }
 
   /* ---- تكامل واتساب ---- */
   /* لون واتساب الرسمي #25D366 فاقع جداً على خلفية فاتحة ومع ظل متوهج — مرهق للعين
@@ -1309,6 +1355,23 @@
         <input id="whatsapp-phone-input" type="tel" inputmode="numeric" placeholder="رقم واتساب (مثال: 0932985852)">
         <p class="muted" id="whatsapp-phone-hint" style="margin-top:-4px; font-size:13px;">سيظهر زر مراسلتك للمرضى فقط إذا أدخلت رقماً. اتركه فارغاً لإخفائه.</p>
         <button class="primary" onclick="saveWhatsappPhone()" id="save-whatsapp-btn">حفظ رقم واتساب</button>
+      </div>
+
+      <div class="box" style="margin-top:20px;">
+        <h3 style="margin-top:0;" id="location-section-title">📍 موقع الصيدلية على الخريطة</h3>
+        <p class="muted" id="location-section-desc" style="margin-top:-8px;">حدّد موقعك مرة واحدة، فيظهر للمريض زر يفتح له الاتجاهات إليك مباشرة.</p>
+
+        <div id="location-current" class="location-current"></div>
+
+        <button type="button" class="primary location-detect-btn" onclick="detectMyLocation()" id="detect-location-btn">📍 تحديد موقعي الحالي</button>
+
+        <input id="location-paste-input" type="text" inputmode="decimal" placeholder="أو الصق الإحداثيات هنا: 35.011667, 37.053056">
+        <p class="muted" id="location-paste-hint" style="margin-top:-4px; font-size:13px;">من خرائط جوجل: اضغط مطوّلاً على موقع صيدليتك، ثم انسخ الأرقام والصقها هنا.</p>
+
+        <div class="location-actions">
+          <button type="button" class="primary" onclick="saveLocationFromInput()" id="save-location-btn">حفظ الموقع</button>
+          <button type="button" class="btn-outline red" onclick="clearPharmacyLocation()" id="clear-location-btn">مسح الموقع</button>
+        </div>
       </div>
       <div class="box" style="margin-bottom:20px;">
         <h3 style="margin-top:0;" id="add-med-title">💊 إضافة دواء غير موجود بالقائمة</h3>
