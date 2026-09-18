@@ -530,8 +530,11 @@
      الأساسي (إضافة إلى السلة) يبقى بعرض كامل فوقهما، فلا يتنافس ثلاثة أزرار
      على سطر واحد ويضيق كل منها — وهي المشكلة التي تظهر أولاً على الهاتف. */
   .result-actions { display: flex; flex-direction: column; gap: 10px; margin-top: 12px; }
-  .result-actions .result-add-btn-full { margin-top: 0; width: 100%; }
-  .result-actions-secondary { display: flex; gap: 10px; }
+  /* flex: 0 0 auto إلزامي هنا: الحاوية عمودية، فأي flex-basis بالبكسل يُفسَّر
+     كارتفاع لا عرض — وهو ما نفخ زر السلة إلى 200px طولاً حين بقيت قاعدة قديمة
+     من جولة سابقة تعطيه flex: 1 1 200px. */
+  .result-actions .result-add-btn-full { margin-top: 0; width: 100%; flex: 0 0 auto; }
+  .result-actions-secondary { display: flex; gap: 10px; flex: 0 0 auto; }
   .result-actions-secondary > button { flex: 1 1 0; min-width: 0; }
 
   /* زر الاتجاهات ببطاقة المناوبة */
@@ -587,13 +590,6 @@
   .wa-icon { font-size: 16px; }
 
   /* الفاصل النقطي بين المدينة والعنوان — خارج bdi عمداً حتى لا ينقلب مع النص المعزول */
-
-  /* صف أزرار بطاقة النتيجة: السلة تتمدد وواتساب بعرض محتواه */
-  .result-actions { display: flex; gap: 10px; align-items: stretch; margin-top: 12px; flex-wrap: wrap; }
-  .result-actions .result-add-btn-full { flex: 1 1 200px; margin-top: 0; }
-  .result-actions .wa-result-btn { flex: 0 0 auto; }
-  /* حين لا يوجد زر سلة (الدواء غير متوفر)، يتمدد واتساب ليملأ الصف */
-  .result-actions .wa-result-btn:only-child { flex: 1 1 auto; }
 
   /* لوحة الاستشارة */
   .wa-panel-overlay {
