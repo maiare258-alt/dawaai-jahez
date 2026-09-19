@@ -78,6 +78,21 @@ async function initDb() {
   // (ست خانات عشرية ≈ 11 سم على الأرض).
   // العمودان اختياريان: صيدلية بلا موقع تبقى تعمل بالكامل، ولا يظهر لها زر اتجاهات
   // بدل أن يظهر زر يقود المريض إلى لا مكان — نفس مبدأ زر واتساب.
+  // هل تُحدّث هذه الصيدلية مخزونها على المنصة؟
+  //
+  // السبب: getAvailability تستخدم LEFT JOIN على كل الصيدليات مع COALESCE(available,false)،
+  // فصيدلية بلا سجل مخزون كانت تظهر "غير متوفر" — وهذا ادعاء خبري كاذب عن صيدلية
+  // لم تُسأل أصلاً: يضلّل المريض فيتجاوز صيدلية عندها دواؤه، ويضر بسمعة الصيدلية.
+  // بهذا العمود نفرّق بين "سألناها فقالت لا" و"لم نسألها".
+  //
+  // التعبئة الخلفية على ثلاث خطوات مقصودة: نضيف العمود بلا افتراضي أولاً فتبقى
+  // السجلات القديمة NULL، ثم نجعلها true (فهي صيدليات كاملة أُضيفت قبل هذا التقسيم)،
+  // ثم نثبّت الافتراضي false للسجلات الجديدة — لأن الإدراج للمناوبة فقط هو الحالة
+  // الأكثر توقعاً عند إضافة صيدليات المدينة دفعة واحدة، والخطأ الآمن هو عدم الادعاء.
+  await pool.query(`ALTER TABLE pharmacies ADD COLUMN IF NOT EXISTS manages_stock BOOLEAN;`);
+  await pool.query(`UPDATE pharmacies SET manages_stock = true WHERE manages_stock IS NULL;`);
+  await pool.query(`ALTER TABLE pharmacies ALTER COLUMN manages_stock SET DEFAULT false;`);
+
   await pool.query(`ALTER TABLE pharmacies ADD COLUMN IF NOT EXISTS latitude DOUBLE PRECISION;`);
   await pool.query(`ALTER TABLE pharmacies ADD COLUMN IF NOT EXISTS longitude DOUBLE PRECISION;`);
   await pool.query(`UPDATE pharmacies SET verified = true WHERE verified IS NULL;`);
@@ -290,7 +305,7 @@ async function deleteMedicine(medicineId) {
 
 async function getAllPharmacies() {
   const { rows } = await pool.query(
-    'SELECT id, name, address, phone, assistant_phone, city, whatsapp_phone, latitude, longitude, verified, owner_username, on_duty, on_duty_day, on_duty_shift, on_duty_start_time, on_duty_end_time FROM pharmacies ORDER BY id'
+    'SELECT id, name, address, phone, assistant_phone, city, whatsapp_phone, latitude, longitude, verified, manages_stock, owner_username, on_duty, on_duty_day, on_duty_shift, on_duty_start_time, on_duty_end_time FROM pharmacies ORDER BY id'
   );
   return rows;
 }
@@ -305,11 +320,11 @@ async function getPharmacyById(pharmacyId) {
   return rows[0];
 }
 
-async function addPharmacy({ name, address, phone, city, whatsappPhone, username, passwordHash }) {
+async function addPharmacy({ name, address, phone, city, whatsappPhone, managesStock, username, passwordHash }) {
   const { rows } = await pool.query(
-    `INSERT INTO pharmacies (name, address, phone, city, whatsapp_phone, owner_username, owner_password_hash)
-     VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
-    [name, address || null, phone || null, city || null, whatsappPhone || null, username, passwordHash]
+    `INSERT INTO pharmacies (name, address, phone, city, whatsapp_phone, manages_stock, owner_username, owner_password_hash)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
+    [name, address || null, phone || null, city || null, whatsappPhone || null, !!managesStock, username, passwordHash]
   );
   return rows[0];
 }
@@ -356,6 +371,16 @@ async function getWhatsappPharmacies(city) {
 // حفظ إحداثيات الصيدلية. تستقبل القيم مُتحقَّقاً منها ومقرَّبة من طبقة المسارات،
 // فلا يدخل القاعدة رقم تالف. تمرير null للاثنين يمسح الموقع — إجراء مشروع.
 // نحفظهما معاً دائماً: إحداثي واحد بلا الآخر بلا معنى، وقد يُنتج زراً معطوباً.
+// تبديل حالة "تُحدّث مخزونها" — للإدارة فقط
+async function setManagesStock(pharmacyId, managesStock) {
+  const { rows } = await pool.query(
+    `UPDATE pharmacies SET manages_stock = $1 WHERE id = $2
+     RETURNING id, name, manages_stock`,
+    [!!managesStock, pharmacyId]
+  );
+  return rows[0];
+}
+
 async function setPharmacyLocation(pharmacyId, latitude, longitude) {
   const { rows } = await pool.query(
     `UPDATE pharmacies SET latitude = $1, longitude = $2 WHERE id = $3
@@ -460,7 +485,7 @@ async function getAdminStats() {
 async function getOnDutyPharmacies(city) {
   const { rows } = await pool.query(
     `SELECT id, name, address, phone, assistant_phone, city, whatsapp_phone, latitude, longitude,
-            COALESCE(verified, false) AS verified,
+            COALESCE(verified, false) AS verified, COALESCE(manages_stock, false) AS manages_stock,
             on_duty, on_duty_day, on_duty_shift, on_duty_start_time, on_duty_end_time
      FROM pharmacies WHERE on_duty = true AND ($1::text IS NULL OR city = $1) ORDER BY on_duty_shift, id`,
     [city || null]
@@ -477,12 +502,17 @@ async function getAvailability(medicineId, city) {
     `SELECT p.id AS pharmacy_id, p.name AS pharmacy_name, p.address, p.phone, p.assistant_phone, p.city,
             COALESCE(p.verified, false) AS verified, p.whatsapp_phone,
             p.latitude, p.longitude,
+            COALESCE(p.manages_stock, false) AS manages_stock,
             COALESCE(s.available, false) AS available,
             s.updated_at AS stock_updated_at
      FROM pharmacies p
      LEFT JOIN stock s ON s.pharmacy_id = p.id AND s.medicine_id = $1
      WHERE ($2::text IS NULL OR p.city = $2)
-     ORDER BY p.name`,
+     -- الترتيب بالأولوية: المتوفر أولاً، ثم من تُحدّث مخزونها ولا تملكه،
+     -- ثم من لا تُحدّث مخزونها. فأنفع المعلومات تظهر قبل أضعفها دائماً.
+     ORDER BY COALESCE(s.available, false) DESC,
+              COALESCE(p.manages_stock, false) DESC,
+              p.name`,
     [medicineId, city || null]
   );
   return rows;
@@ -690,6 +720,7 @@ module.exports = {
   setAssistantPhone,
   setWhatsappPhone,
   setPharmacyLocation,
+  setManagesStock,
   getWhatsappPharmacies,
   setPharmacyName,
   setPharmacyPassword,
