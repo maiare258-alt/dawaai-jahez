@@ -65,7 +65,7 @@
     var early = ['onSearch','onSearchKeydown','submitSearch','onCityFilterChange','toggleCart',
                  'toggleLanguage','toggleNav','whatsappComingSoon','openWhatsappPanel','closeWhatsappPanel',
                  'onWaOverlayClick','onWaResultClick','saveWhatsappPhone','onDirectionsClick',
-                 'detectMyLocation','saveLocationFromInput','clearPharmacyLocation',
+                 'detectMyLocation','saveLocationFromInput','clearPharmacyLocation','togglePharmacyManagesStock',
                  'headerGoHome','headerGoOnDuty',
                  'headerGoPharmacist','headerGoCosmetics','headerGoNursing','headerGoAdmin'];
     early.forEach(function (name) {
@@ -511,6 +511,28 @@
   .refresh-results-btn:hover { border-color: #6aa9d9; background: #f4f8fc; }
   .refresh-results-btn:focus-visible { outline: 2px solid #185fa5; outline-offset: 2px; }
   .refresh-results-btn[disabled] { opacity: .55; cursor: default; }
+
+  /* ---- الصيدليات المُدرجة للمناوبة فقط ---- */
+  /* شارة محايدة رمادية لا خضراء ولا حمراء: الحالة ليست "متوفر" ولا "غير متوفر"،
+     بل "لم نسأل" — ولونها يجب ألا يوحي بأي من الادعاءين. */
+  .badge.neutral {
+    background: #eef2f6; color: #64748b; border: 1px solid #dbe3ec;
+  }
+  .stock-unmanaged-note {
+    margin-top: 10px; padding-top: 10px; border-top: 1px dashed #e3ebf3;
+    font-size: 12.5px; color: #64748b; line-height: 1.6;
+  }
+  /* حالة الصيدلية بلوحة الإدارة */
+  .tier-on { color: #0f7a52; font-weight: 600; }
+  .tier-off { color: #8795a3; }
+  .admin-checkbox-row {
+    display: flex; align-items: flex-start; gap: 9px;
+    margin: 4px 0 14px; font-size: 13.5px; color: #3a4a58; line-height: 1.55;
+    cursor: pointer;
+  }
+  .admin-checkbox-row input[type="checkbox"] {
+    width: 18px; height: 18px; margin: 2px 0 0; flex: 0 0 auto; cursor: pointer;
+  }
 
   /* ---- زر الاتجاهات ---- */
   /* أزرق هادئ يميّزه عن أخضر واتساب، وبنفس بنية الزر المحدَّد ليتناسقا بصرياً */
