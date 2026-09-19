@@ -89,6 +89,14 @@ async function initDb() {
   // السجلات القديمة NULL، ثم نجعلها true (فهي صيدليات كاملة أُضيفت قبل هذا التقسيم)،
   // ثم نثبّت الافتراضي false للسجلات الجديدة — لأن الإدراج للمناوبة فقط هو الحالة
   // الأكثر توقعاً عند إضافة صيدليات المدينة دفعة واحدة، والخطأ الآمن هو عدم الادعاء.
+  // تتبّع آخر تعديل للمناوبة: من عدّل ومتى.
+  // السبب: المناوبة صار يضبطها طرفان — الصيدلي من لوحته والإدارة من لوحتها.
+  // فبدون هذا السجل لا يمكن الإجابة على "لماذا تغيّرت هذه المناوبة؟"، وقد تدهس
+  // الإدارة تعديلاً حديثاً للصيدلي دون أن تدري أنه يدير مناوبته بنفسه.
+  // NULL للسجلات القديمة عمداً: لا نعرف من عدّلها، وادعاء ذلك تضليل.
+  await pool.query(`ALTER TABLE pharmacies ADD COLUMN IF NOT EXISTS duty_updated_by TEXT;`);
+  await pool.query(`ALTER TABLE pharmacies ADD COLUMN IF NOT EXISTS duty_updated_at TIMESTAMP;`);
+
   await pool.query(`ALTER TABLE pharmacies ADD COLUMN IF NOT EXISTS manages_stock BOOLEAN;`);
   await pool.query(`UPDATE pharmacies SET manages_stock = true WHERE manages_stock IS NULL;`);
   await pool.query(`ALTER TABLE pharmacies ALTER COLUMN manages_stock SET DEFAULT false;`);
@@ -305,7 +313,7 @@ async function deleteMedicine(medicineId) {
 
 async function getAllPharmacies() {
   const { rows } = await pool.query(
-    'SELECT id, name, address, phone, assistant_phone, city, whatsapp_phone, latitude, longitude, verified, manages_stock, owner_username, on_duty, on_duty_day, on_duty_shift, on_duty_start_time, on_duty_end_time FROM pharmacies ORDER BY id'
+    'SELECT id, name, address, phone, assistant_phone, city, whatsapp_phone, latitude, longitude, verified, manages_stock, duty_updated_by, duty_updated_at, owner_username, on_duty, on_duty_day, on_duty_shift, on_duty_start_time, on_duty_end_time FROM pharmacies ORDER BY id'
   );
   return rows;
 }
@@ -333,21 +341,40 @@ async function deletePharmacy(pharmacyId) {
   await pool.query('DELETE FROM pharmacies WHERE id = $1', [pharmacyId]);
 }
 
-async function setDutyStatus(pharmacyId, onDuty, day, shift, startTime, endTime) {
+// updatedBy: 'pharmacy' أو 'admin' — يُمرَّر من طبقة المسارات حيث تُعرف الهوية
+// بيقين من المصادقة نفسها، لا من جسم الطلب الذي يمكن تزويره.
+async function setDutyStatus(pharmacyId, onDuty, day, shift, startTime, endTime, updatedBy) {
   const { rows } = await pool.query(
     `UPDATE pharmacies
-     SET on_duty = $1, on_duty_day = $2, on_duty_shift = $3, on_duty_start_time = $4, on_duty_end_time = $5
-     WHERE id = $6 RETURNING *`,
+     SET on_duty = $1, on_duty_day = $2, on_duty_shift = $3, on_duty_start_time = $4, on_duty_end_time = $5,
+         duty_updated_by = $6, duty_updated_at = NOW()
+     WHERE id = $7 RETURNING *`,
     [
       !!onDuty,
       onDuty ? (day || null) : null,
       onDuty ? (shift || 'طوال اليوم') : null,
       onDuty ? (startTime || null) : null,
       onDuty ? (endTime || null) : null,
+      updatedBy === 'admin' ? 'admin' : 'pharmacy',
       pharmacyId
     ]
   );
   return rows[0];
+}
+
+// إيقاف كل المناوبات دفعة واحدة — لبدء أسبوع جديد بنقرة بدل عشرات النقرات.
+// نُفرغ حقول المناوبة كلها لا العلم فقط، حتى لا تبقى بيانات أسبوع ماضٍ معلّقة
+// فتظهر للمريض لو أُعيد التفعيل دون إدخال يوم جديد.
+// نرجّع عدد الصفوف المتأثرة فعلاً ليعرف المدير ماذا تغيّر بالضبط.
+async function clearAllDuty() {
+  const { rowCount } = await pool.query(
+    `UPDATE pharmacies
+     SET on_duty = false, on_duty_day = NULL, on_duty_shift = NULL,
+         on_duty_start_time = NULL, on_duty_end_time = NULL,
+         duty_updated_by = 'admin', duty_updated_at = NOW()
+     WHERE on_duty = true`
+  );
+  return rowCount;
 }
 
 // تحديث رقم واتساب الصيدلية. يستقبل الرقم منسّقاً مسبقاً من طبقة المسارات
@@ -717,6 +744,7 @@ module.exports = {
   addPharmacy,
   deletePharmacy,
   setDutyStatus,
+  clearAllDuty,
   setAssistantPhone,
   setWhatsappPhone,
   setPharmacyLocation,
