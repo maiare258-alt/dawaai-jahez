@@ -513,6 +513,32 @@
   .refresh-results-btn:focus-visible { outline: 2px solid #185fa5; outline-offset: 2px; }
   .refresh-results-btn[disabled] { opacity: .55; cursor: default; }
 
+  /* ---- اختيار نوع الإدراج عند تسجيل صيدلية ---- */
+  /* خياران صريحان بدل مربع اختيار واحد: المربع كان يحمل مفهومين متضادين في جملة
+     واحدة، فيضطر القارئ لاستنتاج معنى الحالة الفارغة. هنا كل خيار يذكر أثره. */
+  .listing-type-group {
+    border: 1px solid #e3ebf3; border-radius: 14px;
+    padding: 14px 16px 6px; margin: 4px 0 16px;
+  }
+  .listing-type-group legend {
+    padding: 0 8px; font-size: 14px; font-weight: 700; color: #163a5c;
+  }
+  .listing-type-option {
+    display: flex; align-items: flex-start; gap: 10px;
+    padding: 10px 4px; cursor: pointer; border-radius: 10px;
+    transition: background .14s ease;
+  }
+  .listing-type-option:hover { background: #f4f8fc; }
+  .listing-type-option input[type="radio"] {
+    width: 19px; height: 19px; margin: 2px 0 0; flex: 0 0 auto; cursor: pointer; accent-color: #185fa5;
+  }
+  .listing-type-text { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+  .listing-type-label { font-size: 14.5px; font-weight: 600; color: #23303a; }
+  .listing-type-desc { font-size: 12.5px; color: #6b7a87; line-height: 1.6; }
+  /* تمييز الخيار المختار بصرياً، فيعرف المدير ما اختاره بنظرة */
+  .listing-type-option:has(input:checked) { background: #eef5fb; }
+  .listing-type-option:has(input:checked) .listing-type-label { color: #185fa5; }
+
   /* ---- جدول المناوبة بلوحة الإدارة ---- */
   .admin-duty-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
   .admin-duty-tools { display: flex; gap: 10px; margin: 12px 0 6px; flex-wrap: wrap; }
