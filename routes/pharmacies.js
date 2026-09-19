@@ -264,7 +264,7 @@ router.put('/self/duty', async (req, res) => {
     const valid = await bcrypt.compare(password, pharmacy.owner_password_hash);
     if (!valid) return res.status(401).json({ error: 'بيانات الدخول غير صحيحة' });
 
-    const updated = await db.setDutyStatus(pharmacy.id, on_duty, on_duty_day, on_duty_shift, on_duty_start_time, on_duty_end_time);
+    const updated = await db.setDutyStatus(pharmacy.id, on_duty, on_duty_day, on_duty_shift, on_duty_start_time, on_duty_end_time, 'pharmacy');
     res.json({
       on_duty: updated.on_duty,
       on_duty_day: updated.on_duty_day,
@@ -437,6 +437,58 @@ router.put('/:id/location', adminAuth, async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'حدث خطأ أثناء تحديث الموقع' });
+  }
+});
+
+// ضبط مناوبة أي صيدلية (للإدارة فقط)
+// PUT /api/pharmacies/:id/duty  { on_duty, on_duty_day, on_duty_shift, on_duty_start_time, on_duty_end_time }
+//
+// يوجد مساران للمناوبة عن قصد: الصيدلي يضبط مناوبته من لوحته، والإدارة تضبط
+// مناوبة أي صيدلية من لوحتها. السبب أن معظم صيدليات المدينة مُدرجة لجدول
+// المناوبة فقط ولا أحد يدير حسابها، فبدون هذا المسار يلزم تسجيل دخول بكل حساب.
+// آخر تعديل يفوز، ويُسجَّل مصدره في duty_updated_by ليُرى من عدّل.
+router.put('/:id/duty', adminAuth, async (req, res) => {
+  const { on_duty, on_duty_day, on_duty_shift, on_duty_start_time, on_duty_end_time } = req.body;
+  if (on_duty !== true && on_duty !== false && on_duty !== 'true' && on_duty !== 'false') {
+    return res.status(400).json({ error: 'قيمة غير صالحة' });
+  }
+  const value = on_duty === true || on_duty === 'true';
+  try {
+    const existing = await db.getPharmacyById(req.params.id);
+    if (!existing) return res.status(404).json({ error: 'الصيدلية غير موجودة' });
+
+    const updated = await db.setDutyStatus(
+      req.params.id, value, on_duty_day, on_duty_shift, on_duty_start_time, on_duty_end_time, 'admin'
+    );
+    res.json({
+      id: updated.id,
+      name: updated.name,
+      on_duty: updated.on_duty,
+      on_duty_day: updated.on_duty_day,
+      on_duty_shift: updated.on_duty_shift,
+      on_duty_start_time: updated.on_duty_start_time,
+      on_duty_end_time: updated.on_duty_end_time,
+      duty_updated_by: updated.duty_updated_by,
+      duty_updated_at: updated.duty_updated_at
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'حدث خطأ أثناء تحديث حالة المناوبة' });
+  }
+});
+
+// إيقاف كل المناوبات دفعة واحدة (للإدارة فقط)
+// POST /api/pharmacies/duty/clear-all
+//
+// POST لا DELETE: العملية لا تحذف صيدليات بل تُصفّر حقولاً، وDELETE على مسار
+// جماعي يوحي بحذف السجلات نفسها وهو خطأ دلالي خطير في واجهة إدارية.
+router.post('/duty/clear-all', adminAuth, async (req, res) => {
+  try {
+    const cleared = await db.clearAllDuty();
+    res.json({ cleared });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'حدث خطأ أثناء إيقاف المناوبات' });
   }
 });
 
