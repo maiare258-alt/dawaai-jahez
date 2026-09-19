@@ -281,6 +281,22 @@ const translations = {
     nursing_page_title: 'خدمات تمريض 🩺', nursing_page_desc: 'تواصل مع ممرضين موثوقين لتلقي الرعاية التمريضية بمنزلك.',
     show_password_aria: 'إظهار كلمة المرور', hide_password_aria: 'إخفاء كلمة المرور',
     invalid_value_error: 'قيمة غير صالحة',
+    admin_duty_title: '🕐 جدول المناوبة',
+    admin_duty_desc: 'اضبط مناوبة أي صيدلية من هنا دون تسجيل الدخول بحسابها. الصيدلي يستطيع تعديل مناوبته بنفسه أيضاً.',
+    admin_duty_clear_all: 'إيقاف كل المناوبات',
+    admin_duty_clear_confirm: 'إيقاف مناوبة كل الصيدليات ({n} صيدلية مناوبة حالياً)؟ يُستخدم عادةً لبدء أسبوع جديد.',
+    admin_duty_cleared: 'تم إيقاف {n} مناوبة',
+    admin_duty_none_active: 'لا توجد صيدليات مناوبة حالياً',
+    admin_duty_on: 'مناوبة',
+    admin_duty_off: 'غير مناوبة',
+    admin_duty_save: 'حفظ',
+    admin_duty_saved: 'تم حفظ المناوبة',
+    admin_duty_by_pharmacy: 'عدّلها الصيدلي',
+    admin_duty_by_admin: 'عدّلتها الإدارة',
+    admin_duty_never: 'لم تُعدَّل بعد',
+    admin_duty_search: 'ابحث باسم الصيدلية...',
+    admin_duty_no_match: 'لا توجد صيدلية بهذا الاسم',
+    admin_duty_active_count: 'مناوبة الآن: {n}',
     stock_unmanaged_badge: 'لم تُسجّل مخزونها',
     stock_unmanaged_note: 'هذه الصيدلية مُدرجة لجدول المناوبة فقط ولا تُحدّث مخزونها على المنصة. اتصل بها للاستفسار عن الدواء.',
     manages_stock_on: 'تُحدّث مخزونها',
@@ -570,6 +586,22 @@ const translations = {
     nursing_page_title: 'Nursing Services 🩺', nursing_page_desc: 'Connect with trusted nurses for home nursing care.',
     show_password_aria: 'Show password', hide_password_aria: 'Hide password',
     invalid_value_error: 'Invalid value',
+    admin_duty_title: '🕐 On-duty schedule',
+    admin_duty_desc: 'Set any pharmacy\'s duty from here without logging into its account. Pharmacists can also set their own.',
+    admin_duty_clear_all: 'Clear all duties',
+    admin_duty_clear_confirm: 'Clear duty for every pharmacy ({n} currently on duty)? Normally used to start a new week.',
+    admin_duty_cleared: '{n} duties cleared',
+    admin_duty_none_active: 'No pharmacies are on duty right now',
+    admin_duty_on: 'On duty',
+    admin_duty_off: 'Off duty',
+    admin_duty_save: 'Save',
+    admin_duty_saved: 'Duty saved',
+    admin_duty_by_pharmacy: 'set by pharmacist',
+    admin_duty_by_admin: 'set by admin',
+    admin_duty_never: 'never set',
+    admin_duty_search: 'Search by pharmacy name...',
+    admin_duty_no_match: 'No pharmacy matches that name',
+    admin_duty_active_count: 'On duty now: {n}',
     stock_unmanaged_badge: 'Stock not listed',
     stock_unmanaged_note: 'This pharmacy is listed for the on-duty schedule only and does not update its stock here. Call them to ask about the medicine.',
     manages_stock_on: 'Updates stock',
@@ -3335,6 +3367,19 @@ function renderAdminPanelUI() {
     </div>
 
     <div class="box" style="margin-bottom:20px;">
+      <div class="admin-duty-head">
+        <h3 style="margin:0;">${t('admin_duty_title')}</h3>
+        <span class="muted" id="admin-duty-count"></span>
+      </div>
+      <p class="muted" style="margin-top:6px;">${t('admin_duty_desc')}</p>
+      <div class="admin-duty-tools">
+        <input type="search" id="admin-duty-search" placeholder="${t('admin_duty_search')}" oninput="onAdminDutySearch(this)" value="${escapeHtml(adminDutyFilter)}">
+        <button class="btn-outline red" onclick="clearAllDuty()">${t('admin_duty_clear_all')}</button>
+      </div>
+      <div id="admin-duty-list" class="admin-duty-list"></div>
+    </div>
+
+    <div class="box" style="margin-bottom:20px;">
       <h3 style="margin-top:0;">${t('add_medicine_title_admin')}</h3>
       <input id="med-name" placeholder="${t('med_name_placeholder')}">
       <input id="med-generic" placeholder="${t('generic_name_placeholder')}">
@@ -3504,6 +3549,10 @@ async function resetPharmacyPassword(id) {
   } catch (err) {
     await customAlert(t('reset_password_error'), 'error');
   }
+
+  // حاوية قائمة المناوبة تُنشأ ضمن innerHTML أعلاه، فنملؤها بعد بنائها مباشرة.
+  // بوضعها هنا تُحدَّث القائمة تلقائياً مع أي إعادة رسم للوحة — بما فيها تبديل اللغة.
+  renderAdminDutyList();
 }
 
 // ---------- تعديل اسم الصيدلية (الإدارة حصراً) ----------
@@ -3538,6 +3587,138 @@ function onEditPharmacyNameKeydown(e, id) {
 // تبديل حالة "تُحدّث مخزونها" من لوحة الإدارة.
 // نطلب تأكيداً يشرح الأثر على المريض صراحةً، لأن الإيقاف يغيّر ما يراه الناس
 // عن صيدلية حقيقية — لا مجرد إعداد داخلي.
+// ================= جدول المناوبة بلوحة الإدارة =================
+// يوجد ضابطان للمناوبة عن قصد: الصيدلي من لوحته، والإدارة من هنا.
+// السبب أن معظم صيدليات المدينة مُدرجة للمناوبة فقط ولا أحد يدير حسابها.
+// القاعدة: آخر تعديل يفوز بلا أقفال — وتُعرض هوية آخر مُعدِّل ووقته
+// ليرى المدير أن الصيدلي يدير مناوبته بنفسه فلا يدهس تعديله بلا قصد.
+
+let adminDutyFilter = '';
+
+const DUTY_DAYS = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
+const DUTY_SHIFTS = ['طوال اليوم', 'صباحاً', 'مساءً'];
+
+function onAdminDutySearch(el) {
+  adminDutyFilter = el.value.trim().toLowerCase();
+  renderAdminDutyList();
+}
+
+// من عدّل المناوبة آخر مرة ومتى — نعرضه بنص واضح لا برمز غامض
+function dutyAuditHtml(p) {
+  if (!p.duty_updated_by || !p.duty_updated_at) {
+    return `<span class="duty-audit muted">${t('admin_duty_never')}</span>`;
+  }
+  const who = p.duty_updated_by === 'admin' ? t('admin_duty_by_admin') : t('admin_duty_by_pharmacy');
+  const when = relativeTime(p.duty_updated_at);
+  const isPharmacy = p.duty_updated_by !== 'admin';
+  return `<span class="duty-audit ${isPharmacy ? 'by-pharmacy' : ''}">${escapeHtml(who)}${when ? ' · ' + escapeHtml(when) : ''}</span>`;
+}
+
+function renderAdminDutyList() {
+  const box = document.getElementById('admin-duty-list');
+  if (!box) return;
+  const all = adminDataCache.pharmacies || [];
+  // المناوبة أولاً ثم بالاسم: المدير يريد رؤية من هو مناوب الآن في نظرة واحدة
+  const list = all
+    .filter(p => !adminDutyFilter || String(p.name || '').toLowerCase().includes(adminDutyFilter))
+    .slice()
+    .sort((a, b) => (b.on_duty ? 1 : 0) - (a.on_duty ? 1 : 0) || String(a.name).localeCompare(String(b.name), 'ar'));
+
+  if (list.length === 0) {
+    box.innerHTML = `<p class="muted" style="padding:14px 2px;">${t('admin_duty_no_match')}</p>`;
+    return;
+  }
+
+  box.innerHTML = list.map(p => `
+    <div class="admin-duty-row ${p.on_duty ? 'active' : ''}">
+      <div class="admin-duty-info">
+        <span class="admin-duty-name"><bdi>${escapeHtml(p.name)}</bdi></span>
+        <span class="admin-duty-meta">
+          ${p.city ? `<bdi>${escapeHtml(cityName(p.city))}</bdi><span class="admin-ph-sep">•</span>` : ''}
+          ${dutyAuditHtml(p)}
+        </span>
+      </div>
+      <div class="admin-duty-controls">
+        <label class="admin-duty-toggle">
+          <input type="checkbox" id="duty-on-${p.id}" ${p.on_duty ? 'checked' : ''} onchange="onAdminDutyToggle(${p.id}, this)">
+          <span>${p.on_duty ? t('admin_duty_on') : t('admin_duty_off')}</span>
+        </label>
+        <select id="duty-day-${p.id}" ${p.on_duty ? '' : 'disabled'}>
+          ${DUTY_DAYS.map(d => `<option value="${d}" ${p.on_duty_day === d ? 'selected' : ''}>${translateDutyDay(d)}</option>`).join('')}
+        </select>
+        <select id="duty-shift-${p.id}" ${p.on_duty ? '' : 'disabled'}>
+          ${DUTY_SHIFTS.map(sh => `<option value="${sh}" ${p.on_duty_shift === sh ? 'selected' : ''}>${translateDutyShift(sh)}</option>`).join('')}
+        </select>
+        <button class="btn-outline blue" onclick="saveAdminDuty(${p.id})" id="duty-save-${p.id}">${t('admin_duty_save')}</button>
+      </div>
+    </div>`).join('');
+
+  const counter = document.getElementById('admin-duty-count');
+  if (counter) counter.textContent = tFormat('admin_duty_active_count', { n: all.filter(p => p.on_duty).length });
+}
+
+// تفعيل/تعطيل الحقول فوراً عند تبديل المربع، قبل الحفظ — تغذية راجعة لحظية
+function onAdminDutyToggle(id, el) {
+  const on = el.checked;
+  const day = document.getElementById(`duty-day-${id}`);
+  const shift = document.getElementById(`duty-shift-${id}`);
+  if (day) day.disabled = !on;
+  if (shift) shift.disabled = !on;
+  const label = el.parentElement && el.parentElement.querySelector('span');
+  if (label) label.textContent = on ? t('admin_duty_on') : t('admin_duty_off');
+}
+
+async function saveAdminDuty(id) {
+  const btn = document.getElementById(`duty-save-${id}`);
+  const on = document.getElementById(`duty-on-${id}`).checked;
+  const day = document.getElementById(`duty-day-${id}`).value;
+  const shift = document.getElementById(`duty-shift-${id}`).value;
+  if (btn) btn.disabled = true;
+  try {
+    const res = await fetch(`${API}/pharmacies/${id}/duty`, {
+      method: 'PUT',
+      headers: adminHeaders(),
+      body: JSON.stringify({ on_duty: on, on_duty_day: day, on_duty_shift: shift })
+    });
+    const data = await res.json();
+    if (!res.ok) { await customAlert(translateApiError(data.error), 'error'); return; }
+
+    // نحدّث الكاش محلياً بدل إعادة تحميل اللوحة كلها: أسرع، ويحافظ على
+    // موضع التمرير ونص البحث اللذين يضيعان مع إعادة الرسم الكاملة.
+    const cached = (adminDataCache.pharmacies || []).find(p => p.id === id);
+    if (cached) {
+      cached.on_duty = data.on_duty;
+      cached.on_duty_day = data.on_duty_day;
+      cached.on_duty_shift = data.on_duty_shift;
+      cached.duty_updated_by = data.duty_updated_by;
+      cached.duty_updated_at = data.duty_updated_at;
+    }
+    renderAdminDutyList();
+    await customAlert(t('admin_duty_saved'), 'success');
+  } catch (err) {
+    await customAlert(t('server_error_title'), 'error');
+  } finally {
+    const b = document.getElementById(`duty-save-${id}`);
+    if (b) b.disabled = false;
+  }
+}
+
+async function clearAllDuty() {
+  const active = (adminDataCache.pharmacies || []).filter(p => p.on_duty).length;
+  if (active === 0) { await customAlert(t('admin_duty_none_active'), 'info'); return; }
+  const confirmed = await customConfirm(tFormat('admin_duty_clear_confirm', { n: active }), 'warning');
+  if (!confirmed) return;
+  try {
+    const res = await fetch(`${API}/pharmacies/duty/clear-all`, { method: 'POST', headers: adminHeaders() });
+    const data = await res.json();
+    if (!res.ok) { await customAlert(translateApiError(data.error), 'error'); return; }
+    await customAlert(tFormat('admin_duty_cleared', { n: data.cleared }), 'success');
+    renderAdminPanel();
+  } catch (err) {
+    await customAlert(t('server_error_title'), 'error');
+  }
+}
+
 async function togglePharmacyManagesStock(id, newValue) {
   const pharmacy = (adminDataCache.pharmacies || []).find(p => p.id === id);
   const name = pharmacy ? pharmacy.name : '';
