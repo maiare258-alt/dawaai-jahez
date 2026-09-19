@@ -280,6 +280,17 @@ const translations = {
     rating_submitted_success: 'تم إرسال تقييمك بنجاح! رح يظهر للعموم بعد موافقة الإدارة عليه.',
     nursing_page_title: 'خدمات تمريض 🩺', nursing_page_desc: 'تواصل مع ممرضين موثوقين لتلقي الرعاية التمريضية بمنزلك.',
     show_password_aria: 'إظهار كلمة المرور', hide_password_aria: 'إخفاء كلمة المرور',
+    invalid_value_error: 'قيمة غير صالحة',
+    stock_unmanaged_badge: 'لم تُسجّل مخزونها',
+    stock_unmanaged_note: 'هذه الصيدلية مُدرجة لجدول المناوبة فقط ولا تُحدّث مخزونها على المنصة. اتصل بها للاستفسار عن الدواء.',
+    manages_stock_on: 'تُحدّث مخزونها',
+    manages_stock_off: 'مناوبة فقط',
+    manages_stock_toggle_on: 'تفعيل المخزون',
+    manages_stock_toggle_off: 'إيقاف المخزون',
+    manages_stock_confirm_on: 'تفعيل إدارة المخزون لـ"{name}"؟ ستظهر حالات توفر أدويتها للمرضى في نتائج البحث.',
+    manages_stock_confirm_off: 'إيقاف إدارة المخزون لـ"{name}"؟ ستبقى في جدول المناوبة، ولن تُعرض حالات التوفر بل رسالة أنها لم تُسجّل مخزونها.',
+    manages_stock_updated: 'تم تحديث حالة الصيدلية',
+    register_manages_stock_label: 'تُحدّث مخزونها على المنصة (اتركه فارغاً للإدراج بالمناوبة فقط)',
     directions_btn: 'الاتجاهات',
     directions_btn_title: 'افتح الاتجاهات إلى الصيدلية في خرائط جوجل',
     location_section_title: '📍 موقع الصيدلية على الخريطة',
@@ -558,6 +569,17 @@ const translations = {
     rating_submitted_success: 'Your rating was submitted successfully! It will appear publicly after admin approval.',
     nursing_page_title: 'Nursing Services 🩺', nursing_page_desc: 'Connect with trusted nurses for home nursing care.',
     show_password_aria: 'Show password', hide_password_aria: 'Hide password',
+    invalid_value_error: 'Invalid value',
+    stock_unmanaged_badge: 'Stock not listed',
+    stock_unmanaged_note: 'This pharmacy is listed for the on-duty schedule only and does not update its stock here. Call them to ask about the medicine.',
+    manages_stock_on: 'Updates stock',
+    manages_stock_off: 'On-duty only',
+    manages_stock_toggle_on: 'Enable stock',
+    manages_stock_toggle_off: 'Disable stock',
+    manages_stock_confirm_on: 'Enable stock management for "{name}"? Its medicine availability will be shown to patients in search results.',
+    manages_stock_confirm_off: 'Disable stock management for "{name}"? It stays in the on-duty schedule, and instead of availability patients will see a note that its stock is not listed.',
+    manages_stock_updated: 'Pharmacy status updated',
+    register_manages_stock_label: 'Updates its stock on the platform (leave empty to list for on-duty only)',
     directions_btn: 'Directions',
     directions_btn_title: 'Open directions to this pharmacy in Google Maps',
     location_section_title: '📍 Pharmacy location on the map',
@@ -703,7 +725,8 @@ const BACKEND_ERROR_MAP = {
   'كلمة المرور الجديدة قصيرة جداً': 'new_password_too_short_error',
   'كلمة المرور الجديدة مطابقة للحالية': 'new_password_same_error',
   'رقم واتساب غير صالح': 'invalid_whatsapp_error',
-  'إحداثيات غير صالحة': 'invalid_location_error'
+  'إحداثيات غير صالحة': 'invalid_location_error',
+  'قيمة غير صالحة': 'invalid_value_error'
 };
 function translateApiError(rawError) {
   const key = BACKEND_ERROR_MAP[rawError];
@@ -2152,7 +2175,9 @@ async function runSearch() {
           <div class="result-card">
             <div class="result-card-top">
               <span class="result-med-name"><span class="result-icon">${currentCategory === 'cosmetic' ? '💄' : '💊'}</span> ${escapeHtml(item.medicine.name)}</span>
-              <span class="badge ${a.available ? 'yes' : 'no'}">${a.available ? t('available_badge') : t('unavailable_badge')}</span>
+              ${a.manages_stock
+                ? `<span class="badge ${a.available ? 'yes' : 'no'}">${a.available ? t('available_badge') : t('unavailable_badge')}</span>`
+                : `<span class="badge neutral">${t('stock_unmanaged_badge')}</span>`}
             </div>
             <div class="result-row">${t('active_ingredient_label')} ${escapeHtml(item.medicine.generic_name) || '-'}</div>
             <div class="result-pharmacy">
@@ -2168,9 +2193,11 @@ async function runSearch() {
             </div>
             ${a.phone ? `<div class="result-row"><span class="result-icon">📞</span> ${escapeHtml(a.phone)}</div>` : ''}
             ${a.assistant_phone ? `<div class="result-row"><span class="result-icon">📱</span> ${escapeHtml(a.assistant_phone)} <span class="muted" style="font-size:12px;">(${t('assistant_phone_label')})</span></div>` : ''}
-            ${stockFreshnessHtml(a.stock_updated_at)}
+            ${a.manages_stock
+              ? stockFreshnessHtml(a.stock_updated_at)
+              : `<div class="stock-unmanaged-note">${t('stock_unmanaged_note')}</div>`}
             <div class="result-actions">
-              ${a.available ? `<button class="result-add-btn-full" onclick="addToCart(${item.medicine.id}, ${a.pharmacy_id}, this)">${t('add_to_cart_btn')}</button>` : ''}
+              ${(a.manages_stock && a.available) ? `<button class="result-add-btn-full" onclick="addToCart(${item.medicine.id}, ${a.pharmacy_id}, this)">${t('add_to_cart_btn')}</button>` : ''}
               ${(a.whatsapp_phone || hasLocation(a.latitude, a.longitude)) ? `<div class="result-actions-secondary">
                 ${waResultBtnHtml(a.whatsapp_phone, item.medicine.name)}
                 ${directionsBtnHtml(a.latitude, a.longitude)}
@@ -3253,6 +3280,7 @@ function renderAdminPanelUI() {
       </select>
       <input id="ph-phone" placeholder="${t('phone_placeholder')}">
       <input id="ph-whatsapp" type="tel" inputmode="numeric" placeholder="${t('whatsapp_phone_input_placeholder')}">
+      <label class="admin-checkbox-row"><input type="checkbox" id="ph-manages-stock"> <span>${t('register_manages_stock_label')}</span></label>
       <input id="ph-username" placeholder="${t('username_placeholder')}">
       <div class="password-field">
         <input id="ph-password" type="password" placeholder="${t('password_placeholder')}">
@@ -3288,12 +3316,14 @@ function renderAdminPanelUI() {
                      ${p.verified ? `<span class="admin-ph-sep">•</span><span>✓ ${t('verified_badge')}</span>` : ''}
                      ${p.whatsapp_phone ? `<span class="admin-ph-sep">•</span><span>💬 ${t('whatsapp_admin_label')}</span>` : ''}
                      ${hasLocation(p.latitude, p.longitude) ? `<span class="admin-ph-sep">•</span><span>📍 ${t('location_admin_label')}</span>` : ''}
+                     <span class="admin-ph-sep">•</span><span class="${p.manages_stock ? 'tier-on' : 'tier-off'}">${p.manages_stock ? '📦 ' + t('manages_stock_on') : '🕐 ' + t('manages_stock_off')}</span>
                      ${p.city ? `<span class="admin-ph-sep">•</span><span>📍 ${escapeHtml(cityName(p.city))}</span>` : ''}
                      ${p.assistant_phone ? `<span class="admin-ph-sep">•</span><span>📱 ${escapeHtml(p.assistant_phone)}</span>` : ''}
                      ${p.on_duty ? `<span class="badge yes">${t('onduty_badge_short')}</span>` : ''}
                    </span>
                  </div>
                  <div class="admin-ph-actions">
+                   <button class="btn-outline ${p.manages_stock ? '' : 'green'}" onclick="togglePharmacyManagesStock(${p.id}, ${!p.manages_stock})">${p.manages_stock ? t('manages_stock_toggle_off') : t('manages_stock_toggle_on')}</button>
                    <button class="btn-outline" onclick="startEditPharmacyName(${p.id})">${t('edit_name_btn')}</button>
                    <button class="btn-outline blue" onclick="resetPharmacyPassword(${p.id})" title="${t('reset_password_btn')}"><span class="btn-label-full">${t('reset_password_btn')}</span><span class="btn-label-short">${t('reset_password_btn_short')}</span></button>
                    <button class="btn-outline red" onclick="deletePharmacyAdmin(${p.id})">${t('delete_btn')}</button>
@@ -3396,6 +3426,7 @@ async function addPharmacy() {
     city: document.getElementById('ph-city').value,
     phone: document.getElementById('ph-phone').value,
     whatsapp_phone: document.getElementById('ph-whatsapp').value,
+    manages_stock: document.getElementById('ph-manages-stock').checked,
     username: document.getElementById('ph-username').value,
     password: document.getElementById('ph-password').value,
   };
@@ -3502,6 +3533,31 @@ function cancelEditPharmacyName() {
 function onEditPharmacyNameKeydown(e, id) {
   if (e.key === 'Enter') { e.preventDefault(); savePharmacyName(id); }
   else if (e.key === 'Escape') { e.preventDefault(); cancelEditPharmacyName(); }
+}
+
+// تبديل حالة "تُحدّث مخزونها" من لوحة الإدارة.
+// نطلب تأكيداً يشرح الأثر على المريض صراحةً، لأن الإيقاف يغيّر ما يراه الناس
+// عن صيدلية حقيقية — لا مجرد إعداد داخلي.
+async function togglePharmacyManagesStock(id, newValue) {
+  const pharmacy = (adminDataCache.pharmacies || []).find(p => p.id === id);
+  const name = pharmacy ? pharmacy.name : '';
+  const msg = tFormat(newValue ? 'manages_stock_confirm_on' : 'manages_stock_confirm_off', { name });
+  const confirmed = await customConfirm(msg, 'warning');
+  if (!confirmed) return;
+
+  try {
+    const res = await fetch(`${API}/pharmacies/${id}/manages-stock`, {
+      method: 'PUT',
+      headers: adminHeaders(),
+      body: JSON.stringify({ manages_stock: newValue })
+    });
+    const data = await res.json();
+    if (!res.ok) { await customAlert(translateApiError(data.error), 'error'); return; }
+    await customAlert(t('manages_stock_updated'), 'success');
+    renderAdminPanel();
+  } catch (err) {
+    await customAlert(t('server_error_title'), 'error');
+  }
 }
 
 async function savePharmacyName(id) {
