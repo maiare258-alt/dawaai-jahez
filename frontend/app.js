@@ -306,7 +306,11 @@ const translations = {
     manages_stock_confirm_on: 'هل ترغب في تفعيل إدارة المخزون لصيدلية "{name}"؟ ستظهر عندئذٍ حالات توفر أدويتها للمرضى في نتائج البحث.',
     manages_stock_confirm_off: 'هل ترغب في إيقاف إدارة المخزون لصيدلية "{name}"؟ ستبقى مُدرجة في جدول المناوبة، ولن تُعرض حالات التوفر، بل ملاحظة تفيد بأنها لم تُسجّل مخزونها.',
     manages_stock_updated: 'تم تحديث حالة الصيدلية',
-    register_manages_stock_label: 'تُحدِّث مخزونها على المنصة (اترك الخيار فارغاً لإدراجها ضمن جدول المناوبة فحسب)',
+    register_listing_type_title: 'نوع الإدراج',
+    register_type_full_label: 'صيدلية كاملة',
+    register_type_full_desc: 'تدير مخزونها على المنصة، فتظهر حالات توفر أدويتها للمرضى في نتائج البحث.',
+    register_type_duty_label: 'مناوبة فقط',
+    register_type_duty_desc: 'تظهر في جدول المناوبة دون عرض حالات توفر الأدوية. يمكن تغيير النوع لاحقاً في أي وقت.',
     directions_btn: 'الاتجاهات',
     directions_btn_title: 'افتح الاتجاهات إلى الصيدلية في خرائط جوجل',
     location_section_title: '📍 موقع الصيدلية على الخريطة',
@@ -611,7 +615,11 @@ const translations = {
     manages_stock_confirm_on: 'Enable stock management for "{name}"? Its medicine availability will be shown to patients in search results.',
     manages_stock_confirm_off: 'Disable stock management for "{name}"? It stays in the on-duty schedule, and instead of availability patients will see a note that its stock is not listed.',
     manages_stock_updated: 'Pharmacy status updated',
-    register_manages_stock_label: 'Updates its stock on the platform (leave empty to list for on-duty only)',
+    register_listing_type_title: 'Listing type',
+    register_type_full_label: 'Full pharmacy',
+    register_type_full_desc: 'Manages its stock on the platform, so medicine availability is shown to patients in search results.',
+    register_type_duty_label: 'On-duty only',
+    register_type_duty_desc: 'Appears in the on-duty schedule without showing medicine availability. The type can be changed later at any time.',
     directions_btn: 'Directions',
     directions_btn_title: 'Open directions to this pharmacy in Google Maps',
     location_section_title: '📍 Pharmacy location on the map',
@@ -3312,7 +3320,23 @@ function renderAdminPanelUI() {
       </select>
       <input id="ph-phone" placeholder="${t('phone_placeholder')}">
       <input id="ph-whatsapp" type="tel" inputmode="numeric" placeholder="${t('whatsapp_phone_input_placeholder')}">
-      <label class="admin-checkbox-row"><input type="checkbox" id="ph-manages-stock"> <span>${t('register_manages_stock_label')}</span></label>
+      <fieldset class="listing-type-group">
+        <legend>${t('register_listing_type_title')}</legend>
+        <label class="listing-type-option">
+          <input type="radio" name="ph-listing-type" value="duty" checked>
+          <span class="listing-type-text">
+            <span class="listing-type-label">${t('register_type_duty_label')}</span>
+            <span class="listing-type-desc">${t('register_type_duty_desc')}</span>
+          </span>
+        </label>
+        <label class="listing-type-option">
+          <input type="radio" name="ph-listing-type" value="full">
+          <span class="listing-type-text">
+            <span class="listing-type-label">${t('register_type_full_label')}</span>
+            <span class="listing-type-desc">${t('register_type_full_desc')}</span>
+          </span>
+        </label>
+      </fieldset>
       <input id="ph-username" placeholder="${t('username_placeholder')}">
       <div class="password-field">
         <input id="ph-password" type="password" placeholder="${t('password_placeholder')}">
@@ -3473,7 +3497,10 @@ async function addPharmacy() {
     city: document.getElementById('ph-city').value,
     phone: document.getElementById('ph-phone').value,
     whatsapp_phone: document.getElementById('ph-whatsapp').value,
-    manages_stock: document.getElementById('ph-manages-stock').checked,
+    // "مناوبة فقط" هو الخيار الافتراضي عن قصد: الخطأ الآمن هو عدم الادعاء.
+    // نسيان اختيار "صيدلية كاملة" يعني عدم عرض حالة التوفر ويُصلح بنقرة، بينما
+    // العكس يجعل المنصة تعلن "غير متوفر" عن صيدلية لم تُسأل أصلاً.
+    manages_stock: (document.querySelector('input[name="ph-listing-type"]:checked') || {}).value === 'full',
     username: document.getElementById('ph-username').value,
     password: document.getElementById('ph-password').value,
   };
