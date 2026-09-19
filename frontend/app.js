@@ -3373,7 +3373,9 @@ function renderAdminPanelUI() {
       </div>
       <p class="muted" style="margin-top:6px;">${t('admin_duty_desc')}</p>
       <div class="admin-duty-tools">
-        <input type="search" id="admin-duty-search" placeholder="${t('admin_duty_search')}" oninput="onAdminDutySearch(this)" value="${escapeHtml(adminDutyFilter)}">
+        <input type="search" id="admin-duty-search" placeholder="${t('admin_duty_search')}"
+               oninput="onAdminDutySearch(this)" onsearch="onAdminDutySearch(this)"
+               onchange="onAdminDutySearch(this)" value="${escapeHtml(adminDutyFilter)}">
         <button class="btn-outline red" onclick="clearAllDuty()">${t('admin_duty_clear_all')}</button>
       </div>
       <div id="admin-duty-list" class="admin-duty-list"></div>
@@ -3598,8 +3600,17 @@ let adminDutyFilter = '';
 const DUTY_DAYS = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
 const DUTY_SHIFTS = ['طوال اليوم', 'صباحاً', 'مساءً'];
 
+// نستمع لثلاثة أحداث لا واحد: زر الـ✕ المدمج في <input type="search"> لا يُطلق
+// حدث input في كل المتصفحات — بعضها يُطلق حدث search وحده. فبالاكتفاء بـinput
+// كانت الكلمة تُمحى بصرياً بينما يبقى الفلتر محتفظاً بها، فتظل القائمة مفلترة
+// رغم أن الحقل يبدو فارغاً.
+//
+// الحارس على التغيير الفعلي يمنع إعادة رسم عشرات الصفوف ثلاث مرات لحدث واحد
+// حين تُطلق المتصفحات أكثر من حدث معاً.
 function onAdminDutySearch(el) {
-  adminDutyFilter = el.value.trim().toLowerCase();
+  const next = el.value.trim().toLowerCase();
+  if (next === adminDutyFilter) return;
+  adminDutyFilter = next;
   renderAdminDutyList();
 }
 
