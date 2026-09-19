@@ -66,6 +66,7 @@
                  'toggleLanguage','toggleNav','whatsappComingSoon','openWhatsappPanel','closeWhatsappPanel',
                  'onWaOverlayClick','onWaResultClick','saveWhatsappPhone','onDirectionsClick',
                  'detectMyLocation','saveLocationFromInput','clearPharmacyLocation','togglePharmacyManagesStock',
+                 'onAdminDutySearch','onAdminDutyToggle','saveAdminDuty','clearAllDuty',
                  'headerGoHome','headerGoOnDuty',
                  'headerGoPharmacist','headerGoCosmetics','headerGoNursing','headerGoAdmin'];
     early.forEach(function (name) {
@@ -511,6 +512,41 @@
   .refresh-results-btn:hover { border-color: #6aa9d9; background: #f4f8fc; }
   .refresh-results-btn:focus-visible { outline: 2px solid #185fa5; outline-offset: 2px; }
   .refresh-results-btn[disabled] { opacity: .55; cursor: default; }
+
+  /* ---- جدول المناوبة بلوحة الإدارة ---- */
+  .admin-duty-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  .admin-duty-tools { display: flex; gap: 10px; margin: 12px 0 6px; flex-wrap: wrap; }
+  .admin-duty-tools input[type="search"] { flex: 1 1 220px; margin: 0; }
+  .admin-duty-tools button { flex: 0 0 auto; }
+  /* ارتفاع محدود وتمرير داخلي: قائمة بستين صيدلية تدفن بقية اللوحة بلا هذا */
+  .admin-duty-list { max-height: 60vh; overflow-y: auto; overscroll-behavior: contain; margin-top: 8px; }
+  .admin-duty-row {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    padding: 12px 10px; border-top: 1px solid #eef2f6; flex-wrap: wrap;
+    border-radius: 10px;
+  }
+  .admin-duty-row:first-child { border-top: none; }
+  /* خلفية خضراء خفيفة للمناوبة: يميّزها المدير بنظرة واحدة وسط عشرات الصفوف */
+  .admin-duty-row.active { background: #f2faf5; }
+  .admin-duty-info { display: flex; flex-direction: column; gap: 4px; min-width: 0; flex: 1 1 200px; }
+  .admin-duty-name { font-size: 15px; font-weight: 600; color: #163a5c; overflow-wrap: anywhere; }
+  .admin-duty-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; font-size: 12.5px; color: #6b7a87; }
+  .duty-audit { font-size: 12.5px; }
+  /* تمييز تعديل الصيدلي بلون مختلف: تحذير بصري للمدير ألا يدهس تعديلاً حديثاً */
+  .duty-audit.by-pharmacy { color: #0f7a52; font-weight: 600; }
+  .admin-duty-controls { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .admin-duty-controls select { margin: 0; min-width: 110px; flex: 0 1 auto; }
+  .admin-duty-controls button { flex: 0 0 auto; }
+  .admin-duty-toggle { display: flex; align-items: center; gap: 7px; font-size: 13.5px; cursor: pointer; white-space: nowrap; }
+  .admin-duty-toggle input[type="checkbox"] { width: 18px; height: 18px; margin: 0; cursor: pointer; }
+
+  @media (max-width: 700px) {
+    .admin-duty-row { flex-direction: column; align-items: stretch; }
+    .admin-duty-controls { width: 100%; }
+    .admin-duty-controls select { flex: 1 1 calc(50% - 4px); min-width: 0; }
+    .admin-duty-controls button { width: 100%; }
+    .admin-duty-toggle { width: 100%; }
+  }
 
   /* ---- الصيدليات المُدرجة للمناوبة فقط ---- */
   /* شارة محايدة رمادية لا خضراء ولا حمراء: الحالة ليست "متوفر" ولا "غير متوفر"،
