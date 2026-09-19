@@ -162,7 +162,7 @@ router.get('/', adminAuth, async (req, res) => {
 // تسجيل صيدلية جديدة (للإدارة فقط)
 // POST /api/pharmacies/register  { name, address, phone, username, password }
 router.post('/register', adminAuth, async (req, res) => {
-  const { name, address, phone, city, whatsapp_phone, username, password } = req.body;
+  const { name, address, phone, city, whatsapp_phone, manages_stock, username, password } = req.body;
   if (!name || !username || !password) {
     return res.status(400).json({ error: 'الاسم واسم المستخدم وكلمة المرور مطلوبة' });
   }
@@ -181,7 +181,7 @@ router.post('/register', adminAuth, async (req, res) => {
       return res.status(409).json({ error: 'اسم المستخدم مستخدم مسبقاً' });
     }
     const passwordHash = await bcrypt.hash(password, 10);
-    const pharmacy = await db.addPharmacy({ name, address, phone, city, whatsappPhone: waPhone, username, passwordHash });
+    const pharmacy = await db.addPharmacy({ name, address, phone, city, whatsappPhone: waPhone, managesStock: manages_stock === true || manages_stock === 'true', username, passwordHash });
     const { owner_password_hash, ...safePharmacy } = pharmacy;
     res.status(201).json(safePharmacy);
   } catch (err) {
@@ -213,6 +213,7 @@ router.post('/login', rateLimit(10, 15 * 60 * 1000), async (req, res) => {
       city: pharmacy.city || null,
       assistant_phone: pharmacy.assistant_phone || null,
       whatsapp_phone: pharmacy.whatsapp_phone || null,
+      manages_stock: pharmacy.manages_stock === true,
       latitude: pharmacy.latitude !== null && pharmacy.latitude !== undefined ? pharmacy.latitude : null,
       longitude: pharmacy.longitude !== null && pharmacy.longitude !== undefined ? pharmacy.longitude : null,
       on_duty: !!pharmacy.on_duty,
@@ -436,6 +437,31 @@ router.put('/:id/location', adminAuth, async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'حدث خطأ أثناء تحديث الموقع' });
+  }
+});
+
+// تبديل حالة "تُحدّث مخزونها" (للإدارة فقط)
+// PUT /api/pharmacies/:id/manages-stock  { manages_stock: true|false }
+//
+// الإدارة وحدها تقرر أي صيدلية مُدرجة رسمياً بمخزونها، وأيها مُدرجة للمناوبة فقط.
+// القرار إداري لا يخص الصيدلي، فلا يُتاح من لوحته.
+router.put('/:id/manages-stock', adminAuth, async (req, res) => {
+  const raw = req.body.manages_stock;
+  // نقبل القيمة المنطقية أو نصها فقط — لا نستخدم truthiness حتى لا يُفسَّر
+  // نص مثل "false" على أنه true.
+  if (raw !== true && raw !== false && raw !== 'true' && raw !== 'false') {
+    return res.status(400).json({ error: 'قيمة غير صالحة' });
+  }
+  const value = raw === true || raw === 'true';
+  try {
+    const existing = await db.getPharmacyById(req.params.id);
+    if (!existing) return res.status(404).json({ error: 'الصيدلية غير موجودة' });
+
+    const updated = await db.setManagesStock(req.params.id, value);
+    res.json({ id: updated.id, name: updated.name, manages_stock: updated.manages_stock });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'حدث خطأ أثناء تحديث حالة الصيدلية' });
   }
 });
 
