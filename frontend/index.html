@@ -66,6 +66,7 @@
                  'toggleLanguage','toggleNav','whatsappComingSoon','openWhatsappPanel','closeWhatsappPanel',
                  'onWaOverlayClick','onWaResultClick','saveWhatsappPhone','onDirectionsClick',
                  'detectMyLocation','saveLocationFromInput','clearPharmacyLocation','togglePharmacyManagesStock',
+                 'savePharmacyHours','clearPharmacyHours','toggleClosedToday',
                  'onAdminDutySearch','onAdminDutyToggle','saveAdminDuty','clearAllDuty',
                  'onAdminUsernameSearch','saveAdminUsername',
                  'headerGoHome','headerGoOnDuty',
@@ -539,6 +540,46 @@
   /* تمييز الخيار المختار بصرياً، فيعرف المدير ما اختاره بنظرة */
   .listing-type-option:has(input:checked) { background: #eef5fb; }
   .listing-type-option:has(input:checked) .listing-type-label { color: #185fa5; }
+
+  /* ---- ساعات الدوام ---- */
+  .hours-current {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px;
+    background: #f4f8fc; border: 1px solid #e3ebf3; border-radius: 12px;
+    padding: 10px 14px; margin-bottom: 14px; font-size: 13.5px;
+  }
+  .hours-value { font-weight: 700; color: #163a5c; direction: ltr; unicode-bidi: isolate; }
+  .hours-overnight { color: #9a6b00; font-size: 12.5px; }
+  .hours-closed-today { color: #b3261e; font-weight: 600; width: 100%; }
+  .hours-duty-note { color: #0f7a52; font-weight: 600; width: 100%; }
+  .hours-inputs { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+  .hours-field { display: flex; flex-direction: column; gap: 5px; flex: 1 1 150px; font-size: 13.5px; color: #3a4a58; }
+  /* حقل الوقت لاتيني دائماً: نثبّت اتجاهه حتى لا ينقلب داخل واجهة عربية */
+  .hours-field input { margin: 0; direction: ltr; text-align: left; }
+  .hours-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+  .hours-actions > button { flex: 1 1 160px; }
+  .closed-today-block { margin-top: 18px; padding-top: 16px; border-top: 1px dashed #e3ebf3; }
+  .closed-today-block h4 { margin: 0 0 4px; font-size: 15px; color: #163a5c; }
+  .closed-today-block .muted { margin: 0 0 10px; font-size: 12.5px; line-height: 1.6; }
+
+  /* شارة الفتح والإغلاق ببطاقات النتائج والمناوبة */
+  .open-badge {
+    display: inline-flex; align-items: center; gap: 4px;
+    font-size: 12px; font-weight: 600; padding: 2px 9px; border-radius: 999px;
+    margin: 0 6px; white-space: nowrap; vertical-align: middle;
+  }
+  .open-badge.open { background: #e8f7f0; color: #0f7a52; border: 1px solid #b6e3cf; }
+  .open-badge.closed { background: #fdeceb; color: #b3261e; border: 1px solid #f5c6c3; }
+
+  /* زر السلة حين تكون الصيدلية مغلقة: أحمر ويبقى قابلاً للضغط */
+  .result-add-btn-full.closed {
+    background: #b3261e;
+  }
+  .result-add-btn-full.closed:hover { background: #9a1f18; }
+
+  @media (max-width: 700px) {
+    .hours-actions > button { flex: 1 1 100%; }
+    .open-badge { margin: 4px 0 0; }
+  }
 
   /* ---- تعديل أسماء المستخدمين ---- */
   .admin-username-search { margin: 12px 0 8px; width: 100%; }
@@ -1464,6 +1505,35 @@
         <input id="whatsapp-phone-input" type="tel" inputmode="numeric" placeholder="رقم واتساب (مثال: 0932985852)">
         <p class="muted" id="whatsapp-phone-hint" style="margin-top:-4px; font-size:13px;">سيظهر زر مراسلتك للمرضى فقط إذا أدخلت رقماً. اتركه فارغاً لإخفائه.</p>
         <button class="primary" onclick="saveWhatsappPhone()" id="save-whatsapp-btn">حفظ رقم واتساب</button>
+      </div>
+
+      <div class="box" style="margin-top:20px;">
+        <h3 style="margin-top:0;" id="hours-section-title">🕒 ساعات دوام الصيدلية</h3>
+        <p class="muted" id="hours-section-desc" style="margin-top:-8px;">حدِّد ساعات الدوام مرة واحدة، لتُحسب حالة الفتح والإغلاق تلقائياً كل يوم.</p>
+
+        <div id="hours-current" class="hours-current"></div>
+
+        <div class="hours-inputs">
+          <label class="hours-field">
+            <span id="hours-opens-label">وقت الفتح</span>
+            <input id="hours-opens-input" type="time" step="60">
+          </label>
+          <label class="hours-field">
+            <span id="hours-closes-label">وقت الإغلاق</span>
+            <input id="hours-closes-input" type="time" step="60">
+          </label>
+        </div>
+
+        <div class="hours-actions">
+          <button type="button" class="primary" onclick="savePharmacyHours()" id="save-hours-btn">حفظ ساعات الدوام</button>
+          <button type="button" class="btn-outline red" onclick="clearPharmacyHours()" id="clear-hours-btn">مسح الساعات</button>
+        </div>
+
+        <div class="closed-today-block">
+          <h4 id="closed-today-title">إغلاق استثنائي لليوم</h4>
+          <p class="muted" id="closed-today-desc">يُستخدم عند الإغلاق لظرف طارئ أو عطلة. يعود الدوام إلى جدوله المعتاد تلقائياً غداً.</p>
+          <button type="button" class="btn-outline" onclick="toggleClosedToday()" id="closed-today-btn">إعلان الإغلاق اليوم</button>
+        </div>
       </div>
 
       <div class="box" style="margin-top:20px;">
