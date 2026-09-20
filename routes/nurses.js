@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const db = require('../db');
 const adminAuth = require('../middleware/adminAuth');
+const rateLimit = require('../middleware/rateLimit');
 
 // ========== مسارات عامة (واجهة المريض) ==========
 
@@ -31,13 +32,25 @@ router.get('/:id/ratings', async (req, res) => {
 
 // إرسال تقييم جديد - بيروح "قيد المراجعة" دايماً، ما بيظهر للعموم إلا بعد موافقة الإدارة
 // POST /api/nurses/:id/ratings  { patient_name, patient_phone, stars, comment }
-router.post('/:id/ratings', async (req, res) => {
+// مسار عام بالضرورة (المريض ليس له حساب)، فهو معرّض للإساءة.
+// 5 تقييمات كل 15 دقيقة لكل عنوان: يكفي لمن يقيّم أكثر من ممرض في جلسة،
+// ويقطع السبام الآلي الذي قد يغرق قائمة المراجعة لدى الإدارة.
+const MAX_RATING_NAME = 80;
+const MAX_COMMENT = 500;
+
+router.post('/:id/ratings', rateLimit(5, 15 * 60 * 1000), async (req, res) => {
   const { patient_name, patient_phone, stars, comment } = req.body;
   if (!patient_name || !patient_phone) {
     return res.status(400).json({ error: 'الاسم ورقم الهاتف مطلوبان' });
   }
+  if (typeof patient_name !== 'string' || patient_name.trim().length > MAX_RATING_NAME) {
+    return res.status(400).json({ error: 'الاسم طويل جداً' });
+  }
   if (!/^[0-9]{7,15}$/.test(patient_phone)) {
     return res.status(400).json({ error: 'رقم الهاتف يجب أن يتكون من أرقام فقط' });
+  }
+  if (comment !== undefined && comment !== null && (typeof comment !== 'string' || comment.length > MAX_COMMENT)) {
+    return res.status(400).json({ error: 'التعليق طويل جداً' });
   }
   const starsNum = Number(stars);
   if (!Number.isInteger(starsNum) || starsNum < 1 || starsNum > 5) {
