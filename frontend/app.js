@@ -306,6 +306,36 @@ const translations = {
     manages_stock_confirm_on: 'هل ترغب في تفعيل إدارة المخزون لصيدلية "{name}"؟ ستظهر عندئذٍ حالات توفر أدويتها للمرضى في نتائج البحث.',
     manages_stock_confirm_off: 'هل ترغب في إيقاف إدارة المخزون لصيدلية "{name}"؟ ستبقى مُدرجة في جدول المناوبة، ولن تُعرض حالات التوفر، بل ملاحظة تفيد بأنها لم تُسجّل مخزونها.',
     manages_stock_updated: 'تم تحديث حالة الصيدلية',
+    open_now_badge: 'مفتوحة الآن',
+    closed_now_badge: 'مغلقة الآن',
+    closed_opens_at: 'مغلقة الآن، وتفتح الساعة {time}',
+    closed_today_badge: 'مغلقة اليوم',
+    cart_closed_btn: 'الصيدلية مغلقة، أرسل الطلب',
+    cart_closed_notice: 'الصيدلية مغلقة الآن. سيصلك الرد بعد فتحها الساعة {time}.',
+    cart_closed_notice_today: 'الصيدلية مغلقة اليوم. سيصلك الرد بعد فتحها.',
+    hours_section_title: '🕒 ساعات دوام الصيدلية',
+    hours_section_desc: 'حدِّد ساعات الدوام مرة واحدة، لتُحسب حالة الفتح والإغلاق تلقائياً كل يوم. يمنع هذا وصول طلبات في ساعات متأخرة دون أن يعرف المريض أنك مغلق.',
+    hours_opens_label: 'وقت الفتح',
+    hours_closes_label: 'وقت الإغلاق',
+    hours_save: 'حفظ ساعات الدوام',
+    hours_clear: 'مسح الساعات',
+    hours_saved: 'حُفظت ساعات الدوام بنجاح',
+    hours_cleared: 'مُسحت ساعات الدوام',
+    hours_none: 'لم تُحدَّد ساعات الدوام بعد',
+    hours_current: 'الدوام الحالي:',
+    hours_to: 'حتى',
+    hours_overnight_note: 'دوام ممتد بعد منتصف الليل',
+    hours_both_required: 'يلزم تحديد وقتي الفتح والإغلاق معاً',
+    hours_same_time: 'وقت الفتح مطابق لوقت الإغلاق',
+    invalid_time_error: 'وقت غير صالح. استخدم الصيغة ساعة:دقيقة مثل 08:30',
+    closed_today_title: 'إغلاق استثنائي لليوم',
+    closed_today_desc: 'يُستخدم عند الإغلاق لظرف طارئ أو عطلة. يعود الدوام إلى جدوله المعتاد تلقائياً غداً.',
+    closed_today_on: 'إعلان الإغلاق اليوم',
+    closed_today_off: 'التراجع عن الإغلاق',
+    closed_today_active: 'صيدليتك معلنة مغلقة اليوم.',
+    closed_today_saved: 'أُعلن إغلاق الصيدلية اليوم',
+    closed_today_removed: 'عاد الدوام إلى جدوله المعتاد',
+    duty_overrides_hours: 'صيدليتك مناوبة، لذا تظهر مفتوحة بصرف النظر عن ساعات الدوام.',
     admin_username_title: '👤 تعديل أسماء المستخدمين',
     admin_username_desc: 'اسم المستخدم هو ما يدخل به الصيدلي إلى لوحته. لا يؤثر تعديله على كلمة المرور ولا المخزون ولا الطلبات ولا المناوبة.',
     admin_username_search: 'ابحث باسم الصيدلية أو اسم المستخدم',
@@ -628,6 +658,36 @@ const translations = {
     manages_stock_confirm_on: 'Enable stock management for "{name}"? Its medicine availability will be shown to patients in search results.',
     manages_stock_confirm_off: 'Disable stock management for "{name}"? It stays in the on-duty schedule, and instead of availability patients will see a note that its stock is not listed.',
     manages_stock_updated: 'Pharmacy status updated',
+    open_now_badge: 'Open now',
+    closed_now_badge: 'Closed now',
+    closed_opens_at: 'Closed now, opens at {time}',
+    closed_today_badge: 'Closed today',
+    cart_closed_btn: 'Pharmacy closed, send order',
+    cart_closed_notice: 'This pharmacy is closed now. You will get a reply after it opens at {time}.',
+    cart_closed_notice_today: 'This pharmacy is closed today. You will get a reply after it opens.',
+    hours_section_title: '🕒 Pharmacy opening hours',
+    hours_section_desc: 'Set your hours once, and the open or closed status is calculated automatically every day. This prevents late-night orders arriving without the patient knowing you are closed.',
+    hours_opens_label: 'Opens at',
+    hours_closes_label: 'Closes at',
+    hours_save: 'Save opening hours',
+    hours_clear: 'Clear hours',
+    hours_saved: 'Opening hours saved successfully',
+    hours_cleared: 'Opening hours cleared',
+    hours_none: 'Opening hours have not been set yet',
+    hours_current: 'Current hours:',
+    hours_to: 'to',
+    hours_overnight_note: 'Hours extend past midnight',
+    hours_both_required: 'Both opening and closing times are required',
+    hours_same_time: 'Opening time is the same as closing time',
+    invalid_time_error: 'Invalid time. Use the HH:MM format, for example 08:30',
+    closed_today_title: 'Exceptional closure for today',
+    closed_today_desc: 'Use this when closing for an emergency or a holiday. Hours return to the usual schedule automatically tomorrow.',
+    closed_today_on: 'Mark as closed today',
+    closed_today_off: 'Undo closure',
+    closed_today_active: 'Your pharmacy is marked closed today.',
+    closed_today_saved: 'The pharmacy is marked closed today',
+    closed_today_removed: 'Hours returned to the usual schedule',
+    duty_overrides_hours: 'Your pharmacy is on duty, so it shows as open regardless of opening hours.',
     admin_username_title: '👤 Edit usernames',
     admin_username_desc: 'The username is what the pharmacist signs in with. Changing it does not affect the password, stock, orders or duty schedule.',
     admin_username_search: 'Search by pharmacy or username',
@@ -796,7 +856,10 @@ const BACKEND_ERROR_MAP = {
   'اسم المستخدم مطلوب': 'admin_username_required',
   'اسم المستخدم لا يقبل المسافات': 'admin_username_no_spaces',
   'اسم المستخدم قصير جداً': 'admin_username_too_short',
-  'اسم المستخدم مستخدم مسبقاً': 'admin_username_taken'
+  'اسم المستخدم مستخدم مسبقاً': 'admin_username_taken',
+  'وقت غير صالح': 'invalid_time_error',
+  'يلزم تحديد وقتي الفتح والإغلاق معاً': 'hours_both_required',
+  'وقت الفتح مطابق لوقت الإغلاق': 'hours_same_time'
 };
 function translateApiError(rawError) {
   const key = BACKEND_ERROR_MAP[rawError];
@@ -849,6 +912,17 @@ function applyLanguage() {
   const detectBtn = document.getElementById('detect-location-btn');
   if (detectBtn && !detectBtn.disabled) detectBtn.textContent = t('detect_location_btn');
   renderSavedLocation();
+
+  // ---------- ساعات الدوام ----------
+  document.getElementById('hours-section-title').textContent = t('hours_section_title');
+  document.getElementById('hours-section-desc').textContent = t('hours_section_desc');
+  document.getElementById('hours-opens-label').textContent = t('hours_opens_label');
+  document.getElementById('hours-closes-label').textContent = t('hours_closes_label');
+  document.getElementById('save-hours-btn').textContent = t('hours_save');
+  document.getElementById('clear-hours-btn').textContent = t('hours_clear');
+  document.getElementById('closed-today-title').textContent = t('closed_today_title');
+  document.getElementById('closed-today-desc').textContent = t('closed_today_desc');
+  renderPharmacyHours();
 
   document.getElementById('feature1-title').textContent = t('feature1_title');
   document.getElementById('feature1-desc').textContent = t('feature1_desc');
@@ -1165,6 +1239,15 @@ async function addToCart(medicineId, pharmacyId, btn) {
   if (!item) return;
   const avail = item.availability.find(a => a.pharmacy_id === pharmacyId);
   if (!avail) return;
+
+  // الصيدلية مغلقة: نضبط توقع المريض قبل الإضافة بدل منعه.
+  // المنع يحرمه من إرسال طلب ليلي ليُجهَّز صباحاً، وهو سلوك مفيد. والإشعار
+  // يمنع ما أردنا منعه فعلاً: أن ينتظر رداً فورياً أو يتصل في ساعة متأخرة.
+  const notice = btn && btn.getAttribute('data-closed-notice');
+  if (notice) {
+    const proceed = await customConfirm(notice, 'warning');
+    if (!proceed) return;
+  }
   const medicineName = item.medicine.name;
   const genericName = item.medicine.generic_name;
   const pharmacyName = avail.pharmacy_name;
@@ -1491,6 +1574,96 @@ async function checkMyOrdersStatus() {
   } catch (err) { /* تجاهل بصمت، رح يعيد المحاولة بالجولة الجاية */ }
 }
 
+// ================= حالة الفتح والإغلاق =================
+// المشكلة التي تحلها: مريض يبحث ليلاً فيرى "متوفر"، فيرسل طلباً لا يأتيه رد،
+// ثم يتصل بالصيدلي في ساعة متأخرة فيزعجه.
+//
+// الحساب آلي من ساعات الدوام المحفوظة، لا بزر يضغطه الصيدلي يومياً. الزر اليدوي
+// يفترض التزاماً مرتين كل يوم طوال السنة، وأول ليلة يُنسى فيها تعود المشكلة أسوأ.
+
+const DAMASCUS_TZ = 'Asia/Damascus';
+
+// الوقت الحالي بدمشق بالدقائق منذ منتصف الليل.
+// نحسب بتوقيت دمشق صراحةً لا بتوقيت جهاز المريض: قد يفتح الموقع من الخليج أو
+// أوروبا، والصيدلية في سوريا. وIntl يتولى التوقيت الصيفي إن وُجد.
+function damascusNowMinutes() {
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone: DAMASCUS_TZ, hour: '2-digit', minute: '2-digit', hour12: false
+  }).formatToParts(new Date());
+  const h = Number(parts.find(p => p.type === 'hour').value);
+  const m = Number(parts.find(p => p.type === 'minute').value);
+  return h * 60 + m;
+}
+
+function damascusTodayDate() {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: DAMASCUS_TZ, year: 'numeric', month: '2-digit', day: '2-digit'
+  }).format(new Date());
+}
+
+// "HH:MM" إلى دقائق. نُرجع null لأي قيمة تالفة بدل صفر، فالصفر وقت صحيح
+// (منتصف الليل) وخلطه بالتالف يُنتج حالة خاطئة.
+function timeToMinutes(hhmm) {
+  if (typeof hhmm !== 'string') return null;
+  const m = hhmm.trim().match(/^(\d{1,2}):(\d{2})$/);
+  if (!m) return null;
+  const h = Number(m[1]), mi = Number(m[2]);
+  if (h < 0 || h > 23 || mi < 0 || mi > 59) return null;
+  return h * 60 + mi;
+}
+
+// تنسيق الوقت للعرض. نعرضه كما هو بنظام 24 ساعة: مألوف في سوريا، ويتجنّب
+// التباس ص/م الذي قد يجعل المريض يظن أن الصيدلية تفتح الثامنة مساءً.
+function formatTime(hhmm) {
+  return typeof hhmm === 'string' ? hhmm : '';
+}
+
+// حالة الصيدلية الآن.
+// تُرجع null حين لا نعرف: صيدلية بلا ساعات محفوظة لا تُعرض لها أي حالة، فلا
+// ندّعي ما لا نعرف — نفس مبدأ زر واتساب وزر الاتجاهات.
+//
+// ترتيب الأولويات مقصود:
+//   1) المناوبة تتجاوز كل شيء: صيدلية مناوبة الليلة مفتوحة وإن قال جدولها غير ذلك.
+//   2) الإغلاق الاستثنائي لليوم يتجاوز الجدول المعتاد.
+//   3) الجدول المعتاد.
+function pharmacyOpenState(p) {
+  if (!p) return null;
+
+  if (p.on_duty === true) {
+    return { open: true, reason: 'duty', opensAt: p.opens_at || null };
+  }
+
+  const opens = timeToMinutes(p.opens_at);
+  const closes = timeToMinutes(p.closes_at);
+  const hasHours = opens !== null && closes !== null && opens !== closes;
+
+  // إغلاق استثنائي معلن لليوم نفسه. نقارن التاريخ لا نكتفي بوجود القيمة،
+  // فيسقط الإعلان تلقائياً غداً دون أي إجراء من الصيدلي.
+  if (p.closed_override_date && p.closed_override_date === damascusTodayDate()) {
+    return { open: false, reason: 'today', opensAt: hasHours ? p.opens_at : null };
+  }
+
+  if (!hasHours) return null;
+
+  const now = damascusNowMinutes();
+  // دوام ممتد بعد منتصف الليل (مثل 09:00 إلى 01:00): وقت الإغلاق أصغر من الفتح،
+  // فالفترة المفتوحة هي اتحاد المجالين لا ما بينهما.
+  const isOpen = closes > opens
+    ? (now >= opens && now < closes)
+    : (now >= opens || now < closes);
+
+  return { open: isOpen, reason: 'schedule', opensAt: p.opens_at };
+}
+
+// شارة الحالة ببطاقة النتيجة وبطاقة المناوبة
+function openStateBadgeHtml(p) {
+  const st = pharmacyOpenState(p);
+  if (!st) return '';
+  if (st.open) return `<span class="open-badge open">🟢 ${t('open_now_badge')}</span>`;
+  if (st.reason === 'today') return `<span class="open-badge closed">🔴 ${t('closed_today_badge')}</span>`;
+  return `<span class="open-badge closed">🔴 ${tFormat('closed_opens_at', { time: formatTime(st.opensAt) })}</span>`;
+}
+
 // ================= الاتجاهات على الخريطة =================
 // قرار تصميمي: رابط خرائط جوجل، لا خريطة مدمجة.
 // السبب: الخريطة المدمجة تتطلب مفتاح Google Maps API وحساب فوترة ببطاقة — غير متاح
@@ -1806,7 +1979,7 @@ async function loadOnDuty() {
             return `
               <div class="duty-card">
                 <div class="duty-card-top">
-                  <span class="duty-card-name"><bdi>${escapeHtml(p.name)}</bdi>${verifiedBadgeHtml(p.verified)}${p.city ? ` <span class="muted" style="font-size:13px;">- <bdi>${escapeHtml(cityName(p.city))}</bdi></span>` : ''}</span>
+                  <span class="duty-card-name"><bdi>${escapeHtml(p.name)}</bdi>${verifiedBadgeHtml(p.verified)}${openStateBadgeHtml(p)}${p.city ? ` <span class="muted" style="font-size:13px;">- <bdi>${escapeHtml(cityName(p.city))}</bdi></span>` : ''}</span>
                   ${hasLocation(p.latitude, p.longitude) ? `<div class="duty-card-actions">${directionsBtnHtml(p.latitude, p.longitude)}</div>` : ''}
                   <span class="duty-status-badge">${t('onduty_now_badge')}</span>
                 </div>
@@ -2248,6 +2421,7 @@ async function runSearch() {
               ${a.manages_stock
                 ? `<span class="badge ${a.available ? 'yes' : 'no'}">${a.available ? t('available_badge') : t('unavailable_badge')}</span>`
                 : `<span class="badge neutral">${t('stock_unmanaged_badge')}</span>`}
+              ${openStateBadgeHtml(a)}
             </div>
             <div class="result-row">${t('active_ingredient_label')} ${escapeHtml(item.medicine.generic_name) || '-'}</div>
             <div class="result-pharmacy">
@@ -2267,7 +2441,15 @@ async function runSearch() {
               ? stockFreshnessHtml(a.stock_updated_at)
               : `<div class="stock-unmanaged-note">${t('stock_unmanaged_note')}</div>`}
             <div class="result-actions">
-              ${(a.manages_stock && a.available) ? `<button class="result-add-btn-full" onclick="addToCart(${item.medicine.id}, ${a.pharmacy_id}, this)">${t('add_to_cart_btn')}</button>` : ''}
+              ${(a.manages_stock && a.available) ? (() => {
+                const st = pharmacyOpenState(a);
+                const closed = st && !st.open;
+                return `<button class="result-add-btn-full${closed ? ' closed' : ''}"
+                          onclick="addToCart(${item.medicine.id}, ${a.pharmacy_id}, this)"
+                          ${closed ? `data-closed-notice="${escapeHtml(st.reason === 'today' ? t('cart_closed_notice_today') : tFormat('cart_closed_notice', { time: formatTime(st.opensAt) }))}"` : ''}>
+                          ${closed ? t('cart_closed_btn') : t('add_to_cart_btn')}
+                        </button>`;
+              })() : ''}
               ${(a.whatsapp_phone || hasLocation(a.latitude, a.longitude)) ? `<div class="result-actions-secondary">
                 ${waResultBtnHtml(a.whatsapp_phone, item.medicine.name)}
                 ${directionsBtnHtml(a.latitude, a.longitude)}
@@ -2366,6 +2548,9 @@ function loadDashboard() {
     hasLocation(currentPharmacy.latitude, currentPharmacy.longitude)
       ? `${currentPharmacy.latitude}, ${currentPharmacy.longitude}` : '';
   renderSavedLocation();
+  document.getElementById('hours-opens-input').value = currentPharmacy.opens_at || '';
+  document.getElementById('hours-closes-input').value = currentPharmacy.closes_at || '';
+  renderPharmacyHours();
   document.getElementById('duty-day').disabled = !currentPharmacy.on_duty;
   document.getElementById('duty-shift').disabled = !currentPharmacy.on_duty;
   document.getElementById('duty-start-time').disabled = !currentPharmacy.on_duty;
@@ -2422,6 +2607,106 @@ async function saveDuty() {
     customAlert(t('duty_saved_success'), 'success');
   } catch (err) {
     customAlert(t('server_error_title'), 'error');
+  }
+}
+
+// ---------- ساعات الدوام (لوحة الصيدلي) ----------
+
+// عرض الدوام المحفوظ وحالة الإغلاق الاستثنائي
+function renderPharmacyHours() {
+  const box = document.getElementById('hours-current');
+  if (!box) return;
+  const p = currentPharmacy || {};
+  const opens = p.opens_at, closes = p.closes_at;
+  const hasHours = timeToMinutes(opens) !== null && timeToMinutes(closes) !== null && opens !== closes;
+
+  let html = '';
+  if (!hasHours) {
+    html = `<span class="muted">${t('hours_none')}</span>`;
+  } else {
+    // ننبّه للدوام الممتد بعد منتصف الليل: الصيدلي قد يظن أنه أخطأ الإدخال
+    const overnight = timeToMinutes(closes) < timeToMinutes(opens);
+    html = `<span class="muted">${t('hours_current')}</span>
+      <bdi class="hours-value">${escapeHtml(opens)} ${t('hours_to')} ${escapeHtml(closes)}</bdi>
+      ${overnight ? `<span class="hours-overnight">${t('hours_overnight_note')}</span>` : ''}`;
+  }
+
+  const closedToday = p.closed_override_date && p.closed_override_date === damascusTodayDate();
+  if (closedToday) html += `<span class="hours-closed-today">${t('closed_today_active')}</span>`;
+  if (p.on_duty) html += `<span class="hours-duty-note">${t('duty_overrides_hours')}</span>`;
+
+  box.innerHTML = html;
+
+  const btn = document.getElementById('closed-today-btn');
+  if (btn) btn.textContent = closedToday ? t('closed_today_off') : t('closed_today_on');
+}
+
+async function savePharmacyHours() {
+  const opens = document.getElementById('hours-opens-input').value.trim();
+  const closes = document.getElementById('hours-closes-input').value.trim();
+  await submitPharmacyHours(opens, closes);
+}
+
+async function clearPharmacyHours() {
+  await submitPharmacyHours('', '');
+}
+
+async function submitPharmacyHours(opens, closes) {
+  const btn = document.getElementById('save-hours-btn');
+  if (btn) btn.disabled = true;
+  try {
+    const res = await fetch(`${API}/pharmacies/self/hours`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        username: currentPharmacy.username,
+        password: currentPharmacy.password,
+        opens_at: opens,
+        closes_at: closes
+      })
+    });
+    const data = await res.json();
+    if (!res.ok) { await customAlert(translateApiError(data.error), 'error'); return; }
+
+    currentPharmacy.opens_at = data.opens_at;
+    currentPharmacy.closes_at = data.closes_at;
+    document.getElementById('hours-opens-input').value = data.opens_at || '';
+    document.getElementById('hours-closes-input').value = data.closes_at || '';
+    renderPharmacyHours();
+    await customAlert(data.opens_at ? t('hours_saved') : t('hours_cleared'), 'success');
+  } catch (err) {
+    await customAlert(t('server_error_title'), 'error');
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+async function toggleClosedToday() {
+  const closedNow = currentPharmacy.closed_override_date
+    && currentPharmacy.closed_override_date === damascusTodayDate();
+  const btn = document.getElementById('closed-today-btn');
+  if (btn) btn.disabled = true;
+  try {
+    const res = await fetch(`${API}/pharmacies/self/closed-today`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        username: currentPharmacy.username,
+        password: currentPharmacy.password,
+        closed: !closedNow
+      })
+    });
+    const data = await res.json();
+    if (!res.ok) { await customAlert(translateApiError(data.error), 'error'); return; }
+
+    currentPharmacy.closed_override_date = data.closed_override_date;
+    renderPharmacyHours();
+    await customAlert(data.closed_override_date ? t('closed_today_saved') : t('closed_today_removed'), 'success');
+  } catch (err) {
+    await customAlert(t('server_error_title'), 'error');
+  } finally {
+    const b = document.getElementById('closed-today-btn');
+    if (b) b.disabled = false;
   }
 }
 
