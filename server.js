@@ -41,7 +41,24 @@ app.use('/api/orders', ordersRoutes);
 app.use('/api/nurses', nursesRoutes);
 app.use('/api/stats', statsRoutes);
 
-app.get('/health', (req, res) => res.json({ status: 'ok' }));
+// فحص الصحة. يفحص قاعدة البيانات فعلياً لا يرد "ok" بلا شرط:
+// رد إيجابي من خادم لا يصل إلى قاعدته يُفرغ المراقبة من معناها.
+//
+// 503 عند العطل مقصود: أدوات المراقبة تعتبر أي رد خارج 2xx تعطّلاً فتُرسل
+// تنبيهاً، وهذا بالضبط ما نريده. والخادم يبقى مستيقظاً على أي حال، فطلب
+// إبقاء الخدمة حية يؤدي غرضه سواء كانت القاعدة سليمة أم لا.
+//
+// no-store ضروري: رد مخبَّأ من وسيط أو شبكة توصيل يجعل المراقبة ترى حالة قديمة.
+app.get('/health', async (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  try {
+    await db.ping();
+    res.json({ status: 'ok', db: 'ok', time: new Date().toISOString() });
+  } catch (err) {
+    console.error('فحص الصحة: تعذّر الوصول إلى قاعدة البيانات', err.message);
+    res.status(503).json({ status: 'degraded', db: 'down', time: new Date().toISOString() });
+  }
+});
 
 db.initDb()
   .then(() => {
