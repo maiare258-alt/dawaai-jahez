@@ -113,6 +113,36 @@ function parseLocation(rawLat, rawLng) {
   return { latitude: lat.value, longitude: lng.value, error: null };
 }
 
+// ===== ساعات الدوام والتوقيت المحلي =====
+// خادم Render يعمل بتوقيت UTC، وسوريا على UTC+3. لو حسبنا "اليوم" أو "الآن"
+// من توقيت الخادم لاختلف عن يوم المستخدم في سوريا ثلاث ساعات، فتظهر الصيدلية
+// مغلقة وهي مفتوحة. لذلك نحسب بتوقيت دمشق صراحةً عبر Intl، لا بإزاحة ثابتة،
+// حتى يصح الحساب لو غيّرت سوريا توقيتها الصيفي مستقبلاً.
+const DAMASCUS_TZ = 'Asia/Damascus';
+
+function damascusToday() {
+  // en-CA يعطي الصيغة YYYY-MM-DD مباشرة
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: DAMASCUS_TZ, year: 'numeric', month: '2-digit', day: '2-digit'
+  }).format(new Date());
+}
+
+// وقت بصيغة "HH:MM" بنظام 24 ساعة. نرفض ما عداه: قيمة تالفة في هذا الحقل
+// تجعل المنصة تعلن حالة خاطئة عن صيدلية حقيقية.
+function parseTimeOfDay(raw) {
+  if (raw === undefined || raw === null || (typeof raw === 'string' && raw.trim() === '')) {
+    return { value: null, error: null };
+  }
+  if (typeof raw !== 'string') return { value: null, error: 'وقت غير صالح' };
+  // نحوّل الأرقام العربية الشرقية، فقد يكتب الصيدلي بلوحة مفاتيح عربية
+  const text = raw.trim().replace(/[٠-٩]/g, ch => String('٠١٢٣٤٥٦٧٨٩'.indexOf(ch)));
+  const m = text.match(/^(\d{1,2}):(\d{2})$/);
+  if (!m) return { value: null, error: 'وقت غير صالح' };
+  const h = Number(m[1]), mi = Number(m[2]);
+  if (h < 0 || h > 23 || mi < 0 || mi > 59) return { value: null, error: 'وقت غير صالح' };
+  return { value: String(h).padStart(2, '0') + ':' + m[2], error: null };
+}
+
 const ALLOWED_CITIES = [
   'damascus', 'rif_dimashq', 'aleppo', 'homs', 'hama', 'salamiyah',
   'latakia', 'tartus', 'idlib', 'deir_ez_zor', 'hasakah', 'raqqa',
@@ -214,6 +244,10 @@ router.post('/login', rateLimit(10, 15 * 60 * 1000), async (req, res) => {
       assistant_phone: pharmacy.assistant_phone || null,
       whatsapp_phone: pharmacy.whatsapp_phone || null,
       manages_stock: pharmacy.manages_stock === true,
+      opens_at: pharmacy.opens_at || null,
+      closes_at: pharmacy.closes_at || null,
+      closed_override_date: pharmacy.closed_override_date || null,
+      today: damascusToday(),
       latitude: pharmacy.latitude !== null && pharmacy.latitude !== undefined ? pharmacy.latitude : null,
       longitude: pharmacy.longitude !== null && pharmacy.longitude !== undefined ? pharmacy.longitude : null,
       on_duty: !!pharmacy.on_duty,
@@ -514,6 +548,69 @@ router.put('/:id/manages-stock', adminAuth, async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'حدث خطأ أثناء تحديث حالة الصيدلية' });
+  }
+});
+
+// حفظ ساعات دوام الصيدلية (الصيدلي لحسابه هو فقط)
+// PUT /api/pharmacies/self/hours  { username, password, opens_at, closes_at }
+//
+// إرسال قيمتين فارغتين يمسح الجدول فتتوقف المنصة عن عرض أي حالة. نطلب الاثنين
+// معاً أو لا شيء: ساعة فتح بلا ساعة إغلاق لا تكفي لحساب الحالة.
+router.put('/self/hours', async (req, res) => {
+  const { username, password, opens_at, closes_at } = req.body;
+  if (!username || !password) {
+    return res.status(400).json({ error: 'بيانات الدخول مطلوبة' });
+  }
+  const opens = parseTimeOfDay(opens_at);
+  if (opens.error) return res.status(400).json({ error: opens.error });
+  const closes = parseTimeOfDay(closes_at);
+  if (closes.error) return res.status(400).json({ error: closes.error });
+  if ((opens.value === null) !== (closes.value === null)) {
+    return res.status(400).json({ error: 'يلزم تحديد وقتي الفتح والإغلاق معاً' });
+  }
+  // ساعة فتح تساوي ساعة الإغلاق لا تعني شيئاً: لا يوم كامل ولا إغلاق دائم
+  if (opens.value !== null && opens.value === closes.value) {
+    return res.status(400).json({ error: 'وقت الفتح مطابق لوقت الإغلاق' });
+  }
+  try {
+    const pharmacy = await db.findPharmacyByUsername(username);
+    if (!pharmacy) return res.status(401).json({ error: 'بيانات الدخول غير صحيحة' });
+    const valid = await bcrypt.compare(password, pharmacy.owner_password_hash);
+    if (!valid) return res.status(401).json({ error: 'بيانات الدخول غير صحيحة' });
+
+    const updated = await db.setPharmacyHours(pharmacy.id, opens.value, closes.value);
+    res.json({ opens_at: updated.opens_at, closes_at: updated.closes_at, closed_override_date: updated.closed_override_date });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'حدث خطأ أثناء حفظ ساعات الدوام' });
+  }
+});
+
+// إعلان إغلاق استثنائي لليوم، أو التراجع عنه (الصيدلي لحسابه هو فقط)
+// PUT /api/pharmacies/self/closed-today  { username, password, closed: true|false }
+//
+// يخدم الظرف الطارئ والعطلة. التاريخ يُحسب هنا بتوقيت دمشق لا بتوقيت الخادم،
+// ويسقط أثره تلقائياً في اليوم التالي دون أي إجراء من الصيدلي.
+router.put('/self/closed-today', async (req, res) => {
+  const { username, password, closed } = req.body;
+  if (!username || !password) {
+    return res.status(400).json({ error: 'بيانات الدخول مطلوبة' });
+  }
+  if (closed !== true && closed !== false && closed !== 'true' && closed !== 'false') {
+    return res.status(400).json({ error: 'قيمة غير صالحة' });
+  }
+  const value = closed === true || closed === 'true';
+  try {
+    const pharmacy = await db.findPharmacyByUsername(username);
+    if (!pharmacy) return res.status(401).json({ error: 'بيانات الدخول غير صحيحة' });
+    const valid = await bcrypt.compare(password, pharmacy.owner_password_hash);
+    if (!valid) return res.status(401).json({ error: 'بيانات الدخول غير صحيحة' });
+
+    const updated = await db.setClosedOverride(pharmacy.id, value ? damascusToday() : null);
+    res.json({ closed_override_date: updated.closed_override_date, today: damascusToday() });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'حدث خطأ أثناء تحديث حالة الإغلاق' });
   }
 });
 
