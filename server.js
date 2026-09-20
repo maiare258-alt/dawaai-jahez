@@ -15,7 +15,20 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(cors());
-app.use(express.json());
+
+// حد صريح لحجم جسم الطلب. الافتراضي في Express هو 100 كيلوبايت، لكن تثبيته
+// صراحةً يجعل النية واضحة ويحمي من تغير الافتراضي في إصدار لاحق.
+// المنصة لا ترفع ملفات عبر JSON، فـ64 كيلوبايت أكثر من كافية لأكبر طلب.
+app.use(express.json({ limit: '64kb' }));
+
+// جسم غير صالح أو أكبر من الحد يُنتج خطأ من express.json، ولولا هذا المعالج
+// لعاد كصفحة HTML من Express بدل JSON، فتعرض الواجهة رسالة غامضة للمستخدم.
+app.use((err, req, res, next) => {
+  if (err && (err.type === 'entity.too.large' || err.type === 'entity.parse.failed')) {
+    return res.status(400).json({ error: 'بيانات الطلب غير صالحة' });
+  }
+  next(err);
+});
 
 // تقديم واجهة الموقع الثابتة
 app.use(express.static(path.join(__dirname, 'frontend')));
