@@ -306,6 +306,11 @@ const translations = {
     manages_stock_confirm_on: 'هل ترغب في تفعيل إدارة المخزون لصيدلية "{name}"؟ ستظهر عندئذٍ حالات توفر أدويتها للمرضى في نتائج البحث.',
     manages_stock_confirm_off: 'هل ترغب في إيقاف إدارة المخزون لصيدلية "{name}"؟ ستبقى مُدرجة في جدول المناوبة، ولن تُعرض حالات التوفر، بل ملاحظة تفيد بأنها لم تُسجّل مخزونها.',
     manages_stock_updated: 'تم تحديث حالة الصيدلية',
+    name_too_long_error: 'الاسم طويل جداً',
+    notes_too_long_error: 'الملاحظات طويلة جداً',
+    too_many_items_error: 'عدد الأدوية في الطلب كبير جداً',
+    invalid_order_error: 'بيانات الطلب غير صالحة',
+    comment_too_long_error: 'التعليق طويل جداً',
     open_now_badge: 'مفتوحة الآن',
     closed_now_badge: 'مغلقة الآن',
     closed_opens_at: 'مغلقة الآن، وتفتح الساعة {time}',
@@ -658,6 +663,11 @@ const translations = {
     manages_stock_confirm_on: 'Enable stock management for "{name}"? Its medicine availability will be shown to patients in search results.',
     manages_stock_confirm_off: 'Disable stock management for "{name}"? It stays in the on-duty schedule, and instead of availability patients will see a note that its stock is not listed.',
     manages_stock_updated: 'Pharmacy status updated',
+    name_too_long_error: 'The name is too long',
+    notes_too_long_error: 'The notes are too long',
+    too_many_items_error: 'Too many medicines in this order',
+    invalid_order_error: 'The order data is not valid',
+    comment_too_long_error: 'The comment is too long',
     open_now_badge: 'Open now',
     closed_now_badge: 'Closed now',
     closed_opens_at: 'Closed now, opens at {time}',
@@ -859,7 +869,12 @@ const BACKEND_ERROR_MAP = {
   'اسم المستخدم مستخدم مسبقاً': 'admin_username_taken',
   'وقت غير صالح': 'invalid_time_error',
   'يلزم تحديد وقتي الفتح والإغلاق معاً': 'hours_both_required',
-  'وقت الفتح مطابق لوقت الإغلاق': 'hours_same_time'
+  'وقت الفتح مطابق لوقت الإغلاق': 'hours_same_time',
+  'الاسم طويل جداً': 'name_too_long_error',
+  'الملاحظات طويلة جداً': 'notes_too_long_error',
+  'عدد الأدوية في الطلب كبير جداً': 'too_many_items_error',
+  'بيانات الطلب غير صالحة': 'invalid_order_error',
+  'التعليق طويل جداً': 'comment_too_long_error'
 };
 function translateApiError(rawError) {
   const key = BACKEND_ERROR_MAP[rawError];
@@ -3774,7 +3789,7 @@ function renderAdminPanelUI() {
           : `<div class="stock-table-header"><span>${t('nurses_table_header')}</span><span class="col-action">${t('actions_header_plural')}</span></div>
              ${nurses.map(n => `
                <div class="row">
-                 <span>${n.name} <span class="muted" style="font-size:12px;">${n.specialty || ''}</span></span>
+                 <span><bdi>${escapeHtml(n.name)}</bdi> <span class="muted" style="font-size:12px;">${escapeHtml(n.specialty || '')}</span></span>
                  <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap; justify-content:flex-end;">
                    <button class="toggle-btn ${n.available ? 'yes' : 'no'}" onclick="toggleNurseAvailabilityAdmin(${n.id}, ${!n.available})">${n.available ? t('nurse_available_short') : t('nurse_unavailable_short')}</button>
                    <button class="btn-outline red small table-action-btn" onclick="deleteNurseAdmin(${n.id})">${t('delete_btn')}</button>
