@@ -517,6 +517,52 @@ router.put('/:id/manages-stock', adminAuth, async (req, res) => {
   }
 });
 
+// تعديل اسم المستخدم لحساب صيدلية (للإدارة فقط)
+// PUT /api/pharmacies/:id/username  { username }
+//
+// الحاجة: الحسابات تُنشأ أحياناً بأسماء مؤقتة عند التجربة، فيبقى حساب صيدلية
+// حقيقية باسم لا يدل عليها، ما يربك الإدارة عند إعادة تعيين كلمة المرور،
+// ويصعّب على الصيدلي تذكّر اسم دخوله.
+//
+// لا يمس هذا الإجراء كلمة المرور ولا المخزون ولا الطلبات ولا المناوبة.
+router.put('/:id/username', adminAuth, async (req, res) => {
+  const raw = req.body.username;
+  if (typeof raw !== 'string' || raw.trim() === '') {
+    return res.status(400).json({ error: 'اسم المستخدم مطلوب' });
+  }
+  const username = raw.trim();
+
+  // نمنع المسافات داخل الاسم: اسم الدخول يُكتب يدوياً، ومسافة غير مرئية في
+  // أوله أو وسطه تُنتج فشل دخول لا يفهم الصيدلي سببه.
+  if (/\s/.test(username)) {
+    return res.status(400).json({ error: 'اسم المستخدم لا يقبل المسافات' });
+  }
+  if (username.length < 3) {
+    return res.status(400).json({ error: 'اسم المستخدم قصير جداً' });
+  }
+
+  try {
+    const existing = await db.getPharmacyById(req.params.id);
+    if (!existing) return res.status(404).json({ error: 'الصيدلية غير موجودة' });
+
+    // الاسم نفسه دون تغيير: نرد بنجاح بلا كتابة، فلا داعي لإزعاج الإدارة بخطأ
+    if (existing.owner_username === username) {
+      return res.json({ id: existing.id, name: existing.name, owner_username: existing.owner_username });
+    }
+
+    const taken = await db.findPharmacyByUsername(username);
+    if (taken) return res.status(409).json({ error: 'اسم المستخدم مستخدم مسبقاً' });
+
+    const { row, duplicate } = await db.setPharmacyUsername(req.params.id, username);
+    if (duplicate) return res.status(409).json({ error: 'اسم المستخدم مستخدم مسبقاً' });
+
+    res.json({ id: row.id, name: row.name, owner_username: row.owner_username });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'حدث خطأ أثناء تعديل اسم المستخدم' });
+  }
+});
+
 // تعديل اسم صيدلية (للإدارة فقط)
 // PUT /api/pharmacies/:id/name  { name }
 //
