@@ -101,6 +101,26 @@ async function initDb() {
   await pool.query(`UPDATE pharmacies SET manages_stock = true WHERE manages_stock IS NULL;`);
   await pool.query(`ALTER TABLE pharmacies ALTER COLUMN manages_stock SET DEFAULT false;`);
 
+  // ساعات دوام الصيدلية.
+  //
+  // الحاجة: مريض يبحث ليلاً فيرى "متوفر"، فيرسل طلباً لا يأتيه رد عليه، ثم يتصل
+  // بالصيدلي في ساعة متأخرة فيزعجه. والحل ليس زراً يوميّاً للفتح والإغلاق، لأنه
+  // يفترض أن الصيدلي سيضغطه مرتين كل يوم طوال السنة، وأول ليلة ينساها تعيد
+  // المشكلة أسوأ مما كانت، إذ يثق المريض بعلامة "مفتوحة" الظاهرة أمامه.
+  //
+  // لذلك نخزّن ساعات الدوام مرة واحدة ونحسب الحالة آلياً، ونضيف تجاوزاً يدويّاً
+  // للطوارئ يعود تلقائياً إلى الجدول في اليوم التالي.
+  //
+  // TEXT بصيغة "HH:MM" لا TIME: نفس نمط on_duty_start_time القائم، ويتجنّب
+  // التباس المناطق الزمنية عند التخزين لأن الوقت محلي لا لحظة زمنية مطلقة.
+  await pool.query(`ALTER TABLE pharmacies ADD COLUMN IF NOT EXISTS opens_at TEXT;`);
+  await pool.query(`ALTER TABLE pharmacies ADD COLUMN IF NOT EXISTS closes_at TEXT;`);
+
+  // تجاوز يدوي مؤقت: التاريخ الذي أعلن فيه الصيدلي إغلاقاً استثنائياً بصيغة
+  // "YYYY-MM-DD" بتوقيت دمشق. يُقارَن بتاريخ اليوم، فيسقط أثره تلقائياً غداً
+  // دون أي إجراء من الصيدلي.
+  await pool.query(`ALTER TABLE pharmacies ADD COLUMN IF NOT EXISTS closed_override_date TEXT;`);
+
   await pool.query(`ALTER TABLE pharmacies ADD COLUMN IF NOT EXISTS latitude DOUBLE PRECISION;`);
   await pool.query(`ALTER TABLE pharmacies ADD COLUMN IF NOT EXISTS longitude DOUBLE PRECISION;`);
   await pool.query(`UPDATE pharmacies SET verified = true WHERE verified IS NULL;`);
@@ -313,7 +333,7 @@ async function deleteMedicine(medicineId) {
 
 async function getAllPharmacies() {
   const { rows } = await pool.query(
-    'SELECT id, name, address, phone, assistant_phone, city, whatsapp_phone, latitude, longitude, verified, manages_stock, duty_updated_by, duty_updated_at, owner_username, on_duty, on_duty_day, on_duty_shift, on_duty_start_time, on_duty_end_time FROM pharmacies ORDER BY id'
+    'SELECT id, name, address, phone, assistant_phone, city, whatsapp_phone, latitude, longitude, verified, manages_stock, opens_at, closes_at, closed_override_date, duty_updated_by, duty_updated_at, owner_username, on_duty, on_duty_day, on_duty_shift, on_duty_start_time, on_duty_end_time FROM pharmacies ORDER BY id'
   );
   return rows;
 }
@@ -404,6 +424,28 @@ async function setManagesStock(pharmacyId, managesStock) {
     `UPDATE pharmacies SET manages_stock = $1 WHERE id = $2
      RETURNING id, name, manages_stock`,
     [!!managesStock, pharmacyId]
+  );
+  return rows[0];
+}
+
+// حفظ ساعات الدوام. القيم مُتحقَّق منها في طبقة المسارات، وتمرير null للاثنين
+// يمسح الجدول فتتوقف المنصة عن عرض أي حالة لهذه الصيدلية.
+async function setPharmacyHours(pharmacyId, opensAt, closesAt) {
+  const { rows } = await pool.query(
+    `UPDATE pharmacies SET opens_at = $1, closes_at = $2 WHERE id = $3
+     RETURNING id, name, opens_at, closes_at, closed_override_date`,
+    [opensAt, closesAt, pharmacyId]
+  );
+  return rows[0];
+}
+
+// إعلان إغلاق استثنائي لليوم، أو التراجع عنه. التاريخ بتوقيت دمشق يُمرَّر
+// من طبقة المسارات حيث يُحسب، فلا يعتمد على توقيت الخادم.
+async function setClosedOverride(pharmacyId, dateOrNull) {
+  const { rows } = await pool.query(
+    `UPDATE pharmacies SET closed_override_date = $1 WHERE id = $2
+     RETURNING id, name, opens_at, closes_at, closed_override_date`,
+    [dateOrNull, pharmacyId]
   );
   return rows[0];
 }
@@ -534,6 +576,7 @@ async function getOnDutyPharmacies(city) {
   const { rows } = await pool.query(
     `SELECT id, name, address, phone, assistant_phone, city, whatsapp_phone, latitude, longitude,
             COALESCE(verified, false) AS verified, COALESCE(manages_stock, false) AS manages_stock,
+            opens_at, closes_at, closed_override_date,
             on_duty, on_duty_day, on_duty_shift, on_duty_start_time, on_duty_end_time
      FROM pharmacies WHERE on_duty = true AND ($1::text IS NULL OR city = $1) ORDER BY on_duty_shift, id`,
     [city || null]
@@ -551,6 +594,7 @@ async function getAvailability(medicineId, city) {
             COALESCE(p.verified, false) AS verified, p.whatsapp_phone,
             p.latitude, p.longitude,
             COALESCE(p.manages_stock, false) AS manages_stock,
+            p.opens_at, p.closes_at, p.closed_override_date,
             COALESCE(s.available, false) AS available,
             s.updated_at AS stock_updated_at
      FROM pharmacies p
@@ -769,6 +813,8 @@ module.exports = {
   setAssistantPhone,
   setWhatsappPhone,
   setPharmacyLocation,
+  setPharmacyHours,
+  setClosedOverride,
   setManagesStock,
   getWhatsappPharmacies,
   setPharmacyName,
