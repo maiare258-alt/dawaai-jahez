@@ -67,6 +67,7 @@
                  'onWaOverlayClick','onWaResultClick','saveWhatsappPhone','onDirectionsClick',
                  'detectMyLocation','saveLocationFromInput','clearPharmacyLocation','togglePharmacyManagesStock',
                  'onAdminDutySearch','onAdminDutyToggle','saveAdminDuty','clearAllDuty',
+                 'onAdminUsernameSearch','saveAdminUsername',
                  'headerGoHome','headerGoOnDuty',
                  'headerGoPharmacist','headerGoCosmetics','headerGoNursing','headerGoAdmin'];
     early.forEach(function (name) {
@@ -538,6 +539,34 @@
   /* تمييز الخيار المختار بصرياً، فيعرف المدير ما اختاره بنظرة */
   .listing-type-option:has(input:checked) { background: #eef5fb; }
   .listing-type-option:has(input:checked) .listing-type-label { color: #185fa5; }
+
+  /* ---- تعديل أسماء المستخدمين ---- */
+  .admin-username-search { margin: 12px 0 8px; width: 100%; }
+  /* ارتفاع محدود وتمرير داخلي: قائمة بستين صيدلية تدفن بقية اللوحة بدونه */
+  .admin-username-list { max-height: 55vh; overflow-y: auto; overscroll-behavior: contain; }
+  .admin-username-row {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    padding: 12px 10px; border-top: 1px solid #eef2f6; flex-wrap: wrap; border-radius: 10px;
+  }
+  .admin-username-row:first-child { border-top: none; }
+  .admin-username-info { display: flex; flex-direction: column; gap: 4px; min-width: 0; flex: 1 1 200px; }
+  .admin-username-name { font-size: 15px; font-weight: 600; color: #163a5c; overflow-wrap: anywhere; }
+  .admin-username-meta { font-size: 12.5px; color: #6b7a87; display: flex; flex-wrap: wrap; gap: 5px; }
+  /* اسم المستخدم لاتيني غالباً، فنثبّت اتجاهه حتى لا ينقلب داخل واجهة عربية */
+  .admin-username-value { font-weight: 700; color: #185fa5; direction: ltr; unicode-bidi: isolate; }
+  .admin-username-controls { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .admin-username-controls input {
+    margin: 0; min-width: 170px; flex: 1 1 170px;
+    direction: ltr; text-align: left;
+  }
+  .admin-username-controls button { flex: 0 0 auto; }
+
+  @media (max-width: 700px) {
+    .admin-username-row { flex-direction: column; align-items: stretch; }
+    .admin-username-controls { width: 100%; }
+    .admin-username-controls input { flex: 1 1 100%; min-width: 0; }
+    .admin-username-controls button { width: 100%; }
+  }
 
   /* ---- جدول المناوبة بلوحة الإدارة ---- */
   .admin-duty-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
