@@ -341,6 +341,20 @@ const translations = {
     closed_today_saved: 'أُعلن إغلاق الصيدلية اليوم',
     closed_today_removed: 'عاد الدوام إلى جدوله المعتاد',
     duty_overrides_hours: 'صيدليتك مناوبة، لذا تظهر مفتوحة بصرف النظر عن ساعات الدوام.',
+    backup_title: '💾 النسخ الاحتياطي وحالة النظام',
+    backup_desc: 'خطة الاستضافة المجانية لا توفر نسخاً احتياطياً تلقائياً. نزِّل نسخة دورياً واحفظها في مكان آمن.',
+    backup_btn: 'تنزيل نسخة احتياطية',
+    backup_preparing: 'جارٍ التحضير...',
+    backup_done: 'نُزّلت النسخة الاحتياطية بنجاح',
+    backup_failed: 'تعذّر إنشاء النسخة الاحتياطية',
+    backup_warning: 'الملف حساس: يتضمن بيانات الحسابات والطلبات. احفظه في مكان آمن ولا تشاركه.',
+    backup_last: 'آخر نسخة نزَّلتها من هذا المتصفح:',
+    backup_never: 'لم تُنزَّل أي نسخة من هذا المتصفح بعد',
+    backup_overdue: 'مضى أكثر من أسبوع على آخر نسخة.',
+    system_status_title: 'حالة النظام',
+    system_status_ok: 'يعمل بصورة سليمة',
+    system_status_degraded: 'قاعدة البيانات لا تستجيب',
+    system_status_checking: 'جارٍ الفحص...',
     admin_username_title: '👤 تعديل أسماء المستخدمين',
     admin_username_desc: 'اسم المستخدم هو ما يدخل به الصيدلي إلى لوحته. لا يؤثر تعديله على كلمة المرور ولا المخزون ولا الطلبات ولا المناوبة.',
     admin_username_search: 'ابحث باسم الصيدلية أو اسم المستخدم',
@@ -698,6 +712,20 @@ const translations = {
     closed_today_saved: 'The pharmacy is marked closed today',
     closed_today_removed: 'Hours returned to the usual schedule',
     duty_overrides_hours: 'Your pharmacy is on duty, so it shows as open regardless of opening hours.',
+    backup_title: '💾 Backup and system status',
+    backup_desc: 'The free hosting plan provides no automatic backups. Download a copy regularly and keep it somewhere safe.',
+    backup_btn: 'Download backup',
+    backup_preparing: 'Preparing...',
+    backup_done: 'Backup downloaded successfully',
+    backup_failed: 'Could not create the backup',
+    backup_warning: 'This file is sensitive: it contains account and order data. Keep it safe and do not share it.',
+    backup_last: 'Last backup downloaded from this browser:',
+    backup_never: 'No backup has been downloaded from this browser yet',
+    backup_overdue: 'More than a week has passed since the last backup.',
+    system_status_title: 'System status',
+    system_status_ok: 'Running normally',
+    system_status_degraded: 'The database is not responding',
+    system_status_checking: 'Checking...',
     admin_username_title: '👤 Edit usernames',
     admin_username_desc: 'The username is what the pharmacist signs in with. Changing it does not affect the password, stock, orders or duty schedule.',
     admin_username_search: 'Search by pharmacy or username',
@@ -3721,6 +3749,20 @@ function renderAdminPanelUI() {
     </div>
 
     <div class="box" style="margin-bottom:20px;">
+      <h3 style="margin-top:0;">${t('backup_title')}</h3>
+      <p class="muted" style="margin-top:6px;">${t('backup_desc')}</p>
+
+      <div class="status-row">
+        <span class="muted">${t('system_status_title')}:</span>
+        <span id="system-status"></span>
+      </div>
+
+      <div id="backup-info" class="backup-info"></div>
+      <p class="backup-warning">${t('backup_warning')}</p>
+      <button class="primary" id="backup-btn" onclick="downloadBackup()">${t('backup_btn')}</button>
+    </div>
+
+    <div class="box" style="margin-bottom:20px;">
       <h3 style="margin-top:0;">${t('admin_username_title')}</h3>
       <p class="muted" style="margin-top:6px;">${t('admin_username_desc')}</p>
       <input type="search" id="admin-username-search" class="admin-username-search"
@@ -3924,6 +3966,8 @@ async function resetPharmacyPassword(id) {
   // مع أي إعادة رسم للوحة، بما في ذلك تبديل اللغة.
   renderAdminDutyList();
   renderAdminUsernameList();
+  renderBackupInfo();
+  checkSystemStatus();
 }
 
 // ---------- تعديل اسم الصيدلية (الإدارة حصراً) ----------
@@ -3958,6 +4002,85 @@ function onEditPharmacyNameKeydown(e, id) {
 // تبديل حالة "تُحدّث مخزونها" من لوحة الإدارة.
 // نطلب تأكيداً يشرح الأثر على المريض صراحةً، لأن الإيقاف يغيّر ما يراه الناس
 // عن صيدلية حقيقية — لا مجرد إعداد داخلي.
+// ================= النسخ الاحتياطي وحالة النظام =================
+// خطة Supabase المجانية بلا نسخ احتياطي تلقائي، وصفر مراقبة تلقائية.
+// هذا القسم يعالج الأمرين من لوحة الإدارة مباشرة.
+
+// آخر نسخة نُزّلت من هذا المتصفح. نحفظها محلياً لا في القاعدة عن قصد:
+// لو ضاعت القاعدة فالمعلومة تضيع معها، بينما المطلوب هو تذكير المدير نفسه.
+const BACKUP_STAMP_KEY = 'dawaai_last_backup';
+const BACKUP_OVERDUE_DAYS = 7;
+
+function readLastBackup() {
+  try { return localStorage.getItem(BACKUP_STAMP_KEY); } catch (e) { return null; }
+}
+function writeLastBackup(iso) {
+  try { localStorage.setItem(BACKUP_STAMP_KEY, iso); } catch (e) { /* وضع خاص أو تخزين ممتلئ */ }
+}
+
+function renderBackupInfo() {
+  const box = document.getElementById('backup-info');
+  if (!box) return;
+  const last = readLastBackup();
+  if (!last) {
+    box.innerHTML = `<span class="backup-overdue">${t('backup_never')}</span>`;
+    return;
+  }
+  const rel = relativeTime(last);
+  const overdue = (Date.now() - new Date(last).getTime()) > BACKUP_OVERDUE_DAYS * 86400000;
+  box.innerHTML = `<span class="muted">${t('backup_last')}</span>
+    <bdi class="backup-date">${escapeHtml(rel || last)}</bdi>
+    ${overdue ? `<span class="backup-overdue">${t('backup_overdue')}</span>` : ''}`;
+}
+
+async function downloadBackup() {
+  const btn = document.getElementById('backup-btn');
+  if (btn) { btn.disabled = true; btn.textContent = t('backup_preparing'); }
+  try {
+    const res = await fetch(`${API}/stats/backup`, { headers: adminHeaders(), cache: 'no-store' });
+    if (!res.ok) { await customAlert(t('backup_failed'), 'error'); return; }
+
+    // نحوّل الاستجابة إلى ملف ينزّله المتصفح. الرابط المؤقت يُحرَّر بعده
+    // لتفادي تسريب ذاكرة عند تكرار التنزيل.
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `dawaai-jahez-backup-${new Date().toISOString().slice(0, 10)}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    writeLastBackup(new Date().toISOString());
+    renderBackupInfo();
+    await customAlert(t('backup_done'), 'success');
+  } catch (err) {
+    await customAlert(t('backup_failed'), 'error');
+  } finally {
+    const b = document.getElementById('backup-btn');
+    if (b) { b.disabled = false; b.textContent = t('backup_btn'); }
+  }
+}
+
+// فحص حالة النظام عبر /health. الفحص لا يحتاج مصادقة لأن المسار عام،
+// لكن عرضه محصور بلوحة الإدارة إذ لا يعني المريض شيئاً.
+async function checkSystemStatus() {
+  const box = document.getElementById('system-status');
+  if (!box) return;
+  box.innerHTML = `<span class="muted">${t('system_status_checking')}</span>`;
+  try {
+    const res = await fetch('/health', { cache: 'no-store' });
+    const data = await res.json().catch(() => null);
+    const okState = res.ok && data && data.db === 'ok';
+    box.innerHTML = okState
+      ? `<span class="status-dot ok"></span><span class="status-ok">${t('system_status_ok')}</span>`
+      : `<span class="status-dot bad"></span><span class="status-bad">${t('system_status_degraded')}</span>`;
+  } catch (err) {
+    box.innerHTML = `<span class="status-dot bad"></span><span class="status-bad">${t('system_status_degraded')}</span>`;
+  }
+}
+
 // ================= تعديل أسماء المستخدمين =================
 // الحاجة: الحسابات تُنشأ أحياناً بأسماء مؤقتة عند التجربة، فيبقى حساب صيدلية
 // حقيقية باسم لا يدل عليها، ما يربك الإدارة ويصعّب على الصيدلي تذكّر اسم دخوله.
