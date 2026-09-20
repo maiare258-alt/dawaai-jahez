@@ -523,6 +523,52 @@ async function setPharmacyName(pharmacyId, name) {
 // كل الأرقام محسوبة من البيانات المخزّنة أصلاً — صفر جدول تتبّع جديد وصفر نمو بالتخزين.
 // النوافذ الزمنية متدحرجة (آخر 24 ساعة / 7 أيام) وليست تقويمية عن قصد: خادم Render
 // يعمل بتوقيت UTC، فـ"اليوم" كان سيعني يوماً مختلفاً عن يوم المستخدم في سوريا.
+// فحص حيّ لاتصال قاعدة البيانات.
+//
+// السبب: كان /health يرجّع "ok" بلا شرط، فلو توقفت قاعدة البيانات لبقي يقول
+// إن الموقع سليم — فتطمئن أداة المراقبة بينما الموقع معطّل تماماً. وهذا يُفرغ
+// المراقبة من معناها.
+//
+// المهلة ضرورية: استعلام معلّق على قاعدة بطيئة يُبقي الطلب مفتوحاً إلى الأبد
+// بدل أن يُبلغ عن الخلل، فأداة المراقبة ترى انتهاء مهلة غامضاً لا سبباً واضحاً.
+async function ping(timeoutMs = 4000) {
+  let timer;
+  const timeout = new Promise((_, reject) => {
+    timer = setTimeout(() => reject(new Error('db ping timeout')), timeoutMs);
+  });
+  try {
+    await Promise.race([pool.query('SELECT 1'), timeout]);
+    return true;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+// تصدير كامل للبيانات، للنسخ الاحتياطي اليدوي.
+//
+// السبب: خطة Supabase المجانية بلا نسخ احتياطي تلقائي. فحذف عرضي أو خلل أو
+// انتهاء خطة يعني ضياع كل الصيدليات والأدوية والطلبات بلا استرجاع.
+//
+// نُصدّر الجداول الستة كاملة بما فيها هاش كلمات المرور: بدونه يتعذّر استرجاع
+// الحسابات ويلزم إعادة تعيين كلمة مرور كل صيدلية. الهاش ليس كلمة مرور، لكن
+// الملف يبقى حساساً ويجب حفظه في مكان آمن.
+async function exportAll() {
+  const tables = ['pharmacies', 'medicines', 'stock', 'orders', 'nurses', 'nurse_ratings'];
+  const data = {};
+  for (const table of tables) {
+    // أسماء الجداول ثابتة في المصفوفة أعلاه ولا تأتي من المستخدم إطلاقاً،
+    // فلا مجال لحقن SQL هنا رغم أن الاسم يُدمج نصياً.
+    const { rows } = await pool.query(`SELECT * FROM ${table}`);
+    data[table] = rows;
+  }
+  return {
+    exported_at: new Date().toISOString(),
+    schema_version: 1,
+    counts: Object.fromEntries(tables.map(t => [t, data[t].length])),
+    data
+  };
+}
+
 async function getAdminStats() {
   const totalsQ = pool.query(`
     SELECT
@@ -820,6 +866,8 @@ module.exports = {
   setPharmacyName,
   setPharmacyUsername,
   setPharmacyPassword,
+  ping,
+  exportAll,
   getAdminStats,
   getOnDutyPharmacies,
   getAvailability,
