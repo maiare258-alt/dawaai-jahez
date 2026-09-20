@@ -448,6 +448,27 @@ async function setPharmacyPassword(pharmacyId, passwordHash) {
   return rows[0];
 }
 
+// تغيير اسم المستخدم لحساب صيدلية.
+// عمداً لا يمس كلمة المرور ولا المخزون ولا الطلبات ولا المناوبة: اسم الدخول
+// وحده هو ما يتغير، فيستمر الصيدلي بالعمل بكلمة مروره نفسها.
+//
+// العمود عليه قيد UNIQUE، فمحاولة تعيين اسم محجوز تُطلق الخطأ 23505.
+// نتحقق مسبقاً في طبقة المسارات لإعطاء رسالة مفهومة، ونلتقط الخطأ هنا أيضاً
+// لأن التحقق المسبق لا يمنع تسجيل صيدلية أخرى بالاسم نفسه في اللحظة ذاتها.
+async function setPharmacyUsername(pharmacyId, username) {
+  try {
+    const { rows } = await pool.query(
+      `UPDATE pharmacies SET owner_username = $1 WHERE id = $2
+       RETURNING id, name, owner_username`,
+      [username, pharmacyId]
+    );
+    return { row: rows[0], duplicate: false };
+  } catch (err) {
+    if (err && err.code === '23505') return { row: null, duplicate: true };
+    throw err;
+  }
+}
+
 async function setPharmacyName(pharmacyId, name) {
   const { rows } = await pool.query(
     `UPDATE pharmacies SET name = $1 WHERE id = $2 RETURNING *`,
@@ -751,6 +772,7 @@ module.exports = {
   setManagesStock,
   getWhatsappPharmacies,
   setPharmacyName,
+  setPharmacyUsername,
   setPharmacyPassword,
   getAdminStats,
   getOnDutyPharmacies,
