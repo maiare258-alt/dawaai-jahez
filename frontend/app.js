@@ -306,6 +306,19 @@ const translations = {
     manages_stock_confirm_on: 'هل ترغب في تفعيل إدارة المخزون لصيدلية "{name}"؟ ستظهر عندئذٍ حالات توفر أدويتها للمرضى في نتائج البحث.',
     manages_stock_confirm_off: 'هل ترغب في إيقاف إدارة المخزون لصيدلية "{name}"؟ ستبقى مُدرجة في جدول المناوبة، ولن تُعرض حالات التوفر، بل ملاحظة تفيد بأنها لم تُسجّل مخزونها.',
     manages_stock_updated: 'تم تحديث حالة الصيدلية',
+    admin_username_title: '👤 تعديل أسماء المستخدمين',
+    admin_username_desc: 'اسم المستخدم هو ما يدخل به الصيدلي إلى لوحته. لا يؤثر تعديله على كلمة المرور ولا المخزون ولا الطلبات ولا المناوبة.',
+    admin_username_search: 'ابحث باسم الصيدلية أو اسم المستخدم',
+    admin_username_no_match: 'لا توجد صيدلية مطابقة',
+    admin_username_current: 'اسم المستخدم الحالي:',
+    admin_username_new_placeholder: 'اسم المستخدم الجديد',
+    admin_username_save: 'حفظ',
+    admin_username_saved: 'عُدِّل اسم المستخدم بنجاح',
+    admin_username_confirm: 'هل ترغب في تعديل اسم المستخدم لصيدلية "{name}" من "{old}" إلى "{new}"؟ سيدخل الصيدلي بالاسم الجديد، ولن تتغير كلمة مروره.',
+    admin_username_required: 'اسم المستخدم مطلوب',
+    admin_username_no_spaces: 'اسم المستخدم لا يقبل المسافات',
+    admin_username_too_short: 'اسم المستخدم قصير جداً، والحد الأدنى ثلاثة محارف',
+    admin_username_taken: 'اسم المستخدم مستخدم مسبقاً',
     register_listing_type_title: 'نوع الإدراج',
     register_type_full_label: 'صيدلية كاملة',
     register_type_full_desc: 'تدير مخزونها على المنصة، فتظهر حالات توفر أدويتها للمرضى في نتائج البحث.',
@@ -615,6 +628,19 @@ const translations = {
     manages_stock_confirm_on: 'Enable stock management for "{name}"? Its medicine availability will be shown to patients in search results.',
     manages_stock_confirm_off: 'Disable stock management for "{name}"? It stays in the on-duty schedule, and instead of availability patients will see a note that its stock is not listed.',
     manages_stock_updated: 'Pharmacy status updated',
+    admin_username_title: '👤 Edit usernames',
+    admin_username_desc: 'The username is what the pharmacist signs in with. Changing it does not affect the password, stock, orders or duty schedule.',
+    admin_username_search: 'Search by pharmacy or username',
+    admin_username_no_match: 'No matching pharmacy',
+    admin_username_current: 'Current username:',
+    admin_username_new_placeholder: 'New username',
+    admin_username_save: 'Save',
+    admin_username_saved: 'Username updated successfully',
+    admin_username_confirm: 'Change the username for "{name}" from "{old}" to "{new}"? The pharmacist will sign in with the new name, and their password will not change.',
+    admin_username_required: 'Username is required',
+    admin_username_no_spaces: 'The username cannot contain spaces',
+    admin_username_too_short: 'Username is too short, minimum three characters',
+    admin_username_taken: 'That username is already taken',
     register_listing_type_title: 'Listing type',
     register_type_full_label: 'Full pharmacy',
     register_type_full_desc: 'Manages its stock on the platform, so medicine availability is shown to patients in search results.',
@@ -766,7 +792,11 @@ const BACKEND_ERROR_MAP = {
   'كلمة المرور الجديدة مطابقة للحالية': 'new_password_same_error',
   'رقم واتساب غير صالح': 'invalid_whatsapp_error',
   'إحداثيات غير صالحة': 'invalid_location_error',
-  'قيمة غير صالحة': 'invalid_value_error'
+  'قيمة غير صالحة': 'invalid_value_error',
+  'اسم المستخدم مطلوب': 'admin_username_required',
+  'اسم المستخدم لا يقبل المسافات': 'admin_username_no_spaces',
+  'اسم المستخدم قصير جداً': 'admin_username_too_short',
+  'اسم المستخدم مستخدم مسبقاً': 'admin_username_taken'
 };
 function translateApiError(rawError) {
   const key = BACKEND_ERROR_MAP[rawError];
@@ -3391,6 +3421,16 @@ function renderAdminPanelUI() {
     </div>
 
     <div class="box" style="margin-bottom:20px;">
+      <h3 style="margin-top:0;">${t('admin_username_title')}</h3>
+      <p class="muted" style="margin-top:6px;">${t('admin_username_desc')}</p>
+      <input type="search" id="admin-username-search" class="admin-username-search"
+             placeholder="${t('admin_username_search')}"
+             oninput="onAdminUsernameSearch(this)" onsearch="onAdminUsernameSearch(this)"
+             onchange="onAdminUsernameSearch(this)" value="${escapeHtml(adminUsernameFilter)}">
+      <div id="admin-username-list" class="admin-username-list"></div>
+    </div>
+
+    <div class="box" style="margin-bottom:20px;">
       <div class="admin-duty-head">
         <h3 style="margin:0;">${t('admin_duty_title')}</h3>
         <span class="muted" id="admin-duty-count"></span>
@@ -3579,9 +3619,11 @@ async function resetPharmacyPassword(id) {
     await customAlert(t('reset_password_error'), 'error');
   }
 
-  // حاوية قائمة المناوبة تُنشأ ضمن innerHTML أعلاه، فنملؤها بعد بنائها مباشرة.
-  // بوضعها هنا تُحدَّث القائمة تلقائياً مع أي إعادة رسم للوحة — بما فيها تبديل اللغة.
+  // حاويتا قائمتي المناوبة وأسماء المستخدمين تُنشآن ضمن innerHTML أعلاه،
+  // فنملؤهما بعد بنائهما مباشرة. وبوضع الاستدعاء هنا تُحدَّث القائمتان تلقائياً
+  // مع أي إعادة رسم للوحة، بما في ذلك تبديل اللغة.
   renderAdminDutyList();
+  renderAdminUsernameList();
 }
 
 // ---------- تعديل اسم الصيدلية (الإدارة حصراً) ----------
@@ -3616,6 +3658,91 @@ function onEditPharmacyNameKeydown(e, id) {
 // تبديل حالة "تُحدّث مخزونها" من لوحة الإدارة.
 // نطلب تأكيداً يشرح الأثر على المريض صراحةً، لأن الإيقاف يغيّر ما يراه الناس
 // عن صيدلية حقيقية — لا مجرد إعداد داخلي.
+// ================= تعديل أسماء المستخدمين =================
+// الحاجة: الحسابات تُنشأ أحياناً بأسماء مؤقتة عند التجربة، فيبقى حساب صيدلية
+// حقيقية باسم لا يدل عليها، ما يربك الإدارة ويصعّب على الصيدلي تذكّر اسم دخوله.
+
+let adminUsernameFilter = '';
+
+function onAdminUsernameSearch(el) {
+  const next = el.value.trim().toLowerCase();
+  if (next === adminUsernameFilter) return;
+  adminUsernameFilter = next;
+  renderAdminUsernameList();
+}
+
+function renderAdminUsernameList() {
+  const box = document.getElementById('admin-username-list');
+  if (!box) return;
+  const all = adminDataCache.pharmacies || [];
+  const list = all.filter(p => {
+    if (!adminUsernameFilter) return true;
+    return String(p.name || '').toLowerCase().includes(adminUsernameFilter)
+        || String(p.owner_username || '').toLowerCase().includes(adminUsernameFilter);
+  });
+
+  if (list.length === 0) {
+    box.innerHTML = `<p class="muted" style="padding:14px 2px;">${t('admin_username_no_match')}</p>`;
+    return;
+  }
+
+  box.innerHTML = list.map(p => `
+    <div class="admin-username-row">
+      <div class="admin-username-info">
+        <span class="admin-username-name"><bdi>${escapeHtml(p.name)}</bdi></span>
+        <span class="admin-username-meta">
+          ${t('admin_username_current')} <bdi class="admin-username-value">${escapeHtml(p.owner_username || '')}</bdi>
+        </span>
+      </div>
+      <div class="admin-username-controls">
+        <input type="text" id="uname-input-${p.id}" placeholder="${t('admin_username_new_placeholder')}" autocomplete="off" spellcheck="false">
+        <button class="btn-outline blue" id="uname-save-${p.id}" onclick="saveAdminUsername(${p.id})">${t('admin_username_save')}</button>
+      </div>
+    </div>`).join('');
+}
+
+async function saveAdminUsername(id) {
+  const input = document.getElementById(`uname-input-${id}`);
+  const btn = document.getElementById(`uname-save-${id}`);
+  const next = (input.value || '').trim();
+  const pharmacy = (adminDataCache.pharmacies || []).find(p => p.id === id);
+  if (!pharmacy) return;
+
+  // تحقق مبكر بالواجهة لإعطاء رسالة فورية، والخلفية تتحقق مرة أخرى
+  // لأن الواجهة قابلة للتجاوز.
+  if (!next) { await customAlert(t('admin_username_required'), 'warning'); return; }
+  if (/\s/.test(next)) { await customAlert(t('admin_username_no_spaces'), 'warning'); return; }
+  if (next.length < 3) { await customAlert(t('admin_username_too_short'), 'warning'); return; }
+  if (next === pharmacy.owner_username) { input.value = ''; return; }
+
+  const confirmed = await customConfirm(
+    tFormat('admin_username_confirm', { name: pharmacy.name, old: pharmacy.owner_username || '', new: next }),
+    'warning'
+  );
+  if (!confirmed) return;
+
+  if (btn) btn.disabled = true;
+  try {
+    const res = await fetch(`${API}/pharmacies/${id}/username`, {
+      method: 'PUT',
+      headers: adminHeaders(),
+      body: JSON.stringify({ username: next })
+    });
+    const data = await res.json();
+    if (!res.ok) { await customAlert(translateApiError(data.error), 'error'); return; }
+
+    // تحديث الكاش محلياً بدل إعادة تحميل اللوحة: يحافظ على نص البحث وموضع التمرير
+    pharmacy.owner_username = data.owner_username;
+    renderAdminUsernameList();
+    await customAlert(t('admin_username_saved'), 'success');
+  } catch (err) {
+    await customAlert(t('server_error_title'), 'error');
+  } finally {
+    const b = document.getElementById(`uname-save-${id}`);
+    if (b) b.disabled = false;
+  }
+}
+
 // ================= جدول المناوبة بلوحة الإدارة =================
 // يوجد ضابطان للمناوبة عن قصد: الصيدلي من لوحته، والإدارة من هنا.
 // السبب أن معظم صيدليات المدينة مُدرجة للمناوبة فقط ولا أحد يدير حسابها.
