@@ -51,23 +51,55 @@ async function pharmacyOwnsOrder(req, res, next) {
 
 // إرسال طلب جديد من المريض (بتنقسم تلقائياً لعدة طلبات لو السلة فيها أكتر من صيدلية)
 // POST /api/orders  { patient_name, patient_phone, items: [{pharmacyId, medicineName, genericName, quantity}], notes? }
-router.post('/', async (req, res) => {
+// حدود الإدخال. المسار عام بالضرورة (المريض ليس له حساب)، فهو أكثر نقطة
+// معرّضة للإساءة في المنصة. بلا هذه الحدود يستطيع أي شخص ملء قاعدة البيانات
+// وإغراق قوائم طلبات الصيادلة، وقاعدة Supabase على الخطة المجانية محدودة.
+const MAX_NAME = 80;
+const MAX_NOTES = 500;
+const MAX_ITEMS = 50;
+const MAX_MED_NAME = 120;
+
+// 20 طلباً كل 15 دقيقة لكل عنوان. رقم متعمَّد السعة: عائلة تطلب لعدة أفراد
+// من شبكة واحدة لن تُحظر، بينما السبب الآلي يُقطع فوراً.
+router.post('/', rateLimit(20, 15 * 60 * 1000), async (req, res) => {
   const { patient_name, patient_phone, items, notes } = req.body;
   if (!patient_name || !patient_phone || !Array.isArray(items) || items.length === 0) {
     return res.status(400).json({ error: 'الاسم ورقم الهاتف والأدوية مطلوبة لإتمام الطلب' });
   }
+  if (typeof patient_name !== 'string' || patient_name.trim().length > MAX_NAME) {
+    return res.status(400).json({ error: 'الاسم طويل جداً' });
+  }
   if (!/^[0-9]{7,15}$/.test(patient_phone)) {
     return res.status(400).json({ error: 'رقم الهاتف يجب أن يتكون من أرقام فقط' });
+  }
+  if (notes !== undefined && notes !== null && (typeof notes !== 'string' || notes.length > MAX_NOTES)) {
+    return res.status(400).json({ error: 'الملاحظات طويلة جداً' });
+  }
+  if (items.length > MAX_ITEMS) {
+    return res.status(400).json({ error: 'عدد الأدوية في الطلب كبير جداً' });
   }
   try {
     const byPharmacy = {};
     for (const item of items) {
-      const key = item.pharmacyId;
-      if (!byPharmacy[key]) byPharmacy[key] = [];
-      byPharmacy[key].push({
-        medicineName: item.medicineName,
-        genericName: item.genericName || null,
-        quantity: item.quantity || 1
+      // معرّف صيدلية غير رقمي كان يمر إلى Number() فيعطي NaN، فيفشل الإدراج
+      // برسالة 500 غامضة بدل رفض واضح.
+      const pid = Number(item && item.pharmacyId);
+      if (!Number.isInteger(pid) || pid <= 0) {
+        return res.status(400).json({ error: 'بيانات الطلب غير صالحة' });
+      }
+      const medName = typeof item.medicineName === 'string' ? item.medicineName.trim() : '';
+      if (!medName || medName.length > MAX_MED_NAME) {
+        return res.status(400).json({ error: 'بيانات الطلب غير صالحة' });
+      }
+      const qty = Number(item.quantity);
+      if (!Number.isInteger(qty) || qty < 1 || qty > 99) {
+        return res.status(400).json({ error: 'بيانات الطلب غير صالحة' });
+      }
+      if (!byPharmacy[pid]) byPharmacy[pid] = [];
+      byPharmacy[pid].push({
+        medicineName: medName,
+        genericName: typeof item.genericName === 'string' ? item.genericName.slice(0, MAX_MED_NAME) : null,
+        quantity: qty
       });
     }
 
