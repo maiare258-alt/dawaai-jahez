@@ -113,6 +113,29 @@ async function initDb() {
   //
   // TEXT بصيغة "HH:MM" لا TIME: نفس نمط on_duty_start_time القائم، ويتجنّب
   // التباس المناطق الزمنية عند التخزين لأن الوقت محلي لا لحظة زمنية مطلقة.
+  // تنظيف لمرة واحدة للمسافات الزائدة في البيانات المحفوظة سابقاً.
+  //
+  // آمن للتكرار: الشرط WHERE يطابق فقط ما لم يُنظَّف بعد، فتشغيله مع كل إقلاع
+  // لا يمس شيئاً بعد المرة الأولى.
+  //
+  // ⚠️ استثنينا medicines.name عمداً: عليه فهرس فريد (name, category)، فلو وُجد
+  // "بنادول" و"بنادول " معاً لأدى التنظيف إلى تصادم يُفشل التحديث.
+  //
+  // ⚠️ ملفوف بـtry/catch: فشل التنظيف يجب ألا يمنع الخادم من الإقلاع أبداً.
+  // موقع يعمل ببيانات فيها مسافة زائدة أفضل بكثير من موقع متوقف.
+  try {
+    const norm = col => `btrim(regexp_replace(${col}, '\\s+', ' ', 'g'))`;
+    const dirty = col => `${col} IS NOT NULL AND ${col} <> ${norm(col)}`;
+    await pool.query(`UPDATE pharmacies SET name = ${norm('name')} WHERE ${dirty('name')};`);
+    await pool.query(`UPDATE pharmacies SET address = ${norm('address')} WHERE ${dirty('address')};`);
+    await pool.query(`UPDATE nurses SET name = ${norm('name')} WHERE ${dirty('name')};`);
+    await pool.query(`UPDATE nurses SET specialty = ${norm('specialty')} WHERE ${dirty('specialty')};`);
+    await pool.query(`UPDATE nurses SET university = ${norm('university')} WHERE ${dirty('university')};`);
+    await pool.query(`UPDATE medicines SET generic_name = ${norm('generic_name')} WHERE ${dirty('generic_name')};`);
+  } catch (err) {
+    console.error('تعذّر تنظيف المسافات الزائدة (لا يمنع الإقلاع):', err.message);
+  }
+
   await pool.query(`ALTER TABLE pharmacies ADD COLUMN IF NOT EXISTS opens_at TEXT;`);
   await pool.query(`ALTER TABLE pharmacies ADD COLUMN IF NOT EXISTS closes_at TEXT;`);
 
@@ -257,8 +280,12 @@ async function searchMedicines(query, category = 'medicine') {
 // لو كان الاسم + التصنيف موجودين أصلاً، ما بينضاف صف جديد إطلاقاً، وبترجع الدالة الدواء
 // الموجود بهدوء بدل ما ترمي خطأ — هيك المستخدم ما بيشوف رسالة خطأ سيرفر قبيحة، والنتيجة
 // النهائية صحيحة بكل الحالات (نسخة واحدة فقط بالقائمة العامة).
-async function addMedicine({ name, generic_name, alt_names, category }) {
+async function addMedicine({ name: rawName, generic_name: rawGeneric, alt_names, category }) {
   const finalCategory = category || 'medicine';
+  // تنظيف الاسم يمنع أيضاً تكراراً خفياً: "بنادول " كان سيُحفظ دواءً مستقلاً عن
+  // "بنادول" لأن الفهرس الفريد يقارن النص حرفياً. بعد التنظيف يلتقطه ON CONFLICT.
+  const name = cleanText(rawName);
+  const generic_name = cleanText(rawGeneric);
   try {
     const { rows } = await pool.query(
       `INSERT INTO medicines (name, generic_name, alt_names, category)
@@ -348,11 +375,29 @@ async function getPharmacyById(pharmacyId) {
   return rows[0];
 }
 
+// تنظيف الحقول النصية القصيرة قبل الحفظ: قصّ المسافات من الطرفين، وتوحيد
+// المسافات المتتالية الداخلية إلى مسافة واحدة.
+//
+// السبب: كانت حقول مثل "سلميه " و"نصر باسل عفاره " تُحفظ بمسافة زائدة بعد آخر
+// كلمة. لا تُرى بالعين لكنها تُفشل المطابقة (بحث عن "سلميه" لا يطابق "سلميه ")
+// وتُنتج تباعداً غير متناسق في العرض.
+//
+// نطبّقها هنا في طبقة القاعدة لا في المسارات، فتشمل كل طريق حفظ مهما كان مصدره.
+//
+// ⚠️ للحقول ذات السطر الواحد فقط (أسماء، عناوين، تخصصات). لا تُطبَّق على
+// الملاحظات والتعليقات، لأن توحيد المسافات يمحو أسطرها الجديدة.
+// ولا على كلمات المرور وأسماء المستخدمين، فلها تحققها الخاص.
+function cleanText(v) {
+  if (typeof v !== 'string') return v;
+  const cleaned = v.replace(/\s+/g, ' ').trim();
+  return cleaned === '' ? null : cleaned;
+}
+
 async function addPharmacy({ name, address, phone, city, whatsappPhone, managesStock, username, passwordHash }) {
   const { rows } = await pool.query(
     `INSERT INTO pharmacies (name, address, phone, city, whatsapp_phone, manages_stock, owner_username, owner_password_hash)
      VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
-    [name, address || null, phone || null, city || null, whatsappPhone || null, !!managesStock, username, passwordHash]
+    [cleanText(name), cleanText(address), cleanText(phone), city || null, whatsappPhone || null, !!managesStock, username, passwordHash]
   );
   return rows[0];
 }
@@ -514,7 +559,7 @@ async function setPharmacyUsername(pharmacyId, username) {
 async function setPharmacyName(pharmacyId, name) {
   const { rows } = await pool.query(
     `UPDATE pharmacies SET name = $1 WHERE id = $2 RETURNING *`,
-    [name, pharmacyId]
+    [cleanText(name), pharmacyId]
   );
   return rows[0];
 }
@@ -770,7 +815,7 @@ async function addNurse({ name, specialty, university, graduation_year, phone })
   const { rows } = await pool.query(
     `INSERT INTO nurses (name, specialty, university, graduation_year, phone)
      VALUES ($1, $2, $3, $4, $5) RETURNING *`,
-    [name, specialty || null, university || null, graduation_year || null, phone || null]
+    [cleanText(name), cleanText(specialty), cleanText(university), cleanText(graduation_year), cleanText(phone)]
   );
   return rows[0];
 }
