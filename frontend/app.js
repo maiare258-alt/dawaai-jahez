@@ -3870,6 +3870,17 @@ function renderAdminPanelUI() {
       editInput.setSelectionRange(editInput.value.length, editInput.value.length);
     }
   }
+
+  // حاويات المناوبة وأسماء المستخدمين والنسخ الاحتياطي وحالة النظام تُنشأ ضمن
+  // innerHTML أعلاه، فنملؤها بعد بنائها مباشرة. وبوضع الاستدعاءات هنا تُحدَّث
+  // تلقائياً مع كل إعادة رسم للوحة، بما في ذلك تبديل اللغة.
+  //
+  // ⚠️ كانت هذه الاستدعاءات بالخطأ داخل resetPharmacyPassword، فلم تُرسم القوائم
+  // إلا حين تُعاد كلمة مرور صيدلية. يجب أن تبقى هنا في نهاية هذه الدالة تحديداً.
+  renderAdminDutyList();
+  renderAdminUsernameList();
+  renderBackupInfo();
+  checkSystemStatus();
 }
 
 async function addPharmacy() {
@@ -3960,14 +3971,6 @@ async function resetPharmacyPassword(id) {
   } catch (err) {
     await customAlert(t('reset_password_error'), 'error');
   }
-
-  // حاويتا قائمتي المناوبة وأسماء المستخدمين تُنشآن ضمن innerHTML أعلاه،
-  // فنملؤهما بعد بنائهما مباشرة. وبوضع الاستدعاء هنا تُحدَّث القائمتان تلقائياً
-  // مع أي إعادة رسم للوحة، بما في ذلك تبديل اللغة.
-  renderAdminDutyList();
-  renderAdminUsernameList();
-  renderBackupInfo();
-  checkSystemStatus();
 }
 
 // ---------- تعديل اسم الصيدلية (الإدارة حصراً) ----------
