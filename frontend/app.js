@@ -137,13 +137,12 @@ const translations = {
     feature1_title: 'البحث عن الدواء', feature1_desc: 'اعرف الصيدليات التي توفر الدواء.',
     feature2_title: 'الصيدليات المناوبة', feature2_desc: 'اعرض الصيدليات المناوبة اليوم.',
     feature3_title: 'عربة المشتريات', feature3_desc: 'اجمع الأدوية قبل زيارة الصيدلية.',
-    about_title: 'عن دوائي جاهز',
     about_desc: 'دوائي جاهز منصة سورية محلية انطلقت من مدينة سلمية، هدفها مساعدتك على معرفة توفر دوائك في الصيدليات القريبة فوراً، بدل التنقل من صيدلية لصيدلية بحثاً عن دواء قد لا يكون متوفراً.',
     footer_home: 'الرئيسية', footer_onduty: 'الصيدليات المناوبة', footer_contact: 'تواصل معنا',
     footer_center: 'منصة سورية للبحث عن توفر الأدوية في الصيدليات.',
     footer_copy: '© دوائي جاهز، جميع الحقوق محفوظة',
     cart_empty_title: 'عربة المشتريات فارغة', cart_empty_subtitle: 'ابدأ بإضافة الأدوية من نتائج البحث.',
-    page_title: 'دوائي جاهز | توفر الأدوية في الصيدليات', lang_toggle: 'English', brand_name: 'دوائي جاهز',
+    lang_toggle: 'English', brand_name: 'دوائي جاهز',
     not_found_title_medicine: 'لم يتم العثور على الدواء', not_found_title_cosmetic: 'لم يتم العثور على المستحضر',
     not_found_subtitle: 'يمكنك تجربة اسم آخر، أو البحث بالمادة الفعالة.',
     did_you_mean_results: 'هل تقصد أحد هذه النتائج؟',
@@ -187,7 +186,7 @@ const translations = {
     day_thursday: 'الخميس', day_friday: 'الجمعة', day_saturday: 'السبت',
     shift_allday: 'طوال اليوم', shift_morning: 'صباحاً فقط', shift_evening: 'مساءً فقط',
     stat_total_meds: 'عدد الأدوية', stat_available_meds: 'أدوية متوفرة', stat_unavailable_meds: 'غير المتوفرة',
-    stat_cosmetics: 'مستحضرات', stat_onduty_today: 'المناوبة اليوم', yes_word: 'نعم', no_word: 'لا',
+    stat_cosmetics_short: 'مستحضرات', stat_onduty_today: 'المناوبة اليوم', yes_word: 'نعم', no_word: 'لا',
     med_name_required: 'اسم الدواء مطلوب', med_added_success: 'أُضيف الدواء بنجاح. فعّل حالة توفره من القائمة أدناه.',
     duty_saved_success: 'تم حفظ حالة المناوبة بنجاح',
     assistant_phone_title: '📱 رقم صيدلي مساعد (اختياري)', assistant_phone_desc: 'رقم تواصل إضافي يظهر للمرضى إلى جانب رقمك الأساسي، ويفيد عند ازدحام العمل.',
@@ -520,13 +519,12 @@ const translations = {
     feature1_title: 'Medicine Search', feature1_desc: 'Find pharmacies that have your medicine.',
     feature2_title: 'On-Duty Pharmacies', feature2_desc: "See today's on-duty pharmacies.",
     feature3_title: 'Shopping Cart', feature3_desc: 'Collect medicines before visiting the pharmacy.',
-    about_title: 'About Dawaai Jahez',
     about_desc: 'Dawaai Jahez is a local Syrian platform launched in Salamiyah, aiming to help you instantly know your medicine availability at nearby pharmacies, instead of going from pharmacy to pharmacy looking for a medicine that might not be available.',
     footer_home: 'Home', footer_onduty: 'On-Duty Pharmacies', footer_contact: 'Contact Us',
     footer_center: 'A Syrian platform for medicine availability search at pharmacies.',
     footer_copy: '© Dawaai Jahez — All rights reserved',
     cart_empty_title: 'Your cart is empty', cart_empty_subtitle: 'Start adding medicines from the search results.',
-    page_title: 'Dawaai Jahez | Medicine Availability at Pharmacies', lang_toggle: 'عربي', brand_name: 'Dawaai Jahez',
+    lang_toggle: 'عربي', brand_name: 'Dawaai Jahez',
     not_found_title_medicine: 'Medicine not found', not_found_title_cosmetic: 'Product not found',
     not_found_subtitle: 'You can try another name or search by active ingredient.',
     did_you_mean_results: 'Did you mean one of these?',
@@ -570,7 +568,7 @@ const translations = {
     day_thursday: 'Thursday', day_friday: 'Friday', day_saturday: 'Saturday',
     shift_allday: 'All day', shift_morning: 'Morning only', shift_evening: 'Evening only',
     stat_total_meds: 'Total medicines', stat_available_meds: 'Available medicines', stat_unavailable_meds: 'Unavailable',
-    stat_cosmetics: 'Cosmetics', stat_onduty_today: 'On duty today', yes_word: 'Yes', no_word: 'No',
+    stat_cosmetics_short: 'Cosmetics', stat_onduty_today: 'On duty today', yes_word: 'Yes', no_word: 'No',
     med_name_required: 'Medicine name is required', med_added_success: 'Added successfully. Enable its availability from the list below.',
     duty_saved_success: 'Duty status saved successfully',
     assistant_phone_title: '📱 Assistant Pharmacist Phone (optional)', assistant_phone_desc: 'An additional contact number shown to patients alongside your main number — useful during busy hours.',
@@ -1267,13 +1265,6 @@ function headerGoCosmetics(link) {
   setActiveNav(link);
 }
 
-function headerGoSearch(link) {
-  showView('patient');
-  const input = document.getElementById('search');
-  input.scrollIntoView({ behavior: 'smooth', block: 'center' });
-  input.focus();
-  setActiveNav(link);
-}
 
 function headerGoOnDuty(link) {
   showView('patient');
@@ -3376,7 +3367,7 @@ function renderDashboardStats(data) {
     </div>
     <div class="stat-card">
       <div class="stat-value">${cosmeticsAvailable}/${cosmeticsTotal}</div>
-      <div class="stat-label">${t('stat_cosmetics')}</div>
+      <div class="stat-label">${t('stat_cosmetics_short')}</div>
     </div>
     <div class="stat-card">
       <div class="stat-value">${onDutyText}</div>
