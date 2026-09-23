@@ -341,6 +341,15 @@ const translations = {
     closed_today_saved: 'أُعلن إغلاق الصيدلية اليوم',
     closed_today_removed: 'عاد الدوام إلى جدوله المعتاد',
     duty_overrides_hours: 'صيدليتك مناوبة، لذا تظهر مفتوحة بصرف النظر عن ساعات الدوام.',
+    err_offline: 'لا يوجد اتصال بالإنترنت. تحقق من الشبكة ثم أعد المحاولة.',
+    err_timeout_search: 'استغرق الخادم وقتاً أطول من المعتاد. أعد المحاولة بعد قليل.',
+    err_timeout_order: 'لم يصل رد الخادم في الوقت المحدد. يمكنك إعادة الإرسال بأمان، فلن يتكرر طلبك.',
+    err_network: 'تعذّر الوصول إلى الخادم. تحقق من اتصالك وأعد المحاولة.',
+    err_network_order: 'تعذّر إتمام الإرسال. يمكنك إعادة الإرسال بأمان، فلن يتكرر طلبك.',
+    err_server: 'حدث خلل في الخادم. أعد المحاولة بعد قليل.',
+    offline_banner: 'لا يوجد اتصال بالإنترنت',
+    sending_order: 'جارٍ إرسال الطلب...',
+    rate_limited_error: 'محاولات كثيرة جداً. حاول بعد قليل.',
     backup_title: '💾 النسخ الاحتياطي وحالة النظام',
     backup_desc: 'خطة الاستضافة المجانية لا توفر نسخاً احتياطياً تلقائياً. نزِّل نسخة دورياً واحفظها في مكان آمن.',
     backup_btn: 'تنزيل نسخة احتياطية',
@@ -712,6 +721,15 @@ const translations = {
     closed_today_saved: 'The pharmacy is marked closed today',
     closed_today_removed: 'Hours returned to the usual schedule',
     duty_overrides_hours: 'Your pharmacy is on duty, so it shows as open regardless of opening hours.',
+    err_offline: 'No internet connection. Check your network and try again.',
+    err_timeout_search: 'The server took longer than usual. Please try again shortly.',
+    err_timeout_order: 'The server did not respond in time. You can safely send again; your order will not be duplicated.',
+    err_network: 'Could not reach the server. Check your connection and try again.',
+    err_network_order: 'The order could not be sent. You can safely send again; your order will not be duplicated.',
+    err_server: 'A server error occurred. Please try again shortly.',
+    offline_banner: 'No internet connection',
+    sending_order: 'Sending order...',
+    rate_limited_error: 'Too many attempts. Please try again shortly.',
     backup_title: '💾 Backup and system status',
     backup_desc: 'The free hosting plan provides no automatic backups. Download a copy regularly and keep it somewhere safe.',
     backup_btn: 'Download backup',
@@ -902,7 +920,8 @@ const BACKEND_ERROR_MAP = {
   'الملاحظات طويلة جداً': 'notes_too_long_error',
   'عدد الأدوية في الطلب كبير جداً': 'too_many_items_error',
   'بيانات الطلب غير صالحة': 'invalid_order_error',
-  'التعليق طويل جداً': 'comment_too_long_error'
+  'التعليق طويل جداً': 'comment_too_long_error',
+  'محاولات كثيرة جداً. حاول بعد قليل.': 'rate_limited_error'
 };
 function translateApiError(rawError) {
   const key = BACKEND_ERROR_MAP[rawError];
@@ -955,6 +974,9 @@ function applyLanguage() {
   const detectBtn = document.getElementById('detect-location-btn');
   if (detectBtn && !detectBtn.disabled) detectBtn.textContent = t('detect_location_btn');
   renderSavedLocation();
+
+  // ---------- شريط انقطاع الإنترنت ----------
+  updateOfflineBanner();
 
   // ---------- ساعات الدوام ----------
   document.getElementById('hours-section-title').textContent = t('hours_section_title');
@@ -1270,6 +1292,10 @@ function headerGoAdmin(link) {
 function saveCart() {
   localStorage.setItem('cart', JSON.stringify(cart));
   updateCartCount();
+  // أي تعديل على السلة يجعلها طلباً مختلفاً، فتأخذ مفتاح تفرّد جديداً.
+  // بدون هذا، لو فشل إرسال ثم أضاف المريض دواءً وأعاد الإرسال، لأعاد الخادم
+  // الطلب القديم بمفتاحه القديم وضاع الدواء المضاف.
+  pendingOrderKey = null;
 }
 
 function updateCartCount() {
@@ -1425,16 +1451,24 @@ async function submitOrder() {
     return;
   }
   const btn = document.querySelector('.checkout-btn');
+  const originalLabel = btn ? btn.textContent : '';
   orderSubmitInProgress = true;
-  if (btn) { btn.disabled = true; btn.style.opacity = '0.6'; }
+  // نص تحميل صريح: على الشبكة البطيئة كان الزر يخفت فقط، فلا يعرف المريض
+  // إن كان شيء يحدث أم أن ضغطته لم تُسجَّل.
+  if (btn) { btn.disabled = true; btn.style.opacity = '0.6'; btn.textContent = t('sending_order'); }
+  // المفتاح نفسه عبر كل إعادات المحاولة لهذه السلة
+  if (!pendingOrderKey) pendingOrderKey = newRequestKey();
   try {
-    const res = await fetch(`${API}/orders`, {
+    // 30 ثانية للإرسال لا 20: عملية كتابة قد تتأخر أكثر، وإنهاؤها مبكراً يدفع
+    // المريض لإعادة المحاولة دون داعٍ (وإن كان المفتاح يحميه من التكرار).
+    const res = await fetchWithTimeout(`${API}/orders`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         patient_name: name,
         patient_phone: phone,
         notes: notes || null,
+        request_key: pendingOrderKey,
         items: cart.map(item => ({
           pharmacyId: item.pharmacyId,
           medicineName: item.medicineName,
@@ -1442,9 +1476,18 @@ async function submitOrder() {
           quantity: item.quantity
         }))
       })
-    });
-    const data = await res.json();
-    if (!res.ok) { customAlert(translateApiError(data.error), 'error'); return; }
+    }, 30000);
+    // الرد قد لا يكون JSON (صفحة خطأ من الوسيط أثناء إعادة النشر مثلاً)،
+    // فنقرؤه بحذر بدل أن يُطلق استثناءً يُفسَّر خطأً في الشبكة.
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      const msg = res.status >= 500 ? t('err_server') : translateApiError(data.error);
+      customAlert(msg, 'error');
+      return;
+    }
+
+    // نجح الإرسال: المفتاح انتهى دوره، والسلة التالية تأخذ مفتاحاً جديداً
+    pendingOrderKey = null;
 
     // نربط كل طلب باسم صيدليته (من العربة) ونحفظه محلياً لمتابعة رد الصيدلية عليه
     data.orders.forEach(o => {
@@ -1460,13 +1503,23 @@ async function submitOrder() {
     saveCart();
     renderCart();
   } catch (err) {
-    customAlert(t('server_error_title'), 'error');
+    // لا نمسح المفتاح هنا عن قصد: الفشل قد يكون ملتبساً (وصل الطلب وضاع الرد)،
+    // فإعادة المحاولة بالمفتاح نفسه تعيد الطلب الموجود بدل تكراره.
+    const kind = classifyFetchError(err);
+    const msg = kind === 'offline' ? t('err_offline')
+              : kind === 'timeout' ? t('err_timeout_order')
+              : t('err_network_order');
+    customAlert(msg, 'error');
   } finally {
     orderSubmitInProgress = false;
     // لو نجح الطلب، renderCart() أصلاً بتعيد بناء الزر من جديد (مفعّل تلقائياً)
     // ولو فشل، الزر نفسه لسا موجود بالـDOM فلازم نرجعه يشتغل يدوياً
     const stillThere = document.querySelector('.checkout-btn');
-    if (stillThere) { stillThere.disabled = false; stillThere.style.opacity = ''; }
+    if (stillThere) {
+      stillThere.disabled = false;
+      stillThere.style.opacity = '';
+      if (originalLabel) stillThere.textContent = originalLabel;
+    }
   }
 }
 
@@ -2418,7 +2471,7 @@ async function runSearch() {
   const stillCurrent = () => document.getElementById('search').value.trim() === q;
   try {
     const cityParam = currentCity ? `&city=${encodeURIComponent(currentCity)}` : '';
-    const res = await fetch(`${API}/medicines/search?q=${encodeURIComponent(q)}&category=${currentCategory}${cityParam}`);
+    const res = await fetchWithTimeout(`${API}/medicines/search?q=${encodeURIComponent(q)}&category=${currentCategory}${cityParam}`, {}, 20000);
     const data = await res.json();
     if (!stillCurrent()) return;
     lastSearchResultsCache = data;
@@ -2532,11 +2585,18 @@ async function runSearch() {
     container.innerHTML = cardsHtml;
   } catch (err) {
     if (!stillCurrent()) return;
+    // رسالة تذكر السبب وما يفعله المريض، مع زر إعادة محاولة مباشر بدل أن
+    // يضطر لمسح كلمة البحث وإعادة كتابتها.
+    const kind = classifyFetchError(err);
+    const subtitle = kind === 'offline' ? t('err_offline')
+                   : kind === 'timeout' ? t('err_timeout_search')
+                   : t('err_network');
     container.innerHTML = `
       <div class="empty-state">
-        <div class="empty-icon">⚠️</div>
+        <div class="empty-icon">${kind === 'offline' ? '📡' : '⚠️'}</div>
         <p class="empty-title">${t('server_error_title')}</p>
-        <p class="empty-subtitle">${t('server_error_subtitle')}</p>
+        <p class="empty-subtitle">${subtitle}</p>
+        <button type="button" class="refresh-results-btn" style="margin-top:12px;" onclick="runSearch()">${t('refresh_results_btn')}</button>
       </div>`;
   }
 }
@@ -4005,6 +4065,58 @@ function onEditPharmacyNameKeydown(e, id) {
 // تبديل حالة "تُحدّث مخزونها" من لوحة الإدارة.
 // نطلب تأكيداً يشرح الأثر على المريض صراحةً، لأن الإيقاف يغيّر ما يراه الناس
 // عن صيدلية حقيقية — لا مجرد إعداد داخلي.
+// ================= التعامل مع الإخفاق =================
+// كانت ٥١ طلباً شبكياً بلا أي مهلة زمنية: لو علق الاتصال — وهو شائع على الشبكة
+// المحمولة — لا ينتهي الطلب أبداً. وفي إرسال الطلب تحديداً كان ذلك يترك
+// orderSubmitInProgress على true إلى الأبد، فلا يستطيع المريض الإرسال مجدداً
+// حتى يعيد تحميل الصفحة، دون أن يعرف السبب.
+//
+// نطبّق المهلة على المسارات الحرجة للمريض (البحث وإرسال الطلب). لوحتا الإدارة
+// والصيدلي يستخدمهما أشخاص يعرفون النظام، فتبقى كما هي لتقليل نطاق التغيير.
+
+// طلب بمهلة زمنية. AbortController هو الطريقة الوحيدة لإلغاء fetch فعلياً.
+async function fetchWithTimeout(url, options = {}, timeoutMs = 20000) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...options, signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+// تصنيف سبب الفشل، ليعرف المستخدم ماذا يفعل بدل رسالة واحدة لكل الأسباب.
+// نفحص الاتصال أولاً: الطلب الفاشل أثناء الانقطاع قد يظهر كمهلة أو كخطأ شبكة.
+function classifyFetchError(err) {
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) return 'offline';
+  if (err && err.name === 'AbortError') return 'timeout';
+  return 'network';
+}
+
+// مفتاح تفرّد لطلب الشراء: واحد لكل سلة، ثابت عبر إعادات المحاولة.
+// يُولَّد عند أول محاولة ويُمسح عند النجاح أو عند أي تعديل على السلة، فإعادة
+// إرسال السلة نفسها لا تكرر الطلب، وأي تغيير فيها يُعامل كطلب جديد.
+let pendingOrderKey = null;
+
+function newRequestKey() {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
+  // بديل للمتصفحات القديمة: عشوائي كافٍ للتفرّد، وليس لأغراض أمنية
+  return 'k' + Date.now().toString(36) + Math.random().toString(36).slice(2, 12);
+}
+
+// شريط تنبيه عند انقطاع الإنترنت. يظهر ويختفي تلقائياً مع حالة الاتصال،
+// فيعرف المستخدم سبب الفشل قبل أن يحاول، لا بعده.
+function updateOfflineBanner() {
+  const bar = document.getElementById('offline-banner');
+  if (!bar) return;
+  const offline = navigator.onLine === false;
+  bar.style.display = offline ? 'flex' : 'none';
+  const label = document.getElementById('offline-banner-text');
+  if (label) label.textContent = t('offline_banner');
+}
+window.addEventListener('offline', updateOfflineBanner);
+window.addEventListener('online', updateOfflineBanner);
+
 // ================= النسخ الاحتياطي وحالة النظام =================
 // خطة Supabase المجانية بلا نسخ احتياطي تلقائي، وصفر مراقبة تلقائية.
 // هذا القسم يعالج الأمرين من لوحة الإدارة مباشرة.
@@ -4601,3 +4713,6 @@ if (window.__pendingSearch && document.getElementById('search').value.trim()) {
   runSearch();
 }
 window.__pendingSearch = false;
+
+// لو فُتح الموقع والاتصال مقطوع أصلاً، فحدث offline لن يُطلق — نفحص مرة عند البدء
+updateOfflineBanner();
