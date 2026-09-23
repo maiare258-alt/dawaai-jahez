@@ -113,29 +113,6 @@ async function initDb() {
   //
   // TEXT بصيغة "HH:MM" لا TIME: نفس نمط on_duty_start_time القائم، ويتجنّب
   // التباس المناطق الزمنية عند التخزين لأن الوقت محلي لا لحظة زمنية مطلقة.
-  // تنظيف لمرة واحدة للمسافات الزائدة في البيانات المحفوظة سابقاً.
-  //
-  // آمن للتكرار: الشرط WHERE يطابق فقط ما لم يُنظَّف بعد، فتشغيله مع كل إقلاع
-  // لا يمس شيئاً بعد المرة الأولى.
-  //
-  // ⚠️ استثنينا medicines.name عمداً: عليه فهرس فريد (name, category)، فلو وُجد
-  // "بنادول" و"بنادول " معاً لأدى التنظيف إلى تصادم يُفشل التحديث.
-  //
-  // ⚠️ ملفوف بـtry/catch: فشل التنظيف يجب ألا يمنع الخادم من الإقلاع أبداً.
-  // موقع يعمل ببيانات فيها مسافة زائدة أفضل بكثير من موقع متوقف.
-  try {
-    const norm = col => `btrim(regexp_replace(${col}, '\\s+', ' ', 'g'))`;
-    const dirty = col => `${col} IS NOT NULL AND ${col} <> ${norm(col)}`;
-    await pool.query(`UPDATE pharmacies SET name = ${norm('name')} WHERE ${dirty('name')};`);
-    await pool.query(`UPDATE pharmacies SET address = ${norm('address')} WHERE ${dirty('address')};`);
-    await pool.query(`UPDATE nurses SET name = ${norm('name')} WHERE ${dirty('name')};`);
-    await pool.query(`UPDATE nurses SET specialty = ${norm('specialty')} WHERE ${dirty('specialty')};`);
-    await pool.query(`UPDATE nurses SET university = ${norm('university')} WHERE ${dirty('university')};`);
-    await pool.query(`UPDATE medicines SET generic_name = ${norm('generic_name')} WHERE ${dirty('generic_name')};`);
-  } catch (err) {
-    console.error('تعذّر تنظيف المسافات الزائدة (لا يمنع الإقلاع):', err.message);
-  }
-
   await pool.query(`ALTER TABLE pharmacies ADD COLUMN IF NOT EXISTS opens_at TEXT;`);
   await pool.query(`ALTER TABLE pharmacies ADD COLUMN IF NOT EXISTS closes_at TEXT;`);
 
@@ -148,11 +125,6 @@ async function initDb() {
   await pool.query(`ALTER TABLE pharmacies ADD COLUMN IF NOT EXISTS longitude DOUBLE PRECISION;`);
   await pool.query(`UPDATE pharmacies SET verified = true WHERE verified IS NULL;`);
 
-  // وقت آخر تحديث للمخزون — أهم عمود لثقة المريض.
-  // بدونه يرى "متوفر" دون أن يعرف إن كانت المعلومة عمرها ساعة أم شهر.
-  // يبقى NULL للسجلات القديمة عمداً: لا نعرف متى حُدّثت فعلاً، وادعاء وقت لم يحدث
-  // أسوأ من عدم عرض شيء. تُملأ تلقائياً عند أول تحديث يقوم به الصيدلي.
-  await pool.query(`ALTER TABLE stock ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP;`);
   // تعبئة السجلات القديمة بسلمية — هي الواقع الفعلي لكل الصيدليات المسجّلة حتى الآن.
   // آمن ومتكرر: يمس الصفوف الفارغة فقط، فتشغيله مراراً لا يغيّر أي مدينة محدّدة.
   await pool.query(`UPDATE pharmacies SET city = 'salamiyah' WHERE city IS NULL;`);
@@ -173,6 +145,12 @@ async function initDb() {
   // تاريخا الصنع والانتهاء خاصان بدفعة كل صيدلية من الدواء — أداة داخلية للصيدلي فقط، ما بتظهر للمريض إطلاقاً
   await pool.query(`ALTER TABLE stock ADD COLUMN IF NOT EXISTS manufacture_date DATE;`);
   await pool.query(`ALTER TABLE stock ADD COLUMN IF NOT EXISTS expiry_date DATE;`);
+  // ⚠️ يجب أن يبقى بعد CREATE TABLE stock: كان قبله فيتعطل الإقلاع على قاعدة جديدة.
+  // وقت آخر تحديث للمخزون — أهم عمود لثقة المريض.
+  // بدونه يرى "متوفر" دون أن يعرف إن كانت المعلومة عمرها ساعة أم شهر.
+  // يبقى NULL للسجلات القديمة عمداً: لا نعرف متى حُدّثت فعلاً، وادعاء وقت لم يحدث
+  // أسوأ من عدم عرض شيء. تُملأ تلقائياً عند أول تحديث يقوم به الصيدلي.
+  await pool.query(`ALTER TABLE stock ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP;`);
 
   // طلبات المرضى: كل طلب مرتبط بصيدلية واحدة (السلة الواحدة ممكن تنقسم لعدة طلبات لو فيها صيدليات مختلفة)
   await pool.query(`
@@ -196,6 +174,28 @@ async function initDb() {
   // باستمرار) كانت تظهر بأقل الأرقام، وهو عكس المطلوب تماماً.
   // الآن يُعلَّم الصف كمحذوف فيختفي عن الصيدلي، ويبقى محسوباً بالإحصاءات.
   await pool.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP;`);
+
+  // ⚠️ يجب أن يبقى بعد CREATE TABLE orders، وإلا تعطل الإقلاع على قاعدة جديدة.
+  // مفتاح تفرّد لكل محاولة إرسال طلب، يمنع تكرار الطلب عند الفشل الملتبس.
+  //
+  // المشكلة: المريض يرسل الطلب فيصل الخادم ويُحفظ، ثم يضيع الرد في الطريق
+  // (انقطاع لحظي، شائع على الشبكة المحمولة). يرى "تعذّر الاتصال" فيظن الطلب فشل،
+  // والسلة باقية، فيرسل مجدداً — فيتلقى الصيدلي طلبين متطابقين.
+  //
+  // الحل: الواجهة ترسل مفتاحاً ثابتاً لكل سلة، ويعيده المريض مع كل إعادة محاولة.
+  // الفهرس الفريد على (المفتاح، الصيدلية) يضمن طلباً واحداً لكل صيدلية لكل سلة،
+  // حتى لو وصل طلبان في اللحظة ذاتها — فالضمان في القاعدة لا في منطق التطبيق.
+  //
+  // جزئي (WHERE request_key IS NOT NULL) عن قصد: الطلبات القديمة بلا مفتاح،
+  // وبدون الشرط لتصادمت فيما بينها.
+  await pool.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS request_key TEXT;`);
+  try {
+    await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS orders_request_key_pharmacy
+                      ON orders (request_key, pharmacy_id) WHERE request_key IS NOT NULL;`);
+  } catch (err) {
+    // فشل إنشاء الفهرس يجب ألا يوقف الإقلاع؛ الطلبات تعمل بدونه وإن فقدت الحماية
+    console.error('تعذّر إنشاء فهرس تفرّد الطلبات (لا يمنع الإقلاع):', err.message);
+  }
 
   // خدمات التمريض
   await pool.query(`
@@ -238,6 +238,31 @@ async function initDb() {
         [name, generic_name, alt_names]
       );
     }
+  }
+
+  // ⚠️ في آخر initDb عن قصد: يمس جداول الصيدليات والممرضين والأدوية، فيجب أن
+  // تكون كلها منشأة قبله. كان قبل جدول الممرضين فيتخطاه بصمت على قاعدة جديدة.
+  // تنظيف لمرة واحدة للمسافات الزائدة في البيانات المحفوظة سابقاً.
+  //
+  // آمن للتكرار: الشرط WHERE يطابق فقط ما لم يُنظَّف بعد، فتشغيله مع كل إقلاع
+  // لا يمس شيئاً بعد المرة الأولى.
+  //
+  // ⚠️ استثنينا medicines.name عمداً: عليه فهرس فريد (name, category)، فلو وُجد
+  // "بنادول" و"بنادول " معاً لأدى التنظيف إلى تصادم يُفشل التحديث.
+  //
+  // ⚠️ ملفوف بـtry/catch: فشل التنظيف يجب ألا يمنع الخادم من الإقلاع أبداً.
+  // موقع يعمل ببيانات فيها مسافة زائدة أفضل بكثير من موقع متوقف.
+  try {
+    const norm = col => `btrim(regexp_replace(${col}, '\\s+', ' ', 'g'))`;
+    const dirty = col => `${col} IS NOT NULL AND ${col} <> ${norm(col)}`;
+    await pool.query(`UPDATE pharmacies SET name = ${norm('name')} WHERE ${dirty('name')};`);
+    await pool.query(`UPDATE pharmacies SET address = ${norm('address')} WHERE ${dirty('address')};`);
+    await pool.query(`UPDATE nurses SET name = ${norm('name')} WHERE ${dirty('name')};`);
+    await pool.query(`UPDATE nurses SET specialty = ${norm('specialty')} WHERE ${dirty('specialty')};`);
+    await pool.query(`UPDATE nurses SET university = ${norm('university')} WHERE ${dirty('university')};`);
+    await pool.query(`UPDATE medicines SET generic_name = ${norm('generic_name')} WHERE ${dirty('generic_name')};`);
+  } catch (err) {
+    console.error('تعذّر تنظيف المسافات الزائدة (لا يمنع الإقلاع):', err.message);
   }
 }
 
@@ -731,13 +756,34 @@ async function setStock(pharmacyId, medicineId, available, manufactureDate, expi
 
 // ---------- الطلبات ----------
 
-async function createOrder(pharmacyId, patientName, patientPhone, items, notes) {
-  const { rows } = await pool.query(
-    `INSERT INTO orders (pharmacy_id, patient_name, patient_phone, items, notes)
-     VALUES ($1, $2, $3, $4, $5) RETURNING *`,
-    [pharmacyId, patientName, patientPhone, JSON.stringify(items), notes || null]
+// إنشاء طلب. requestKey اختياري: إن وُجد وسبق استخدامه لهذه الصيدلية، يُعاد
+// الطلب الموجود بدل إنشاء نسخة. ولغيابه (عميل قديم) يعمل كالسابق تماماً.
+//
+// ON CONFLICT ... DO NOTHING لا يرجّع صفاً عند التصادم، فنقرأ الموجود بعدها.
+// والضمان هنا في القاعدة لا في التطبيق: طلبان متزامنان بالمفتاح نفسه ينتجان
+// طلباً واحداً، ويرجع كلاهما المعرّف نفسه.
+async function createOrder(pharmacyId, patientName, patientPhone, items, notes, requestKey) {
+  if (!requestKey) {
+    const { rows } = await pool.query(
+      `INSERT INTO orders (pharmacy_id, patient_name, patient_phone, items, notes)
+       VALUES ($1, $2, $3, $4, $5) RETURNING *`,
+      [pharmacyId, patientName, patientPhone, JSON.stringify(items), notes || null]
+    );
+    return rows[0];
+  }
+  const inserted = await pool.query(
+    `INSERT INTO orders (pharmacy_id, patient_name, patient_phone, items, notes, request_key)
+     VALUES ($1, $2, $3, $4, $5, $6)
+     ON CONFLICT (request_key, pharmacy_id) WHERE request_key IS NOT NULL DO NOTHING
+     RETURNING *`,
+    [pharmacyId, patientName, patientPhone, JSON.stringify(items), notes || null, requestKey]
   );
-  return rows[0];
+  if (inserted.rows.length) return inserted.rows[0];
+  const existing = await pool.query(
+    `SELECT * FROM orders WHERE request_key = $1 AND pharmacy_id = $2`,
+    [requestKey, pharmacyId]
+  );
+  return existing.rows[0];
 }
 
 async function getOrdersForPharmacy(pharmacyId) {
