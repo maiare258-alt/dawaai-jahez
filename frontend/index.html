@@ -581,6 +581,16 @@
     .open-badge { margin: 4px 0 0; }
   }
 
+  /* ---- شريط انقطاع الإنترنت ---- */
+  .offline-banner {
+    position: fixed; left: 50%; transform: translateX(-50%);
+    bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+    z-index: 2000; align-items: center; gap: 8px;
+    background: #2b2f36; color: #fff; padding: 11px 20px; border-radius: 999px;
+    font-size: 14px; font-weight: 600; box-shadow: 0 8px 24px rgba(0,0,0,0.25);
+    max-width: calc(100% - 32px);
+  }
+
   /* ---- النسخ الاحتياطي وحالة النظام ---- */
   .status-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 12px 0; font-size: 13.5px; }
   .status-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; margin-inline-end: 6px; }
@@ -1691,6 +1701,13 @@
       <button type="button" class="btn-outline" id="wa-panel-close" onclick="closeWhatsappPanel()">إغلاق</button>
     </div>
   </div>
+</div>
+
+<!-- شريط انقطاع الإنترنت: يظهر فور فقدان الاتصال ويختفي مع عودته، فيعرف المستخدم
+     سبب الفشل قبل أن يحاول. role=status لتعلنه قارئات الشاشة دون مقاطعة. -->
+<div id="offline-banner" class="offline-banner" role="status" aria-live="polite" style="display:none;">
+  <span aria-hidden="true">📡</span>
+  <span id="offline-banner-text">لا يوجد اتصال بالإنترنت</span>
 </div>
 
 <script src="app.js"></script>
