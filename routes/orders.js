@@ -62,7 +62,7 @@ const MAX_MED_NAME = 120;
 // 20 طلباً كل 15 دقيقة لكل عنوان. رقم متعمَّد السعة: عائلة تطلب لعدة أفراد
 // من شبكة واحدة لن تُحظر، بينما السبب الآلي يُقطع فوراً.
 router.post('/', rateLimit(20, 15 * 60 * 1000), async (req, res) => {
-  const { patient_name, patient_phone, items, notes } = req.body;
+  const { patient_name, patient_phone, items, notes, request_key } = req.body;
   if (!patient_name || !patient_phone || !Array.isArray(items) || items.length === 0) {
     return res.status(400).json({ error: 'الاسم ورقم الهاتف والأدوية مطلوبة لإتمام الطلب' });
   }
@@ -77,6 +77,15 @@ router.post('/', rateLimit(20, 15 * 60 * 1000), async (req, res) => {
   }
   if (items.length > MAX_ITEMS) {
     return res.status(400).json({ error: 'عدد الأدوية في الطلب كبير جداً' });
+  }
+  // مفتاح التفرّد اختياري للتوافق مع النسخ القديمة من الواجهة. نقيّد صيغته
+  // صراحةً: حروف لاتينية وأرقام وشرطة، بطول معقول — فلا يُخزَّن نص عشوائي.
+  let requestKey = null;
+  if (request_key !== undefined && request_key !== null && request_key !== '') {
+    if (typeof request_key !== 'string' || !/^[A-Za-z0-9-]{8,64}$/.test(request_key)) {
+      return res.status(400).json({ error: 'بيانات الطلب غير صالحة' });
+    }
+    requestKey = request_key;
   }
   try {
     const byPharmacy = {};
@@ -105,7 +114,7 @@ router.post('/', rateLimit(20, 15 * 60 * 1000), async (req, res) => {
 
     const orders = [];
     for (const pharmacyId of Object.keys(byPharmacy)) {
-      const order = await db.createOrder(Number(pharmacyId), patient_name, patient_phone, byPharmacy[pharmacyId], notes);
+      const order = await db.createOrder(Number(pharmacyId), patient_name, patient_phone, byPharmacy[pharmacyId], notes, requestKey);
       orders.push(order);
     }
     res.status(201).json({ success: true, orders });
