@@ -341,6 +341,9 @@ const translations = {
     closed_today_saved: 'أُعلن إغلاق الصيدلية اليوم',
     closed_today_removed: 'عاد الدوام إلى جدوله المعتاد',
     duty_overrides_hours: 'صيدليتك مناوبة، لذا تظهر مفتوحة بصرف النظر عن ساعات الدوام.',
+    a11y_duty_day: 'يوم المناوبة',
+    a11y_duty_shift: 'وردية المناوبة',
+    a11y_med_category: 'تصنيف المنتج',
     err_offline: 'لا يوجد اتصال بالإنترنت. تحقق من الشبكة ثم أعد المحاولة.',
     err_timeout_search: 'استغرق الخادم وقتاً أطول من المعتاد. أعد المحاولة بعد قليل.',
     err_timeout_order: 'لم يصل رد الخادم في الوقت المحدد. يمكنك إعادة الإرسال بأمان، فلن يتكرر طلبك.',
@@ -721,6 +724,9 @@ const translations = {
     closed_today_saved: 'The pharmacy is marked closed today',
     closed_today_removed: 'Hours returned to the usual schedule',
     duty_overrides_hours: 'Your pharmacy is on duty, so it shows as open regardless of opening hours.',
+    a11y_duty_day: 'Duty day',
+    a11y_duty_shift: 'Duty shift',
+    a11y_med_category: 'Product category',
     err_offline: 'No internet connection. Check your network and try again.',
     err_timeout_search: 'The server took longer than usual. Please try again shortly.',
     err_timeout_order: 'The server did not respond in time. You can safely send again; your order will not be duplicated.',
@@ -977,6 +983,12 @@ function applyLanguage() {
 
   // ---------- شريط انقطاع الإنترنت ----------
   updateOfflineBanner();
+
+  // ---------- أسماء مقروءة للقوائم المنسدلة ----------
+  // كانت هذه القوائم بلا أي اسم، فيعلنها قارئ الشاشة "قائمة منسدلة" فقط دون أن
+  // يعرف المستخدم ماذا يختار. نضبطها هنا لا في HTML، لتتبع لغة الواجهة.
+  [['duty-day', 'a11y_duty_day'], ['duty-shift', 'a11y_duty_shift'], ['pharm-med-category', 'a11y_med_category']]
+    .forEach(([id, key]) => { const el = document.getElementById(id); if (el) el.setAttribute('aria-label', t(key)); });
 
   // ---------- ساعات الدوام ----------
   document.getElementById('hours-section-title').textContent = t('hours_section_title');
@@ -1630,7 +1642,7 @@ let myOrdersPollInterval = null;
 function startMyOrdersPolling() {
   if (myOrdersPollInterval) return;
   checkMyOrdersStatus();
-  myOrdersPollInterval = setInterval(checkMyOrdersStatus, 2000);
+  myOrdersPollInterval = setInterval(whenVisible(checkMyOrdersStatus), POLL_MY_ORDERS_MS);
 }
 
 function stopMyOrdersPolling() {
@@ -2195,7 +2207,7 @@ let lastNursesSnapshot = null;
 
 function startNursingPolling() {
   stopNursingPolling();
-  nursingPollInterval = setInterval(pollNurses, 5000);
+  nursingPollInterval = setInterval(whenVisible(pollNurses), POLL_NURSES_MS);
 }
 
 function stopNursingPolling() {
@@ -3377,7 +3389,7 @@ let ordersPollInterval = null;
 
 function startOrdersPolling() {
   stopOrdersPolling();
-  ordersPollInterval = setInterval(loadOrders, 12000);
+  ordersPollInterval = setInterval(whenVisible(loadOrders), POLL_PHARMACY_ORDERS_MS);
 }
 
 function stopOrdersPolling() {
@@ -4065,6 +4077,46 @@ function onEditPharmacyNameKeydown(e, id) {
 // تبديل حالة "تُحدّث مخزونها" من لوحة الإدارة.
 // نطلب تأكيداً يشرح الأثر على المريض صراحةً، لأن الإيقاف يغيّر ما يراه الناس
 // عن صيدلية حقيقية — لا مجرد إعداد داخلي.
+// ================= الاستطلاع الدوري =================
+// كانت خمسة مؤقتات تعمل بلا توقف، حتى حين يكون التبويب مخفياً أو الهاتف مقفلاً.
+// أسوأها سؤال كل زائر عن الصيدليات المناوبة كل 5 ثوانٍ مهما كانت الصفحة التي يفتحها،
+// والجدول يتغير نحو مرة في اليوم — أي 720 استعلاماً في الساعة لكل زائر بلا فائدة.
+// والثاني سؤال المريض عن حالة طلبه كل ثانيتين: 18 ألف طلب لو ترك التبويب ليلة كاملة
+// بانتظار صيدلية مغلقة.
+//
+// الحل: كل مؤقت يتخطى جولته حين يكون التبويب مخفياً، ونحدّث فوراً عند العودة إليه،
+// فيرى المستخدم أحدث البيانات لحظة ينظر دون أن يستهلك شيئاً وهو غائب.
+//
+// ملاحظة: لا يوجد تنبيه صوتي أو إشعار للصيدلي يعتمد على العمل في الخلفية، فالإيقاف
+// آمن له أيضاً — والتحديث الفوري عند العودة يُظهر له الطلبات الجديدة لحظة يفتح التبويب.
+
+const POLL_ON_DUTY_MS = 60000;      // كان 5000: الجدول يتغير نادراً
+const POLL_MY_ORDERS_MS = 10000;    // كان 2000: عشر ثوانٍ تكفي لمعرفة تأكيد الصيدلي
+const POLL_NURSES_MS = 30000;       // كان 5000: تقييمات الممرضين نادرة التغيّر
+const POLL_ADMIN_RATINGS_MS = 15000; // كان 4000
+const POLL_PHARMACY_ORDERS_MS = 12000; // بلا تغيير: وظيفة الصيدلي الأساسية
+
+// يغلّف دالة الاستطلاع فتتخطى جولتها حين يكون التبويب مخفياً.
+// نغلّف عند نقطة الجدولة لا داخل الدالة نفسها، فالاستدعاء المباشر يبقى يعمل دائماً
+// (مثلاً عند فتح الصفحة في تبويب خلفي ثم الانتقال إليه).
+function whenVisible(fn) {
+  return function () {
+    if (typeof document !== 'undefined' && document.hidden) return;
+    return fn.apply(this, arguments);
+  };
+}
+
+// عند العودة إلى التبويب: تحديث فوري لما هو نشط، بدل انتظار الجولة التالية
+// التي قد تكون بعد دقيقة كاملة.
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) return;
+  try { loadOnDuty(); } catch (e) {}
+  if (myOrdersPollInterval) try { checkMyOrdersStatus(); } catch (e) {}
+  if (ordersPollInterval) try { loadOrders(); } catch (e) {}
+  if (nursingPollInterval) try { pollNurses(); } catch (e) {}
+  if (adminRatingsPollInterval) try { loadPendingRatingsForAdmin(); } catch (e) {}
+});
+
 // ================= التعامل مع الإخفاق =================
 // كانت ٥١ طلباً شبكياً بلا أي مهلة زمنية: لو علق الاتصال — وهو شائع على الشبكة
 // المحمولة — لا ينتهي الطلب أبداً. وفي إرسال الطلب تحديداً كان ذلك يترك
@@ -4602,7 +4654,7 @@ let lastPendingRatingsSnapshot = null;
 
 function startAdminRatingsPolling() {
   stopAdminRatingsPolling();
-  adminRatingsPollInterval = setInterval(loadPendingRatingsForAdmin, 4000);
+  adminRatingsPollInterval = setInterval(whenVisible(loadPendingRatingsForAdmin), POLL_ADMIN_RATINGS_MS);
 }
 
 function stopAdminRatingsPolling() {
@@ -4703,7 +4755,7 @@ applyLanguage();
 runSearch();
 loadOnDuty();
 updateCartCount();
-setInterval(loadOnDuty, 5000);
+setInterval(whenVisible(loadOnDuty), POLL_ON_DUTY_MS);
 updateBellBadge();
 if (myOrders.length > 0) startMyOrdersPolling();
 
