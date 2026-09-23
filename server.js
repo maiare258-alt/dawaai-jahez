@@ -1,5 +1,6 @@
 const express = require('express');
 const cors = require('cors');
+const compression = require('compression');
 const path = require('path');
 require('dotenv').config();
 
@@ -13,6 +14,11 @@ const statsRoutes = require('./routes/stats');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+// ضغط الاستجابات. app.js وindex.html وحدهما 366 كيلوبايت، والضغط يجعلها نحو 91.
+// على اتصال محمول بسرعة 1 ميغابت، هذا الفرق بين نحو 3 ثوانٍ وثانية واحدة لأول تحميل.
+// الحزمة من فريق Express الرسمي، وتتخطى تلقائياً الاستجابات الصغيرة والمضغوطة أصلاً.
+app.use(compression());
 
 app.use(cors());
 
