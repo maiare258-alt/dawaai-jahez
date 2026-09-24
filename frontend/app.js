@@ -160,7 +160,7 @@ const translations = {
     onduty_title: '🟢 الصيدليات المناوبة اليوم', onduty_now_badge: '🟢 مناوبة الآن',
     onduty_empty_title: 'لا توجد صيدليات مناوبة حالياً',
     onduty_empty_subtitle: 'يمكنك المحاولة لاحقاً، أو التواصل مباشرة مع الصيدلية التي تفضّلها.',
-    bell_empty: 'ما في إشعارات حالياً', bell_aria_label: 'إشعارات الطلبات', bell_dismiss_aria: 'إخفاء', bell_clear_all: '🗑️ مسح الكل',
+    bell_empty: 'لا توجد إشعارات حالياً', bell_aria_label: 'إشعارات الطلبات', bell_dismiss_aria: 'إخفاء', bell_clear_all: '🗑️ مسح الكل',
     bell_confirmed_text: 'تم الاستجابة لطلبك من قبل الصيدلية',
     bell_pending_prefix: 'طلبك عند صيدلية', bell_pending_suffix: 'قيد المراجعة...',
     excess_quantity_confirm: 'أضفت {qty} من {name} من {pharmacy} إلى عربتك. هل ترغب في إضافة المزيد؟',
@@ -352,6 +352,27 @@ const translations = {
     offline_banner: 'لا يوجد اتصال بالإنترنت',
     sending_order: 'جارٍ إرسال الطلب...',
     rate_limited_error: 'محاولات كثيرة جداً. حاول بعد قليل.',
+    demand_title: '📊 تحليل الطلب',
+    demand_desc: 'ما يبحث عنه المرضى فعلاً، مجمَّعاً ومجهَّلاً. لا يحوي أي بيانات تكشف هوية أحد.',
+    demand_period: 'الفترة:',
+    demand_days_7: 'آخر ٧ أيام',
+    demand_days_30: 'آخر ٣٠ يوماً',
+    demand_days_90: 'آخر ٩٠ يوماً',
+    demand_total: 'عمليات بحث مسجَّلة',
+    demand_top: 'الأكثر طلباً',
+    demand_not_found: 'بحث بلا نتيجة',
+    demand_not_found_hint: 'أدوية لا تعرفها المنصة بعد، فرصة لإضافتها',
+    demand_shortages: 'إشارات النقص',
+    demand_shortages_hint: 'دواء معروف ولا يتوفر في أي صيدلية تُحدِّث مخزونها',
+    demand_by_city: 'حسب المدينة',
+    demand_all_cities: 'كل المدن',
+    demand_empty: 'لا توجد بيانات بعد',
+    demand_times: 'مرة',
+    demand_export: 'تنزيل التقرير (Excel)',
+    demand_load_error: 'تعذّر تحميل تقرير الطلب',
+    demand_col_section: 'القسم',
+    demand_col_item: 'البند',
+    demand_col_count: 'العدد',
     backup_title: '💾 النسخ الاحتياطي وحالة النظام',
     backup_desc: 'خطة الاستضافة المجانية لا توفر نسخاً احتياطياً تلقائياً. نزِّل نسخة دورياً واحفظها في مكان آمن.',
     backup_btn: 'تنزيل نسخة احتياطية',
@@ -483,20 +504,20 @@ const translations = {
     order_missing_fields_error: 'الاسم ورقم الهاتف والأدوية مطلوبة لإتمام الطلب',
     medicine_already_exists_error: 'هذا الدواء موجود مسبقاً في القائمة العامة',
     bulk_import_title: '📥 استيراد أدوية من ملف',
-    bulk_import_desc: 'حمّل نموذج فارغ، انسخ فيه بيانات أدوية الشركه، ثم ارفعه هنا لإضافتها دفعة وحدة إلى مخزونك في الصيدليه.',
-    bulk_import_hint_alt_format: 'إذا طلعت الحروف العربية مشوّهة بعد الحفظ CSV، جرّب تحفظ الملف بصيغة "Unicode Text" بدلها من نفس نافذة الحفظ بإكسل.',
+    bulk_import_desc: 'نزِّل نموذجاً فارغاً، وانسخ فيه بيانات أدوية الشركة، ثم ارفعه هنا لإضافتها دفعة واحدة إلى مخزون صيدليتك.',
+    bulk_import_hint_alt_format: 'إن ظهرت الحروف العربية مشوّهة بعد الحفظ بصيغة CSV، فجرّب حفظ الملف بصيغة "Unicode Text" من نافذة الحفظ نفسها في إكسل.',
     download_template_btn: '⬇️ تحميل نموذج فارغ (CSV)',
     choose_file_btn: 'اختيار ملف CSV',
-    no_file_chosen: 'ما في ملف مختار',
+    no_file_chosen: 'لم يُختر أي ملف',
     bulk_import_preview_title: 'معاينة قبل الاستيراد',
     bulk_import_valid_count: '{count} دواء جاهز للاستيراد',
-    bulk_import_invalid_count: '{count} صف فيه مشكلة (رح يتجاهل)',
+    bulk_import_invalid_count: 'عدد الصفوف التي فيها مشكلة: {count} (ستُتجاهل)',
     bulk_import_confirm_btn: 'تأكيد الاستيراد',
     bulk_import_cancel_btn: 'إلغاء',
     bulk_import_empty_name_issue: 'اسم الدواء مفقود',
     bulk_import_invalid_category_issue: 'تصنيف غير معروف (استخدم دواء أو مستحضر تجميل)',
     bulk_import_parse_error: 'تعذّر قراءة الملف. تأكد إنه بصيغة CSV وبنفس تنسيق النموذج.',
-    bulk_import_no_valid_rows: 'ما في أي صف صالح للاستيراد بالملف.',
+    bulk_import_no_valid_rows: 'لا يوجد في الملف أي صف صالح للاستيراد.',
     bulk_import_success: 'تم الاستيراد: {added} دواء جديد، {linked} مربوط بمخزونك، {skipped} تم تجاهله.',
     bulk_import_col_name: 'الاسم', bulk_import_col_generic: 'المادة الفعالة',
     bulk_import_col_alt: 'أسماء بديلة', bulk_import_col_category: 'التصنيف', bulk_import_col_issue: 'ملاحظة'
@@ -734,6 +755,27 @@ const translations = {
     offline_banner: 'No internet connection',
     sending_order: 'Sending order...',
     rate_limited_error: 'Too many attempts. Please try again shortly.',
+    demand_title: '📊 Demand insights',
+    demand_desc: 'What patients actually search for, aggregated and anonymized. It contains no data that identifies anyone.',
+    demand_period: 'Period:',
+    demand_days_7: 'Last 7 days',
+    demand_days_30: 'Last 30 days',
+    demand_days_90: 'Last 90 days',
+    demand_total: 'searches recorded',
+    demand_top: 'Most searched',
+    demand_not_found: 'Searches with no result',
+    demand_not_found_hint: 'Medicines the platform does not know yet, a chance to add them',
+    demand_shortages: 'Shortage signals',
+    demand_shortages_hint: 'A known medicine unavailable at every pharmacy that updates its stock',
+    demand_by_city: 'By city',
+    demand_all_cities: 'All cities',
+    demand_empty: 'No data yet',
+    demand_times: 'times',
+    demand_export: 'Download report (Excel)',
+    demand_load_error: 'Could not load the demand report',
+    demand_col_section: 'Section',
+    demand_col_item: 'Item',
+    demand_col_count: 'Count',
     backup_title: '💾 Backup and system status',
     backup_desc: 'The free hosting plan provides no automatic backups. Download a copy regularly and keep it somewhere safe.',
     backup_btn: 'Download backup',
@@ -2479,6 +2521,9 @@ async function runSearch() {
     if (!stillCurrent()) return;
     lastSearchResultsCache = data;
     setResultsToolbar(true);
+    // يُسجَّل البحث فقط إن بقي على الشاشة، سواء وُجد الدواء أم لا:
+    // "لم يُوجد" بالذات يكشف الأدوية الناقصة من القائمة.
+    scheduleSearchLog(q, currentCategory, currentCity);
 
     if (data.length === 0) {
       const notFoundTitle = currentCategory === 'cosmetic' ? t('not_found_title_cosmetic') : t('not_found_title_medicine');
@@ -3812,6 +3857,19 @@ function renderAdminPanelUI() {
     </div>
 
     <div class="box" style="margin-bottom:20px;">
+      <h3 style="margin-top:0;">${t('demand_title')}</h3>
+      <p class="muted" style="margin-top:6px;">${t('demand_desc')}</p>
+      <div class="demand-toolbar">
+        <span class="muted">${t('demand_period')}</span>
+        <button type="button" class="demand-period-btn" data-days="7" onclick="loadDemandReport(7)">${t('demand_days_7')}</button>
+        <button type="button" class="demand-period-btn" data-days="30" onclick="loadDemandReport(30)">${t('demand_days_30')}</button>
+        <button type="button" class="demand-period-btn" data-days="90" onclick="loadDemandReport(90)">${t('demand_days_90')}</button>
+        <button type="button" class="btn-outline blue demand-export-btn" onclick="exportDemandCsv()">${t('demand_export')}</button>
+      </div>
+      <div id="demand-report" class="demand-report"></div>
+    </div>
+
+    <div class="box" style="margin-bottom:20px;">
       <h3 style="margin-top:0;">${t('backup_title')}</h3>
       <p class="muted" style="margin-top:6px;">${t('backup_desc')}</p>
 
@@ -3944,6 +4002,7 @@ function renderAdminPanelUI() {
   renderAdminUsernameList();
   renderBackupInfo();
   checkSystemStatus();
+  loadDemandReport();
 }
 
 async function addPharmacy() {
@@ -4159,6 +4218,111 @@ function updateOfflineBanner() {
 }
 window.addEventListener('offline', updateOfflineBanner);
 window.addEventListener('online', updateOfflineBanner);
+
+// ================= تسجيل البحث المجهَّل =================
+// البحث حي أثناء الكتابة، فمن يكتب "بنادول" ببطء يُطلق "بن" ثم "بناد" ثم "بنادول".
+// لا نسجّل إلا البحث الذي يبقى على الشاشة ثانيتين ونصفاً: أي بحث جديد يلغي المؤقت،
+// فأجزاء الكلمات تُستبدل قبل أن تُسجَّل. ولا نكرر تسجيل البحث نفسه في الجلسة
+// (زر "تحديث النتائج" مثلاً لا يُحتسب طلباً ثانياً).
+const SEARCH_LOG_SETTLE_MS = 2500;
+let searchLogTimer = null;
+let lastLoggedSearchKey = null;
+
+function scheduleSearchLog(q, category, city) {
+  clearTimeout(searchLogTimer);
+  if (!q || q.trim().length < 2) return;
+  searchLogTimer = setTimeout(() => {
+    // البحث تغيّر أثناء الانتظار: ليس هو ما استقر عليه المستخدم
+    const box = document.getElementById('search');
+    if (!box || box.value.trim() !== q) return;
+    const key = [q.trim().toLowerCase(), category, city || ''].join('|');
+    if (key === lastLoggedSearchKey) return;
+    lastLoggedSearchKey = key;
+    // لا ننتظر الرد ولا نعرض أي خطأ: التسجيل خدمة خلفية لا تمس تجربة المريض
+    fetch(`${API}/medicines/search-log`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ q, category, city: city || null }),
+      keepalive: true
+    }).catch(() => {});
+  }, SEARCH_LOG_SETTLE_MS);
+}
+
+// ================= تقرير الطلب (لوحة الإدارة) =================
+let demandDays = 30;
+let lastDemandReport = null;
+
+function demandListHtml(rows, labelKey, emptyText) {
+  if (!rows || !rows.length) return `<p class="muted" style="margin:6px 0;">${emptyText}</p>`;
+  return rows.map(r => `
+    <div class="demand-row">
+      <span class="demand-name"><bdi>${escapeHtml(r[labelKey] || '')}</bdi></span>
+      <span class="demand-count"><bdi>${Number(r.count) || 0}</bdi> ${t('demand_times')}</span>
+    </div>`).join('');
+}
+
+function renderDemandReport() {
+  const box = document.getElementById('demand-report');
+  if (!box) return;
+  const r = lastDemandReport;
+  if (!r) { box.innerHTML = `<p class="muted">${t('loading_text')}</p>`; return; }
+  const cityRows = (r.byCity || []).map(c => ({ name: c.city ? cityName(c.city) : t('demand_all_cities'), count: c.count }));
+  box.innerHTML = `
+    <div class="demand-total"><bdi>${Number(r.total) || 0}</bdi><span>${t('demand_total')}</span></div>
+    <div class="demand-grid">
+      <div class="demand-block"><h4>${t('demand_top')}</h4>${demandListHtml(r.topMedicines, 'name', t('demand_empty'))}</div>
+      <div class="demand-block"><h4>${t('demand_shortages')}</h4><p class="demand-hint">${t('demand_shortages_hint')}</p>${demandListHtml(r.shortages, 'name', t('demand_empty'))}</div>
+      <div class="demand-block"><h4>${t('demand_not_found')}</h4><p class="demand-hint">${t('demand_not_found_hint')}</p>${demandListHtml(r.notFound, 'query', t('demand_empty'))}</div>
+      <div class="demand-block"><h4>${t('demand_by_city')}</h4>${demandListHtml(cityRows, 'name', t('demand_empty'))}</div>
+    </div>`;
+}
+
+async function loadDemandReport(days) {
+  if (days) demandDays = days;
+  document.querySelectorAll('.demand-period-btn').forEach(b =>
+    b.classList.toggle('active', Number(b.getAttribute('data-days')) === demandDays));
+  lastDemandReport = null;
+  renderDemandReport();
+  try {
+    const res = await fetch(`${API}/stats/demand?days=${demandDays}`, { headers: adminHeaders(), cache: 'no-store' });
+    if (!res.ok) throw new Error('status ' + res.status);
+    lastDemandReport = await res.json();
+    renderDemandReport();
+  } catch (err) {
+    const box = document.getElementById('demand-report');
+    if (box) box.innerHTML = `<p class="muted">${t('demand_load_error')}</p>`;
+  }
+}
+
+// تنزيل التقرير ملف CSV يفتحه إكسل. علامة BOM في أوله ضرورية، وإلا عرض إكسل
+// الحروف العربية رموزاً مشوّهة. وكل خلية بين علامتي تنصيص مع مضاعفة ما بداخلها،
+// فلا تكسر فاصلة في اسم دواء أعمدة الجدول.
+function exportDemandCsv() {
+  const r = lastDemandReport;
+  if (!r) return;
+  // حماية من حقن الصيغ: "بحث بلا نتيجة" نص كتبه زائر مجهول، فلو بدأ بـ = أو + أو - أو @
+  // لنفّذه إكسل صيغةً عند فتح الملف (مثلاً رابط يسرّب البيانات). نسبق هذه الخلايا
+  // بعلامة اقتباس مفردة فيعرضها إكسل نصاً. الأرقام الحقيقية (العدّادات) لا تُمس.
+  const cell = v => {
+    let str = String(v == null ? '' : v);
+    if (typeof v !== 'number' && /^[=+\-@\t\r]/.test(str)) str = "'" + str;
+    return '"' + str.replace(/"/g, '""') + '"';
+  };
+  const lines = [[t('demand_col_section'), t('demand_col_item'), t('demand_col_count')].map(cell).join(',')];
+  const add = (section, rows, key) => (rows || []).forEach(x => lines.push([section, x[key], x.count].map(cell).join(',')));
+  lines.push([t('demand_total'), '', r.total].map(cell).join(','));
+  add(t('demand_top'), r.topMedicines, 'name');
+  add(t('demand_shortages'), r.shortages, 'name');
+  add(t('demand_not_found'), r.notFound, 'query');
+  add(t('demand_by_city'), (r.byCity || []).map(c => ({ name: c.city ? cityName(c.city) : t('demand_all_cities'), count: c.count })), 'name');
+  const blob = new Blob(['\ufeff' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `dawaai-jahez-demand-${r.days}d-${new Date().toISOString().slice(0, 10)}.csv`;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
 
 // ================= النسخ الاحتياطي وحالة النظام =================
 // خطة Supabase المجانية بلا نسخ احتياطي تلقائي، وصفر مراقبة تلقائية.
