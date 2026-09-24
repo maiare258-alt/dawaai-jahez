@@ -47,4 +47,19 @@ router.get('/backup', adminAuth, async (req, res) => {
   }
 });
 
+// تقرير الطلب المجمَّع (للإدارة فقط) — GET /api/stats/demand?days=30
+// أعداد مجمّعة فقط: أكثر الأدوية طلباً، والبحث بلا نتيجة، وإشارات النقص، والتوزيع بالمدن.
+router.get('/demand', adminAuth, async (req, res) => {
+  let days = parseInt(req.query.days, 10);
+  if (!Number.isInteger(days) || days < 1) days = 30;
+  if (days > 365) days = 365;
+  try {
+    res.set('Cache-Control', 'no-store');
+    res.json(await db.getDemandReport(days));
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'حدث خطأ أثناء إعداد تقرير الطلب' });
+  }
+});
+
 module.exports = router;
