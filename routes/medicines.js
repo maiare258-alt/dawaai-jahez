@@ -3,6 +3,7 @@ const router = express.Router();
 const bcrypt = require('bcryptjs');
 const db = require('../db');
 const adminAuth = require('../middleware/adminAuth');
+const rateLimit = require('../middleware/rateLimit');
 
 // التصنيفات المسموحة حصراً عند إنشاء دواء/مستحضر جديد
 const ALLOWED_CATEGORIES = ['medicine', 'cosmetic'];
@@ -25,6 +26,28 @@ function validateCategory(category) {
 
 // البحث عن دواء/مستحضر وعرض توفره في كل الصيدليات (متاح للجميع - واجهة المريض)
 // GET /api/medicines/search?q=بنادول&category=medicine
+// تسجيل بحث مجهَّل — POST /api/medicines/search-log  { q, category, city }
+//
+// منفصل عن مسار البحث عمداً: البحث حي أثناء الكتابة، فلو سجّل كل طلب لامتلأت بيانات
+// الطلب بأجزاء كلمات ("بن"، "بناد"). الواجهة تستدعي هذا المسار فقط حين يبقى البحث على
+// الشاشة ثانيتين ونصفاً، أي حين يكون بحثاً مقصوداً. ومسار البحث يبقى قراءة بلا أثر جانبي.
+//
+// الرد دائماً 204 بلا تفاصيل، حتى عند الرفض لأسباب الخصوصية: لا نكشف ما سُجِّل وما لم يُسجَّل،
+// وفشل التسجيل يجب ألا يظهر للمريض أبداً.
+// 30 تسجيلاً كل 15 دقيقة لكل عنوان: يكفي أي مستخدم حقيقي، ويحدّ من إغراق البيانات بطلب وهمي.
+router.post('/search-log', rateLimit(30, 15 * 60 * 1000), async (req, res) => {
+  const { q, category, city } = req.body || {};
+  if (typeof q !== 'string' || q.trim().length < 2 || q.length > 200) return res.status(204).end();
+  const cat = category === 'cosmetic' ? 'cosmetic' : 'medicine';
+  const safeCity = typeof city === 'string' && /^[a-z_]{2,30}$/.test(city) ? city : null;
+  try {
+    await db.logSearch({ query: q, category: cat, city: safeCity });
+  } catch (err) {
+    console.error('تعذّر تسجيل البحث (لا يؤثر على المستخدم):', err.message);
+  }
+  res.status(204).end();
+});
+
 router.get('/search', async (req, res) => {
   const q = req.query.q || '';
   const category = req.query.category || 'medicine';
