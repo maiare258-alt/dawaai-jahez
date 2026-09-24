@@ -68,7 +68,7 @@
                  'detectMyLocation','saveLocationFromInput','clearPharmacyLocation','togglePharmacyManagesStock',
                  'savePharmacyHours','clearPharmacyHours','toggleClosedToday',
                  'onAdminDutySearch','onAdminDutyToggle','saveAdminDuty','clearAllDuty',
-                 'onAdminUsernameSearch','saveAdminUsername','downloadBackup',
+                 'onAdminUsernameSearch','saveAdminUsername','downloadBackup','loadDemandReport','exportDemandCsv',
                  'headerGoHome','headerGoOnDuty',
                  'headerGoPharmacist','headerGoCosmetics','headerGoNursing','headerGoAdmin'];
     early.forEach(function (name) {
@@ -616,6 +616,35 @@
     background: #2b2f36; color: #fff; padding: 11px 20px; border-radius: 999px;
     font-size: 14px; font-weight: 600; box-shadow: 0 8px 24px rgba(0,0,0,0.25);
     max-width: calc(100% - 32px);
+  }
+
+  /* ---- تقرير الطلب ---- */
+  .demand-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 12px 0 16px; }
+  .demand-period-btn {
+    background: #f4f8fc; color: #163a5c; border: 1px solid #d6e2ee; border-radius: 999px;
+    padding: 7px 16px; font-size: 13.5px; font-weight: 600; cursor: pointer;
+  }
+  .demand-period-btn.active { background: #185fa5; color: #fff; border-color: #185fa5; }
+  .demand-export-btn { margin-inline-start: auto; }
+  .demand-total {
+    display: flex; align-items: baseline; gap: 10px; margin-bottom: 14px;
+    font-size: 34px; font-weight: 700; color: #163a5c;
+  }
+  .demand-total span { font-size: 14px; font-weight: 500; color: #616e7a; }
+  .demand-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+  .demand-block { background: #f7fafd; border: 1px solid #e3ebf3; border-radius: 14px; padding: 14px 16px; }
+  .demand-block h4 { margin: 0 0 4px; font-size: 15px; color: #163a5c; }
+  .demand-hint { margin: 0 0 8px; font-size: 12.5px; color: #616e7a; line-height: 1.5; }
+  .demand-row {
+    display: flex; justify-content: space-between; align-items: center; gap: 10px;
+    padding: 7px 0; border-top: 1px solid #e8eef4; font-size: 14px;
+  }
+  .demand-row:first-of-type { border-top: none; }
+  .demand-name { color: #23303a; overflow-wrap: anywhere; min-width: 0; }
+  .demand-count { color: #185fa5; font-weight: 700; white-space: nowrap; }
+  @media (max-width: 700px) {
+    .demand-grid { grid-template-columns: 1fr; }
+    .demand-export-btn { margin-inline-start: 0; width: 100%; }
   }
 
   /* ---- النسخ الاحتياطي وحالة النظام ---- */
@@ -1456,7 +1485,7 @@
           <span class="cart-notify-badge" id="cart-notify-badge" style="display:none">0</span>
         </button>
         <button type="button" class="whatsapp-btn" onclick="openWhatsappPanel()">
-          <span class="whatsapp-icon">💬</span> <span id="whatsapp-btn-label">ابحث عبر واتساب</span>
+          <span class="whatsapp-icon">💬</span> <span id="whatsapp-btn-label">استشر صيدلياً</span>
         </button>
       </div>
     </div>
@@ -1492,11 +1521,8 @@
           <p class="feature-desc" id="feature3-desc">اجمع الأدوية قبل زيارة الصيدلية.</p>
         </div>
       </div>
-      <h2 class="about-title-lg" id="about-title">عن دوائي جاهز</h2>
-      <p class="about-desc-lg" id="about-desc">
-        دوائي جاهز منصة سورية محلية انطلقت من مدينة سلمية، هدفها مساعدتك على معرفة توفر دوائك
-        في الصيدليات القريبة فوراً، بدل التنقل من صيدلية لصيدلية بحثاً عن دواء قد لا يكون متوفراً.
-      </p>
+      <h2 class="about-title-lg" id="about-title">حول الموقع</h2>
+      <p class="about-desc-lg" id="about-desc">دوائي جاهز منصة سورية محلية انطلقت من مدينة سلمية، هدفها مساعدتك على معرفة توفر دوائك في الصيدليات القريبة فوراً، بدل التنقل من صيدلية لصيدلية بحثاً عن دواء قد لا يكون متوفراً.</p>
     </div>
 
     <div class="section-divider"></div>
@@ -1515,7 +1541,7 @@
           <a onclick="showAboutUs()" id="footer-about">حول الموقع</a>
         </div>
         <div class="footer-center" id="footer-center">منصة سورية للبحث عن توفر الأدوية في الصيدليات.</div>
-        <div class="footer-copy" id="footer-copy">© دوائي جاهز — جميع الحقوق محفوظة</div>
+        <div class="footer-copy" id="footer-copy">© دوائي جاهز، جميع الحقوق محفوظة</div>
       </div>
     </footer>
   </div>
@@ -1553,7 +1579,7 @@
       </div>
       <div class="box" style="margin-bottom:20px;">
         <h3 style="margin-top:0;" id="duty-hours-title">⏱️ تحديد ساعات المناوبة (اختياري)</h3>
-        <p class="muted" style="margin-top:-8px;" id="duty-hours-desc">حدد التوقيت المخصص لتظهر النتيجة بجانب يوم المناوبة.</p>
+        <p class="muted" style="margin-top:-8px;" id="duty-hours-desc">حدِّد التوقيت ليظهر إلى جانب يوم المناوبة.</p>
         <div style="display:flex; gap:12px;">
           <div style="flex:1;">
             <label class="muted" style="font-size:14px; display:block; margin-bottom:4px;" id="duty-start-label" for="duty-start-time">من الساعة</label>
@@ -1567,7 +1593,7 @@
       </div>
       <div class="box" style="margin-bottom:20px;">
         <h3 style="margin-top:0;" id="assistant-phone-title">📱 رقم صيدلي مساعد (اختياري)</h3>
-        <p class="muted" style="margin-top:-8px;" id="assistant-phone-desc">رقم تواصل إضافي يظهر للمرضى جنب رقمك الأساسي، مفيد وقت ضغط العمل.</p>
+        <p class="muted" style="margin-top:-8px;" id="assistant-phone-desc">رقم تواصل إضافي يظهر للمرضى إلى جانب رقمك الأساسي، ويفيد عند ازدحام العمل.</p>
         <input id="assistant-phone-input" type="tel" inputmode="numeric" oninput="digitsOnly(this)" placeholder="رقم الهاتف المساعد">
         <button class="primary" onclick="saveAssistantPhone()" id="save-assistant-phone-btn">حفظ الرقم المساعد</button>
       </div>
@@ -1575,13 +1601,13 @@
       <div class="box" style="margin-top:20px;">
         <h3 style="margin-top:0;" id="whatsapp-phone-section-title">💬 رقم واتساب الصيدلية</h3>
         <input id="whatsapp-phone-input" type="tel" inputmode="numeric" placeholder="رقم واتساب (مثال: 0932985852)">
-        <p class="muted" id="whatsapp-phone-hint" style="margin-top:-4px; font-size:13px;">سيظهر زر مراسلتك للمرضى فقط إذا أدخلت رقماً. اتركه فارغاً لإخفائه.</p>
+        <p class="muted" id="whatsapp-phone-hint" style="margin-top:-4px; font-size:13px;">لن يظهر زر المراسلة للمرضى إلا إذا أدخلت رقماً. اترك الحقل فارغاً لإخفائه.</p>
         <button class="primary" onclick="saveWhatsappPhone()" id="save-whatsapp-btn">حفظ رقم واتساب</button>
       </div>
 
       <div class="box" style="margin-top:20px;">
         <h3 style="margin-top:0;" id="hours-section-title">🕒 ساعات دوام الصيدلية</h3>
-        <p class="muted" id="hours-section-desc" style="margin-top:-8px;">حدِّد ساعات الدوام مرة واحدة، لتُحسب حالة الفتح والإغلاق تلقائياً كل يوم.</p>
+        <p class="muted" id="hours-section-desc" style="margin-top:-8px;">حدِّد ساعات الدوام مرة واحدة، لتُحسب حالة الفتح والإغلاق تلقائياً كل يوم. يمنع هذا وصول طلبات في ساعات متأخرة دون أن يعرف المريض أنك مغلق.</p>
 
         <div id="hours-current" class="hours-current"></div>
 
@@ -1610,14 +1636,14 @@
 
       <div class="box" style="margin-top:20px;">
         <h3 style="margin-top:0;" id="location-section-title">📍 موقع الصيدلية على الخريطة</h3>
-        <p class="muted" id="location-section-desc" style="margin-top:-8px;">حدّد موقعك مرة واحدة، فيظهر للمريض زر يفتح له الاتجاهات إليك مباشرة.</p>
+        <p class="muted" id="location-section-desc" style="margin-top:-8px;">يكفي تحديد موقع الصيدلية مرة واحدة، ليظهر للمريض زرٌّ يفتح له مسار الوصول إليها في خرائط جوجل.</p>
 
         <div id="location-current" class="location-current"></div>
 
         <button type="button" class="primary location-detect-btn" onclick="detectMyLocation()" id="detect-location-btn">📍 تحديد موقعي الحالي</button>
 
         <input id="location-paste-input" type="text" inputmode="decimal" placeholder="أو الصق الإحداثيات هنا: 35.011667, 37.053056">
-        <p class="muted" id="location-paste-hint" style="margin-top:-4px; font-size:13px;">من خرائط جوجل: اضغط مطوّلاً على موقع صيدليتك، ثم انسخ الأرقام والصقها هنا.</p>
+        <p class="muted" id="location-paste-hint" style="margin-top:-4px; font-size:13px;">من خرائط جوجل: اضغط مطوّلاً على موقع الصيدلية، ثم انسخ السطر الذي يتضمن الحرفين N و E (مثل 35°00'57.8"N 37°03'25.3"E) والصقه هنا، فهذه الصيغة لا يقع فيها لبس.</p>
 
         <div class="location-actions">
           <button type="button" class="primary" onclick="saveLocationFromInput()" id="save-location-btn">حفظ الموقع</button>
@@ -1626,7 +1652,7 @@
       </div>
       <div class="box" style="margin-bottom:20px;">
         <h3 style="margin-top:0;" id="add-med-title">💊 إضافة دواء غير موجود بالقائمة</h3>
-        <p class="muted" style="margin-top:-8px;" id="add-med-desc">إذا لديك دواء في مخزن الصيدلية وغير متوفر ضمن القائمة يمكنك إضافته في خانات النص المبينة أدناه.</p>
+        <p class="muted" style="margin-top:-8px;" id="add-med-desc">إن كان لديك دواء في مخزون صيدليتك ولا يظهر ضمن القائمة، فيمكنك إضافته عبر الحقول أدناه.</p>
         <input id="pharm-med-name" placeholder="اسم الدواء">
         <input id="pharm-med-generic" placeholder="المادة الفعالة (اختياري)">
         <input id="pharm-med-alt" placeholder="أسماء بديلة، افصل بينها بفاصلة (اختياري)">
@@ -1638,15 +1664,15 @@
       </div>
       <div class="box" style="margin-bottom:20px;">
         <h3 style="margin-top:0;" id="bulk-import-title">📥 استيراد أدوية من ملف</h3>
-        <p class="muted" style="margin-top:-8px;" id="bulk-import-desc">حمّل نموذج فارغ، انسخ فيه بيانات أدوية شركتك، ثم ارفعه هون لإضافتها دفعة وحدة إلى مخزونك.</p>
-        <p class="muted" style="font-size:13px; margin-top:-4px;" id="bulk-import-hint-alt">💡 إذا طلعت الحروف العربية مشوّهة بعد الحفظ CSV، جرّب تحفظ الملف بصيغة "Unicode Text" بدلها من نفس نافذة الحفظ بإكسل.</p>
+        <p class="muted" style="margin-top:-8px;" id="bulk-import-desc">نزِّل نموذجاً فارغاً، وانسخ فيه بيانات أدوية الشركة، ثم ارفعه هنا لإضافتها دفعة واحدة إلى مخزون صيدليتك.</p>
+        <p class="muted" style="font-size:13px; margin-top:-4px;" id="bulk-import-hint-alt">💡 إن ظهرت الحروف العربية مشوّهة بعد الحفظ بصيغة CSV، فجرّب حفظ الملف بصيغة "Unicode Text" من نافذة الحفظ نفسها في إكسل.</p>
         <button type="button" class="btn-outline blue small" onclick="downloadBulkImportTemplate()" id="download-template-btn" style="margin-bottom:12px;">⬇️ تحميل نموذج فارغ (CSV)</button>
         <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:14px;">
           <label class="btn-outline blue small" style="cursor:pointer; margin:0;">
             <span id="choose-file-label">اختيار ملف CSV</span>
             <input type="file" accept=".csv,.txt" id="bulk-import-file" style="display:none;" onchange="handleBulkImportFile(event)">
           </label>
-          <span class="muted" id="bulk-import-filename" style="font-size:13px;">ما في ملف مختار</span>
+          <span class="muted" id="bulk-import-filename" style="font-size:13px;">لم يُختر أي ملف</span>
         </div>
         <div id="bulk-import-preview" style="display:none;"></div>
       </div>
@@ -1658,7 +1684,7 @@
       </div>
       <div class="box" style="margin-top:24px; margin-bottom:20px;">
         <h3 style="margin-top:0;" id="change-password-title">🔑 تغيير كلمة المرور</h3>
-        <p class="muted" style="margin-top:-8px;" id="change-password-desc">غيّر كلمة مرورك في أي وقت. ستحتاج كلمتك الحالية للتأكيد.</p>
+        <p class="muted" style="margin-top:-8px;" id="change-password-desc">يمكنك تغيير كلمة المرور في أي وقت، وستحتاج إلى كلمتك الحالية للتأكيد.</p>
         <div class="password-field">
           <input id="current-password-input" type="password" placeholder="كلمة المرور الحالية" autocomplete="current-password">
           <button type="button" class="toggle-password" onclick="togglePassword('current-password-input', this)" aria-label="إظهار كلمة المرور">👁</button>
@@ -1686,7 +1712,7 @@
 
   <div id="view-nursing" style="display:none;">
     <h2 class="dash-title" id="nursing-page-title">خدمات تمريض 🩺</h2>
-    <p class="muted" style="margin-top:-8px;" id="nursing-page-desc">تواصل مع ممرضين موثوقين لتلقي الرعاية التمريضية بمنزلك.</p>
+    <p class="muted" style="margin-top:-8px;" id="nursing-page-desc">تواصل مع ممرضين موثوقين لتلقّي الرعاية التمريضية في منزلك.</p>
     <div id="nurses-list"></div>
   </div>
 </div>
@@ -1721,11 +1747,11 @@
   <div class="wa-panel">
     <div class="wa-panel-head">
       <h3 id="wa-panel-title">💬 استشر صيدلياً عبر واتساب</h3>
-      <p class="muted" id="wa-panel-desc">وصفة غير واضحة؟ سؤال عن جرعة أو بديل دوائي؟ تواصل مباشرة مع صيدلي.</p>
+      <p class="muted" id="wa-panel-desc">وصفة طبية غير واضحة، أو استفسار عن جرعة أو بديل دوائي؟ تواصل مباشرة مع أحد الصيادلة.</p>
     </div>
     <div id="wa-panel-list" class="wa-panel-list"></div>
     <div class="wa-panel-foot">
-      <p class="wa-panel-disclaimer" id="wa-panel-disclaimer">المنصة وسيط معلومات فقط. المحادثة تتم مباشرة بينك وبين الصيدلية، ولا تُغني عن استشارة الطبيب.</p>
+      <p class="wa-panel-disclaimer" id="wa-panel-disclaimer">المنصة وسيط معلوماتي فحسب، والمحادثة تجري مباشرة بينك وبين الصيدلية، وهي لا تُغني عن استشارة الطبيب.</p>
       <button type="button" class="btn-outline" id="wa-panel-close" onclick="closeWhatsappPanel()">إغلاق</button>
     </div>
   </div>
