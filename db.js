@@ -223,6 +223,30 @@ async function initDb() {
     );
   `);
 
+  // سجل البحث المجهَّل — أساس "خريطة الطلب" لشركات الأدوية.
+  //
+  // ما لا يُخزَّن عمداً: عنوان IP، ومتصفح المستخدم، وأي معرّف جلسة أو حساب.
+  // والوقت مقرَّب إلى الساعة، فلا يمكن ربط سطر ببحث شخص بعينه حتى لو قورن بسجلات
+  // الخادم. النتيجة (وُجد، متوفر...) يحسبها الخادم بنفسه ولا يثق بما ترسله الواجهة،
+  // فلا يستطيع أحد تزييف إشارة "نقص" بإرسال بيانات مصطنعة.
+  //
+  // ⚠️ بعد إنشاء جدول medicines: المفتاح الأجنبي يشير إليه.
+  // ON DELETE SET NULL: حذف دواء من القائمة لا يمحو تاريخ الطلب عليه.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS search_log (
+      id SERIAL PRIMARY KEY,
+      query_norm TEXT NOT NULL,
+      category TEXT NOT NULL,
+      city TEXT,
+      matched_count INTEGER NOT NULL DEFAULT 0,
+      top_medicine_id INTEGER REFERENCES medicines(id) ON DELETE SET NULL,
+      any_tracked BOOLEAN NOT NULL DEFAULT false,
+      any_available BOOLEAN NOT NULL DEFAULT false,
+      created_hour TIMESTAMP NOT NULL DEFAULT date_trunc('hour', NOW())
+    );
+  `);
+  await pool.query(`CREATE INDEX IF NOT EXISTS search_log_created ON search_log (created_hour);`);
+
   const { rows } = await pool.query('SELECT COUNT(*) FROM medicines');
   if (Number(rows[0].count) === 0) {
     const defaults = [
@@ -623,7 +647,7 @@ async function ping(timeoutMs = 4000) {
 // الحسابات ويلزم إعادة تعيين كلمة مرور كل صيدلية. الهاش ليس كلمة مرور، لكن
 // الملف يبقى حساساً ويجب حفظه في مكان آمن.
 async function exportAll() {
-  const tables = ['pharmacies', 'medicines', 'stock', 'orders', 'nurses', 'nurse_ratings'];
+  const tables = ['pharmacies', 'medicines', 'stock', 'orders', 'nurses', 'nurse_ratings', 'search_log'];
   const data = {};
   for (const table of tables) {
     // أسماء الجداول ثابتة في المصفوفة أعلاه ولا تأتي من المستخدم إطلاقاً،
@@ -636,6 +660,86 @@ async function exportAll() {
     schema_version: 1,
     counts: Object.fromEntries(tables.map(t => [t, data[t].length])),
     data
+  };
+}
+
+// تطبيع نص البحث: حروف صغيرة، مسافة واحدة، وطول أقصى. يجمع "Panadol" و"panadol "
+// في سطر واحد عند التجميع.
+function normalizeQuery(q) {
+  return String(q || '').toLowerCase().replace(/\s+/g, ' ').trim().slice(0, 80);
+}
+
+// حماية إضافية للخصوصية: لو كتب أحدهم رقم هاتف أو بريداً في مربع البحث بالخطأ،
+// لا يُسجَّل إطلاقاً. ستة أرقام متتالية أو أكثر (لاتينية أو عربية) أو علامة @.
+function looksPersonal(q) {
+  const digits = q.replace(/[٠-٩]/g, d => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d)));
+  return /\d{6,}/.test(digits.replace(/[\s-]/g, '')) || q.includes('@');
+}
+
+// أفضل تطابق: الاسم أو الاسم البديل المطابق تماماً أولاً، ثم أقصر اسم يحوي النص.
+// searchMedicines لا ترتّب نتائجها، فبدون هذا يُنسب البحث إلى دواء عشوائي من المطابقات.
+function pickTopMatch(medicines, q) {
+  if (!medicines.length) return null;
+  const exact = medicines.find(m =>
+    String(m.name || '').toLowerCase() === q ||
+    (Array.isArray(m.alt_names) && m.alt_names.some(a => String(a).toLowerCase() === q)));
+  if (exact) return exact;
+  return [...medicines].sort((a, b) => String(a.name).length - String(b.name).length)[0];
+}
+
+// تسجيل بحث واحد. يُرجع true إن سُجِّل، وfalse إن رُفض لأسباب الخصوصية.
+async function logSearch({ query, category, city }) {
+  const q = normalizeQuery(query);
+  if (q.length < 2 || looksPersonal(q)) return false;
+  const medicines = await searchMedicines(q, category);
+  const top = pickTopMatch(medicines, q);
+  let anyTracked = false, anyAvailable = false;
+  if (top) {
+    // "النقص" لا يُحتسب إلا حيث توجد صيدلية تُحدِّث مخزونها: صيدلية المناوبة فقط لا
+    // تعرف ما لديها، فعدم التوفر عندها ليس معلومة بل غياب معلومة.
+    const avail = await getAvailability(top.id, city || null);
+    anyTracked = avail.some(r => r.manages_stock);
+    anyAvailable = avail.some(r => r.manages_stock && r.available);
+  }
+  await pool.query(
+    `INSERT INTO search_log (query_norm, category, city, matched_count, top_medicine_id, any_tracked, any_available)
+     VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+    [q, category, city || null, medicines.length, top ? top.id : null, anyTracked, anyAvailable]
+  );
+  return true;
+}
+
+// تقرير الطلب المجمَّع لفترة (بالأيام). لا يحوي إلا أعداداً مجمّعة.
+async function getDemandReport(days) {
+  const since = `NOW() - ($1::int * INTERVAL '1 day')`;
+  const total = await pool.query(`SELECT COUNT(*)::int AS n FROM search_log WHERE created_hour >= ${since}`, [days]);
+  const topMeds = await pool.query(
+    `SELECT m.name, m.category, COUNT(*)::int AS count
+       FROM search_log l JOIN medicines m ON m.id = l.top_medicine_id
+      WHERE l.created_hour >= ${since}
+      GROUP BY m.id, m.name, m.category ORDER BY count DESC, m.name LIMIT 15`, [days]);
+  // بحث بلا أي تطابق: دواء لا تعرفه المنصة أصلاً — فرصة لإضافته إلى القائمة
+  const notFound = await pool.query(
+    `SELECT query_norm AS query, COUNT(*)::int AS count
+       FROM search_log WHERE created_hour >= ${since} AND matched_count = 0
+      GROUP BY query_norm ORDER BY count DESC, query_norm LIMIT 15`, [days]);
+  // إشارة النقص: الدواء معروف، وتوجد صيدليات تُحدِّث مخزونها، ولا واحدة لديها
+  const shortages = await pool.query(
+    `SELECT m.name, COUNT(*)::int AS count
+       FROM search_log l JOIN medicines m ON m.id = l.top_medicine_id
+      WHERE l.created_hour >= ${since} AND l.any_tracked = true AND l.any_available = false
+      GROUP BY m.id, m.name ORDER BY count DESC, m.name LIMIT 15`, [days]);
+  const byCity = await pool.query(
+    `SELECT COALESCE(city, '') AS city, COUNT(*)::int AS count
+       FROM search_log WHERE created_hour >= ${since}
+      GROUP BY city ORDER BY count DESC`, [days]);
+  return {
+    days,
+    total: total.rows[0].n,
+    topMedicines: topMeds.rows,
+    notFound: notFound.rows,
+    shortages: shortages.rows,
+    byCity: byCity.rows
   };
 }
 
@@ -959,6 +1063,8 @@ module.exports = {
   setPharmacyPassword,
   ping,
   exportAll,
+  logSearch,
+  getDemandReport,
   getAdminStats,
   getOnDutyPharmacies,
   getAvailability,
