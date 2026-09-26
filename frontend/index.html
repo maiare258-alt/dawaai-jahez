@@ -70,7 +70,13 @@
                  'onAdminDutySearch','onAdminDutyToggle','saveAdminDuty','clearAllDuty',
                  'onAdminUsernameSearch','saveAdminUsername','downloadBackup','loadDemandReport','exportDemandCsv','onLaunchConfirmInput','startOfficialLaunch',
                  'headerGoHome','headerGoOnDuty',
-                 'headerGoPharmacist','headerGoCosmetics','headerGoNursing','headerGoAdmin'];
+                 'headerGoPharmacist','headerGoCosmetics','headerGoNursing','headerGoAdmin',
+                 // أزرار التذييل ظاهرة فور فتح الصفحة، فقد تُضغط قبل اكتمال تحميل app.js.
+                 // والبقية في لوحات مخفية، نضيفها احتياطاً كي لا يبقى أي زر ثابت بلا حماية.
+                 'showFaq','showAboutUs','footerContactComingSoon','closeInfoModal','refreshResults',
+                 'onDutyToggle','saveDuty','digitsOnly','saveAssistantPhone','updateMedNamePlaceholder',
+                 'addMedicineSelf','downloadBulkImportTemplate','handleBulkImportFile','togglePassword',
+                 'changeMyPassword','deleteMyAccount'];
     early.forEach(function (name) {
       window[name] = function () {
         if (name === 'onSearch' || name === 'submitSearch') window.__pendingSearch = true;
