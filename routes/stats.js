@@ -55,10 +55,34 @@ router.get('/demand', adminAuth, async (req, res) => {
   if (days > 365) days = 365;
   try {
     res.set('Cache-Control', 'no-store');
-    res.json(await db.getDemandReport(days));
+    const report = await db.getDemandReport(days);
+    report.launchedAt = await db.getSetting('launched_at');
+    res.json(report);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'حدث خطأ أثناء إعداد تقرير الطلب' });
+  }
+});
+
+// بدء الإطلاق الرسمي (للإدارة فقط) — POST /api/stats/launch-reset  { confirm: "حذف" }
+//
+// الواجهة تطلب كتابة الكلمة وتنزّل نسخة احتياطية قبل الاستدعاء، والخادم يتحقق من
+// الكلمة مرة أخرى: الواجهة قابلة للتجاوز، والحذف لا رجعة فيه.
+// يعمل مرة واحدة في عمر المنصة؛ أي محاولة بعدها ترجع 409 دون حذف شيء.
+router.post('/launch-reset', adminAuth, async (req, res) => {
+  const confirm = req.body && typeof req.body.confirm === 'string' ? req.body.confirm.trim() : '';
+  if (confirm !== 'حذف') {
+    return res.status(400).json({ error: 'كلمة التأكيد غير صحيحة' });
+  }
+  try {
+    const result = await db.launchReset();
+    if (result.alreadyLaunched) {
+      return res.status(409).json({ error: 'بدأ الإطلاق الرسمي مسبقاً', launchedAt: result.launchedAt });
+    }
+    res.json(result);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'حدث خطأ أثناء بدء الإطلاق، ولم يُحذف شيء' });
   }
 });
 
