@@ -247,6 +247,27 @@ async function initDb() {
   `);
   await pool.query(`CREATE INDEX IF NOT EXISTS search_log_created ON search_log (created_hour);`);
 
+  // إعدادات عامة للمنصة بصيغة مفتاح وقيمة. أول استخدام: تاريخ الإطلاق الرسمي.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS app_settings (
+      key TEXT PRIMARY KEY,
+      value TEXT,
+      updated_at TIMESTAMP DEFAULT NOW()
+    );
+  `);
+
+  // حماية RLS للجدولين الأحدث، لتبقى الجداول كلها على المستوى نفسه.
+  // كانت تُفعَّل يدوياً من لوحة Supabase، فلا تُطبَّق عند الاسترجاع إلى قاعدة جديدة.
+  // آمنة للتكرار (تفعيلها مرة ثانية لا يفعل شيئاً)، والخادم يتصل بصفته مالك الجداول
+  // فلا تقيّده. ملفوفة بـtry/catch: فشلها لا يمنع الإقلاع أبداً.
+  for (const table of ['search_log', 'app_settings']) {
+    try {
+      await pool.query(`ALTER TABLE ${table} ENABLE ROW LEVEL SECURITY;`);
+    } catch (err) {
+      console.error(`تعذّر تفعيل RLS على ${table} (لا يمنع الإقلاع):`, err.message);
+    }
+  }
+
   const { rows } = await pool.query('SELECT COUNT(*) FROM medicines');
   if (Number(rows[0].count) === 0) {
     const defaults = [
@@ -647,7 +668,7 @@ async function ping(timeoutMs = 4000) {
 // الحسابات ويلزم إعادة تعيين كلمة مرور كل صيدلية. الهاش ليس كلمة مرور، لكن
 // الملف يبقى حساساً ويجب حفظه في مكان آمن.
 async function exportAll() {
-  const tables = ['pharmacies', 'medicines', 'stock', 'orders', 'nurses', 'nurse_ratings', 'search_log'];
+  const tables = ['pharmacies', 'medicines', 'stock', 'orders', 'nurses', 'nurse_ratings', 'search_log', 'app_settings'];
   const data = {};
   for (const table of tables) {
     // أسماء الجداول ثابتة في المصفوفة أعلاه ولا تأتي من المستخدم إطلاقاً،
@@ -741,6 +762,48 @@ async function getDemandReport(days) {
     shortages: shortages.rows,
     byCity: byCity.rows
   };
+}
+
+async function getSetting(key) {
+  const { rows } = await pool.query('SELECT value FROM app_settings WHERE key = $1', [key]);
+  return rows.length ? rows[0].value : null;
+}
+
+// بدء الإطلاق الرسمي: يمسح بيانات الاستخدام التجريبية ويسجّل تاريخ الإطلاق، مرة واحدة فقط.
+//
+// ما يُمسح: سجل البحث، والطلبات، وتقييمات الممرضين — أي ما ينتج عن الاستخدام.
+// ما لا يُمس: الصيدليات، والأدوية، والمخزون، والممرضون — أي بنية المنصة نفسها.
+//
+// كله في معاملة واحدة: إما يُمسح كل شيء ويُسجَّل التاريخ، أو لا يتغير شيء إطلاقاً.
+// ونبدأ بتسجيل التاريخ عمداً: المفتاح الأساسي يمنع تسجيله مرتين، فلو ضُغط الزر من
+// جهازين في اللحظة ذاتها ينتظر الثاني الأول ثم يجد الإطلاق قد تم فيتراجع دون أي حذف.
+async function launchReset() {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const launchedAt = new Date().toISOString();
+    const claimed = await client.query(
+      `INSERT INTO app_settings (key, value) VALUES ('launched_at', $1)
+       ON CONFLICT (key) DO NOTHING RETURNING value`, [launchedAt]);
+    if (claimed.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return { alreadyLaunched: true, launchedAt: await getSetting('launched_at') };
+    }
+    const searches = await client.query('DELETE FROM search_log');
+    const orders = await client.query('DELETE FROM orders');
+    const ratings = await client.query('DELETE FROM nurse_ratings');
+    await client.query('COMMIT');
+    return {
+      alreadyLaunched: false,
+      launchedAt,
+      deleted: { searches: searches.rowCount, orders: orders.rowCount, ratings: ratings.rowCount }
+    };
+  } catch (err) {
+    await client.query('ROLLBACK').catch(() => {});
+    throw err;
+  } finally {
+    client.release();
+  }
 }
 
 async function getAdminStats() {
@@ -1065,6 +1128,8 @@ module.exports = {
   exportAll,
   logSearch,
   getDemandReport,
+  getSetting,
+  launchReset,
   getAdminStats,
   getOnDutyPharmacies,
   getAvailability,
