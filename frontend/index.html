@@ -68,7 +68,7 @@
                  'detectMyLocation','saveLocationFromInput','clearPharmacyLocation','togglePharmacyManagesStock',
                  'savePharmacyHours','clearPharmacyHours','toggleClosedToday',
                  'onAdminDutySearch','onAdminDutyToggle','saveAdminDuty','clearAllDuty',
-                 'onAdminUsernameSearch','saveAdminUsername','downloadBackup','loadDemandReport','exportDemandCsv',
+                 'onAdminUsernameSearch','saveAdminUsername','downloadBackup','loadDemandReport','exportDemandCsv','onLaunchConfirmInput','startOfficialLaunch',
                  'headerGoHome','headerGoOnDuty',
                  'headerGoPharmacist','headerGoCosmetics','headerGoNursing','headerGoAdmin'];
     early.forEach(function (name) {
@@ -646,6 +646,25 @@
     .demand-grid { grid-template-columns: 1fr; }
     .demand-export-btn { margin-inline-start: 0; width: 100%; }
   }
+
+  /* ---- بدء الإطلاق الرسمي ---- */
+  .launch-since {
+    margin: 0 0 12px; padding: 9px 14px; border-radius: 10px; font-size: 13.5px; font-weight: 600;
+    background: #e8f7f0; color: #0f7a52; border: 1px solid #b6e3cf;
+  }
+  /* منطقة خطرة: حدود حمراء متقطعة تفصلها بصرياً عن التقرير */
+  .launch-zone {
+    margin-top: 20px; padding: 18px; border: 1.5px dashed #e0a3a0; border-radius: 14px; background: #fdf6f5;
+  }
+  .launch-zone h4 { margin: 0 0 6px; font-size: 15px; color: #9a1f18; }
+  .launch-zone p { margin: 0 0 8px; font-size: 13.5px; line-height: 1.6; color: #3a2a28; }
+  .launch-zone .launch-warning { color: #906400; font-weight: 600; }
+  .launch-zone input { margin: 6px 0 10px; width: 100%; }
+  .launch-btn {
+    width: 100%; padding: 12px; border: none; border-radius: 10px; cursor: pointer;
+    background: #b3261e; color: #fff; font-size: 14.5px; font-weight: 700;
+  }
+  .launch-btn:disabled { background: #d9c4c2; color: #6e5a58; cursor: not-allowed; }
 
   /* ---- النسخ الاحتياطي وحالة النظام ---- */
   .status-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 12px 0; font-size: 13.5px; }
