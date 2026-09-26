@@ -352,6 +352,19 @@ const translations = {
     offline_banner: 'لا يوجد اتصال بالإنترنت',
     sending_order: 'جارٍ إرسال الطلب...',
     rate_limited_error: 'محاولات كثيرة جداً. حاول بعد قليل.',
+    launch_title: 'بدء الإطلاق الرسمي',
+    launch_desc: 'يمسح بيانات التجربة: عمليات البحث، والطلبات، وتقييمات الممرضين. ولا يمس الصيدليات ولا الأدوية ولا المخزون ولا الممرضين.',
+    launch_warning: 'يُستخدم مرة واحدة فقط، ثم يختفي هذا القسم نهائياً. وتُنزَّل نسخة احتياطية كاملة تلقائياً قبل المسح.',
+    launch_confirm_placeholder: 'اكتب كلمة: حذف',
+    launch_btn: 'مسح بيانات التجربة وبدء الإطلاق',
+    launch_final_confirm: 'ستُمسح كل عمليات البحث والطلبات وتقييمات الممرضين نهائياً، ولا يمكن التراجع. هل تريد المتابعة؟',
+    launch_backing_up: 'جارٍ تنزيل النسخة الاحتياطية...',
+    launch_resetting: 'جارٍ المسح...',
+    launch_backup_failed: 'تعذّر تنزيل النسخة الاحتياطية، فلم يُحذف أي شيء.',
+    launch_done: 'بدأ الإطلاق الرسمي. المحذوف: عمليات البحث {s} · الطلبات {o} · التقييمات {r}. احفظ ملف النسخة الاحتياطية في مكان آمن.',
+    launch_already: 'بدأ الإطلاق الرسمي مسبقاً.',
+    launch_failed: 'تعذّر بدء الإطلاق، ولم يُحذف أي شيء.',
+    launch_since: 'بيانات حقيقية منذ الإطلاق الرسمي في {date}',
     demand_title: '📊 تحليل الطلب',
     demand_desc: 'ما يبحث عنه المرضى فعلاً، مجمَّعاً ومجهَّلاً. لا يحوي أي بيانات تكشف هوية أحد.',
     demand_period: 'الفترة:',
@@ -755,6 +768,19 @@ const translations = {
     offline_banner: 'No internet connection',
     sending_order: 'Sending order...',
     rate_limited_error: 'Too many attempts. Please try again shortly.',
+    launch_title: 'Official launch',
+    launch_desc: 'Clears test data: searches, orders and nurse ratings. It does not touch pharmacies, medicines, stock or nurses.',
+    launch_warning: 'This can be used only once, then this section disappears permanently. A full backup is downloaded automatically before anything is cleared.',
+    launch_confirm_placeholder: 'Type the word: حذف',
+    launch_btn: 'Clear test data and launch',
+    launch_final_confirm: 'All searches, orders and nurse ratings will be deleted permanently, with no undo. Do you want to continue?',
+    launch_backing_up: 'Downloading backup...',
+    launch_resetting: 'Clearing...',
+    launch_backup_failed: 'The backup could not be downloaded, so nothing was deleted.',
+    launch_done: 'The official launch has started. Deleted: searches {s} · orders {o} · ratings {r}. Keep the backup file somewhere safe.',
+    launch_already: 'The official launch has already started.',
+    launch_failed: 'The launch could not be started, and nothing was deleted.',
+    launch_since: 'Real data since the official launch on {date}',
     demand_title: '📊 Demand insights',
     demand_desc: 'What patients actually search for, aggregated and anonymized. It contains no data that identifies anyone.',
     demand_period: 'Period:',
@@ -967,6 +993,7 @@ const BACKEND_ERROR_MAP = {
   'عدد الأدوية في الطلب كبير جداً': 'too_many_items_error',
   'بيانات الطلب غير صالحة': 'invalid_order_error',
   'التعليق طويل جداً': 'comment_too_long_error',
+  'كلمة التأكيد غير صحيحة': 'launch_failed',
   'محاولات كثيرة جداً. حاول بعد قليل.': 'rate_limited_error'
 };
 function translateApiError(rawError) {
@@ -3867,6 +3894,7 @@ function renderAdminPanelUI() {
         <button type="button" class="btn-outline blue demand-export-btn" onclick="exportDemandCsv()">${t('demand_export')}</button>
       </div>
       <div id="demand-report" class="demand-report"></div>
+      <div id="launch-zone"></div>
     </div>
 
     <div class="box" style="margin-bottom:20px;">
@@ -4267,7 +4295,9 @@ function renderDemandReport() {
   const r = lastDemandReport;
   if (!r) { box.innerHTML = `<p class="muted">${t('loading_text')}</p>`; return; }
   const cityRows = (r.byCity || []).map(c => ({ name: c.city ? cityName(c.city) : t('demand_all_cities'), count: c.count }));
-  box.innerHTML = `
+  const since = r.launchedAt
+    ? `<p class="launch-since">✅ ${tFormat('launch_since', { date: formatLaunchDate(r.launchedAt) })}</p>` : '';
+  box.innerHTML = `${since}
     <div class="demand-total"><bdi>${Number(r.total) || 0}</bdi><span>${t('demand_total')}</span></div>
     <div class="demand-grid">
       <div class="demand-block"><h4>${t('demand_top')}</h4>${demandListHtml(r.topMedicines, 'name', t('demand_empty'))}</div>
@@ -4288,6 +4318,7 @@ async function loadDemandReport(days) {
     if (!res.ok) throw new Error('status ' + res.status);
     lastDemandReport = await res.json();
     renderDemandReport();
+    renderLaunchZone(lastDemandReport.launchedAt || null);
   } catch (err) {
     const box = document.getElementById('demand-report');
     if (box) box.innerHTML = `<p class="muted">${t('demand_load_error')}</p>`;
@@ -4322,6 +4353,101 @@ function exportDemandCsv() {
   a.download = `dawaai-jahez-demand-${r.days}d-${new Date().toISOString().slice(0, 10)}.csv`;
   document.body.appendChild(a); a.click(); document.body.removeChild(a);
   URL.revokeObjectURL(url);
+}
+
+// ================= بدء الإطلاق الرسمي =================
+// زر يُستخدم مرة واحدة في عمر المنصة: يمسح بيانات التجربة ثم يختفي نهائياً.
+// كان يمكن جعله زر تصفير دائماً، لكن بعد الإطلاق يصير سجل البحث والطلبات أثمن ما في
+// المنصة، وزر دائم يبقى على بُعد لحظة سهو من محوه بلا رجعة. ومن يحتاج تصفيراً
+// لاحقاً فعنده محرر SQL في لوحة Supabase.
+//
+// الحماية طبقات: كتابة كلمة "حذف"، ثم تأكيد صريح، ثم نسخة احتياطية تُنزَّل أولاً
+// ولا يبدأ المسح إن فشلت، ثم تحقق الخادم من الكلمة نفسها ورفضه أي محاولة ثانية.
+
+let launchZoneState = undefined;   // undefined: لم يُعرف بعد، null: لم يُطلق، نص: تاريخ الإطلاق
+
+function formatLaunchDate(iso) {
+  try {
+    return new Date(iso).toLocaleDateString(currentLang === 'ar' ? 'ar-SY' : 'en-GB',
+      { timeZone: 'Asia/Damascus', year: 'numeric', month: 'long', day: 'numeric' });
+  } catch (e) { return String(iso).slice(0, 10); }
+}
+
+// لا نعيد الرسم إن لم تتغير الحالة، فلا يضيع ما كتبه المدير في حقل التأكيد
+// كلما أُعيد تحميل التقرير. ولا نُظهر زر المسح إلا حين نعرف يقيناً أن الإطلاق لم يتم.
+function renderLaunchZone(launchedAt) {
+  const box = document.getElementById('launch-zone');
+  if (!box) return;
+  if (launchZoneState === launchedAt && box.innerHTML) return;
+  launchZoneState = launchedAt;
+  if (launchedAt) { box.innerHTML = ''; return; }
+  box.innerHTML = `
+    <div class="launch-zone">
+      <h4>${t('launch_title')}</h4>
+      <p>${t('launch_desc')}</p>
+      <p class="launch-warning">${t('launch_warning')}</p>
+      <input type="text" id="launch-confirm-input" autocomplete="off" spellcheck="false"
+             placeholder="${t('launch_confirm_placeholder')}" oninput="onLaunchConfirmInput(this)">
+      <button type="button" class="launch-btn" id="launch-reset-btn" disabled onclick="startOfficialLaunch()">${t('launch_btn')}</button>
+    </div>`;
+}
+
+function onLaunchConfirmInput(el) {
+  const btn = document.getElementById('launch-reset-btn');
+  if (btn) btn.disabled = el.value.trim() !== 'حذف';
+}
+
+async function startOfficialLaunch() {
+  const input = document.getElementById('launch-confirm-input');
+  const btn = document.getElementById('launch-reset-btn');
+  if (!input || input.value.trim() !== 'حذف') return;
+  if (!(await customConfirm(t('launch_final_confirm'), 'warning'))) return;
+
+  const setBtn = (label, disabled) => { if (btn) { btn.textContent = label; btn.disabled = disabled; } };
+  setBtn(t('launch_backing_up'), true);
+  try {
+    // ١) النسخة الاحتياطية أولاً. أي فشل هنا يوقف كل شيء قبل أن يُحذف سطر واحد.
+    const bres = await fetch(`${API}/stats/backup`, { headers: adminHeaders(), cache: 'no-store' });
+    if (!bres.ok) throw new Error('backup');
+    const blob = await bres.blob();
+    if (!blob || blob.size < 50) throw new Error('backup');
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `dawaai-jahez-before-launch-${new Date().toISOString().slice(0, 10)}.json`;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    writeLastBackup(new Date().toISOString());
+  } catch (err) {
+    setBtn(t('launch_btn'), false);
+    await customAlert(t('launch_backup_failed'), 'error');
+    return;
+  }
+
+  // ٢) المسح وتسجيل تاريخ الإطلاق، في معاملة واحدة على الخادم
+  setBtn(t('launch_resetting'), true);
+  try {
+    const res = await fetch(`${API}/stats/launch-reset`, {
+      method: 'POST', headers: adminHeaders(), body: JSON.stringify({ confirm: 'حذف' })
+    });
+    const data = await res.json().catch(() => ({}));
+    if (res.status === 409) {
+      await customAlert(t('launch_already'), 'info');
+    } else if (!res.ok) {
+      setBtn(t('launch_btn'), false);
+      await customAlert(t('launch_failed'), 'error');
+      return;
+    } else {
+      const d = data.deleted || {};
+      await customAlert(tFormat('launch_done', { s: d.searches || 0, o: d.orders || 0, r: d.ratings || 0 }), 'success');
+    }
+    // الإحصاءات والطلبات تغيّرت، فنعيد تحميل اللوحة كلها
+    launchZoneState = undefined;
+    await renderAdminPanel();
+  } catch (err) {
+    setBtn(t('launch_btn'), false);
+    await customAlert(t('launch_failed'), 'error');
+  }
 }
 
 // ================= النسخ الاحتياطي وحالة النظام =================
