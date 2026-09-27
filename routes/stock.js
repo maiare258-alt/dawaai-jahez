@@ -1,5 +1,15 @@
 const express = require('express');
 const router = express.Router();
+
+// المعرّفات في الرابط أرقام صحيحة موجبة ضمن نطاق PostgreSQL. أي قيمة أخرى ("abc"،
+// "1.5"، رقم من عشرين خانة) كانت تصل إلى القاعدة فترمي خطأً يعود 500 بدل رفض واضح.
+function validIdParam(req, res, next, value) {
+  if (/^[1-9]\d{0,9}$/.test(value) && Number(value) <= 2147483647) return next();
+  return res.status(400).json({ error: 'معرّف غير صالح' });
+}
+router.param('pharmacyId', validIdParam);
+router.param('medicineId', validIdParam);
+
 const bcrypt = require('bcryptjs');
 const db = require('../db');
 
@@ -45,6 +55,8 @@ router.put('/:pharmacyId/:medicineId', async (req, res) => {
     await db.setStock(pharmacy.id, medicineId, available, manufactureDate, expiryDate);
     res.json({ success: true });
   } catch (err) {
+    // مفتاح أجنبي لعنصر غير موجود (23503): رفض واضح بدل خطأ خادم
+    if (err && err.code === '23503') return res.status(404).json({ error: 'الدواء أو الصيدلية غير موجودة' });
     console.error(err);
     res.status(500).json({ error: 'حدث خطأ أثناء تحديث المخزون' });
   }
