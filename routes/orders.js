@@ -1,5 +1,15 @@
 const express = require('express');
 const router = express.Router();
+
+// المعرّفات في الرابط أرقام صحيحة موجبة ضمن نطاق PostgreSQL. أي قيمة أخرى ("abc"،
+// "1.5"، رقم من عشرين خانة) كانت تصل إلى القاعدة فترمي خطأً يعود 500 بدل رفض واضح.
+function validIdParam(req, res, next, value) {
+  if (/^[1-9]\d{0,9}$/.test(value) && Number(value) <= 2147483647) return next();
+  return res.status(400).json({ error: 'معرّف غير صالح' });
+}
+router.param('id', validIdParam);
+router.param('pharmacyId', validIdParam);
+
 const bcrypt = require('bcryptjs');
 const db = require('../db');
 const rateLimit = require('../middleware/rateLimit');
@@ -119,6 +129,8 @@ router.post('/', rateLimit(20, 15 * 60 * 1000), async (req, res) => {
     }
     res.status(201).json({ success: true, orders });
   } catch (err) {
+    // مفتاح أجنبي لعنصر غير موجود (23503): رفض واضح بدل خطأ خادم
+    if (err && err.code === '23503') return res.status(404).json({ error: 'الصيدلية غير موجودة' });
     console.error(err);
     res.status(500).json({ error: 'حدث خطأ أثناء إرسال الطلب' });
   }
