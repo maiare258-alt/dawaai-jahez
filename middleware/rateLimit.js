@@ -23,12 +23,27 @@ setInterval(() => {
  * @param {number} max      أقصى عدد محاولات ضمن النافذة
  * @param {number} windowMs طول النافذة الزمنية بالمللي ثانية
  */
+// عنوان الزائر الحقيقي.
+//
+// ⚠️ كان يُؤخذ أول عنوان في X-Forwarded-For، وهذه الترويسة يكتبها المتصفح نفسه:
+// الموقع يمر عبر Cloudflare التي تُلحق العنوان الحقيقي في آخرها ولا تمسح ما كتبه
+// الزائر. فمن يرسل عنواناً مزيفاً مختلفاً مع كل طلب كان يتجاوز كل حدود المحاولات.
+//
+// CF-Connecting-IP تكتبها Cloudflare بنفسها وتستبدل أي قيمة أرسلها الزائر، فهي
+// المصدر الموثوق. والبدائل للاحتياط فقط، إن تغيّرت البنية يوماً.
+function clientIp(req) {
+  const cf = req.headers['cf-connecting-ip'];
+  if (cf) return { ip: String(cf).trim(), source: 'cloudflare' };
+  const trueClient = req.headers['true-client-ip'];
+  if (trueClient) return { ip: String(trueClient).trim(), source: 'true-client-ip' };
+  const forwarded = req.headers['x-forwarded-for'];
+  if (forwarded) return { ip: String(forwarded).split(',')[0].trim(), source: 'forwarded' };
+  return { ip: String(req.ip || 'unknown'), source: 'direct' };
+}
+
 function rateLimit(max = 10, windowMs = 15 * 60 * 1000) {
   return function (req, res, next) {
-    // Render خلف بروكسي، فالعنوان الحقيقي في x-forwarded-for.
-    // نأخذ أول عنوان لأن السلسلة قد تحوي عدة وكلاء.
-    const forwarded = req.headers['x-forwarded-for'];
-    const ip = (forwarded ? String(forwarded).split(',')[0] : req.ip || '').trim() || 'unknown';
+    const ip = clientIp(req).ip || 'unknown';
     const key = `${req.baseUrl}${req.path}:${ip}`;
     const now = Date.now();
 
@@ -51,3 +66,4 @@ function rateLimit(max = 10, windowMs = 15 * 60 * 1000) {
 }
 
 module.exports = rateLimit;
+module.exports.clientIp = clientIp;
