@@ -314,6 +314,38 @@ router.put('/self/duty', async (req, res) => {
 
 // تحديث رقم الهاتف المساعد (الصيدلي لحسابه هو فقط)
 // PUT /api/pharmacies/self/assistant-phone  { username, password, assistant_phone }
+// تطبيع الرقم الأساسي: أرقام عربية أو لاتينية، مع مسافات أو شرطات أو أقواس
+// يكتبها الناس عادةً (033 771-2345). نُبقي الأرقام وحدها ونتحقق من طولها.
+// ولا نسمح بتفريغه: هو رقم التواصل الأول للمريض، ومسحه بالخطأ يقطع الوصول إلى الصيدلية.
+function normalizeMainPhone(raw) {
+  if (typeof raw !== 'string') return { value: null, error: 'رقم الهاتف غير صالح' };
+  const digits = raw.replace(/[٠-٩]/g, d => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d))).replace(/[\s\-()]/g, '');
+  if (digits === '') return { value: null, error: 'رقم الهاتف مطلوب' };
+  if (!/^\+?\d{6,15}$/.test(digits)) return { value: null, error: 'رقم الهاتف غير صالح' };
+  return { value: digits, error: null };
+}
+
+// الصيدلي يعدّل رقمه الأساسي — PUT /api/pharmacies/self/phone { username, password, phone }
+router.put('/self/phone', async (req, res) => {
+  const { username, password, phone } = req.body;
+  if (!username || !password) {
+    return res.status(400).json({ error: 'بيانات الدخول مطلوبة' });
+  }
+  const norm = normalizeMainPhone(phone);
+  if (norm.error) return res.status(400).json({ error: norm.error });
+  try {
+    const pharmacy = await db.findPharmacyByUsername(username);
+    if (!pharmacy) return res.status(401).json({ error: 'بيانات الدخول غير صحيحة' });
+    const valid = await bcrypt.compare(password, pharmacy.owner_password_hash);
+    if (!valid) return res.status(401).json({ error: 'بيانات الدخول غير صحيحة' });
+    const updated = await db.setPharmacyPhone(pharmacy.id, norm.value);
+    res.json({ phone: updated.phone });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'حدث خطأ أثناء تحديث رقم الهاتف' });
+  }
+});
+
 router.put('/self/assistant-phone', async (req, res) => {
   const { username, password, assistant_phone } = req.body;
   if (!username || !password) {
@@ -459,6 +491,26 @@ router.put('/self/location', async (req, res) => {
 //
 // يخدم حالة تسجيل صيدلية عن بُعد: الإدارة تلصق الإحداثيات من خرائط جوجل
 // بدل انتظار الصيدلي حتى يفتح لوحته من داخل صيدليته.
+// تعديل العنوان المكتوب لصيدلية (للإدارة فقط) — PUT /api/pharmacies/:id/address { address }
+router.put('/:id/address', adminAuth, async (req, res) => {
+  const { address } = req.body;
+  if (address !== null && address !== undefined && typeof address !== 'string') {
+    return res.status(400).json({ error: 'العنوان غير صالح' });
+  }
+  if (typeof address === 'string' && address.trim().length > 200) {
+    return res.status(400).json({ error: 'العنوان طويل جداً' });
+  }
+  try {
+    const existing = await db.getPharmacyById(req.params.id);
+    if (!existing) return res.status(404).json({ error: 'الصيدلية غير موجودة' });
+    const updated = await db.setPharmacyAddress(req.params.id, address || '');
+    res.json({ id: updated.id, name: updated.name, address: updated.address });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'حدث خطأ أثناء تحديث العنوان' });
+  }
+});
+
 router.put('/:id/location', adminAuth, async (req, res) => {
   const loc = parseLocation(req.body.latitude, req.body.longitude);
   if (loc.error) return res.status(400).json({ error: loc.error });
