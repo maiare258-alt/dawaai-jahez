@@ -76,7 +76,8 @@
                  'showFaq','showAboutUs','footerContactComingSoon','closeInfoModal','refreshResults',
                  'onDutyToggle','saveDuty','digitsOnly','saveAssistantPhone','updateMedNamePlaceholder',
                  'addMedicineSelf','downloadBulkImportTemplate','handleBulkImportFile','togglePassword',
-                 'changeMyPassword','deleteMyAccount'];
+                 'changeMyPassword','deleteMyAccount',
+                 'saveMainPhone','onAdminAddressSearch','saveAdminAddress','clearAdminLocation'];
     early.forEach(function (name) {
       window[name] = function () {
         if (name === 'onSearch' || name === 'submitSearch') window.__pendingSearch = true;
@@ -652,6 +653,25 @@
     .demand-grid { grid-template-columns: 1fr; }
     .demand-export-btn { margin-inline-start: 0; width: 100%; }
   }
+
+  /* ---- عنوان الصيدلية وموقعها (لوحة الإدارة) ---- */
+  /* الحقول تتكدس عمودياً على كل الشاشات، فلا يحتاج تخطيطاً خاصاً للهاتف. وعناصر
+     الحاويات العمودية بلا أساس بالبكسل عمداً: في الاتجاه العمودي يُفسَّر ارتفاعاً. */
+  .admin-address-list { max-height: 60vh; overflow-y: auto; overscroll-behavior: contain; }
+  .admin-address-row { display: flex; flex-direction: column; gap: 10px; padding: 16px 6px; border-top: 1px solid #eef2f6; }
+  .admin-address-row:first-child { border-top: none; }
+  .admin-address-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; }
+  .admin-address-name { font-size: 15px; font-weight: 600; color: #163a5c; overflow-wrap: anywhere; }
+  .admin-address-status { font-size: 12.5px; font-weight: 600; }
+  .admin-address-status.ok { color: #0f7a52; }
+  .admin-address-status.unset { color: #906400; }
+  .admin-address-maplink { font-size: 13px; color: #185fa5; font-weight: 600; }
+  .admin-address-field { display: flex; flex-direction: column; gap: 5px; font-size: 13px; color: #3a4a58; }
+  .admin-address-field input { margin: 0; width: 100%; }
+  /* الإحداثيات أرقام لاتينية دائماً، فنثبّت اتجاهها حتى لا تنقلب داخل الواجهة العربية */
+  .admin-address-field input.coords-input { direction: ltr; text-align: left; }
+  .admin-address-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+  .admin-address-actions > button { flex: 1 1 140px; margin: 0; }
 
   /* ---- بدء الإطلاق الرسمي ---- */
   .launch-since {
@@ -1621,6 +1641,13 @@
           </div>
         </div>
       </div>
+      <div class="box" style="margin-bottom:20px;">
+        <h3 style="margin-top:0;" id="main-phone-title">☎️ الهاتف الأرضي للصيدلية</h3>
+        <p class="muted" style="margin-top:-8px;" id="main-phone-desc">الرقم الأساسي الذي يظهر للمرضى بجانب الرمز 📞. اكتبه مع رمز المنطقة إن أمكن.</p>
+        <input id="main-phone-input" type="tel" inputmode="tel" autocomplete="off" placeholder="رقم الهاتف الأرضي">
+        <button class="primary" onclick="saveMainPhone()" id="save-main-phone-btn">حفظ الرقم</button>
+      </div>
+
       <div class="box" style="margin-bottom:20px;">
         <h3 style="margin-top:0;" id="assistant-phone-title">📱 رقم صيدلي مساعد (اختياري)</h3>
         <p class="muted" style="margin-top:-8px;" id="assistant-phone-desc">رقم تواصل إضافي يظهر للمرضى إلى جانب رقمك الأساسي، ويفيد عند ازدحام العمل.</p>
