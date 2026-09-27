@@ -1,5 +1,14 @@
 const express = require('express');
 const router = express.Router();
+
+// المعرّفات في الرابط أرقام صحيحة موجبة ضمن نطاق PostgreSQL. أي قيمة أخرى ("abc"،
+// "1.5"، رقم من عشرين خانة) كانت تصل إلى القاعدة فترمي خطأً يعود 500 بدل رفض واضح.
+function validIdParam(req, res, next, value) {
+  if (/^[1-9]\d{0,9}$/.test(value) && Number(value) <= 2147483647) return next();
+  return res.status(400).json({ error: 'معرّف غير صالح' });
+}
+router.param('id', validIdParam);
+
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 const db = require('../db');
@@ -729,7 +738,7 @@ router.put('/:id/username', adminAuth, async (req, res) => {
 // وجعل التفرّد على (name, city) وليس على الاسم وحده.
 router.put('/:id/name', adminAuth, async (req, res) => {
   // تنظيف المسافات الزائدة: بدونه " صيدلية 1" و"صيدلية 1" اسمان مختلفان بالعرض
-  const name = (req.body.name || '').trim();
+  const name = typeof req.body.name === 'string' ? req.body.name.trim() : '';
   if (!name) return res.status(400).json({ error: 'اسم الصيدلية مطلوب' });
   try {
     const existing = await db.getPharmacyById(req.params.id);
