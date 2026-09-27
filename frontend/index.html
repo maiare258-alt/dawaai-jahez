@@ -815,6 +815,11 @@
   .result-actions .result-add-btn-full { margin-top: 0; width: 100%; flex: 0 0 auto; }
   .result-actions-secondary { display: flex; gap: 10px; flex: 0 0 auto; }
   .result-actions-secondary > button { flex: 1 1 0; min-width: 0; }
+  /* "الموقع على الخريطة" ضعف طول "الاتجاهات"، والزر هنا بنصف العرض بجانب واتساب.
+     بدون هذا يمنع nowrap انكسار النص فيتجاوز حدود الزر على الهواتف الضيقة.
+     التخصيص (0,1,1) يغلب .directions-btn (0,1,0) أياً كان ترتيبهما. والزران يبقيان
+     بارتفاع متساوٍ لأن عناصر الصف تمتد عمودياً افتراضياً. */
+  .result-actions-secondary > button { white-space: normal; line-height: 1.3; text-align: center; }
 
   /* زر الاتجاهات ببطاقة المناوبة */
   .duty-card-actions { margin-top: 10px; }
