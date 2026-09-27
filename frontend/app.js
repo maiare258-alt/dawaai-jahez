@@ -359,7 +359,8 @@ const translations = {
     admin_address_label: 'العنوان المكتوب',
     admin_address_placeholder: 'مثال: سلمية، شارع حماة، قرب دوار الساعة',
     admin_coords_label: 'الموقع على الخريطة',
-    admin_coords_placeholder: 'الصق الإحداثيات من خرائط جوجل، أو اتركه فارغاً',
+    admin_coords_placeholder: '35.0101, 37.0505',
+    admin_coords_hint: 'في خرائط جوجل، اضغط مطوّلاً على مكان الصيدلية وانسخ الأرقام التي تظهر. واترك الحقل فارغاً إن لم ترد تغيير الموقع.',
     admin_location_set: 'الموقع محدد',
     admin_location_unset: 'الموقع غير محدد',
     admin_view_on_map: 'عرض على الخريطة',
@@ -801,7 +802,8 @@ const translations = {
     admin_address_label: 'Written address',
     admin_address_placeholder: 'Example: Salamiyah, Hama Street, near the clock roundabout',
     admin_coords_label: 'Location on the map',
-    admin_coords_placeholder: 'Paste coordinates from Google Maps, or leave empty',
+    admin_coords_placeholder: '35.0101, 37.0505',
+    admin_coords_hint: 'In Google Maps, long-press the pharmacy location and copy the numbers that appear. Leave empty to keep the current location.',
     admin_location_set: 'Location set',
     admin_location_unset: 'Location not set',
     admin_view_on_map: 'View on map',
@@ -4659,6 +4661,7 @@ function renderAdminAddressList() {
       </label>
       <label class="admin-address-field">
         <span>${t('admin_coords_label')}</span>
+        <p class="admin-address-hint">${t('admin_coords_hint')}</p>
         <input type="text" id="coords-input-${p.id}" class="coords-input" autocomplete="off" spellcheck="false" placeholder="${t('admin_coords_placeholder')}">
       </label>
       <div class="admin-address-actions">
