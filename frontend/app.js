@@ -352,6 +352,32 @@ const translations = {
     offline_banner: 'لا يوجد اتصال بالإنترنت',
     sending_order: 'جارٍ إرسال الطلب...',
     rate_limited_error: 'محاولات كثيرة جداً. حاول بعد قليل.',
+    admin_address_title: '📍 عنوان الصيدلية وموقعها',
+    admin_address_desc: 'عدّل العنوان المكتوب الذي يراه المريض، وموقع الصيدلية على الخريطة. يظهر للمريض آخر موقع حُفظ، سواء حفظته الإدارة من هنا أو الصيدلي من لوحته.',
+    admin_address_search: 'ابحث باسم الصيدلية أو عنوانها',
+    admin_address_no_match: 'لا توجد صيدلية مطابقة',
+    admin_address_label: 'العنوان المكتوب',
+    admin_address_placeholder: 'مثال: سلمية، شارع حماة، قرب دوار الساعة',
+    admin_coords_label: 'الموقع على الخريطة',
+    admin_coords_placeholder: 'الصق الإحداثيات من خرائط جوجل، أو اتركه فارغاً',
+    admin_location_set: 'الموقع محدد',
+    admin_location_unset: 'الموقع غير محدد',
+    admin_view_on_map: 'عرض على الخريطة',
+    admin_address_save: 'حفظ',
+    admin_location_clear: 'إزالة الموقع',
+    admin_address_saved: 'حُفظت التعديلات',
+    admin_address_nothing: 'لم يتغير شيء، فلا حاجة للحفظ.',
+    admin_location_clear_confirm: 'هل ترغب في إزالة موقع صيدلية "{name}" عن الخريطة؟ سيختفي زر "الموقع على الخريطة" من بطاقتها حتى يُحدَّد موقع جديد.',
+    admin_location_cleared: 'أُزيل الموقع',
+    address_too_long_error: 'العنوان طويل جداً',
+    invalid_address_error: 'العنوان غير صالح',
+    main_phone_title: '☎️ الهاتف الأرضي للصيدلية',
+    main_phone_desc: 'الرقم الأساسي الذي يظهر للمرضى بجانب الرمز 📞. اكتبه مع رمز المنطقة إن أمكن.',
+    main_phone_placeholder: 'رقم الهاتف الأرضي',
+    main_phone_save: 'حفظ الرقم',
+    main_phone_saved: 'حُفظ رقم الهاتف',
+    phone_required_error: 'رقم الهاتف مطلوب',
+    phone_invalid_error: 'رقم الهاتف غير صالح. اكتب أرقاماً فقط، من ٦ إلى ١٥ رقماً',
     launch_title: 'بدء الإطلاق الرسمي',
     launch_desc: 'يمسح بيانات التجربة: عمليات البحث، والطلبات، وتقييمات الممرضين. ولا يمس الصيدليات ولا الأدوية ولا المخزون ولا الممرضين.',
     launch_warning: 'يُستخدم مرة واحدة فقط، ثم يختفي هذا القسم نهائياً. وتُنزَّل نسخة احتياطية كاملة تلقائياً قبل المسح.',
@@ -768,6 +794,32 @@ const translations = {
     offline_banner: 'No internet connection',
     sending_order: 'Sending order...',
     rate_limited_error: 'Too many attempts. Please try again shortly.',
+    admin_address_title: '📍 Pharmacy address and location',
+    admin_address_desc: 'Edit the written address patients see, and the pharmacy location on the map. Patients see the last saved location, whether saved here by the admin or by the pharmacist from their panel.',
+    admin_address_search: 'Search by pharmacy name or address',
+    admin_address_no_match: 'No matching pharmacy',
+    admin_address_label: 'Written address',
+    admin_address_placeholder: 'Example: Salamiyah, Hama Street, near the clock roundabout',
+    admin_coords_label: 'Location on the map',
+    admin_coords_placeholder: 'Paste coordinates from Google Maps, or leave empty',
+    admin_location_set: 'Location set',
+    admin_location_unset: 'Location not set',
+    admin_view_on_map: 'View on map',
+    admin_address_save: 'Save',
+    admin_location_clear: 'Remove location',
+    admin_address_saved: 'Changes saved',
+    admin_address_nothing: 'Nothing changed, so there is nothing to save.',
+    admin_location_clear_confirm: 'Remove the map location of "{name}"? The "View on map" button will disappear from its card until a new location is set.',
+    admin_location_cleared: 'Location removed',
+    address_too_long_error: 'The address is too long',
+    invalid_address_error: 'The address is not valid',
+    main_phone_title: '☎️ Pharmacy landline',
+    main_phone_desc: 'The main number patients see next to the 📞 symbol. Include the area code if possible.',
+    main_phone_placeholder: 'Landline number',
+    main_phone_save: 'Save number',
+    main_phone_saved: 'Phone number saved',
+    phone_required_error: 'A phone number is required',
+    phone_invalid_error: 'Invalid phone number. Use digits only, 6 to 15 digits',
     launch_title: 'Official launch',
     launch_desc: 'Clears test data: searches, orders and nurse ratings. It does not touch pharmacies, medicines, stock or nurses.',
     launch_warning: 'This can be used only once, then this section disappears permanently. A full backup is downloaded automatically before anything is cleared.',
@@ -994,6 +1046,10 @@ const BACKEND_ERROR_MAP = {
   'بيانات الطلب غير صالحة': 'invalid_order_error',
   'التعليق طويل جداً': 'comment_too_long_error',
   'كلمة التأكيد غير صحيحة': 'launch_failed',
+  'رقم الهاتف مطلوب': 'phone_required_error',
+  'رقم الهاتف غير صالح': 'phone_invalid_error',
+  'العنوان طويل جداً': 'address_too_long_error',
+  'العنوان غير صالح': 'invalid_address_error',
   'محاولات كثيرة جداً. حاول بعد قليل.': 'rate_limited_error'
 };
 function translateApiError(rawError) {
@@ -1108,6 +1164,10 @@ function applyLanguage() {
   document.getElementById('duty-hours-desc').textContent = t('duty_hours_desc');
   document.getElementById('duty-start-label').textContent = t('duty_start_label');
   document.getElementById('duty-end-label').textContent = t('duty_end_label');
+  document.getElementById('main-phone-title').textContent = t('main_phone_title');
+  document.getElementById('main-phone-desc').textContent = t('main_phone_desc');
+  document.getElementById('main-phone-input').placeholder = t('main_phone_placeholder');
+  document.getElementById('save-main-phone-btn').textContent = t('main_phone_save');
   document.getElementById('assistant-phone-title').textContent = t('assistant_phone_title');
   document.getElementById('assistant-phone-desc').textContent = t('assistant_phone_desc');
   document.getElementById('assistant-phone-input').placeholder = t('assistant_phone_input_placeholder');
@@ -2182,10 +2242,22 @@ function digitsOnly(input) {
   input.value = input.value.replace(/[^0-9]/g, '');
 }
 
+// حماية النص قبل وضعه في HTML.
+//
+// ⚠️ كانت تعتمد على textContent ثم innerHTML، وهذا يحمي < > & فقط ولا يحمي علامات
+// التنصيص. داخل النص كان ذلك كافياً، أما داخل خصائص HTML مثل value="..." أو
+// data-wa-msg="..." فعلامة " تكسر حدود الخاصية. وكان لذلك أثران في 13 موضعاً:
+//   - رسالة واتساب الجاهزة تنقطع عند أول علامة تنصيص في قالبها، فيستلم الصيدلي
+//     "أريد شراء دواء " بلا اسم الدواء، حتى ببيانات سليمة تماماً.
+//   - اسم دواء خبيث مثل  x" onmouseover="...  يزرع كوداً في زر كل مريض يبحث عنه.
+// الآن تُحمى علامتا التنصيص المزدوجة والمفردة أيضاً، فتصلح الدالة لكل السياقين.
 function escapeHtml(str) {
-  const div = document.createElement('div');
-  div.textContent = str == null ? '' : String(str);
-  return div.innerHTML;
+  return String(str == null ? '' : str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
 
 function renderStars(count) {
@@ -2721,6 +2793,7 @@ function loadDashboard() {
   `;
   document.getElementById('duty-checkbox').checked = !!currentPharmacy.on_duty;
   document.getElementById('assistant-phone-input').value = currentPharmacy.assistant_phone || '';
+  document.getElementById('main-phone-input').value = currentPharmacy.phone || '';
   document.getElementById('whatsapp-phone-input').value = currentPharmacy.whatsapp_phone || '';
   document.getElementById('location-paste-input').value =
     hasLocation(currentPharmacy.latitude, currentPharmacy.longitude)
@@ -3922,6 +3995,16 @@ function renderAdminPanelUI() {
     </div>
 
     <div class="box" style="margin-bottom:20px;">
+      <h3 style="margin-top:0;">${t('admin_address_title')}</h3>
+      <p class="muted" style="margin-top:6px;">${t('admin_address_desc')}</p>
+      <input type="search" id="admin-address-search" class="admin-username-search"
+             placeholder="${t('admin_address_search')}"
+             oninput="onAdminAddressSearch(this)" onsearch="onAdminAddressSearch(this)"
+             onchange="onAdminAddressSearch(this)" value="${escapeHtml(adminAddressFilter)}">
+      <div id="admin-address-list" class="admin-address-list"></div>
+    </div>
+
+    <div class="box" style="margin-bottom:20px;">
       <div class="admin-duty-head">
         <h3 style="margin:0;">${t('admin_duty_title')}</h3>
         <span class="muted" id="admin-duty-count"></span>
@@ -4028,6 +4111,7 @@ function renderAdminPanelUI() {
   // إلا حين تُعاد كلمة مرور صيدلية. يجب أن تبقى هنا في نهاية هذه الدالة تحديداً.
   renderAdminDutyList();
   renderAdminUsernameList();
+  renderAdminAddressList();
   renderBackupInfo();
   checkSystemStatus();
   loadDemandReport();
@@ -4526,6 +4610,156 @@ async function checkSystemStatus() {
       : `<span class="status-dot bad"></span><span class="status-bad">${t('system_status_degraded')}</span>`;
   } catch (err) {
     box.innerHTML = `<span class="status-dot bad"></span><span class="status-bad">${t('system_status_degraded')}</span>`;
+  }
+}
+
+// ================= عنوان الصيدلية وموقعها (لوحة الإدارة) =================
+// العنوان كان يُكتب عند التسجيل فقط، فبقيت عناوين عامة مثل "سلميه". والموقع على الخريطة
+// كان الصيدلي وحده يضبطه من لوحته. هنا تصحح الإدارة الأمرين عن بُعد.
+// والموقع واحد لكل صيدلية: آخر من يحفظ (الإدارة أو الصيدلي) هو ما يراه المريض.
+
+let adminAddressFilter = '';
+
+function onAdminAddressSearch(el) {
+  const next = el.value.trim().toLowerCase();
+  if (next === adminAddressFilter) return;
+  adminAddressFilter = next;
+  renderAdminAddressList();
+}
+
+// توحيد النص للمقارنة، بالطريقة نفسها التي ينظّف بها الخادم العنوان قبل حفظه
+function normalizeAddressForCompare(v) {
+  return String(v || '').replace(/\s+/g, ' ').trim();
+}
+
+function renderAdminAddressList() {
+  const box = document.getElementById('admin-address-list');
+  if (!box) return;
+  const all = adminDataCache.pharmacies || [];
+  const list = all.filter(p => !adminAddressFilter
+    || String(p.name || '').toLowerCase().includes(adminAddressFilter)
+    || String(p.address || '').toLowerCase().includes(adminAddressFilter));
+  if (list.length === 0) {
+    box.innerHTML = `<p class="muted" style="padding:14px 2px;">${t('admin_address_no_match')}</p>`;
+    return;
+  }
+  box.innerHTML = list.map(p => {
+    const has = hasLocation(p.latitude, p.longitude);
+    const link = has ? mapPreviewLink(p.latitude, p.longitude) : null;
+    return `
+    <div class="admin-address-row">
+      <div class="admin-address-head">
+        <span class="admin-address-name"><bdi>${escapeHtml(p.name)}</bdi></span>
+        <span class="admin-address-status ${has ? 'ok' : 'unset'}">${has ? '✅ ' + t('admin_location_set') : '⚠️ ' + t('admin_location_unset')}</span>
+        ${link ? `<a class="admin-address-maplink" href="${escapeHtml(link)}" target="_blank" rel="noopener noreferrer">${t('admin_view_on_map')}</a>` : ''}
+      </div>
+      <label class="admin-address-field">
+        <span>${t('admin_address_label')}</span>
+        <input type="text" id="addr-input-${p.id}" maxlength="200" value="${escapeHtml(p.address || '')}" placeholder="${t('admin_address_placeholder')}">
+      </label>
+      <label class="admin-address-field">
+        <span>${t('admin_coords_label')}</span>
+        <input type="text" id="coords-input-${p.id}" class="coords-input" autocomplete="off" spellcheck="false" placeholder="${t('admin_coords_placeholder')}">
+      </label>
+      <div class="admin-address-actions">
+        <button type="button" class="primary" id="addr-save-${p.id}" onclick="saveAdminAddress(${p.id})">${t('admin_address_save')}</button>
+        ${has ? `<button type="button" class="btn-outline red" onclick="clearAdminLocation(${p.id})">${t('admin_location_clear')}</button>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function adminPut(path, body) {
+  const res = await fetch(`${API}/pharmacies/${path}`, { method: 'PUT', headers: adminHeaders(), body: JSON.stringify(body) });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(translateApiError(data.error));
+  return data;
+}
+
+async function saveAdminAddress(id) {
+  const p = (adminDataCache.pharmacies || []).find(x => x.id === id);
+  if (!p) return;
+  const addrInput = document.getElementById(`addr-input-${id}`);
+  const coordsInput = document.getElementById(`coords-input-${id}`);
+  const newAddress = addrInput ? addrInput.value : '';
+  const addressChanged = normalizeAddressForCompare(newAddress) !== normalizeAddressForCompare(p.address);
+  const coordsRaw = coordsInput ? coordsInput.value.trim() : '';
+
+  // الإحداثيات بالمنطق نفسه في لوحة الصيدلي: كل الصيغ، وكشف الأرقام المقلوبة
+  let coords = null;
+  if (coordsRaw) {
+    const parsed = parsePastedCoordinates(coordsRaw);
+    if (!parsed) { await customAlert(t('invalid_location_error'), 'warning'); return; }
+    let { lat, lng } = parsed;
+    if (!isInsideSyria(lat, lng) && isInsideSyria(lng, lat)) {
+      if (await customConfirm(tFormat('location_swap_suggest', { coords: `${lng}, ${lat}` }), 'warning')) { const tmp = lat; lat = lng; lng = tmp; }
+    } else if (!isInsideSyria(lat, lng)) {
+      if (!(await customConfirm(t('location_outside_syria'), 'warning'))) return;
+    }
+    coords = { lat, lng };
+  }
+  if (!addressChanged && !coords) { await customAlert(t('admin_address_nothing'), 'info'); return; }
+
+  const btn = document.getElementById(`addr-save-${id}`);
+  if (btn) btn.disabled = true;
+  try {
+    // كل حقل يُحفظ بمفرده ويُحدَّث في الكاش فور نجاحه، فلو نجح العنوان وفشل الموقع
+    // تبقى الشاشة صادقة: تعرض العنوان الجديد والموقع القديم.
+    if (addressChanged) {
+      const d = await adminPut(`${id}/address`, { address: newAddress });
+      p.address = d.address;
+    }
+    if (coords) {
+      const d = await adminPut(`${id}/location`, { latitude: coords.lat, longitude: coords.lng });
+      p.latitude = d.latitude; p.longitude = d.longitude;
+    }
+    renderAdminAddressList();
+    await customAlert(t('admin_address_saved'), 'success');
+  } catch (err) {
+    renderAdminAddressList();
+    await customAlert(err.message || t('server_error_title'), 'error');
+  } finally {
+    const b = document.getElementById(`addr-save-${id}`);
+    if (b) b.disabled = false;
+  }
+}
+
+async function clearAdminLocation(id) {
+  const p = (adminDataCache.pharmacies || []).find(x => x.id === id);
+  if (!p) return;
+  if (!(await customConfirm(tFormat('admin_location_clear_confirm', { name: p.name }), 'warning'))) return;
+  try {
+    const d = await adminPut(`${id}/location`, { latitude: '', longitude: '' });
+    p.latitude = d.latitude; p.longitude = d.longitude;
+    renderAdminAddressList();
+    await customAlert(t('admin_location_cleared'), 'success');
+  } catch (err) {
+    await customAlert(err.message || t('server_error_title'), 'error');
+  }
+}
+
+// ---------- الهاتف الأرضي (لوحة الصيدلي) ----------
+// يعدّل الرقم الأساسي نفسه الظاهر للمريض بجانب 📞، لا رقماً رابعاً: ثلاثة أرقام وزر
+// واتساب كافية، والرابع يزحم بطاقة الصيدلية على شاشة الهاتف.
+async function saveMainPhone() {
+  const input = document.getElementById('main-phone-input');
+  const btn = document.getElementById('save-main-phone-btn');
+  if (btn) btn.disabled = true;
+  try {
+    const res = await fetch(`${API}/pharmacies/self/phone`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: currentPharmacy.username, password: currentPharmacy.password, phone: input.value })
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) { await customAlert(translateApiError(data.error), 'error'); return; }
+    currentPharmacy.phone = data.phone;
+    input.value = data.phone || '';   // نعرض ما حفظه الخادم بعد التطبيع
+    await customAlert(t('main_phone_saved'), 'success');
+  } catch (err) {
+    await customAlert(t('server_error_title'), 'error');
+  } finally {
+    if (btn) btn.disabled = false;
   }
 }
 
