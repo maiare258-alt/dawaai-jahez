@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const db = require('../db');
 const adminAuth = require('../middleware/adminAuth');
+const { clientIp } = require('../middleware/rateLimit');
 
 // إحصاءات لوحة الإدارة (للإدارة فقط)
 // GET /api/stats
@@ -15,7 +16,11 @@ const adminAuth = require('../middleware/adminAuth');
 // الأرقام تجميعية بحتة، وأسماء الصيدليات والأدوية بيانات عامة أصلاً.
 router.get('/', adminAuth, async (req, res) => {
   try {
-    res.json(await db.getAdminStats());
+    const stats = await db.getAdminStats();
+    // مصدر هوية الزائر في حد المحاولات: "cloudflare" يعني أن الحماية تعتمد على عنوان
+    // لا يستطيع الزائر تزييفه. يظهر في لوحة الإدارة للتحقق من ذلك على الموقع الحي.
+    stats.clientIpSource = clientIp(req).source;
+    res.json(stats);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'حدث خطأ أثناء جلب الإحصاءات' });
