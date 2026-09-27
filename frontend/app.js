@@ -1,18 +1,35 @@
+// ===== قراءة وكتابة آمنتان للتخزين المحلي =====
+// كانت السلة والطلبات تُقرأ في أول سطور الملف بـJSON.parse دون حماية. فلو تلفت القيمة
+// المحفوظة، أو منع المتصفح التخزين (بعض أوضاع الخصوصية ترمي خطأً عند مجرد القراءة)،
+// توقف الملف كله عند السطر الأول: لا بحث ولا مناوبة ولا أي شيء حتى يمسح المستخدم بياناته.
+function storageGet(key) {
+  try { return localStorage.getItem(key); } catch (e) { return null; }
+}
+function storageSet(key, value) {
+  try { localStorage.setItem(key, value); } catch (e) { /* تخزين ممتلئ أو ممنوع: نكمل بلا حفظ */ }
+}
+function readJsonArray(key) {
+  try {
+    const v = JSON.parse(storageGet(key) || '[]');
+    return Array.isArray(v) ? v : [];
+  } catch (e) { return []; }
+}
+
 const API = '/api';
 let currentPharmacy = null;
 let adminPassword = null;
-let cart = JSON.parse(localStorage.getItem('cart') || '[]');
+let cart = readJsonArray('cart');
 // التصنيف الحالي لصفحة البحث: 'medicine' (الرئيسية) أو 'cosmetic' (مستحضرات تجميل)
 let currentCategory = 'medicine';
 // فلتر المدينة بواجهة المريض. '' = كل المدن (السلوك الافتراضي، مطابق لما قبل الميزة).
 // حالة واجهة فقط: لا تُحفظ ولا تؤثر على أي بيانات مخزّنة.
 let currentCity = '';
 // طلبات المريض المرسلة من هذا المتصفح (لتتبع رد الصيدلية عليها)
-let myOrders = JSON.parse(localStorage.getItem('myOrders') || '[]');
+let myOrders = readJsonArray('myOrders');
 
 // ---------- نظام تعدد اللغات (عربي/إنكليزي) — المرحلة 1: الصفحة الرئيسية ----------
 
-let currentLang = localStorage.getItem('lang') || 'ar';
+let currentLang = storageGet('lang') || 'ar';
 
 // المدن المدعومة — مراكز المحافظات السورية + سلمية.
 // المفتاح هو ما يُخزَّن بقاعدة البيانات، والقيمة هي الاسم المعروض بكل لغة.
@@ -352,6 +369,11 @@ const translations = {
     offline_banner: 'لا يوجد اتصال بالإنترنت',
     sending_order: 'جارٍ إرسال الطلب...',
     rate_limited_error: 'محاولات كثيرة جداً. حاول بعد قليل.',
+    orders_load_error: 'تعذّر تحميل الطلبات. تحقق من اتصالك بالإنترنت، وستُحدَّث القائمة تلقائياً.',
+    session_expired_error: 'تغيّرت بيانات الدخول لهذا الحساب، فتوقف تحديث الطلبات. يرجى تسجيل الخروج ثم الدخول من جديد.',
+    ip_protection_label: 'حماية المحاولات:',
+    ip_protection_ok: 'تعمل عبر Cloudflare ✅',
+    ip_protection_fallback: 'تعمل بمصدر احتياطي ⚠️',
     admin_address_title: '📍 عنوان الصيدلية وموقعها',
     admin_address_desc: 'عدّل العنوان المكتوب الذي يراه المريض، وموقع الصيدلية على الخريطة. يظهر للمريض آخر موقع حُفظ، سواء حفظته الإدارة من هنا أو الصيدلي من لوحته.',
     admin_address_search: 'ابحث باسم الصيدلية أو عنوانها',
@@ -795,6 +817,11 @@ const translations = {
     offline_banner: 'No internet connection',
     sending_order: 'Sending order...',
     rate_limited_error: 'Too many attempts. Please try again shortly.',
+    orders_load_error: 'Could not load orders. Check your internet connection; the list will refresh automatically.',
+    session_expired_error: 'The login details for this account have changed, so order updates stopped. Please log out and log in again.',
+    ip_protection_label: 'Attempt protection:',
+    ip_protection_ok: 'Active via Cloudflare ✅',
+    ip_protection_fallback: 'Using a fallback source ⚠️',
     admin_address_title: '📍 Pharmacy address and location',
     admin_address_desc: 'Edit the written address patients see, and the pharmacy location on the map. Patients see the last saved location, whether saved here by the admin or by the pharmacist from their panel.',
     admin_address_search: 'Search by pharmacy name or address',
@@ -1259,7 +1286,7 @@ function applyLanguage() {
 
 function toggleLanguage() {
   currentLang = currentLang === 'ar' ? 'en' : 'ar';
-  localStorage.setItem('lang', currentLang);
+  storageSet('lang', currentLang);
   applyLanguage();
 }
 
@@ -1424,7 +1451,7 @@ function headerGoAdmin(link) {
 // ---------- عربة المشتريات ----------
 
 function saveCart() {
-  localStorage.setItem('cart', JSON.stringify(cart));
+  storageSet('cart', JSON.stringify(cart));
   updateCartCount();
   // أي تعديل على السلة يجعلها طلباً مختلفاً، فتأخذ مفتاح تفرّد جديداً.
   // بدون هذا، لو فشل إرسال ثم أضاف المريض دواءً وأعاد الإرسال، لأعاد الخادم
@@ -1660,7 +1687,7 @@ async function submitOrder() {
 // ---------- تتبع حالة طلبات المريض (هل استجابت الصيدلية؟) — عبر أيقونة الجرس ----------
 
 function saveMyOrders() {
-  localStorage.setItem('myOrders', JSON.stringify(myOrders));
+  storageSet('myOrders', JSON.stringify(myOrders));
 }
 
 function updateBellBadge() {
@@ -2270,7 +2297,7 @@ function renderStars(count) {
 }
 
 function getRatedNurses() {
-  return JSON.parse(localStorage.getItem('ratedNurses') || '[]');
+  return readJsonArray('ratedNurses');
 }
 
 function hasRatedNurse(nurseId) {
@@ -2281,7 +2308,7 @@ function markNurseAsRated(nurseId) {
   const list = getRatedNurses();
   if (!list.includes(nurseId)) {
     list.push(nurseId);
-    localStorage.setItem('ratedNurses', JSON.stringify(list));
+    storageSet('ratedNurses', JSON.stringify(list));
   }
 }
 
@@ -3547,12 +3574,21 @@ async function loadOrders() {
     document.getElementById('orders-list').innerHTML = `<p class="muted">${t('loading_text')}</p>`;
   }
   try {
-    const res = await fetch(`${API}/orders/${currentPharmacy.id}`, {
+    const res = await fetchWithTimeout(`${API}/orders/${currentPharmacy.id}`, {
       headers: {
         'x-pharmacy-username': encodeURIComponent(currentPharmacy.username),
         'x-pharmacy-password': encodeURIComponent(currentPharmacy.password)
       }
-    });
+    }, 20000);
+    // بيانات الدخول لم تعد صالحة (غُيّرت كلمة المرور من جهاز آخر أو من الإدارة):
+    // نوقف الاستطلاع فوراً. لولا ذلك لكرر المحاولة كل 12 ثانية بكلمة المرور القديمة،
+    // فتتراكم محاولات خاطئة حتى يحظر حد المحاولات جهاز الصيدلي نفسه.
+    if (res.status === 401) {
+      stopOrdersPolling();
+      document.getElementById('orders-list').innerHTML = `<p class="muted">${t('session_expired_error')}</p>`;
+      ordersLoadedOnce = true;
+      return;
+    }
     if (!res.ok) {
       let bodyText = '';
       try { bodyText = await res.text(); } catch (e) { bodyText = '(تعذّرت قراءة نص الرد)'; }
@@ -3562,12 +3598,10 @@ async function loadOrders() {
     pharmacistOrdersCache = orders;
     renderOrdersUI();
   } catch (err) {
-    // تشخيص مؤقت: بنعرض رسالة الخطأ الحقيقية بدل الرسالة العامة، لحد ما نعرف السبب الجذري بالضبط
+    // عند أول تحميل فقط نعرض الرسالة. في الاستطلاع اللاحق نُبقي آخر قائمة ناجحة ظاهرة،
+    // فانقطاع لحظي لا يمسح طلبات يراها الصيدلي أمامه.
     if (wasFirstLoad) {
-      document.getElementById('orders-list').innerHTML =
-        `<p class="muted" style="direction:ltr; text-align:left; word-break:break-word; font-family:monospace; font-size:13px;">
-          🔧 رسالة تشخيص مؤقتة — خذلها لقطة شاشة وابعتهالي:<br><br>${escapeHtml(err.message || String(err))}
-        </p>`;
+      document.getElementById('orders-list').innerHTML = `<p class="muted">${t('orders_load_error')}</p>`;
     }
   }
   ordersLoadedOnce = true;
@@ -3980,6 +4014,10 @@ function renderAdminPanelUI() {
         <span class="muted">${t('system_status_title')}:</span>
         <span id="system-status"></span>
       </div>
+      ${stats && stats.clientIpSource ? `<div class="status-row">
+        <span class="muted">${t('ip_protection_label')}</span>
+        <span class="${stats.clientIpSource === 'cloudflare' ? 'status-ok' : 'backup-overdue'}">${stats.clientIpSource === 'cloudflare' ? t('ip_protection_ok') : t('ip_protection_fallback')}</span>
+      </div>` : ''}
 
       <div id="backup-info" class="backup-info"></div>
       <p class="backup-warning">${t('backup_warning')}</p>
