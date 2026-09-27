@@ -654,6 +654,21 @@
     .demand-export-btn { margin-inline-start: 0; width: 100%; }
   }
 
+  /* ---- زرا واتساب والخريطة على الهاتف ---- */
+  /* نصف عرض البطاقة على الهاتف لا يتسع لـ"الموقع على الخريطة" في سطر واحد، فيتكدس
+     الزران عمودياً بعرض كامل، كزر الخريطة في بطاقة المناوبة. وflex: 0 0 auto ضروري
+     هنا: الأساس 0 داخل حاوية عمودية يُفسَّر ارتفاعاً لا عرضاً. */
+  @media (max-width: 520px) {
+    .result-actions-secondary { flex-direction: column; }
+    .result-actions-secondary > button,
+    .result-actions .wa-result-btn { flex: 0 0 auto; width: 100%; white-space: nowrap; }
+  }
+
+  /* ---- النص الإرشادي داخل الحقول ---- */
+  /* رمادي كروم الافتراضي (#a9a9a9) نسبة تباينه 2.3 فقط، فيصعب قراءته على الهاتف
+     خاصة تحت الشمس. هذا اللون يبلغ معيار 4.5، ويبقى أفتح من النص المكتوب فعلاً. */
+  ::placeholder { color: #6b7785; opacity: 1; }
+
   /* ---- عنوان الصيدلية وموقعها (لوحة الإدارة) ---- */
   /* الحقول تتكدس عمودياً على كل الشاشات، فلا يحتاج تخطيطاً خاصاً للهاتف. وعناصر
      الحاويات العمودية بلا أساس بالبكسل عمداً: في الاتجاه العمودي يُفسَّر ارتفاعاً. */
@@ -665,7 +680,11 @@
   .admin-address-status { font-size: 12.5px; font-weight: 600; }
   .admin-address-status.ok { color: #0f7a52; }
   .admin-address-status.unset { color: #906400; }
-  .admin-address-maplink { font-size: 13px; color: #185fa5; font-weight: 600; }
+  .admin-address-maplink { font-size: 13px; color: #185fa5; font-weight: 600; text-decoration: none; }
+  .admin-address-maplink:hover { opacity: 0.8; }
+  /* الشرح في سطر ظاهر تحت العنوان لا داخل الحقل: النص الإرشادي كان يُقص على الهاتف
+     لأن الحقل ضيق، ويختفي أصلاً حين يبدأ المدير الكتابة. */
+  .admin-address-hint { margin: 0; font-size: 12.5px; line-height: 1.6; color: #616e7a; }
   .admin-address-field { display: flex; flex-direction: column; gap: 5px; font-size: 13px; color: #3a4a58; }
   .admin-address-field input { margin: 0; width: 100%; }
   /* الإحداثيات أرقام لاتينية دائماً، فنثبّت اتجاهها حتى لا تنقلب داخل الواجهة العربية */
@@ -928,7 +947,10 @@
     .wa-panel { max-width: 100%; max-height: 92vh; border-radius: 18px; }
     .wa-panel-head, .wa-panel-list, .wa-panel-foot { padding-left: 16px; padding-right: 16px; }
     .wa-pharmacy-row .wa-chat-btn { width: 100%; }
-    .result-actions .wa-result-btn { flex: 1 1 auto; }
+    /* كانت flex: 1 1 auto فيأخذ واتساب عرض نصه ثم يشارك في الباقي، بينما زر الخريطة
+     يشارك في الباقي فقط، فيُعصر نصه إلى ثلاثة أسطر ويتمدد الزران عمودياً معه.
+     الآن العرض متساوٍ للزرين. */
+  .result-actions .wa-result-btn { flex: 1 1 0; }
   }
 
   /* ---- شارة التوثيق ---- */
