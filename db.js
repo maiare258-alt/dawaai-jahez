@@ -582,6 +582,27 @@ async function setWhatsappPhone(pharmacyId, whatsappPhone) {
   return rows[0];
 }
 
+// العنوان المكتوب للصيدلية. كان يُكتب عند التسجيل فقط ولا يُعدَّل بعدها، فبقيت
+// عناوين عامة مثل "سلميه" لا تساعد المريض على الوصول. cleanText يقص المسافات
+// الزائدة، ونص فارغ يمسح العنوان فتختفي سطره من بطاقة الصيدلية.
+async function setPharmacyAddress(pharmacyId, address) {
+  const { rows } = await pool.query(
+    `UPDATE pharmacies SET address = $1 WHERE id = $2 RETURNING id, name, address`,
+    [cleanText(address), pharmacyId]
+  );
+  return rows[0];
+}
+
+// الرقم الأساسي للصيدلية (الأرضي غالباً)، الظاهر للمريض بجانب 📞.
+// كانت الإدارة وحدها تكتبه عند التسجيل، فالصيدلي الآن يصحّحه بنفسه.
+async function setPharmacyPhone(pharmacyId, phone) {
+  const { rows } = await pool.query(
+    `UPDATE pharmacies SET phone = $1 WHERE id = $2 RETURNING id, name, phone`,
+    [phone, pharmacyId]
+  );
+  return rows[0];
+}
+
 async function setAssistantPhone(pharmacyId, assistantPhone) {
   const { rows } = await pool.query(
     `UPDATE pharmacies SET assistant_phone = $1 WHERE id = $2 RETURNING *`,
@@ -1123,6 +1144,8 @@ module.exports = {
   getWhatsappPharmacies,
   setPharmacyName,
   setPharmacyUsername,
+  setPharmacyAddress,
+  setPharmacyPhone,
   setPharmacyPassword,
   ping,
   exportAll,
