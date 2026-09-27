@@ -1,5 +1,14 @@
 const express = require('express');
 const router = express.Router();
+
+// المعرّفات في الرابط أرقام صحيحة موجبة ضمن نطاق PostgreSQL. أي قيمة أخرى ("abc"،
+// "1.5"، رقم من عشرين خانة) كانت تصل إلى القاعدة فترمي خطأً يعود 500 بدل رفض واضح.
+function validIdParam(req, res, next, value) {
+  if (/^[1-9]\d{0,9}$/.test(value) && Number(value) <= 2147483647) return next();
+  return res.status(400).json({ error: 'معرّف غير صالح' });
+}
+router.param('id', validIdParam);
+
 const bcrypt = require('bcryptjs');
 const db = require('../db');
 const adminAuth = require('../middleware/adminAuth');
@@ -100,7 +109,7 @@ router.get('/', adminAuth, async (req, res) => {
 router.post('/', adminAuth, async (req, res) => {
   const { generic_name, alt_names, category } = req.body;
   // تنظيف المسافات الزائدة: بدونه "بنادول " و"بنادول" بيُعتبروا دواءين مختلفين تماماً
-  const name = (req.body.name || '').trim();
+  const name = typeof req.body.name === 'string' ? req.body.name.trim() : '';
   if (!name) return res.status(400).json({ error: 'الاسم مطلوب' });
   const { value: validCategory, error: categoryError } = validateCategory(category);
   if (categoryError) return res.status(400).json({ error: categoryError });
@@ -121,7 +130,7 @@ router.post('/', adminAuth, async (req, res) => {
 // POST /api/medicines/self  { username, password, name, generic_name, alt_names, category }
 router.post('/self', async (req, res) => {
   const { username, password, generic_name, alt_names, category } = req.body;
-  const name = (req.body.name || '').trim();
+  const name = typeof req.body.name === 'string' ? req.body.name.trim() : '';
   if (!username || !password) {
     return res.status(400).json({ error: 'بيانات الدخول مطلوبة' });
   }
