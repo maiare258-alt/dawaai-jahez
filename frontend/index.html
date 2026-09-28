@@ -1542,6 +1542,33 @@
      والتذييل أبيض مائل للزرقة يتدرج مع اللوحة بدل أن يقطعها. */
   .about-section-wrap { background: transparent; }
   .site-footer { background: #f4f9fd; border-top-color: #dbe7f2; }
+
+  /* ---- دوائر طائرة فوق الرسوم ---- */
+  /* داخل حاوية الرسم نفسها لا بجانبها، فتطفو معه في حركته، ولكل دائرة فوق ذلك حركة
+     خفيفة خاصة بها (particleFloat نفسها التي تتحرك بها الدوائر قرب الحبة). */
+  .art-dots { position: absolute; inset: 0; pointer-events: none; }
+  .art-dots i {
+    position: absolute; display: block; border-radius: 50%;
+    background: rgba(159, 203, 242, 0.75);
+    animation: particleFloat 4.5s ease-in-out infinite;
+  }
+  .art-dots i:nth-child(1) { width: 7px; height: 7px; top: -14px; left: 20%; animation-delay: 0s; }
+  .art-dots i:nth-child(2) { width: 5px; height: 5px; top: -32px; left: 55%; animation-delay: 1.4s; }
+  .art-dots i:nth-child(3) { width: 4px; height: 4px; top: -8px;  left: 84%; animation-delay: 2.8s; }
+
+  /* ---- حجم العناوين ---- */
+  /* كانت تصل إلى 76px فتطغى على الصفحة. هنا حجم واضح يقرؤه كبار السن بسهولة دون أن
+     يكون ضخماً: نحو 44px على الحاسوب و28px على الهاتف. العنوان عنصر واحد بثلاثة نصوص
+     (الأدوية، ومستحضرات التجميل، والتمريض)، فتعديله يضبطها كلها. */
+  body.has-hero .hero-title { font-size: clamp(28px, 3.4vw, 44px); line-height: 1.4; }
+  .staff-banner-content h2 { font-size: clamp(26px, 3vw, 40px); }
+
+  /* العناوين لا تُحدَّد عند اللمس أو السحب: لمسة خاطئة على الهاتف كانت تلوّنها بالأزرق.
+     وهذا تجميلي لا حماية، فالنص ظاهر في مصدر الصفحة. ويبقى التحديد متاحاً في بقية
+     الموقع، لأن المريض يحتاج أحياناً نسخ رقم صيدلية أو اسم دواء. */
+  body.has-hero .hero-title,
+  body.has-hero .hero-description,
+  .staff-banner-content { -webkit-user-select: none; user-select: none; }
 </style>
 </head>
 <body class="has-hero">
@@ -1619,6 +1646,7 @@
           <path d="M0 -5 a5 5 0 0 1 0 10 Z" fill="#5c9bd8"/>
         </g>
       </svg>
+      <span class="art-dots" aria-hidden="true"><i></i><i></i><i></i></span>
     </div>
     <div class="hero-bottle-illustration" aria-hidden="true">
       <svg viewBox="0 0 100 140" xmlns="http://www.w3.org/2000/svg">
@@ -1641,6 +1669,7 @@
         <line x1="38" y1="83" x2="58" y2="83" stroke="#cfe3f5" stroke-width="2.5" stroke-linecap="round"/>
         <line x1="38" y1="91" x2="52" y2="91" stroke="#cfe3f5" stroke-width="2.5" stroke-linecap="round"/>
       </svg>
+      <span class="art-dots" aria-hidden="true"><i></i><i></i><i></i></span>
     </div>
     <div class="hero-capsule" aria-hidden="true">
       <svg viewBox="0 0 300 220" xmlns="http://www.w3.org/2000/svg">
@@ -1771,6 +1800,7 @@
           <ellipse cx="208" cy="97" rx="17" ry="7" fill="#ffffff" opacity="0.45" transform="rotate(-14 208 97)"/>
         </g>
       </svg>
+      <span class="art-dots" aria-hidden="true"><i></i><i></i><i></i></span>
     </div>
     <div class="staff-art-bottle" aria-hidden="true">
       <svg viewBox="0 0 100 140" xmlns="http://www.w3.org/2000/svg">
@@ -1793,6 +1823,7 @@
         <line x1="38" y1="83" x2="58" y2="83" stroke="#cfe3f5" stroke-width="2.5" stroke-linecap="round"/>
         <line x1="38" y1="91" x2="52" y2="91" stroke="#cfe3f5" stroke-width="2.5" stroke-linecap="round"/>
       </svg>
+      <span class="art-dots" aria-hidden="true"><i></i><i></i><i></i></span>
     </div>
   </div>
   <div class="staff-banner-content">
