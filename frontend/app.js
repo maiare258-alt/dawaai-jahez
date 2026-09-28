@@ -1432,6 +1432,10 @@ function headerGoHome(link) {
   }
   document.getElementById('hero-search-wrap').style.display = '';
   showView('patient');
+  // صفحة التمريض تغيّر نصوص القسم العلوي دون أن تغيّر نوع البحث (يبقى "دواء")، فكان
+  // الشرط أعلاه يظن أن لا شيء تغيّر ويترك عنوان التمريض ووصفه وتلميحه ظاهرة. بعد
+  // إظهار الصفحة الرئيسية نطلب النص الصحيح دائماً حسب الصفحة ونوع البحث.
+  refreshCurrentHeroText();
   document.getElementById('on-duty-section').style.display = 'none';
   updateCartVisibility();
   window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -1454,6 +1458,9 @@ function headerGoCosmetics(link) {
 
 function headerGoOnDuty(link) {
   showView('patient');
+  // القدوم من صفحة التمريض: كانت نصوص التمريض تبقى، ومربع البحث مخفياً لأنها تخفيه
+  document.getElementById('hero-search-wrap').style.display = '';
+  refreshCurrentHeroText();
   const section = document.getElementById('on-duty-section');
   section.style.display = 'block';
   updateCartVisibility();
