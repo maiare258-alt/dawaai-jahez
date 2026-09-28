@@ -401,6 +401,10 @@ const translations = {
     main_phone_saved: 'حُفظ رقم الهاتف',
     phone_required_error: 'رقم الهاتف مطلوب',
     phone_invalid_error: 'رقم الهاتف غير صالح. اكتب أرقاماً فقط، من ٦ إلى ١٥ رقماً',
+    staff_banner_pharmacist_title: 'لوحة الصيدلي',
+    staff_banner_pharmacist_sub: 'حدِّث توفر أدويتك ومناوبتك وساعات دوامك، واستقبل طلبات المرضى من مكان واحد.',
+    staff_banner_admin_title: 'لوحة الإدارة',
+    staff_banner_admin_sub: 'أدِر الصيدليات والمناوبة والأدوية، وتابع بيانات الطلب وحالة المنصة.',
     launch_title: 'بدء الإطلاق الرسمي',
     launch_desc: 'يمسح بيانات التجربة: عمليات البحث، والطلبات، وتقييمات الممرضين. ولا يمس الصيدليات ولا الأدوية ولا المخزون ولا الممرضين.',
     launch_warning: 'يُستخدم مرة واحدة فقط، ثم يختفي هذا القسم نهائياً. وتُنزَّل نسخة احتياطية كاملة تلقائياً قبل المسح.',
@@ -849,6 +853,10 @@ const translations = {
     main_phone_saved: 'Phone number saved',
     phone_required_error: 'A phone number is required',
     phone_invalid_error: 'Invalid phone number. Use digits only, 6 to 15 digits',
+    staff_banner_pharmacist_title: 'Pharmacist dashboard',
+    staff_banner_pharmacist_sub: 'Update your stock, duty and opening hours, and receive patient orders in one place.',
+    staff_banner_admin_title: 'Admin dashboard',
+    staff_banner_admin_sub: 'Manage pharmacies, duty and medicines, and follow demand data and platform health.',
     launch_title: 'Official launch',
     launch_desc: 'Clears test data: searches, orders and nurse ratings. It does not touch pharmacies, medicines, stock or nurses.',
     launch_warning: 'This can be used only once, then this section disappears permanently. A full backup is downloaded automatically before anything is cleared.',
@@ -1135,6 +1143,7 @@ function applyLanguage() {
 
   // ---------- شريط انقطاع الإنترنت ----------
   updateOfflineBanner();
+  updateStaffBanner();
 
   // ---------- أسماء مقروءة للقوائم المنسدلة ----------
   // كانت هذه القوائم بلا أي اسم، فيعلنها قارئ الشاشة "قائمة منسدلة" فقط دون أن
@@ -1333,10 +1342,24 @@ function customConfirm(message, type = 'question') {
   return showModal({ message, type, showCancel: true, okText: t('modal_yes'), cancelText: t('modal_cancel') });
 }
 
+// نص شريط اللوحة حسب الصفحة المعروضة. يُستدعى أيضاً عند تبديل اللغة.
+function updateStaffBanner() {
+  const view = document.body.dataset.view;
+  const title = document.getElementById('staff-banner-title');
+  const sub = document.getElementById('staff-banner-sub');
+  if (!title || !sub || (view !== 'pharmacist' && view !== 'admin')) return;
+  title.textContent = t(view === 'admin' ? 'staff_banner_admin_title' : 'staff_banner_pharmacist_title');
+  sub.textContent = t(view === 'admin' ? 'staff_banner_admin_sub' : 'staff_banner_pharmacist_sub');
+}
+
 function showView(view) {
   // القسم العلوي الكبير للمرضى فقط: الصيدلي والمدير لا يحتاجان التمرير فوقه في كل مرة
   const heroOn = view === 'patient' || view === 'nursing';
   document.body.classList.toggle('has-hero', heroOn);
+  // لوحتا الصيدلي والإدارة: شريط داكن أقصر بعنوان الصفحة، بدل خلفية فاتحة بلا هوية
+  document.body.classList.toggle('staff-view', view === 'pharmacist' || view === 'admin');
+  document.body.dataset.view = view;
+  updateStaffBanner();
   const heroOuter = document.querySelector('.hero-outer');
   if (heroOuter) heroOuter.style.display = heroOn ? '' : 'none';
   document.getElementById('view-patient').style.display = view === 'patient' ? 'block' : 'none';
