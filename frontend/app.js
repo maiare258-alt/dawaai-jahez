@@ -1334,6 +1334,11 @@ function customConfirm(message, type = 'question') {
 }
 
 function showView(view) {
+  // القسم العلوي الكبير للمرضى فقط: الصيدلي والمدير لا يحتاجان التمرير فوقه في كل مرة
+  const heroOn = view === 'patient' || view === 'nursing';
+  document.body.classList.toggle('has-hero', heroOn);
+  const heroOuter = document.querySelector('.hero-outer');
+  if (heroOuter) heroOuter.style.display = heroOn ? '' : 'none';
   document.getElementById('view-patient').style.display = view === 'patient' ? 'block' : 'none';
   document.getElementById('view-pharmacist').style.display = view === 'pharmacist' ? 'block' : 'none';
   document.getElementById('view-admin').style.display = view === 'admin' ? 'block' : 'none';
