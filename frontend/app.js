@@ -2545,6 +2545,8 @@ function onSearch() {
     // حد أدنى حرفين للبحث الحي بس (البحث الصريح بزر "بحث" أو الاقتراحات غير متأثر إطلاقاً)
     if (q.length < 2) {
       document.getElementById('results').innerHTML = '';
+      // بلا نتائج لا معنى لزر "تحديث النتائج": كان يبقى ظاهراً بعد مسح كلمة البحث
+      setResultsToolbar(false);
     } else {
       runSearch();
     }
