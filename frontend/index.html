@@ -1425,7 +1425,7 @@
     /* مرئي عمداً لا مقصوص: قائمة اقتراحات البحث قد تمتد تحت حافة القسم، فلو قُصّت
        لاختفت الاقتراحات السفلى. والزخارف التي كان القص يخدمها مخفية الآن. */
     overflow: visible;
-    padding: calc(var(--hdr, 0px) + 100px) 24px 150px;
+    padding: calc(var(--hdr, 0px) + 100px) 24px 230px;
     background:
       radial-gradient(ellipse at 78% 12%, rgba(92,155,216,0.38) 0%, rgba(92,155,216,0) 55%),
       radial-gradient(ellipse at 12% 88%, rgba(67,211,162,0.16) 0%, rgba(67,211,162,0) 50%),
@@ -1464,7 +1464,7 @@
     box-shadow: 0 -14px 40px rgba(6,26,48,0.22);
   }
   @media (max-width: 700px) {
-    body.has-hero .hero { min-height: auto; padding: calc(var(--hdr, 0px) + 72px) 18px 100px; }
+    body.has-hero .hero { min-height: auto; padding: calc(var(--hdr, 0px) + 72px) 18px 130px; }
     body.has-hero .page-panel { margin-top: -44px; padding-top: 32px; border-radius: 28px 28px 0 0; }
   }
 
@@ -1483,7 +1483,8 @@
   .staff-banner-art > div { filter: drop-shadow(0 18px 34px rgba(0, 12, 28, 0.45)); }
   body.has-hero .hero-particles span { background: rgba(159, 203, 242, 0.6); }
   @media (min-width: 1100px) {
-    body.has-hero .hero-capsule { position: absolute; left: 3%; right: auto; bottom: 26px; width: 300px; margin: 0; }
+    /* فوق الجزء الذي تعلوه اللوحة (64px) بمسافة، فتظهر الحبة كاملة لا مقصوصة */
+    body.has-hero .hero-capsule { position: absolute; left: 3%; right: auto; bottom: 96px; width: 300px; margin: 0; }
     body.has-hero .hero-bottle-illustration { position: absolute; left: 8%; right: auto; top: calc(var(--hdr, 0px) + 70px); width: 92px; }
     body.has-hero .hero-cart-illustration { position: absolute; left: auto; right: 7%; top: 40%; width: 175px; }
     body.has-hero .hero-particles { position: absolute; inset: 0; pointer-events: none; }
@@ -1503,7 +1504,7 @@
   body.staff-view .staff-banner {
     display: block; position: relative; overflow: hidden; text-align: center;
     margin: calc(-20px - var(--hdr, 0px) - 16px) -20px 0;
-    padding: calc(var(--hdr, 0px) + 60px) 24px 108px;
+    padding: calc(var(--hdr, 0px) + 60px) 24px 160px;
     background:
       radial-gradient(ellipse at 78% 10%, rgba(92,155,216,0.38) 0%, rgba(92,155,216,0) 55%),
       radial-gradient(ellipse at 12% 90%, rgba(67,211,162,0.16) 0%, rgba(67,211,162,0) 50%),
@@ -1513,7 +1514,8 @@
   /* لا تباعد بين الحروف: في العربية يقطع وصل الحروف ببعضها */
   .staff-banner-content h2 { margin: 0 0 10px; color: #ffffff; font-size: clamp(26px, 3.6vw, 46px); line-height: 1.25; font-weight: 800; }
   .staff-banner-content p { margin: 0 auto; max-width: 600px; color: #e3edf6; font-size: clamp(15px, 1.5vw, 18px); line-height: 1.7; }
-  .staff-art-capsule { position: absolute; left: 4%; bottom: 8px; width: 210px; animation: heroFloat 5s ease-in-out infinite; }
+  /* فوق الجزء الذي تعلوه اللوحة (64px) بمسافة: كانت عند 8px فغطّت اللوحة نصفها */
+  .staff-art-capsule { position: absolute; left: 4%; bottom: 82px; width: 210px; animation: heroFloat 5s ease-in-out infinite; }
   .staff-art-bottle { position: absolute; right: 7%; top: calc(var(--hdr, 0px) + 40px); width: 78px; animation: heroBottleFloat 7s ease-in-out infinite; }
   /* اللوحة في هاتين الصفحتين تعلو الشريط بالتداخل الدائري نفسه للصفحة الرئيسية */
   body.staff-view .page-panel {
@@ -1524,15 +1526,22 @@
   }
   @media (max-width: 900px) {
     /* على الشاشات الأضيق تبقى الرسوم خارج مساحة النص: تصغر وتلتصق بالزاويتين */
-    .staff-art-capsule { width: 120px; left: -10px; bottom: 6px; }
+    .staff-art-capsule { width: 120px; left: -10px; bottom: 76px; }
     .staff-art-bottle { width: 54px; right: 12px; }
   }
   @media (max-width: 700px) {
-    body.staff-view .staff-banner { padding: calc(var(--hdr, 0px) + 40px) 18px 84px; }
+    body.staff-view .staff-banner { padding: calc(var(--hdr, 0px) + 40px) 18px 118px; }
     body.staff-view .page-panel { margin-top: -44px; padding-top: 32px; border-radius: 28px 28px 0 0; }
-    .staff-art-capsule { width: 88px; left: -14px; opacity: 0.9; }
+    .staff-art-capsule { width: 88px; left: -14px; bottom: 54px; opacity: 0.9; }
     .staff-art-bottle { width: 42px; top: calc(var(--hdr, 0px) + 18px); opacity: 0.9; }
   }
+
+  /* ---- تخفيف البياض أسفل الصفحة ---- */
+  /* قسم "حول الموقع" والتذييل كانا أبيضين ناصعين بعرض الشاشة، تحت لوحة زرقاء فاتحة،
+     فيظهر بينهما حد حاد. القسم الآن بلون اللوحة نفسه فتبرز بطاقاته البيضاء عليه،
+     والتذييل أبيض مائل للزرقة يتدرج مع اللوحة بدل أن يقطعها. */
+  .about-section-wrap { background: transparent; }
+  .site-footer { background: #f4f9fd; border-top-color: #dbe7f2; }
 </style>
 </head>
 <body class="has-hero">
