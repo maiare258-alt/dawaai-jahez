@@ -1467,6 +1467,72 @@
     body.has-hero .hero { min-height: auto; padding: calc(var(--hdr, 0px) + 72px) 18px 100px; }
     body.has-hero .page-panel { margin-top: -44px; padding-top: 32px; border-radius: 28px 28px 0 0; }
   }
+
+  /* ===================== الرسوم على الخلفية الداكنة ===================== */
+  /* الحبة والعلبة والعربة صُمّمت بألوان فاتحة، فعلى الخلفية الداكنة تبدو كأنها مضيئة.
+     على الشاشات الواسعة تتوزع على جانبي المحتوى، وتنزل الحبة خلف حافة اللوحة فتبدو
+     اللوحة كأنها تعلوها. وعلى الشاشات الأضيق تبقى الحبة وحدها شعاراً فوق العنوان،
+     لأن الجوانب لا تتسع للرسوم دون أن تغطي النص. */
+  body.has-hero .hero-capsule,
+  body.has-hero .hero-bottle-illustration,
+  body.has-hero .hero-cart-illustration,
+  body.has-hero .hero-particles { display: block; }
+  body.has-hero .hero-capsule,
+  body.has-hero .hero-bottle-illustration,
+  body.has-hero .hero-cart-illustration,
+  .staff-banner-art > div { filter: drop-shadow(0 18px 34px rgba(0, 12, 28, 0.45)); }
+  body.has-hero .hero-particles span { background: rgba(159, 203, 242, 0.6); }
+  @media (min-width: 1100px) {
+    body.has-hero .hero-capsule { position: absolute; left: 3%; right: auto; bottom: 26px; width: 300px; margin: 0; }
+    body.has-hero .hero-bottle-illustration { position: absolute; left: 8%; right: auto; top: calc(var(--hdr, 0px) + 70px); width: 92px; }
+    body.has-hero .hero-cart-illustration { position: absolute; left: auto; right: 7%; top: 40%; width: 175px; }
+    body.has-hero .hero-particles { position: absolute; inset: 0; pointer-events: none; }
+  }
+  @media (max-width: 1099px) {
+    body.has-hero .hero-bottle-illustration,
+    body.has-hero .hero-cart-illustration,
+    body.has-hero .hero-particles { display: none; }
+    body.has-hero .hero-capsule { position: static; width: 120px; margin: 0 auto 10px; transform: none; }
+  }
+  @media (max-width: 700px) {
+    body.has-hero .hero-capsule { width: 92px; margin-bottom: 6px; }
+  }
+
+  /* ===================== شريط لوحتي الصيدلي والإدارة ===================== */
+  .staff-banner { display: none; }
+  body.staff-view .staff-banner {
+    display: block; position: relative; overflow: hidden; text-align: center;
+    margin: calc(-20px - var(--hdr, 0px) - 16px) -20px 0;
+    padding: calc(var(--hdr, 0px) + 60px) 24px 108px;
+    background:
+      radial-gradient(ellipse at 78% 10%, rgba(92,155,216,0.38) 0%, rgba(92,155,216,0) 55%),
+      radial-gradient(ellipse at 12% 90%, rgba(67,211,162,0.16) 0%, rgba(67,211,162,0) 50%),
+      linear-gradient(160deg, #0b2440 0%, #123a63 50%, #1b5c92 100%);
+  }
+  .staff-banner-content { position: relative; z-index: 1; max-width: 720px; margin: 0 auto; }
+  /* لا تباعد بين الحروف: في العربية يقطع وصل الحروف ببعضها */
+  .staff-banner-content h2 { margin: 0 0 10px; color: #ffffff; font-size: clamp(26px, 3.6vw, 46px); line-height: 1.25; font-weight: 800; }
+  .staff-banner-content p { margin: 0 auto; max-width: 600px; color: #e3edf6; font-size: clamp(15px, 1.5vw, 18px); line-height: 1.7; }
+  .staff-art-capsule { position: absolute; left: 4%; bottom: 8px; width: 210px; animation: heroFloat 5s ease-in-out infinite; }
+  .staff-art-bottle { position: absolute; right: 7%; top: calc(var(--hdr, 0px) + 40px); width: 78px; animation: heroBottleFloat 7s ease-in-out infinite; }
+  /* اللوحة في هاتين الصفحتين تعلو الشريط بالتداخل الدائري نفسه للصفحة الرئيسية */
+  body.staff-view .page-panel {
+    position: relative; z-index: 2;
+    margin: -64px -20px 0; padding: 44px 20px 0;
+    background: #eaf5fc; border-radius: 44px 44px 0 0;
+    box-shadow: 0 -14px 40px rgba(6,26,48,0.22);
+  }
+  @media (max-width: 900px) {
+    /* على الشاشات الأضيق تبقى الرسوم خارج مساحة النص: تصغر وتلتصق بالزاويتين */
+    .staff-art-capsule { width: 120px; left: -10px; bottom: 6px; }
+    .staff-art-bottle { width: 54px; right: 12px; }
+  }
+  @media (max-width: 700px) {
+    body.staff-view .staff-banner { padding: calc(var(--hdr, 0px) + 40px) 18px 84px; }
+    body.staff-view .page-panel { margin-top: -44px; padding-top: 32px; border-radius: 28px 28px 0 0; }
+    .staff-art-capsule { width: 88px; left: -14px; opacity: 0.9; }
+    .staff-art-bottle { width: 42px; top: calc(var(--hdr, 0px) + 18px); opacity: 0.9; }
+  }
 </style>
 </head>
 <body class="has-hero">
@@ -1644,6 +1710,87 @@
   </div>
 </div>
 
+<!-- شريط لوحتي الصيدلي والإدارة: بالتدرّج الداكن نفسه للصفحة الرئيسية لكنه أقصر بكثير،
+     فيصل الصيدلي والمدير إلى عملهما فوراً. الرسوم نسخ بمعرّفات تدرّج جديدة (-s): لو
+     أشارت إلى تدرّجات القسم الرئيسي وهو مخفي في هاتين اللوحتين، لما رسمها كروم. -->
+<div class="staff-banner">
+  <div class="staff-banner-art" aria-hidden="true">
+    <div class="staff-art-capsule" aria-hidden="true">
+      <svg viewBox="0 0 300 220" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="lightHalf-s" x1="20%" y1="0%" x2="80%" y2="100%">
+            <stop offset="0%" stop-color="#ffffff"/>
+            <stop offset="55%" stop-color="#fbfdff"/>
+            <stop offset="100%" stop-color="#d9e8f5"/>
+          </linearGradient>
+          <linearGradient id="darkHalf-s" x1="20%" y1="0%" x2="80%" y2="100%">
+            <stop offset="0%" stop-color="#a8d4f2"/>
+            <stop offset="45%" stop-color="#74b6e8"/>
+            <stop offset="100%" stop-color="#4a94cf"/>
+          </linearGradient>
+          <linearGradient id="trail-s" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stop-color="#bcdcf3" stop-opacity="0"/>
+            <stop offset="100%" stop-color="#bcdcf3" stop-opacity="0.75"/>
+          </linearGradient>
+          <radialGradient id="shineGrad-s" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stop-color="#ffffff" stop-opacity="0.95"/>
+            <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
+          </radialGradient>
+          <clipPath id="capsuleClip-s">
+            <rect x="90" y="80" width="160" height="60" rx="30"/>
+          </clipPath>
+        </defs>
+        <g transform="rotate(-30 170 110)">
+          <!-- خطوط حركة خفيفة خلف الكبسولة -->
+          <rect x="8" y="104" width="74" height="7" rx="3.5" fill="url(#trail-s)"/>
+          <rect x="24" y="119" width="58" height="5" rx="2.5" fill="url(#trail-s)" opacity="0.75"/>
+          <rect x="34" y="91" width="48" height="4" rx="2" fill="url(#trail-s)" opacity="0.65"/>
+
+          <!-- جسم الكبسولة -->
+          <g clip-path="url(#capsuleClip-s)">
+            <rect x="90" y="80" width="82" height="60" fill="url(#lightHalf-s)"/>
+            <rect x="172" y="80" width="78" height="60" fill="url(#darkHalf-s)"/>
+            <!-- ظل داخلي سفلي لإحساس الحجم -->
+            <ellipse cx="170" cy="152" rx="90" ry="22" fill="#7ba9cc" opacity="0.22"/>
+            <!-- لمعة علوية ممتدة على طول الكبسولة -->
+            <ellipse cx="160" cy="93" rx="62" ry="9" fill="#ffffff" opacity="0.5"/>
+          </g>
+          <rect x="90" y="80" width="160" height="60" rx="30" fill="none" stroke="#ffffff" stroke-opacity="0.55" stroke-width="1.5"/>
+          <!-- بقعة ضوء ناعمة على النصف الأبيض -->
+          <ellipse cx="120" cy="98" rx="22" ry="12" fill="url(#shineGrad-s)"/>
+          <!-- بقعة ضوء على النصف الأزرق -->
+          <ellipse cx="208" cy="97" rx="17" ry="7" fill="#ffffff" opacity="0.45" transform="rotate(-14 208 97)"/>
+        </g>
+      </svg>
+    </div>
+    <div class="staff-art-bottle" aria-hidden="true">
+      <svg viewBox="0 0 100 140" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="bottleBody-s" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#ffffff"/>
+            <stop offset="100%" stop-color="#e3eff9"/>
+          </linearGradient>
+          <linearGradient id="bottleCap-s" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#a8d4f2"/>
+            <stop offset="100%" stop-color="#5c9bd8"/>
+          </linearGradient>
+        </defs>
+        <rect x="40" y="20" width="20" height="16" fill="#e3eff9" stroke="#bcdcf3" stroke-width="1.5"/>
+        <rect x="30" y="6" width="40" height="18" rx="5" fill="url(#bottleCap-s)"/>
+        <line x1="30" y1="15" x2="70" y2="15" stroke="#ffffff" stroke-width="1.5" opacity="0.6"/>
+        <rect x="22" y="32" width="56" height="100" rx="16" fill="url(#bottleBody-s)" stroke="#bcdcf3" stroke-width="2"/>
+        <rect x="32" y="64" width="36" height="38" rx="5" fill="#ffffff" stroke="#bcdcf3" stroke-width="1.5"/>
+        <line x1="38" y1="75" x2="62" y2="75" stroke="#a9cdea" stroke-width="2.5" stroke-linecap="round"/>
+        <line x1="38" y1="83" x2="58" y2="83" stroke="#cfe3f5" stroke-width="2.5" stroke-linecap="round"/>
+        <line x1="38" y1="91" x2="52" y2="91" stroke="#cfe3f5" stroke-width="2.5" stroke-linecap="round"/>
+      </svg>
+    </div>
+  </div>
+  <div class="staff-banner-content">
+    <h2 id="staff-banner-title"></h2>
+    <p id="staff-banner-sub"></p>
+  </div>
+</div>
 <div class="page-panel">
 <div class="container">
   <div class="cart-section-wrap">
