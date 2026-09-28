@@ -1403,9 +1403,73 @@
   .order-notes-row { font-size: 14px; color: #6b5a1f; background: #fdf7e6; padding: 8px 12px; border-radius: 10px; margin-top: 8px; }
   .order-item-line { padding: 2px 0; }
   .order-actions-row { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+
+  /* ===================== الواجهة الجديدة: قسم علوي كامل العرض ولوحة تعلوه ===================== */
+  /* قسم علوي داكن يملأ عرض الشاشة بعنوان كبير أبيض، ثم لوحة بزوايا دائرية كبيرة تعلو
+     أسفله. يُطبَّق في الصفحة الرئيسية وصفحة التمريض فقط (الصنف has-hero على body)،
+     فلوحتا الصيدلي والإدارة تبقيان كما هما دون قسم علوي يُمرَّر فوقه في كل مرة.
+     النسخة السابقة محفوظة كاملة لمن يريد العودة إليها. */
+  body.has-hero .hero-outer {
+    max-width: none;
+    /* نسحب القسم إلى أعلى الصفحة تحت الشريط العائم: 20px حشوة الصفحة، وارتفاع الشريط
+       (يقيسه السكربت بعده مباشرة)، و16px هامشه السفلي */
+    margin: calc(-20px - var(--hdr, 0px) - 16px) -20px 0;
+  }
+  body.has-hero .hero {
+    min-height: 86vh;
+    justify-content: center;
+    text-align: center;
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+    /* مرئي عمداً لا مقصوص: قائمة اقتراحات البحث قد تمتد تحت حافة القسم، فلو قُصّت
+       لاختفت الاقتراحات السفلى. والزخارف التي كان القص يخدمها مخفية الآن. */
+    overflow: visible;
+    padding: calc(var(--hdr, 0px) + 100px) 24px 150px;
+    background:
+      radial-gradient(ellipse at 78% 12%, rgba(92,155,216,0.38) 0%, rgba(92,155,216,0) 55%),
+      radial-gradient(ellipse at 12% 88%, rgba(67,211,162,0.16) 0%, rgba(67,211,162,0) 50%),
+      linear-gradient(160deg, #0b2440 0%, #123a63 50%, #1b5c92 100%);
+  }
+  body.has-hero .hero-glow,
+  body.has-hero .hero-particles,
+  body.has-hero .hero-cart-illustration,
+  body.has-hero .hero-bottle-illustration,
+  body.has-hero .hero-capsule { display: none; }
+  body.has-hero .hero-content { margin: 0 auto; max-width: 760px; width: 100%; }
+  /* لا تباعد بين الحروف: في العربية يقطع وصل الحروف ببعضها */
+  body.has-hero .hero-title {
+    color: #ffffff; font-size: clamp(34px, 5.6vw, 76px); line-height: 1.22; margin: 0 0 18px;
+  }
+  body.has-hero .hero-highlight { color: #9fcbf2; }
+  body.has-hero .hero-description {
+    color: #e3edf6; font-size: clamp(16px, 1.7vw, 21px); max-width: 620px; margin: 0 auto 30px;
+  }
+  body.has-hero .hero-search-wrap,
+  body.has-hero .hero-city-row { max-width: 640px; margin-left: auto; margin-right: auto; }
+  body.has-hero .hero-city-row { margin-top: 14px; }
+  body.has-hero #search { box-shadow: 0 18px 44px rgba(3,18,35,0.35); border-color: rgba(255,255,255,0.9); }
+  body.has-hero .hero-city-label { color: #ffffff; }
+  body.has-hero .hero-search-hint { color: #d4e4f3; text-align: center; }
+  body.has-hero .hero-actions-row { justify-content: center; }
+
+  /* اللوحة التي تعلو أسفل القسم الداكن. z-index 2 يضعها فوق خلفية القسم، بينما محتوى
+     القسم (z-index 3، ومعه قائمة الاقتراحات) يبقى فوقها، فلا تختفي الاقتراحات تحتها. */
+  body.has-hero .page-panel {
+    position: relative; z-index: 2;
+    margin: -64px -20px 0;
+    padding: 44px 20px 0;
+    background: #eaf5fc;
+    border-radius: 44px 44px 0 0;
+    box-shadow: 0 -14px 40px rgba(6,26,48,0.22);
+  }
+  @media (max-width: 700px) {
+    body.has-hero .hero { min-height: auto; padding: calc(var(--hdr, 0px) + 72px) 18px 100px; }
+    body.has-hero .page-panel { margin-top: -44px; padding-top: 32px; border-radius: 28px 28px 0 0; }
+  }
 </style>
 </head>
-<body>
+<body class="has-hero">
 <header class="site-header">
   <div class="site-header-inner">
     <nav class="site-nav" id="site-nav">
@@ -1427,6 +1491,19 @@
     </div>
   </div>
 </header>
+<script>
+  // ارتفاع الشريط العلوي العائم، ليمتد القسم الداكن تحته حتى أعلى الصفحة (--hdr في CSS).
+  // يُقاس هنا فوراً قبل تحميل app.js، فلا يقفز التصميم أثناء التحميل.
+  (function () {
+    function setHdr() {
+      var h = document.querySelector('.site-header');
+      if (h) document.documentElement.style.setProperty('--hdr', h.offsetHeight + 'px');
+    }
+    setHdr();
+    window.addEventListener('resize', setHdr);
+    window.addEventListener('load', setHdr);
+  })();
+</script>
 
 <div class="hero-outer">
   <div class="hero">
@@ -1567,6 +1644,7 @@
   </div>
 </div>
 
+<div class="page-panel">
 <div class="container">
   <div class="cart-section-wrap">
     <div id="cart-section" style="display:none; margin-bottom:16px;"></div>
@@ -1797,6 +1875,7 @@
     <p class="muted" style="margin-top:-8px;" id="nursing-page-desc">تواصل مع ممرضين موثوقين لتلقّي الرعاية التمريضية في منزلك.</p>
     <div id="nurses-list"></div>
   </div>
+</div>
 </div>
 
 <div id="custom-modal-overlay" class="modal-overlay" style="display:none;">
