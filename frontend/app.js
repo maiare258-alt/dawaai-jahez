@@ -401,6 +401,49 @@ const translations = {
     main_phone_saved: 'حُفظ رقم الهاتف',
     phone_required_error: 'رقم الهاتف مطلوب',
     phone_invalid_error: 'رقم الهاتف غير صالح. اكتب أرقاماً فقط، من ٦ إلى ١٥ رقماً',
+    exp_years_invalid: 'سنوات الخبرة يجب أن تكون رقماً بين 0 و60.',
+    nurse_experience_label: 'سنوات الخبرة',
+    nurse_services_label: 'الخدمات',
+    nurse_verified_badge: 'شهادة موثّقة',
+    exp_years_placeholder: 'سنوات الخبرة (رقم، اختياري)',
+    services_placeholder: 'الخدمات، مثل: تضميد الجروح، الحقن، رعاية كبار السن (اختياري)',
+    nurse_cert_after_add_hint: 'بعد إضافة الممرض، ارفع شهادته من زر «الخبرة والشهادة» بجانب اسمه في القائمة أدناه.',
+    nurse_profile_btn: 'الخبرة والشهادة',
+    nurse_profile_save: 'حفظ الخبرة',
+    nurse_profile_saved: 'حُفظت بيانات الخبرة',
+    cert_section_title: 'الشهادة (خاصة بالإدارة، لا يراها المرضى)',
+    cert_none: 'لا توجد شهادة مرفوعة.',
+    cert_uploaded_info: 'شهادة مرفوعة: {type} · {size} · بتاريخ {date}',
+    cert_upload_btn: 'رفع شهادة (PDF أو صورة)',
+    cert_replace_btn: 'استبدال الشهادة',
+    cert_view_btn: 'عرض الشهادة',
+    cert_delete_btn: 'حذف الشهادة',
+    cert_verify_btn: 'تحققت منها ✓',
+    cert_unverify_btn: 'إلغاء التوثيق',
+    cert_verified_state: '✓ موثّقة: تظهر للمرضى شارة «شهادة موثّقة».',
+    cert_unverified_state: 'لم تُوثَّق بعد: راجع الشهادة ثم اضغط «تحققت منها».',
+    cert_preparing: 'جارٍ تجهيز الصورة...',
+    cert_uploading: 'جارٍ الرفع...',
+    cert_uploaded_ok: 'رُفعت الشهادة. راجعها ثم وثّقها ليظهر للمرضى أنها موثّقة.',
+    cert_delete_confirm: 'هل ترغب في حذف شهادة «{name}»؟ ستزول شارة التوثيق من بطاقته.',
+    cert_deleted: 'حُذفت الشهادة',
+    cert_bad_type: 'نوع الملف غير مقبول. ارفع ملف PDF أو صورة (JPG أو PNG).',
+    cert_too_big: 'حجم الملف أكبر من 3 ميغابايت. احفظه بحجم أصغر، أو صوّر الشهادة بالهاتف وارفع الصورة، فالموقع يصغّر الصور تلقائياً.',
+    cert_popup_blocked: 'منع المتصفح فتح نافذة جديدة. اسمح بالنوافذ المنبثقة لهذا الموقع ثم أعد المحاولة.',
+    cert_storage_label: 'تخزين الشهادات:',
+    cert_storage_usage: '{used} من 1 جيجابايت · عدد الشهادات: {count}',
+    cert_storage_check_btn: 'فحص التخزين',
+    storage_ok: 'التخزين يعمل: المجلد موجود وخاص، والمفتاح صحيح.',
+    storage_PUBLIC: 'تنبيه: مجلد الشهادات عام! في Supabase افتح Storage ثم nurse-certificates، وأطفئ خيار Public.',
+    storage_NOCFG: 'التخزين غير مُعدّ: تأكد من إضافة SUPABASE_URL وSUPABASE_SECRET_KEY في إعدادات Render.',
+    storage_NOBUCKET: 'لم يُعثر على مجلد nurse-certificates في Supabase. تأكد من اسمه حرفياً.',
+    storage_AUTH: 'رفض Supabase المفتاح. تأكد أنك نسخت المفتاح السري كاملاً دون مسافات.',
+    storage_NOFETCH: 'إصدار الخادم قديم لا يدعم الاتصال بالتخزين.',
+    storage_UNAVAILABLE: 'تعذّر الوصول إلى التخزين الآن. حاول بعد قليل.',
+    unit_kb: 'كيلوبايت',
+    unit_mb: 'ميغابايت',
+    cert_type_pdf: 'PDF',
+    cert_type_image: 'صورة',
     staff_banner_pharmacist_title: 'لوحة الصيدلي',
     staff_banner_pharmacist_sub: 'حدِّث توفر أدويتك ومناوبتك وساعات دوامك، واستقبل طلبات المرضى من مكان واحد.',
     staff_banner_admin_title: 'لوحة الإدارة',
@@ -853,6 +896,49 @@ const translations = {
     main_phone_saved: 'Phone number saved',
     phone_required_error: 'A phone number is required',
     phone_invalid_error: 'Invalid phone number. Use digits only, 6 to 15 digits',
+    exp_years_invalid: 'Years of experience must be a number from 0 to 60.',
+    nurse_experience_label: 'Years of experience',
+    nurse_services_label: 'Services',
+    nurse_verified_badge: 'Verified certificate',
+    exp_years_placeholder: 'Years of experience (number, optional)',
+    services_placeholder: 'Services, e.g. wound dressing, injections, elderly care (optional)',
+    nurse_cert_after_add_hint: 'After adding the nurse, upload their certificate from the «Experience and certificate» button next to their name in the list below.',
+    nurse_profile_btn: 'Experience and certificate',
+    nurse_profile_save: 'Save experience',
+    nurse_profile_saved: 'Experience details saved',
+    cert_section_title: 'Certificate (admin only, patients never see it)',
+    cert_none: 'No certificate uploaded.',
+    cert_uploaded_info: 'Certificate uploaded: {type} · {size} · on {date}',
+    cert_upload_btn: 'Upload certificate (PDF or photo)',
+    cert_replace_btn: 'Replace certificate',
+    cert_view_btn: 'View certificate',
+    cert_delete_btn: 'Delete certificate',
+    cert_verify_btn: 'I verified it ✓',
+    cert_unverify_btn: 'Remove verification',
+    cert_verified_state: '✓ Verified: patients see a «Verified certificate» badge.',
+    cert_unverified_state: 'Not verified yet: review the certificate, then press «I verified it».',
+    cert_preparing: 'Preparing the photo...',
+    cert_uploading: 'Uploading...',
+    cert_uploaded_ok: 'Certificate uploaded. Review it, then verify it so patients see it is verified.',
+    cert_delete_confirm: 'Delete the certificate of «{name}»? The verified badge will disappear from their card.',
+    cert_deleted: 'Certificate deleted',
+    cert_bad_type: 'File type not accepted. Upload a PDF or a photo (JPG or PNG).',
+    cert_too_big: 'The file is larger than 3 MB. Save it smaller, or photograph the certificate and upload the photo; the site shrinks photos automatically.',
+    cert_popup_blocked: 'The browser blocked the new window. Allow pop-ups for this site and try again.',
+    cert_storage_label: 'Certificate storage:',
+    cert_storage_usage: '{used} of 1 GB · certificates: {count}',
+    cert_storage_check_btn: 'Check storage',
+    storage_ok: 'Storage works: the folder exists and is private, and the key is valid.',
+    storage_PUBLIC: 'Warning: the certificate folder is public! In Supabase open Storage, then nurse-certificates, and switch off Public.',
+    storage_NOCFG: 'Storage is not configured: make sure SUPABASE_URL and SUPABASE_SECRET_KEY are set in Render.',
+    storage_NOBUCKET: 'The nurse-certificates folder was not found in Supabase. Check its exact name.',
+    storage_AUTH: 'Supabase rejected the key. Make sure you copied the full secret key with no spaces.',
+    storage_NOFETCH: 'The server version is too old to reach storage.',
+    storage_UNAVAILABLE: 'Storage cannot be reached right now. Try again shortly.',
+    unit_kb: 'KB',
+    unit_mb: 'MB',
+    cert_type_pdf: 'PDF',
+    cert_type_image: 'photo',
     staff_banner_pharmacist_title: 'Pharmacist dashboard',
     staff_banner_pharmacist_sub: 'Update your stock, duty and opening hours, and receive patient orders in one place.',
     staff_banner_admin_title: 'Admin dashboard',
@@ -1083,6 +1169,7 @@ const BACKEND_ERROR_MAP = {
   'بيانات الطلب غير صالحة': 'invalid_order_error',
   'التعليق طويل جداً': 'comment_too_long_error',
   'كلمة التأكيد غير صحيحة': 'launch_failed',
+  'سنوات الخبرة يجب أن تكون رقماً بين 0 و60': 'exp_years_invalid',
   'رقم الهاتف مطلوب': 'phone_required_error',
   'رقم الهاتف غير صالح': 'phone_invalid_error',
   'العنوان طويل جداً': 'address_too_long_error',
@@ -2361,10 +2448,12 @@ function renderNursesList(nurses) {
   return nurses.map(n => `
     <div class="result-card">
       <div class="result-card-top">
-        <span class="result-med-name">👤 ${escapeHtml(n.name)}</span>
+        <span class="result-med-name">👤 ${escapeHtml(n.name)}${n.cert_verified ? `<span class="nurse-verified-badge">✓ ${t('nurse_verified_badge')}</span>` : ''}</span>
         <span class="badge ${n.available ? 'yes' : 'no'}">${n.available ? t('nurse_available_full') : t('nurse_unavailable_full')}</span>
       </div>
       <div class="result-row">🎓 ${escapeHtml(n.specialty || t('general_nurse_label'))}</div>
+      ${Number.isInteger(n.experience_years) && n.experience_years > 0 ? `<div class="result-row">⏳ ${t('nurse_experience_label')}: <bdi>${n.experience_years}</bdi></div>` : ''}
+      ${n.services ? `<div class="result-row">🩺 ${t('nurse_services_label')}: ${escapeHtml(n.services)}</div>` : ''}
       <div class="result-row">
         ${n.rating_count > 0
           ? `${renderStars(n.avg_rating)} ${Number(n.avg_rating).toFixed(1)} ${tFormat('rating_summary_suffix', { count: n.rating_count })}`
@@ -3815,7 +3904,7 @@ async function renderAdminPanel() {
     const [pharmacies, medicines, nurses, pendingRatings, stats] = await Promise.all([
       fetch(`${API}/pharmacies`, { headers: adminHeaders() }).then(r => r.json()),
       fetch(`${API}/medicines`, { headers: adminHeaders() }).then(r => r.json()),
-      fetch(`${API}/nurses`).then(r => r.json()),
+      fetch(`${API}/nurses/admin/all`, { headers: adminHeaders(), cache: 'no-store' }).then(r => r.json()),
       fetch(`${API}/nurses/ratings/pending`, { headers: adminHeaders() }).then(r => r.json()),
       // فشل الإحصاءات وحدها يجب ألا يُسقط اللوحة كلها — تُعاد null فيُخفى القسم فقط
       fetch(`${API}/stats`, { headers: adminHeaders() }).then(r => r.ok ? r.json() : null).catch(() => null)
@@ -4128,11 +4217,18 @@ function renderAdminPanelUI() {
       <input id="nurse-university" placeholder="${t('university_placeholder')}">
       <input id="nurse-grad-year" placeholder="${t('grad_year_placeholder')}">
       <input id="nurse-phone" placeholder="${t('phone_placeholder')}">
-      <button type="button" class="btn-outline blue small" onclick="uploadCertificateComingSoon()" style="margin-bottom:10px;">${t('upload_cert_btn')}</button>
+      <input id="nurse-exp-years" type="number" min="0" max="60" inputmode="numeric" placeholder="${t('exp_years_placeholder')}">
+      <input id="nurse-services" maxlength="200" placeholder="${t('services_placeholder')}">
+      <p class="muted" style="margin:-2px 0 10px; font-size:13px;">${t('nurse_cert_after_add_hint')}</p>
       <button class="primary" onclick="addNurseAdmin()">${t('add_nurse_btn')}</button>
     </div>
 
     <h3>${t('registered_nurses_title')} (${nurses.length})</h3>
+    <div class="cert-storage-bar">
+      <span class="muted">${t('cert_storage_label')}</span>
+      <span id="cert-storage-usage">…</span>
+      <button type="button" class="btn-outline blue small" onclick="checkCertStorage()">${t('cert_storage_check_btn')}</button>
+    </div>
     <div class="stock-table-wrap" style="margin-bottom:20px;">
       <div class="stock-scroll">
         ${nurses.length === 0
@@ -4142,10 +4238,12 @@ function renderAdminPanelUI() {
                <div class="row">
                  <span><bdi>${escapeHtml(n.name)}</bdi> <span class="muted" style="font-size:12px;">${escapeHtml(n.specialty || '')}</span></span>
                  <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap; justify-content:flex-end;">
+                   <button class="btn-outline blue small table-action-btn" onclick="toggleNurseEditor(${n.id})">${n.cert_verified ? '✓ ' : ''}${t('nurse_profile_btn')}</button>
                    <button class="toggle-btn ${n.available ? 'yes' : 'no'}" onclick="toggleNurseAvailabilityAdmin(${n.id}, ${!n.available})">${n.available ? t('nurse_available_short') : t('nurse_unavailable_short')}</button>
                    <button class="btn-outline red small table-action-btn" onclick="deleteNurseAdmin(${n.id})">${t('delete_btn')}</button>
                  </div>
                </div>
+               <div class="nurse-editor" id="nurse-editor-${n.id}" style="${openNurseEditors.has(n.id) ? '' : 'display:none;'}">${nurseEditorHtml(n)}</div>
              `).join('')}`
         }
       </div>
@@ -4192,6 +4290,7 @@ function renderAdminPanelUI() {
   renderBackupInfo();
   checkSystemStatus();
   loadDemandReport();
+  loadCertStorageUsage();
 }
 
 async function addPharmacy() {
@@ -4841,6 +4940,190 @@ async function saveMainPhone() {
   }
 }
 
+
+// ================= خبرة الممرضين وشهاداتهم (لوحة الإدارة) =================
+// الشهادة خاصة بالإدارة، والمريض يرى بطاقة خبرة وشارة توثيق فقط.
+const openNurseEditors = new Set();
+const CERT_MAX_BYTES = 3 * 1024 * 1024;
+const CERT_OK_TYPES = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp'];
+
+function formatBytes(n) {
+  const v = Number(n) || 0;
+  if (v < 1024 * 1024) return `${Math.max(1, Math.round(v / 1024))} ${t('unit_kb')}`;
+  return `${(v / (1024 * 1024)).toFixed(1)} ${t('unit_mb')}`;
+}
+
+function nurseEditorHtml(n) {
+  const has = n.has_certificate;
+  const date = n.cert_uploaded_at ? new Date(n.cert_uploaded_at).toLocaleDateString(currentLang === 'ar' ? 'ar-SY' : 'en-GB',
+    { timeZone: 'Asia/Damascus', year: 'numeric', month: 'long', day: 'numeric' }) : '';
+  const info = has ? tFormat('cert_uploaded_info', {
+    type: n.cert_mime === 'application/pdf' ? t('cert_type_pdf') : t('cert_type_image'),
+    size: formatBytes(n.cert_size), date }) : t('cert_none');
+  return `
+    <div class="nurse-editor-grid">
+      <label class="admin-address-field"><span>${t('nurse_experience_label')}</span>
+        <input type="number" min="0" max="60" inputmode="numeric" id="nurse-exp-${n.id}" value="${Number.isInteger(n.experience_years) ? n.experience_years : ''}">
+      </label>
+      <label class="admin-address-field"><span>${t('nurse_services_label')}</span>
+        <input type="text" maxlength="200" id="nurse-svc-${n.id}" value="${escapeHtml(n.services || '')}" placeholder="${t('services_placeholder')}">
+      </label>
+      <button type="button" class="primary" onclick="saveNurseProfile(${n.id})">${t('nurse_profile_save')}</button>
+    </div>
+    <div class="nurse-cert-box">
+      <h4>📄 ${t('cert_section_title')}</h4>
+      <p class="nurse-cert-info">${info}</p>
+      ${has ? `<p class="nurse-cert-state ${n.cert_verified ? 'ok' : 'pending'}">${n.cert_verified ? t('cert_verified_state') : t('cert_unverified_state')}</p>` : ''}
+      <div class="nurse-cert-actions">
+        <input type="file" id="nurse-cert-file-${n.id}" accept="application/pdf,image/jpeg,image/png,image/webp" style="display:none" onchange="onNurseCertificateChosen(${n.id}, this)">
+        <button type="button" class="btn-outline blue small" id="nurse-cert-upload-${n.id}" onclick="document.getElementById('nurse-cert-file-${n.id}').click()">${has ? t('cert_replace_btn') : t('cert_upload_btn')}</button>
+        ${has ? `
+          <button type="button" class="btn-outline blue small" onclick="viewNurseCertificate(${n.id})">${t('cert_view_btn')}</button>
+          <button type="button" class="${n.cert_verified ? 'btn-outline small' : 'primary small'}" onclick="setNurseCertVerified(${n.id}, ${!n.cert_verified})">${n.cert_verified ? t('cert_unverify_btn') : t('cert_verify_btn')}</button>
+          <button type="button" class="btn-outline red small" onclick="deleteNurseCertificate(${n.id})">${t('cert_delete_btn')}</button>` : ''}
+      </div>
+    </div>`;
+}
+
+function nurseFromCache(id) { return (adminDataCache.nurses || []).find(x => x.id === id); }
+
+function refreshNurseEditor(id) {
+  const n = nurseFromCache(id); const box = document.getElementById(`nurse-editor-${id}`);
+  if (n && box) box.innerHTML = nurseEditorHtml(n);
+}
+
+function toggleNurseEditor(id) {
+  const box = document.getElementById(`nurse-editor-${id}`);
+  if (!box) return;
+  const show = box.style.display === 'none';
+  box.style.display = show ? '' : 'none';
+  if (show) openNurseEditors.add(id); else openNurseEditors.delete(id);
+}
+
+async function saveNurseProfile(id) {
+  const n = nurseFromCache(id); if (!n) return;
+  try {
+    const res = await fetch(`${API}/nurses/${id}/profile`, { method: 'PUT', headers: adminHeaders(),
+      body: JSON.stringify({ experience_years: document.getElementById(`nurse-exp-${id}`).value, services: document.getElementById(`nurse-svc-${id}`).value }) });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) { await customAlert(translateApiError(data.error), 'error'); return; }
+    n.experience_years = data.experience_years; n.services = data.services;
+    refreshNurseEditor(id);
+    await customAlert(t('nurse_profile_saved'), 'success');
+  } catch (err) { await customAlert(t('server_error_title'), 'error'); }
+}
+
+// صورة الهاتف تُصغَّر في المتصفح قبل الرفع: 4 ميغابايت تصير نحو 300 كيلوبايت، والنص
+// يبقى مقروءاً عند 1800px للضلع الأطول. هذا الضغط الحقيقي المفيد للمساحة المجانية.
+// ملفات PDF لا تُضغط: مضغوطة من داخلها أصلاً، وضغطها يحتاج أدوات غير متاحة.
+function compressCertImage(file) {
+  return new Promise((resolve) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      const scale = Math.min(1, 1800 / Math.max(img.naturalWidth, img.naturalHeight));
+      const c = document.createElement('canvas');
+      c.width = Math.round(img.naturalWidth * scale); c.height = Math.round(img.naturalHeight * scale);
+      const ctx = c.getContext('2d');
+      ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, c.width, c.height);   // خلفية بيضاء لصور PNG الشفافة
+      ctx.drawImage(img, 0, 0, c.width, c.height);
+      URL.revokeObjectURL(url);
+      c.toBlob(b => resolve(b && b.size < file.size ? b : file), 'image/jpeg', 0.82);
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); resolve(file); };
+    img.src = url;
+  });
+}
+
+async function onNurseCertificateChosen(id, input) {
+  const file = input.files && input.files[0];
+  input.value = '';   // يسمح باختيار الملف نفسه مرة أخرى
+  if (!file) return;
+  if (!CERT_OK_TYPES.includes(file.type)) { await customAlert(t('cert_bad_type'), 'warning'); return; }
+  const btn = document.getElementById(`nurse-cert-upload-${id}`);
+  const label = btn ? btn.textContent : '';
+  const setBtn = (txt, dis) => { if (btn) { btn.textContent = txt; btn.disabled = dis; } };
+  let blob = file;
+  if (file.type !== 'application/pdf') { setBtn(t('cert_preparing'), true); blob = await compressCertImage(file); }
+  if (blob.size > CERT_MAX_BYTES) { setBtn(label, false); await customAlert(t('cert_too_big'), 'warning'); return; }
+  setBtn(t('cert_uploading'), true);
+  try {
+    const headers = adminHeaders(); headers['Content-Type'] = blob.type || file.type;
+    const res = await fetchWithTimeout(`${API}/nurses/${id}/certificate`, { method: 'POST', headers, body: blob }, 60000);
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      const msg = data.code === 'TOOBIG' ? t('cert_too_big') : data.code === 'BADTYPE' ? t('cert_bad_type')
+        : data.code && translations[currentLang]['storage_' + data.code] ? t('storage_' + data.code) : translateApiError(data.error);
+      setBtn(label, false); await customAlert(msg, 'error'); return;
+    }
+    Object.assign(nurseFromCache(id) || {}, data);
+    refreshNurseEditor(id);
+    loadCertStorageUsage();
+    await customAlert(t('cert_uploaded_ok'), 'success');
+  } catch (err) {
+    setBtn(label, false); await customAlert(t('storage_UNAVAILABLE'), 'error');
+  }
+}
+
+async function viewNurseCertificate(id) {
+  // النافذة تُفتح فوراً بضغطة المدير، ثم نضع فيها الرابط: لو فُتحت بعد انتظار الخادم
+  // لاعتبرها المتصفح نافذة منبثقة غير مطلوبة ومنعها.
+  const win = window.open('', '_blank');
+  try {
+    const res = await fetch(`${API}/nurses/${id}/certificate/link`, { headers: adminHeaders(), cache: 'no-store' });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data.url) { if (win) win.close(); await customAlert(data.code ? t('storage_' + data.code) : translateApiError(data.error), 'error'); return; }
+    if (win) { win.opener = null; win.location.href = data.url; }
+    else await customAlert(t('cert_popup_blocked'), 'warning');
+  } catch (err) { if (win) win.close(); await customAlert(t('storage_UNAVAILABLE'), 'error'); }
+}
+
+async function setNurseCertVerified(id, verified) {
+  try {
+    const res = await fetch(`${API}/nurses/${id}/certificate/verified`, { method: 'PUT', headers: adminHeaders(), body: JSON.stringify({ verified }) });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) { await customAlert(translateApiError(data.error), 'error'); return; }
+    const n = nurseFromCache(id); if (n) n.cert_verified = data.cert_verified;
+    refreshNurseEditor(id);
+  } catch (err) { await customAlert(t('server_error_title'), 'error'); }
+}
+
+async function deleteNurseCertificate(id) {
+  const n = nurseFromCache(id); if (!n) return;
+  if (!(await customConfirm(tFormat('cert_delete_confirm', { name: n.name }), 'warning'))) return;
+  try {
+    const res = await fetch(`${API}/nurses/${id}/certificate`, { method: 'DELETE', headers: adminHeaders() });
+    if (!res.ok) { const d = await res.json().catch(() => ({})); await customAlert(translateApiError(d.error), 'error'); return; }
+    Object.assign(n, { has_certificate: false, cert_mime: null, cert_size: null, cert_uploaded_at: null, cert_verified: false });
+    refreshNurseEditor(id);
+    loadCertStorageUsage();
+    await customAlert(t('cert_deleted'), 'success');
+  } catch (err) { await customAlert(t('server_error_title'), 'error'); }
+}
+
+async function fetchStorageCheck() {
+  const res = await fetch(`${API}/nurses/storage/check`, { headers: adminHeaders(), cache: 'no-store' });
+  return res.json();
+}
+
+async function loadCertStorageUsage() {
+  const el = document.getElementById('cert-storage-usage');
+  if (!el) return;
+  try {
+    const d = await fetchStorageCheck();
+    el.textContent = tFormat('cert_storage_usage', { used: formatBytes(d.usedBytes), count: d.count || 0 });
+  } catch (e) { el.textContent = '—'; }
+}
+
+async function checkCertStorage() {
+  try {
+    const d = await fetchStorageCheck();
+    const el = document.getElementById('cert-storage-usage');
+    if (el) el.textContent = tFormat('cert_storage_usage', { used: formatBytes(d.usedBytes), count: d.count || 0 });
+    await customAlert(d.ok ? t('storage_ok') : t('storage_' + (d.code || 'UNAVAILABLE')), d.ok ? 'success' : (d.code === 'PUBLIC' ? 'warning' : 'error'));
+  } catch (err) { await customAlert(t('storage_UNAVAILABLE'), 'error'); }
+}
+
 // ================= تعديل أسماء المستخدمين =================
 // الحاجة: الحسابات تُنشأ أحياناً بأسماء مؤقتة عند التجربة، فيبقى حساب صيدلية
 // حقيقية باسم لا يدل عليها، ما يربك الإدارة ويصعّب على الصيدلي تذكّر اسم دخوله.
@@ -5185,6 +5468,8 @@ async function addNurseAdmin() {
     university: document.getElementById('nurse-university').value,
     graduation_year: document.getElementById('nurse-grad-year').value,
     phone: document.getElementById('nurse-phone').value,
+    experience_years: document.getElementById('nurse-exp-years').value,
+    services: document.getElementById('nurse-services').value,
   };
   const res = await fetch(`${API}/nurses`, {
     method: 'POST', headers: adminHeaders(), body: JSON.stringify(body)
