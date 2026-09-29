@@ -210,6 +210,16 @@ async function initDb() {
     );
   `);
 
+  // بطاقة الخبرة والشهادة (سبتمبر 2026). كلها اختيارية فلا تتأثر السجلات القديمة.
+  // مسار الشهادة ونوعها وحجمها للإدارة وحدها: مسار GET /api/nurses العام لا يُرسلها أبداً.
+  // cert_verified يعني أن المدير راجع الشهادة بنفسه، ويعود false تلقائياً عند رفع شهادة جديدة.
+  for (const col of [
+    'experience_years INTEGER', 'services TEXT', 'cert_path TEXT', 'cert_mime TEXT',
+    'cert_size INTEGER', 'cert_uploaded_at TIMESTAMP', 'cert_verified BOOLEAN DEFAULT false'
+  ]) {
+    await pool.query(`ALTER TABLE nurses ADD COLUMN IF NOT EXISTS ${col};`);
+  }
+
   await pool.query(`
     CREATE TABLE IF NOT EXISTS nurse_ratings (
       id SERIAL PRIMARY KEY,
@@ -1045,13 +1055,60 @@ async function getNursesWithRatings() {
   return rows;
 }
 
-async function addNurse({ name, specialty, university, graduation_year, phone }) {
+async function addNurse({ name, specialty, university, graduation_year, phone, experience_years = null, services = null }) {
   const { rows } = await pool.query(
-    `INSERT INTO nurses (name, specialty, university, graduation_year, phone)
-     VALUES ($1, $2, $3, $4, $5) RETURNING *`,
-    [cleanText(name), cleanText(specialty), cleanText(university), cleanText(graduation_year), cleanText(phone)]
+    `INSERT INTO nurses (name, specialty, university, graduation_year, phone, experience_years, services)
+     VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
+    [cleanText(name), cleanText(specialty), cleanText(university), cleanText(graduation_year), cleanText(phone),
+     experience_years, cleanText(services)]
   );
   return rows[0];
+}
+
+async function getNurseById(id) {
+  const { rows } = await pool.query('SELECT * FROM nurses WHERE id = $1', [id]);
+  return rows[0] || null;
+}
+
+async function setNurseProfile(id, experienceYears, services) {
+  const { rows } = await pool.query(
+    `UPDATE nurses SET experience_years = $2, services = $3 WHERE id = $1
+     RETURNING id, experience_years, services`,
+    [id, experienceYears, cleanText(services)]
+  );
+  return rows[0] || null;
+}
+
+// رفع شهادة جديدة يلغي التوثيق: المدير يراجع الملف الجديد قبل أن يظهر للمرضى أنه موثَّق
+async function setNurseCertificate(id, { path, mime, size }) {
+  const { rows } = await pool.query(
+    `UPDATE nurses SET cert_path = $2, cert_mime = $3, cert_size = $4,
+            cert_uploaded_at = NOW(), cert_verified = false
+      WHERE id = $1
+      RETURNING id, cert_mime, cert_size, cert_uploaded_at, cert_verified`,
+    [id, path, mime, size]
+  );
+  return rows[0] || null;
+}
+
+async function clearNurseCertificate(id) {
+  await pool.query(
+    `UPDATE nurses SET cert_path = NULL, cert_mime = NULL, cert_size = NULL,
+            cert_uploaded_at = NULL, cert_verified = false WHERE id = $1`, [id]);
+}
+
+// التوثيق لا يُسجَّل إلا لممرض له شهادة فعلاً
+async function setNurseCertVerified(id, verified) {
+  const { rows } = await pool.query(
+    `UPDATE nurses SET cert_verified = $2 WHERE id = $1 AND cert_path IS NOT NULL
+     RETURNING id, cert_verified`, [id, verified === true]);
+  return rows[0] || null;
+}
+
+async function getCertStorageUsage() {
+  const { rows } = await pool.query(
+    `SELECT COALESCE(SUM(cert_size), 0)::bigint AS bytes, COUNT(cert_path)::int AS count FROM nurses`);
+  return { bytes: Number(rows[0].bytes), count: rows[0].count };
 }
 
 async function deleteNurse(nurseId) {
@@ -1168,6 +1225,12 @@ module.exports = {
   getAllNurses,
   getNursesWithRatings,
   addNurse,
+  getNurseById,
+  setNurseProfile,
+  setNurseCertificate,
+  clearNurseCertificate,
+  setNurseCertVerified,
+  getCertStorageUsage,
   deleteNurse,
   setNurseAvailability,
   getApprovedRatingsForNurse,
