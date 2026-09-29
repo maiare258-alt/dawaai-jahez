@@ -256,9 +256,10 @@ router.put('/:id/availability', adminAuth, async (req, res) => {
 // DELETE /api/nurses/:id
 router.delete('/:id', adminAuth, async (req, res) => {
   try {
+    // نقرأ مسار الشهادة، نحذف الممرض، ثم ملفه: الترتيب نفسه (السجل قبل الملف)
     const existing = await db.getNurseById(req.params.id);
-    if (existing && existing.cert_path) await deleteCertObject(existing.cert_path);
     await db.deleteNurse(req.params.id);
+    if (existing && existing.cert_path) await deleteCertObject(existing.cert_path);
     res.json({ success: true });
   } catch (err) {
     console.error(err);
@@ -344,9 +345,17 @@ router.post('/:id/certificate', adminAuth, (req, res, next) => {
       console.error('فشل رفع الشهادة إلى التخزين:', up.status, await up.text().catch(() => ''));
       return res.status(502).json({ error: 'تعذّر رفع الشهادة إلى التخزين', code });
     }
-    const saved = await db.setNurseCertificate(nurse.id, { path, mime, size: req.body.length });
+    let saved;
+    try {
+      saved = await db.setNurseCertificate(nurse.id, { path, mime, size: req.body.length });
+    } catch (dbErr) {
+      // الملف رُفع لكن حفظه في القاعدة فشل: نحذفه كي لا يبقى يتيماً يستهلك المساحة
+      await deleteCertObject(path);
+      throw dbErr;
+    }
+    if (!saved) { await deleteCertObject(path); return res.status(404).json({ error: 'الممرض غير موجود' }); }
     // شهادة واحدة فعّالة لكل ممرض: القديمة تُحذف بعد نجاح الجديدة، فلا تتراكم ملفات منسية
-    if (nurse.cert_path && nurse.cert_path !== path) await deleteCertObject(nurse.cert_path);
+    if (saved.old_path && saved.old_path !== path) await deleteCertObject(saved.old_path);
     res.status(201).json({ has_certificate: true, cert_mime: saved.cert_mime, cert_size: saved.cert_size,
       cert_uploaded_at: saved.cert_uploaded_at, cert_verified: saved.cert_verified });
   } catch (err) {
@@ -379,10 +388,10 @@ router.get('/:id/certificate/link', adminAuth, async (req, res) => {
 
 router.delete('/:id/certificate', adminAuth, async (req, res) => {
   try {
-    const nurse = await db.getNurseById(req.params.id);
-    if (!nurse) return res.status(404).json({ error: 'الممرض غير موجود' });
-    if (nurse.cert_path) await deleteCertObject(nurse.cert_path);
-    await db.clearNurseCertificate(nurse.id);
+    // السجل أولاً ثم الملف: لو فشل حذف الملف يبقى يتيماً (أهون)، لا سجلاً يشير إلى لا شيء
+    const cleared = await db.clearNurseCertificate(req.params.id);
+    if (!cleared.found) return res.status(404).json({ error: 'الممرض غير موجود' });
+    if (cleared.oldPath) await deleteCertObject(cleared.oldPath);
     res.json({ success: true });
   } catch (err) {
     console.error(err);
