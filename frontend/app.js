@@ -239,10 +239,10 @@ const translations = {
     reset_password_done_title: 'كلمة المرور الجديدة لـ"{name}"',
     reset_password_done_hint: 'انسخ كلمة المرور الآن وسلّمها إلى الصيدلي، فلن تظهر مرة أخرى.',
     reset_password_error: 'تعذّرت إعادة تعيين كلمة المرور',
-    copy_btn: 'نسخ', copied_msg: 'تم النسخ',
+    copied_msg: 'تم النسخ',
     stats_title: '📊 نظرة عامة على المنصة', stats_load_error: 'تعذّر جلب الإحصاءات',
-    stat_pharmacies: 'صيدلية مسجّلة', stat_on_duty: 'مناوبة الآن',
-    stat_medicines: 'دواء بالقائمة العامة', stat_cosmetics: 'مستحضر تجميل',
+    stat_on_duty: 'مناوبة الآن',
+    stat_cosmetics: 'مستحضر تجميل',
     stat_nurses: 'ممرض', stat_available_stock: 'دواء متوفر بالصيدليات',
     stat_orders_total: 'إجمالي الطلبات', stat_orders_24h: 'طلب آخر ٢٤ ساعة',
     stat_orders_7d: 'طلب آخر ٧ أيام', stat_orders_30d: 'طلب آخر ٣٠ يوماً',
@@ -270,7 +270,7 @@ const translations = {
     add_medicine_title_admin: '💊 إضافة دواء جديد', registered_medicines_title: 'الأدوية المسجّلة',
     item_added_success: 'تمت إضافة "{name}" بنجاح', delete_medicine_confirm: 'هل ترغب في حذف دواء "{name}" نهائياً؟',
     add_nurse_title: '🩺 إضافة ممرض جديد', nurse_name_placeholder: 'اسم الممرض', specialty_placeholder: 'التخصص',
-    university_placeholder: 'الجامعة', grad_year_placeholder: 'سنة التخرج', upload_cert_btn: '📄 رفع شهادة (PDF/Word)',
+    university_placeholder: 'الجامعة', grad_year_placeholder: 'سنة التخرج',
     add_nurse_btn: 'إضافة الممرض', registered_nurses_title: 'الممرضون المسجّلون', no_nurses_yet: 'لا يوجد ممرضون مسجّلون بعد.',
     nurses_table_header: 'الممرض', actions_header_plural: 'إجراءات',
     nurse_available_short: '🟢 متاح', nurse_unavailable_short: '🔴 غير متاح',
@@ -281,7 +281,6 @@ const translations = {
     loading_text: 'جاري التحميل...', no_published_ratings: 'لا توجد تقييمات منشورة بعد.',
     delete_final_btn: '🗑️ حذف نهائي', failed_load_ratings: 'تعذر تحميل التقييمات.',
     delete_rating_final_confirm: 'هل ترغب في حذف هذا التقييم نهائياً؟ لا يمكن التراجع عن هذا الإجراء.',
-    upload_cert_coming_soon: 'سيُفعَّل رفع الشهادات (PDF/Word) بعد توفير استضافة دائمة للملفات 📄',
     nursing_empty_title: 'لا يوجد ممرضون مسجّلون حالياً', nursing_empty_subtitle: 'سوف يتم إضافة ممرضين موثوقين قريباً.',
     nurse_available_full: '🟢 متاح للعمل', nurse_unavailable_full: '🔴 غير متاح حالياً',
     general_nurse_label: 'ممرض عام', rating_summary_suffix: 'من {count} تقييم',
@@ -328,7 +327,6 @@ const translations = {
     invalid_order_error: 'بيانات الطلب غير صالحة',
     comment_too_long_error: 'التعليق طويل جداً',
     open_now_badge: 'مفتوحة الآن',
-    closed_now_badge: 'مغلقة الآن',
     closed_opens_at: 'مغلقة الآن، وتفتح الساعة {time}',
     closed_today_badge: 'مغلقة اليوم',
     cart_closed_btn: 'الصيدلية مغلقة، أرسل الطلب',
@@ -629,7 +627,7 @@ const translations = {
     bulk_import_no_valid_rows: 'لا يوجد في الملف أي صف صالح للاستيراد.',
     bulk_import_success: 'تم الاستيراد: {added} دواء جديد، {linked} مربوط بمخزونك، {skipped} تم تجاهله.',
     bulk_import_col_name: 'الاسم', bulk_import_col_generic: 'المادة الفعالة',
-    bulk_import_col_alt: 'أسماء بديلة', bulk_import_col_category: 'التصنيف', bulk_import_col_issue: 'ملاحظة'
+    bulk_import_col_category: 'التصنيف', bulk_import_col_issue: 'ملاحظة'
   },
   en: {
     nav_home: 'Home', nav_onduty: 'On-Duty Pharmacies', nav_pharmacist: 'Pharmacist Panel',
@@ -734,10 +732,10 @@ const translations = {
     reset_password_done_title: 'New password for "{name}"',
     reset_password_done_hint: 'Copy it now and hand it to the pharmacist, it will not be shown again.',
     reset_password_error: 'Could not reset the password',
-    copy_btn: 'Copy', copied_msg: 'Copied',
+    copied_msg: 'Copied',
     stats_title: '📊 Platform overview', stats_load_error: 'Could not load statistics',
-    stat_pharmacies: 'registered pharmacies', stat_on_duty: 'on duty now',
-    stat_medicines: 'medicines in general list', stat_cosmetics: 'cosmetic products',
+    stat_on_duty: 'on duty now',
+    stat_cosmetics: 'cosmetic products',
     stat_nurses: 'nurses', stat_available_stock: 'medicines in stock',
     stat_orders_total: 'total orders', stat_orders_24h: 'orders in last 24h',
     stat_orders_7d: 'orders in last 7 days', stat_orders_30d: 'orders in last 30 days',
@@ -765,7 +763,7 @@ const translations = {
     add_medicine_title_admin: '💊 Add new medicine', registered_medicines_title: 'Registered medicines',
     item_added_success: '"{name}" added successfully', delete_medicine_confirm: 'Are you sure you want to permanently delete medicine "{name}"?',
     add_nurse_title: '🩺 Add new nurse', nurse_name_placeholder: 'Nurse name', specialty_placeholder: 'Specialty',
-    university_placeholder: 'University', grad_year_placeholder: 'Graduation year', upload_cert_btn: '📄 Upload certificate (PDF/Word)',
+    university_placeholder: 'University', grad_year_placeholder: 'Graduation year',
     add_nurse_btn: 'Add nurse', registered_nurses_title: 'Registered nurses', no_nurses_yet: 'No nurses registered yet.',
     nurses_table_header: 'Nurse', actions_header_plural: 'Actions',
     nurse_available_short: '🟢 Available', nurse_unavailable_short: '🔴 Unavailable',
@@ -776,7 +774,6 @@ const translations = {
     loading_text: 'Loading...', no_published_ratings: 'No published ratings yet.',
     delete_final_btn: '🗑️ Delete permanently', failed_load_ratings: 'Could not load ratings.',
     delete_rating_final_confirm: 'Are you sure you want to permanently delete this rating? This action cannot be undone.',
-    upload_cert_coming_soon: 'Certificate upload (PDF/Word) will be enabled once permanent file hosting is set up 📄',
     nursing_empty_title: 'No nurses registered right now', nursing_empty_subtitle: 'Trusted nurses will be added soon.',
     nurse_available_full: '🟢 Available for work', nurse_unavailable_full: '🔴 Currently unavailable',
     general_nurse_label: 'General nurse', rating_summary_suffix: 'from {count} reviews',
@@ -823,7 +820,6 @@ const translations = {
     invalid_order_error: 'The order data is not valid',
     comment_too_long_error: 'The comment is too long',
     open_now_badge: 'Open now',
-    closed_now_badge: 'Closed now',
     closed_opens_at: 'Closed now, opens at {time}',
     closed_today_badge: 'Closed today',
     cart_closed_btn: 'Pharmacy closed, send order',
@@ -1124,7 +1120,7 @@ const translations = {
     bulk_import_no_valid_rows: 'No valid rows found in the file.',
     bulk_import_success: 'Import complete: {added} new medicines, {linked} linked to your stock, {skipped} skipped.',
     bulk_import_col_name: 'Name', bulk_import_col_generic: 'Active ingredient',
-    bulk_import_col_alt: 'Alternative names', bulk_import_col_category: 'Category', bulk_import_col_issue: 'Note'
+    bulk_import_col_category: 'Category', bulk_import_col_issue: 'Note'
   }
 };
 
@@ -2628,10 +2624,6 @@ async function submitNurseRating(nurseId) {
   }
 }
 
-function uploadCertificateComingSoon() {
-  customAlert(t('upload_cert_coming_soon'), 'info');
-}
-
 let searchTimeout;
 let suggestionIndex = -1;
 function onSearch() {
@@ -3775,19 +3767,19 @@ function pharmacyHeaders() {
 }
 
 async function dismissOrder(id) {
-  await fetch(`${API}/orders/${id}/seen`, { method: 'PUT', headers: pharmacyHeaders() });
+  if (!(await runAction(`${API}/orders/${id}/seen`, { method: 'PUT', headers: pharmacyHeaders() }))) return;
   loadOrders();
 }
 
 async function confirmOrderAction(id) {
-  await fetch(`${API}/orders/${id}/confirm`, { method: 'PUT', headers: pharmacyHeaders() });
+  if (!(await runAction(`${API}/orders/${id}/confirm`, { method: 'PUT', headers: pharmacyHeaders() }))) return;
   loadOrders();
 }
 
 async function removeOrder(id) {
   const confirmed = await customConfirm(t('order_delete_confirm'), 'warning');
   if (!confirmed) return;
-  await fetch(`${API}/orders/${id}`, { method: 'DELETE', headers: pharmacyHeaders() });
+  if (!(await runAction(`${API}/orders/${id}`, { method: 'DELETE', headers: pharmacyHeaders() }))) return;
   loadOrders();
 }
 
@@ -3901,11 +3893,20 @@ async function renderAdminPanel() {
     document.getElementById('admin-panel').innerHTML = `<p class="muted" style="padding:20px;">${t('loading_text')}</p>`;
   }
   try {
+    // كل قائمة يجب أن تصل قائمةً فعلاً. كان رد الخطأ (مثل "محاولات كثيرة" أو كلمة مرور
+    // غُيّرت في Render) يُخزَّن كأنه قائمة الصيدليات، فتنهار اللوحة عند رسمه، وتبقى
+    // البيانات المخزّنة تالفة لكل إجراء بعده. الآن أي رد فاشل يُلغي التحديث كله
+    // وتبقى آخر بيانات سليمة كما هي.
+    const list = (url, opts) => fetch(url, opts).then(async r => {
+      const data = await r.json();
+      if (!r.ok || !Array.isArray(data)) throw new Error('admin list failed: ' + r.status);
+      return data;
+    });
     const [pharmacies, medicines, nurses, pendingRatings, stats] = await Promise.all([
-      fetch(`${API}/pharmacies`, { headers: adminHeaders() }).then(r => r.json()),
-      fetch(`${API}/medicines`, { headers: adminHeaders() }).then(r => r.json()),
-      fetch(`${API}/nurses/admin/all`, { headers: adminHeaders(), cache: 'no-store' }).then(r => r.json()),
-      fetch(`${API}/nurses/ratings/pending`, { headers: adminHeaders() }).then(r => r.json()),
+      list(`${API}/pharmacies`, { headers: adminHeaders() }),
+      list(`${API}/medicines`, { headers: adminHeaders() }),
+      list(`${API}/nurses/admin/all`, { headers: adminHeaders(), cache: 'no-store' }),
+      list(`${API}/nurses/ratings/pending`, { headers: adminHeaders() }),
       // فشل الإحصاءات وحدها يجب ألا يُسقط اللوحة كلها — تُعاد null فيُخفى القسم فقط
       fetch(`${API}/stats`, { headers: adminHeaders() }).then(r => r.ok ? r.json() : null).catch(() => null)
     ]);
@@ -4477,6 +4478,23 @@ async function fetchWithTimeout(url, options = {}, timeoutMs = 20000) {
 
 // تصنيف سبب الفشل، ليعرف المستخدم ماذا يفعل بدل رسالة واحدة لكل الأسباب.
 // نفحص الاتصال أولاً: الطلب الفاشل أثناء الانقطاع قد يظهر كمهلة أو كخطأ شبكة.
+// طلب إجراء (حذف، تأكيد، اعتماد...): يتحقق من النجاح ويشرح سبب الفشل.
+// كانت هذه الإجراءات ترسل الطلب ثم تعيد رسم الشاشة دون أن تفحص الرد: يضغط المستخدم
+// "حذف" فيفشل الطلب ولا يحدث شيء ولا يُقال له لماذا، وانقطاع الشبكة كان يضيع بصمت.
+// والصيدلي الذي يضغط "تأكيد الطلب" قد يظن أنه أكّده.
+async function runAction(url, options) {
+  try {
+    const res = await fetchWithTimeout(url, options, 20000);
+    if (res.ok) return true;
+    const data = await res.json().catch(() => ({}));
+    await customAlert(data.error ? translateApiError(data.error) : t('err_network'), 'error');
+  } catch (err) {
+    const kind = classifyFetchError(err);
+    await customAlert(t(kind === 'offline' ? 'err_offline' : kind === 'timeout' ? 'err_timeout_search' : 'err_network'), 'error');
+  }
+  return false;
+}
+
 function classifyFetchError(err) {
   if (typeof navigator !== 'undefined' && navigator.onLine === false) return 'offline';
   if (err && err.name === 'AbortError') return 'timeout';
@@ -5416,7 +5434,7 @@ async function deletePharmacyAdmin(id) {
   const name = pharmacy ? pharmacy.name : '';
   const confirmed = await customConfirm(tFormat('delete_pharmacy_confirm', { name }), 'warning');
   if (!confirmed) return;
-  await fetch(`${API}/pharmacies/${id}`, { method: 'DELETE', headers: adminHeaders() });
+  if (!(await runAction(`${API}/pharmacies/${id}`, { method: 'DELETE', headers: adminHeaders() }))) return;
   renderAdminPanel();
 }
 
@@ -5442,7 +5460,7 @@ async function deleteMedicineAdmin(id) {
   const name = medicine ? medicine.name : '';
   const confirmed = await customConfirm(tFormat('delete_medicine_confirm', { name }), 'warning');
   if (!confirmed) return;
-  await fetch(`${API}/medicines/${id}`, { method: 'DELETE', headers: adminHeaders() });
+  if (!(await runAction(`${API}/medicines/${id}`, { method: 'DELETE', headers: adminHeaders() }))) return;
   renderAdminPanel();
 }
 
@@ -5485,26 +5503,26 @@ async function deleteNurseAdmin(id) {
   const name = nurse ? nurse.name : '';
   const confirmed = await customConfirm(tFormat('delete_nurse_confirm', { name }), 'warning');
   if (!confirmed) return;
-  await fetch(`${API}/nurses/${id}`, { method: 'DELETE', headers: adminHeaders() });
+  if (!(await runAction(`${API}/nurses/${id}`, { method: 'DELETE', headers: adminHeaders() }))) return;
   renderAdminPanel();
 }
 
 async function toggleNurseAvailabilityAdmin(id, newAvailable) {
-  await fetch(`${API}/nurses/${id}/availability`, {
+  if (!(await runAction(`${API}/nurses/${id}/availability`, {
     method: 'PUT', headers: adminHeaders(), body: JSON.stringify({ available: newAvailable })
-  });
+  }))) return;
   renderAdminPanel();
 }
 
 async function approveRatingAdmin(id) {
-  await fetch(`${API}/nurses/ratings/${id}/approve`, { method: 'PUT', headers: adminHeaders() });
+  if (!(await runAction(`${API}/nurses/ratings/${id}/approve`, { method: 'PUT', headers: adminHeaders() }))) return;
   renderAdminPanel();
 }
 
 async function rejectRatingAdmin(id) {
   const confirmed = await customConfirm(t('reject_rating_confirm'), 'warning');
   if (!confirmed) return;
-  await fetch(`${API}/nurses/ratings/${id}`, { method: 'DELETE', headers: adminHeaders() });
+  if (!(await runAction(`${API}/nurses/ratings/${id}`, { method: 'DELETE', headers: adminHeaders() }))) return;
   renderAdminPanel();
 }
 
@@ -5609,7 +5627,7 @@ async function loadApprovedRatingsAdmin() {
 async function deleteApprovedRatingAdmin(id) {
   const confirmed = await customConfirm(t('delete_rating_final_confirm'), 'warning');
   if (!confirmed) return;
-  await fetch(`${API}/nurses/ratings/${id}`, { method: 'DELETE', headers: adminHeaders() });
+  if (!(await runAction(`${API}/nurses/ratings/${id}`, { method: 'DELETE', headers: adminHeaders() }))) return;
   approvedRatingsLoaded = false;
   await loadApprovedRatingsAdmin();
 }
