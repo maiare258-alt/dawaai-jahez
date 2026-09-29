@@ -1079,22 +1079,33 @@ async function setNurseProfile(id, experienceYears, services) {
   return rows[0] || null;
 }
 
-// رفع شهادة جديدة يلغي التوثيق: المدير يراجع الملف الجديد قبل أن يظهر للمرضى أنه موثَّق
+// رفع شهادة جديدة يلغي التوثيق: المدير يراجع الملف الجديد قبل أن يظهر للمرضى أنه موثَّق.
+//
+// تُرجع المسار القديم (old_path) من العملية نفسها التي تستبدله، لا من قراءة سابقة: لو
+// رُفعت شهادتان في اللحظة ذاتها وقرأت كل منهما "القديمة" قبل الأخرى، لضاع ملف منهما
+// يتيماً في التخزين. FOR UPDATE يجعل الثانية تنتظر الأولى ثم ترى مسارها الجديد.
 async function setNurseCertificate(id, { path, mime, size }) {
   const { rows } = await pool.query(
-    `UPDATE nurses SET cert_path = $2, cert_mime = $3, cert_size = $4,
+    `WITH prev AS (SELECT id, cert_path AS old_path FROM nurses WHERE id = $1 FOR UPDATE)
+     UPDATE nurses n SET cert_path = $2, cert_mime = $3, cert_size = $4,
             cert_uploaded_at = NOW(), cert_verified = false
-      WHERE id = $1
-      RETURNING id, cert_mime, cert_size, cert_uploaded_at, cert_verified`,
+       FROM prev WHERE n.id = prev.id
+     RETURNING prev.old_path, n.id, n.cert_mime, n.cert_size, n.cert_uploaded_at, n.cert_verified`,
     [id, path, mime, size]
   );
   return rows[0] || null;
 }
 
+// يمسح بيانات الشهادة ويُرجع مسار ملفها ليُحذف من التخزين بعد نجاح هذا، لا قبله:
+// لو حُذف الملف أولاً ثم فشل هذا، لأشار السجل إلى ملف لم يعد موجوداً.
 async function clearNurseCertificate(id) {
-  await pool.query(
-    `UPDATE nurses SET cert_path = NULL, cert_mime = NULL, cert_size = NULL,
-            cert_uploaded_at = NULL, cert_verified = false WHERE id = $1`, [id]);
+  const { rows } = await pool.query(
+    `WITH prev AS (SELECT id, cert_path AS old_path FROM nurses WHERE id = $1 FOR UPDATE)
+     UPDATE nurses n SET cert_path = NULL, cert_mime = NULL, cert_size = NULL,
+            cert_uploaded_at = NULL, cert_verified = false
+       FROM prev WHERE n.id = prev.id
+     RETURNING prev.old_path`, [id]);
+  return rows.length ? { found: true, oldPath: rows[0].old_path } : { found: false, oldPath: null };
 }
 
 // التوثيق لا يُسجَّل إلا لممرض له شهادة فعلاً
