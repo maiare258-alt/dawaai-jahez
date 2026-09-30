@@ -73,11 +73,11 @@
                  'headerGoPharmacist','headerGoCosmetics','headerGoNursing','headerGoAdmin',
                  // أزرار التذييل ظاهرة فور فتح الصفحة، فقد تُضغط قبل اكتمال تحميل app.js.
                  // والبقية في لوحات مخفية، نضيفها احتياطاً كي لا يبقى أي زر ثابت بلا حماية.
-                 'showFaq','showAboutUs','footerContactComingSoon','closeInfoModal','refreshResults',
+                 'showFaq','showAboutUs','showContactUs','copyContactEmail','closeInfoModal','refreshResults',
                  'onDutyToggle','saveDuty','digitsOnly','saveAssistantPhone','updateMedNamePlaceholder',
                  'addMedicineSelf','downloadBulkImportTemplate','handleBulkImportFile','togglePassword',
                  'changeMyPassword','deleteMyAccount',
-                 'saveMainPhone','onAdminAddressSearch','saveAdminAddress','clearAdminLocation'];
+                 'saveMainPhone','onAdminAddressSearch','saveAdminAddress','clearAdminLocation','toggleJoinedList'];
     early.forEach(function (name) {
       window[name] = function () {
         if (name === 'onSearch' || name === 'submitSearch') window.__pendingSearch = true;
@@ -1597,6 +1597,33 @@
     body.staff-view .page-panel { background-size: 420px 525px; }
   }
 
+  /* ---- بطاقة "انضم إلينا" تحت دخول الصيدلي ---- */
+  /* بمقاييس بطاقة الدخول نفسها (العرض والحدود والزوايا والحشوة) فتبدوان مجموعة واحدة */
+  .join-box { margin-top: 18px; padding: 22px; background: #ffffff; border: 1px solid #cfe0ef; border-radius: 16px; }
+  .join-box h3 { margin: 0 0 8px; font-size: 17px; color: #163a5c; }
+  .join-count { margin: 0 0 10px; font-size: 15px; color: #23303a; }
+  .join-count strong { color: #185fa5; }
+  .join-toggle { margin: 0 0 10px; }
+  .join-list { list-style: none; margin: 0 0 12px; padding: 10px 14px; max-height: 220px; overflow-y: auto; background: #f7fafd; border-radius: 12px; }
+  .join-list li { padding: 6px 0; border-top: 1px solid #e8eef4; font-size: 14px; }
+  .join-list li:first-child { border-top: none; }
+  .join-hint { margin: 0 0 12px; font-size: 13.5px; line-height: 1.6; }
+  .join-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+  .join-btn { flex: 1 1 180px; display: inline-flex; align-items: center; justify-content: center; text-decoration: none; margin: 0; min-height: 46px; }
+  /* الزر الأزرق الأساسي مكتوب لـ button.primary تحديداً، وهذا رابط (a) لأنه يفتح البريد،
+     فنعطيه الشكل نفسه صراحةً وإلا ظهر نصاً عادياً */
+  .join-btn.primary {
+    color: #ffffff; border: none; border-radius: 16px; padding: 12px 18px; font-weight: 700;
+    background: linear-gradient(135deg, #2e77bf, #185fa5);
+  }
+  .join-btn.primary:hover { filter: brightness(1.06); box-shadow: 0 10px 22px rgba(24, 95, 165, 0.28); }
+
+  /* ---- العنوان مكتوباً مع زر نسخ (نافذة التواصل وبطاقة الانضمام) ---- */
+  .contact-email-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin: 14px 0 0; font-size: 14px; }
+  .contact-email { font-weight: 700; color: #163a5c; direction: ltr; overflow-wrap: anywhere; }
+  .contact-actions { margin-top: 6px; }
+  .contact-note { margin: 16px 0 0; font-size: 13.5px; line-height: 1.7; }
+
   /* ---- خبرة الممرضين وشهاداتهم ---- */
   .nurse-verified-badge {
     display: inline-block; margin-inline-start: 8px; padding: 2px 10px; border-radius: 999px;
@@ -1919,7 +1946,7 @@
           <span class="footer-sep">|</span>
           <a onclick="headerGoOnDuty()" id="footer-onduty">الصيدليات المناوبة</a>
           <span class="footer-sep">|</span>
-          <a onclick="footerContactComingSoon()" id="footer-contact">تواصل معنا</a>
+          <a onclick="showContactUs()" id="footer-contact">تواصل معنا</a>
           <span class="footer-sep">|</span>
           <a onclick="showFaq()" id="footer-faq">الأسئلة الشائعة</a>
           <span class="footer-sep">|</span>
