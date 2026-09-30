@@ -1065,6 +1065,13 @@ async function addNurse({ name, specialty, university, graduation_year, phone, e
   return rows[0];
 }
 
+// أسماء الصيدليات المنضمة ومدنها فقط، لبطاقة "انضم إلينا". هذه الأسماء ظاهرة للمرضى
+// أصلاً في نتائج البحث والمناوبة، فلا تُكشف معلومة جديدة. لا أرقام ولا حسابات.
+async function getJoinedPharmacies() {
+  const { rows } = await pool.query('SELECT name, city FROM pharmacies ORDER BY name');
+  return rows;
+}
+
 async function getNurseById(id) {
   const { rows } = await pool.query('SELECT * FROM nurses WHERE id = $1', [id]);
   return rows[0] || null;
@@ -1237,6 +1244,7 @@ module.exports = {
   getNursesWithRatings,
   addNurse,
   getNurseById,
+  getJoinedPharmacies,
   setNurseProfile,
   setNurseCertificate,
   clearNurseCertificate,
