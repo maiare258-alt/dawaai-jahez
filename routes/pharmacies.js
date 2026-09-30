@@ -187,6 +187,18 @@ router.get('/whatsapp', async (req, res) => {
   }
 });
 
+// الصيدليات المنضمة (عام) — GET /api/pharmacies/joined
+// يراها الصيدلي الذي لم ينضم بعد، فيعرف أن زملاءه في مدينته سبقوه.
+router.get('/joined', async (req, res) => {
+  try {
+    res.set('Cache-Control', 'public, max-age=300');
+    res.json(await db.getJoinedPharmacies());
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'حدث خطأ أثناء جلب الصيدليات' });
+  }
+});
+
 // عرض كل الصيدليات (للإدارة فقط)
 // GET /api/pharmacies
 router.get('/', adminAuth, async (req, res) => {
