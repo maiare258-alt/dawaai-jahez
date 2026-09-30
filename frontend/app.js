@@ -157,7 +157,7 @@ const translations = {
     about_desc: 'دوائي جاهز منصة سورية محلية انطلقت من مدينة سلمية، هدفها مساعدتك على معرفة توفر دوائك في الصيدليات القريبة فوراً، بدل التنقل من صيدلية لصيدلية بحثاً عن دواء قد لا يكون متوفراً.',
     footer_home: 'الرئيسية', footer_onduty: 'الصيدليات المناوبة', footer_contact: 'تواصل معنا',
     footer_center: 'منصة سورية للبحث عن توفر الأدوية في الصيدليات.',
-    footer_copy: '© دوائي جاهز، جميع الحقوق محفوظة',
+    footer_copy: '© {year} دوائي جاهز، جميع الحقوق محفوظة',
     cart_empty_title: 'عربة المشتريات فارغة', cart_empty_subtitle: 'ابدأ بإضافة الأدوية من نتائج البحث.',
     lang_toggle: 'English', brand_name: 'دوائي جاهز',
     not_found_title_medicine: 'لم يتم العثور على الدواء', not_found_title_cosmetic: 'لم يتم العثور على المستحضر',
@@ -669,7 +669,7 @@ const translations = {
     about_desc: 'Dawaai Jahez is a local Syrian platform launched in Salamiyah, aiming to help you instantly know your medicine availability at nearby pharmacies, instead of going from pharmacy to pharmacy looking for a medicine that might not be available.',
     footer_home: 'Home', footer_onduty: 'On-Duty Pharmacies', footer_contact: 'Contact Us',
     footer_center: 'A Syrian platform for medicine availability search at pharmacies.',
-    footer_copy: '© Dawaai Jahez — All rights reserved',
+    footer_copy: '© {year} Dawaai Jahez. All rights reserved.',
     cart_empty_title: 'Your cart is empty', cart_empty_subtitle: 'Start adding medicines from the search results.',
     lang_toggle: 'عربي', brand_name: 'Dawaai Jahez',
     not_found_title_medicine: 'Medicine not found', not_found_title_cosmetic: 'Product not found',
@@ -1298,7 +1298,8 @@ function applyLanguage() {
   document.getElementById('footer-faq').textContent = t('footer_faq');
   document.getElementById('footer-about').textContent = t('footer_about');
   document.getElementById('footer-center').textContent = t('footer_center');
-  document.getElementById('footer-copy').textContent = t('footer_copy');
+  // السنة الحالية تلقائياً: سنة قديمة في التذييل تجعل الموقع يبدو متروكاً
+  document.getElementById('footer-copy').textContent = tFormat('footer_copy', { year: new Date().getFullYear() });
 
   document.getElementById('lang-toggle-btn').textContent = t('lang_toggle');
   document.getElementById('brand-name').textContent = t('brand_name');
