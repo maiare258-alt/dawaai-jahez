@@ -182,7 +182,7 @@ const translations = {
     bell_pending_prefix: 'طلبك عند صيدلية', bell_pending_suffix: 'قيد المراجعة...',
     excess_quantity_confirm: 'أضفت {qty} من {name} من {pharmacy} إلى عربتك. هل ترغب في إضافة المزيد؟',
     pharm_login_title: 'دخول الصيدلي',
-    pharm_login_no_account: 'إن لم يكن لديك حساب بعد، فتواصل مع فريق دوائي جاهز لتسجيل صيدليتك.',
+    pharm_login_no_account: 'إن لم يكن لديك حساب بعد، فتواصل مع فريق دوائي جاهز لتسجيل صيدليتك من البطاقة أدناه.',
     username_placeholder: 'اسم المستخدم', password_placeholder: 'كلمة المرور', login_btn: 'دخول',
     pharm_dashboard_title: 'لوحة الصيدلي', pharmacy_label_prefix: 'صيدلية:', logout_btn: '🚪 تسجيل الخروج',
     new_orders_title: '🛎️ طلبات جديدة من المرضى',
@@ -442,6 +442,16 @@ const translations = {
     unit_mb: 'ميغابايت',
     cert_type_pdf: 'PDF',
     cert_type_image: 'صورة',
+    join_title: '🤝 هل أنت صيدلي ولم تنضم بعد؟',
+    join_count_none: 'كن أول صيدلية تنضم إلى المنصة.',
+    join_count_prefix: 'انضمّت إلى المنصة',
+    join_show_list: 'عرض الصيدليات المنضمة',
+    join_hide_list: 'إخفاء القائمة',
+    join_hint: 'أرسل لنا اسم صيدليتك وعنوانها ورقم هاتفها، وسنتواصل معك لإضافتها.',
+    join_email_btn: '✉️ راسلنا بالبريد للانضمام',
+    join_email_subject: 'طلب انضمام صيدلية إلى دوائي جاهز',
+    join_email_body: 'اسم الصيدلية:\nاسم الصيدلي المسؤول:\nالمدينة والعنوان:\nرقم الهاتف:\n',
+    join_load_error: 'تعذّر تحميل القائمة الآن.',
     staff_banner_pharmacist_title: 'لوحة الصيدلي',
     staff_banner_pharmacist_sub: 'حدِّث توفر أدويتك ومناوبتك وساعات دوامك، واستقبل طلبات المرضى من مكان واحد.',
     staff_banner_admin_title: 'لوحة الإدارة',
@@ -560,7 +570,16 @@ const translations = {
     whatsapp_phone_hint: 'لن يظهر زر المراسلة للمرضى إلا إذا أدخلت رقماً. اترك الحقل فارغاً لإخفائه.',
     whatsapp_admin_label: 'واتساب',
     whatsapp_coming_soon: 'البحث عبر واتساب قيد التجهيز 💬 يجري حالياً إعداد رقم رسمي للمنصة.',
-    contact_coming_soon: 'سيتم إضافة معلومات التواصل قريباً.',
+    contact_title: 'تواصل معنا',
+    contact_intro: 'يسعدنا تواصلكم بأي استفسار أو اقتراح، ولتسجيل صيدلية أو ممرض على المنصة.',
+    contact_email_btn: '✉️ راسلنا بالبريد',
+    contact_email_subject: 'استفسار عبر موقع دوائي جاهز',
+    contact_or_write: 'أو راسلنا على العنوان:',
+    contact_copy_btn: 'نسخ العنوان',
+    contact_copied: 'نُسخ العنوان',
+    contact_facebook_btn: 'فيسبوك',
+    contact_instagram_btn: 'إنستغرام',
+    contact_medical_note: 'للاستفسار عن دواء، استشر صيدلياً مباشرة من زر «استشر صيدلياً» في الصفحة الرئيسية. وفي الحالات الطارئة، اتصل بالإسعاف فوراً.',
     footer_faq: 'الأسئلة الشائعة', footer_about: 'حول الموقع',
     faq_title: 'الأسئلة الشائعة',
     faq_section_patient: 'للمرضى والزوار', faq_section_pharmacist: 'للصيادلة',
@@ -675,7 +694,7 @@ const translations = {
     bell_pending_prefix: 'Your order at', bell_pending_suffix: 'is under review...',
     excess_quantity_confirm: "You've added {qty} of {name} from {pharmacy} to your cart. Add more?",
     pharm_login_title: 'Pharmacist Login',
-    pharm_login_no_account: "If you don't have an account yet, contact the Dawaai Jahez team to register your pharmacy.",
+    pharm_login_no_account: "If you don't have an account yet, contact the Dawaai Jahez team to register your pharmacy using the card below.",
     username_placeholder: 'Username', password_placeholder: 'Password', login_btn: 'Login',
     pharm_dashboard_title: 'Pharmacist Panel', pharmacy_label_prefix: 'Pharmacy:', logout_btn: '🚪 Logout',
     new_orders_title: '🛎️ New patient orders',
@@ -935,6 +954,16 @@ const translations = {
     unit_mb: 'MB',
     cert_type_pdf: 'PDF',
     cert_type_image: 'photo',
+    join_title: '🤝 Are you a pharmacist who has not joined yet?',
+    join_count_none: 'Be the first pharmacy to join the platform.',
+    join_count_prefix: 'Pharmacies that have joined:',
+    join_show_list: 'Show joined pharmacies',
+    join_hide_list: 'Hide the list',
+    join_hint: 'Send us your pharmacy name, address and phone number, and we will contact you to add it.',
+    join_email_btn: '✉️ Email us to join',
+    join_email_subject: 'Pharmacy request to join Dawaai Jahez',
+    join_email_body: 'Pharmacy name:\nPharmacist in charge:\nCity and address:\nPhone number:\n',
+    join_load_error: 'The list could not be loaded right now.',
     staff_banner_pharmacist_title: 'Pharmacist dashboard',
     staff_banner_pharmacist_sub: 'Update your stock, duty and opening hours, and receive patient orders in one place.',
     staff_banner_admin_title: 'Admin dashboard',
@@ -1053,7 +1082,16 @@ const translations = {
     whatsapp_phone_hint: 'The message button appears to patients only if you enter a number. Leave it empty to hide it.',
     whatsapp_admin_label: 'WhatsApp',
     whatsapp_coming_soon: "Search via WhatsApp coming soon 💬 We're setting up an official number for the project.",
-    contact_coming_soon: 'Contact information will be added soon.',
+    contact_title: 'Contact us',
+    contact_intro: 'We are happy to hear from you with any question or suggestion, or to register a pharmacy or a nurse on the platform.',
+    contact_email_btn: '✉️ Email us',
+    contact_email_subject: 'Inquiry from the Dawaai Jahez website',
+    contact_or_write: 'Or write to us at:',
+    contact_copy_btn: 'Copy address',
+    contact_copied: 'Address copied',
+    contact_facebook_btn: 'Facebook',
+    contact_instagram_btn: 'Instagram',
+    contact_medical_note: 'For questions about a medicine, consult a pharmacist directly with the «Consult a pharmacist» button on the home page. In an emergency, call an ambulance immediately.',
     footer_faq: 'FAQ', footer_about: 'About Us',
     faq_title: 'Frequently Asked Questions',
     faq_section_patient: 'For Patients & Visitors', faq_section_pharmacist: 'For Pharmacists',
@@ -2238,10 +2276,6 @@ function headerGoNursing(link) {
   loadNurses().then(startNursingPolling);
 }
 
-function footerContactComingSoon() {
-  customAlert(t('contact_coming_soon'), 'info');
-}
-
 // نافذة عامة لعرض محتوى طويل (الأسئلة الشائعة، حول الموقع) — منفصلة عن showModal المخصصة للتنبيهات القصيرة
 let infoModalEscHandler = null;
 
@@ -2910,7 +2944,131 @@ function renderPharmacyAuthForm() {
       </div>
       <button class="primary" onclick="login()">${t('login_btn')}</button>
     </div>
+    ${joinBoxHtml()}
   `;
+  loadJoinedPharmacies();
+}
+
+// ================= بطاقة "انضم إلينا" (تحت دخول الصيدلي) =================
+// في الحاوية نفسها التي يمسحها loadDashboard عند الدخول، فتختفي تلقائياً بعده.
+// التواصل عبر حسابات المشروع لا رقم شخصي: خصوصية، ومظهر احترافي، وتنتقل الحسابات
+// كاملة مع المشروع. رابط فيسبوك فارغ إلى أن تُنشأ الصفحة، فيبقى زره مخفياً حتى ذلك.
+// روابط فيسبوك وإنستغرام فارغة إلى أن تُنشأ الصفحتان: أزرارها تبقى مخفية، وتظهر
+// تلقائياً في بطاقة الانضمام ونافذة "تواصل معنا" بمجرد تعبئة الرابط هنا.
+const PROJECT_CONTACT = {
+  email: 'dawaai.jahez@gmail.com',
+  facebook: '',
+  instagram: ''
+};
+
+// العنوان مكتوباً مع زر نسخ، لا رابط البريد وحده: على الهاتف يفتح الرابط تطبيق البريد
+// بسهولة، لكن على كثير من الحواسيب لا يحدث شيء إن لم يكن فيها برنامج بريد مضبوط.
+function emailCopyRowHtml() {
+  return `
+    <div class="contact-email-row">
+      <span class="muted">${t('contact_or_write')}</span>
+      <bdi class="contact-email">${escapeHtml(PROJECT_CONTACT.email)}</bdi>
+      <button type="button" class="btn-outline blue small" onclick="copyContactEmail()">${t('contact_copy_btn')}</button>
+    </div>`;
+}
+
+async function copyContactEmail() {
+  try {
+    await navigator.clipboard.writeText(PROJECT_CONTACT.email);
+    await customAlert(t('contact_copied'), 'success');
+  } catch (e) {
+    // متصفح لا يسمح بالنسخ التلقائي: يبقى العنوان ظاهراً ليُنسخ يدوياً
+    await customAlert(PROJECT_CONTACT.email, 'info');
+  }
+}
+
+function socialButtonsHtml() {
+  return `
+    ${PROJECT_CONTACT.facebook ? `<a class="btn-outline blue join-btn" href="${escapeHtml(PROJECT_CONTACT.facebook)}" target="_blank" rel="noopener noreferrer">${t('contact_facebook_btn')}</a>` : ''}
+    ${PROJECT_CONTACT.instagram ? `<a class="btn-outline blue join-btn" href="${escapeHtml(PROJECT_CONTACT.instagram)}" target="_blank" rel="noopener noreferrer">${t('contact_instagram_btn')}</a>` : ''}`;
+}
+
+// نافذة "تواصل معنا" في التذييل (كانت تعرض "قريباً")
+function showContactUs() {
+  const mail = `mailto:${PROJECT_CONTACT.email}?subject=${encodeURIComponent(t('contact_email_subject'))}`;
+  document.getElementById('info-modal-title').textContent = t('contact_title');
+  document.getElementById('info-modal-body').innerHTML = `
+    <p>${t('contact_intro')}</p>
+    <div class="join-actions contact-actions">
+      <a class="primary join-btn" href="${escapeHtml(mail)}">${t('contact_email_btn')}</a>
+      ${socialButtonsHtml()}
+    </div>
+    ${emailCopyRowHtml()}
+    <p class="muted contact-note">${t('contact_medical_note')}</p>`;
+  openInfoModal();
+}
+let joinedPharmacies = null;   // null: لم تُحمَّل بعد
+let joinListOpen = false;
+
+// العدد مع المعدود بالعربية: صيدلية واحدة، صيدليتان، 3 إلى 10 صيدليات، 11 إلى 99 صيدلية
+function pharmaciesCountText(n) {
+  if (currentLang !== 'ar') return String(n);
+  const r = n % 100;
+  if (n === 1) return 'صيدلية واحدة';
+  if (n === 2) return 'صيدليتان';
+  if (r >= 3 && r <= 10) return `${n} صيدليات`;
+  return `${n} صيدلية`;
+}
+
+function joinBoxHtml() {
+  const mail = `mailto:${PROJECT_CONTACT.email}?subject=${encodeURIComponent(t('join_email_subject'))}&body=${encodeURIComponent(t('join_email_body'))}`;
+  let countLine = '';
+  let listHtml = '';
+  if (Array.isArray(joinedPharmacies)) {
+    countLine = joinedPharmacies.length
+      ? `${t('join_count_prefix')} <strong>${pharmaciesCountText(joinedPharmacies.length)}</strong>`
+      : t('join_count_none');
+    if (joinedPharmacies.length) {
+      listHtml = `
+        <button type="button" class="btn-outline blue small join-toggle" onclick="toggleJoinedList()">${joinListOpen ? t('join_hide_list') : t('join_show_list')}</button>
+        <ul class="join-list" style="${joinListOpen ? '' : 'display:none;'}">
+          ${joinedPharmacies.map(p => `<li><bdi>${escapeHtml(p.name)}</bdi>${p.city ? ` <span class="muted">· ${escapeHtml(cityName(p.city))}</span>` : ''}</li>`).join('')}
+        </ul>`;
+    }
+  } else if (joinedPharmacies === false) {
+    countLine = t('join_load_error');
+  }
+  return `
+    <div class="join-box" id="join-box">
+      <h3>${t('join_title')}</h3>
+      ${countLine ? `<p class="join-count">${countLine}</p>` : ''}
+      ${listHtml}
+      <p class="muted join-hint">${t('join_hint')}</p>
+      <div class="join-actions">
+        <a class="primary join-btn" href="${escapeHtml(mail)}">${t('join_email_btn')}</a>
+        ${socialButtonsHtml()}
+      </div>
+      ${emailCopyRowHtml()}
+    </div>`;
+}
+
+function refreshJoinBox() {
+  const box = document.getElementById('join-box');
+  if (box) box.outerHTML = joinBoxHtml();
+}
+
+async function loadJoinedPharmacies() {
+  if (Array.isArray(joinedPharmacies)) return;   // تُحمَّل مرة واحدة في الجلسة
+  try {
+    const res = await fetchWithTimeout(`${API}/pharmacies/joined`, {}, 20000);
+    const data = await res.json();
+    if (!res.ok || !Array.isArray(data)) throw new Error('joined ' + res.status);
+    // ترتيب أبجدي عربي صحيح: لا تبدو أي صيدلية مقدَّمة على أخرى
+    joinedPharmacies = data.sort((x, y) => String(x.name).localeCompare(String(y.name), 'ar'));
+  } catch (err) {
+    joinedPharmacies = false;
+  }
+  refreshJoinBox();
+}
+
+function toggleJoinedList() {
+  joinListOpen = !joinListOpen;
+  refreshJoinBox();
 }
 
 async function login() {
