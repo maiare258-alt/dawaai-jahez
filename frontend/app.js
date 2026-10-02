@@ -277,7 +277,7 @@ const translations = {
     pending_ratings_title: '⭐ تقييمات قيد المراجعة', approve_btn: '✅ موافقة', reject_btn: '🗑️ رفض',
     reject_rating_confirm: 'هل ترغب في رفض هذا التقييم؟ سيُحذف نهائياً.',
     published_ratings_title: '💬 التقييمات المنشورة', show_ratings_btn: 'عرض التقييمات', hide_ratings_btn: 'إخفاء التقييمات',
-    loading_text: 'جاري التحميل...', no_published_ratings: 'لا توجد تقييمات منشورة بعد.',
+    loading_text: 'جارٍ التحميل...', no_published_ratings: 'لا توجد تقييمات منشورة بعد.',
     delete_final_btn: '🗑️ حذف نهائي', failed_load_ratings: 'تعذر تحميل التقييمات.',
     delete_rating_final_confirm: 'هل ترغب في حذف هذا التقييم نهائياً؟ لا يمكن التراجع عن هذا الإجراء.',
     nursing_empty_title: 'لا يوجد ممرضون مسجّلون حالياً', nursing_empty_subtitle: 'سوف يتم إضافة ممرضين موثوقين قريباً.',
@@ -2500,7 +2500,7 @@ function renderNursesList(nurses) {
 
 async function loadNurses() {
   const container = document.getElementById('nurses-list');
-  container.innerHTML = `<p class="muted">${t('loading_text')}</p>`;
+  container.innerHTML = skeletonHtml(3);
   openNurseDetailIds.clear();
   try {
     const res = await fetch(`${API}/nurses`);
@@ -2793,7 +2793,7 @@ async function runSearch() {
     setResultsToolbar(false);
     return;
   }
-  container.innerHTML = `<p class="muted">${t('loading_text')}</p>`;
+  container.innerHTML = skeletonHtml(3);
   // لو المستخدم غيّر أو مسح خانة البحث وقت ما كنا منتظرين رد السيرفر، نتجاهل هالرد القديم بالكامل —
   // تفادياً لمشكلة نتيجة بحث قديمة ترجع وتطلع فوق نتيجة أحدث أو فوق خانة بحث فاضية
   const stillCurrent = () => document.getElementById('search').value.trim() === q;
@@ -3692,7 +3692,7 @@ async function refreshStock() {
   // نعرض "جاري التحميل" بس لو أول مرة (الكاش لسا فاضية) — تفادياً لأي وميض بالتحديثات اللاحقة (بعد تبديل توفر دواء مثلاً)
   const isFirstLoad = pharmacistStockCache.length === 0;
   if (isFirstLoad) {
-    document.getElementById('stock-list').innerHTML = `<p class="muted">${t('loading_text')}</p>`;
+    document.getElementById('stock-list').innerHTML = skeletonHtml(4);
   }
   try {
     // no-store: وقت التحديث يتغيّر بالثانية، وأي تخزين مؤقت بالمتصفح يعرض وقتاً بائتاً
@@ -3850,7 +3850,7 @@ async function loadOrders() {
   const wasFirstLoad = !ordersLoadedOnce;
   if (wasFirstLoad) {
     document.getElementById('orders-wrap').style.display = 'block';
-    document.getElementById('orders-list').innerHTML = `<p class="muted">${t('loading_text')}</p>`;
+    document.getElementById('orders-list').innerHTML = skeletonHtml(2);
   }
   try {
     const res = await fetchWithTimeout(`${API}/orders/${currentPharmacy.id}`, {
@@ -4051,7 +4051,7 @@ let editingPharmacyNameDraft = '';
 async function renderAdminPanel() {
   const wasFirstLoad = !adminPanelLoadedOnce;
   if (wasFirstLoad) {
-    document.getElementById('admin-panel').innerHTML = `<p class="muted" style="padding:20px;">${t('loading_text')}</p>`;
+    document.getElementById('admin-panel').innerHTML = skeletonHtml(3);
   }
   try {
     // كل قائمة يجب أن تصل قائمةً فعلاً. كان رد الخطأ (مثل "محاولات كثيرة" أو كلمة مرور
@@ -4639,6 +4639,39 @@ async function fetchWithTimeout(url, options = {}, timeoutMs = 20000) {
 
 // تصنيف سبب الفشل، ليعرف المستخدم ماذا يفعل بدل رسالة واحدة لكل الأسباب.
 // نفحص الاتصال أولاً: الطلب الفاشل أثناء الانقطاع قد يظهر كمهلة أو كخطأ شبكة.
+// هيكل تحميل: بطاقات رمادية بشكل المحتوى القادم. وقارئ الشاشة يسمع "جارٍ التحميل".
+function skeletonHtml(count = 3) {
+  const card = '<div class="skeleton-card"><div class="skeleton-line title"></div><div class="skeleton-line w-80"></div><div class="skeleton-line w-40"></div></div>';
+  return `<div class="skeleton-list" role="status" aria-label="${t('loading_text')}">${card.repeat(count)}</div>`;
+}
+
+// الظهور الناعم عند التمرير للأقسام الثابتة في الصفحة الرئيسية. لا نطبّقه على النتائج
+// والمناوبة: تُعاد رسمها بالتحديث الدوري، فكانت ستتكرر حركتها في كل مرة.
+function setupScrollReveal() {
+  const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (reduce || !('IntersectionObserver' in window)) return;   // كل شيء يبقى ظاهراً كما هو
+  const targets = document.querySelectorAll('.feature-card, .about-section-wrap, .site-footer');
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (!entry.isIntersecting) return;
+      const el = entry.target;
+      el.classList.add('revealed');
+      observer.unobserve(el);
+      // بعد انتهاء الحركة نعيد العنصر إلى حاله الأصلي تماماً، فلا يبقى تأخير الظهور
+      // ولا انتقاله معلّقين على تأثيرات المرور بالفأرة الخاصة بالبطاقة
+      setTimeout(() => { el.classList.remove('reveal', 'revealed'); el.style.transitionDelay = ''; }, 900);
+    });
+  }, { threshold: 0.12, rootMargin: '0px 0px -40px 0px' });
+  let cardIndex = 0;
+  targets.forEach((el) => {
+    // البطاقات المتجاورة واحدة بعد الأخرى. الترتيب يُحسب بين البطاقات وحدها: لو حُسب
+    // بين كل العناصر المتحركة لانزاح إن سبقها عنصر آخر، فتظهر الأولى ثانية
+    if (el.classList.contains('feature-card')) el.style.transitionDelay = `${(cardIndex++ % 3) * 90}ms`;
+    el.classList.add('reveal');
+    observer.observe(el);
+  });
+}
+
 // قراءة رد بيانات: تتحقق من نجاحه وشكله معاً، وإلا ترمي خطأً يلتقطه catch المحيط.
 // كانت القراءات تأخذ ما يصل كما هو، فإن رد الخادم بخطأ صارت رسالة الخطأ "بيانات":
 // تُخزَّن في ذاكرة البحث أو المخزون أو الممرضين، فتنكسر الشاشة وما يُبنى عليها بعدها.
@@ -5776,7 +5809,7 @@ async function toggleApprovedRatingsAdmin() {
 
 async function loadApprovedRatingsAdmin() {
   const container = document.getElementById('approved-ratings-list');
-  container.innerHTML = `<p class="muted">${t('loading_text')}</p>`;
+  container.innerHTML = skeletonHtml(3);
   try {
     const res = await fetch(`${API}/nurses/ratings/approved`, { headers: adminHeaders() });
     const ratings = await readJsonOk(res);
@@ -5826,6 +5859,7 @@ document.addEventListener('click', (e) => {
 
 showView('patient');
 applyLanguage();
+setupScrollReveal();
 runSearch();
 loadOnDuty();
 updateCartCount();
