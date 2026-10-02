@@ -150,7 +150,7 @@ const translations = {
     hero_title_nursing: 'دوائي جاهز خدمات تمريض<br><span class="hero-highlight">في أي وقت</span>، من أي مكان',
     hero_desc_nursing: 'منصة سورية تساعدك على معرفة توفر الدواء وخدمات التمريض في مدينة سلمية.',
     search_hint_nursing: 'ابحث عن الممرض لمعرفة توافره في مدينة سلمية.',
-    search_btn: 'بحث', cart_btn: 'عربة المشتريات', whatsapp_btn: 'ابحث عبر واتساب',
+    search_btn: 'بحث', cart_btn: 'عربة المشتريات',
     feature1_title: 'البحث عن الدواء', feature1_desc: 'اعرف الصيدليات التي توفر الدواء.',
     feature2_title: 'الصيدليات المناوبة', feature2_desc: 'اعرض الصيدليات المناوبة اليوم.',
     feature3_title: 'عربة المشتريات', feature3_desc: 'اجمع الأدوية قبل زيارة الصيدلية.',
@@ -239,8 +239,7 @@ const translations = {
     reset_password_done_title: 'كلمة المرور الجديدة لـ"{name}"',
     reset_password_done_hint: 'انسخ كلمة المرور الآن وسلّمها إلى الصيدلي، فلن تظهر مرة أخرى.',
     reset_password_error: 'تعذّرت إعادة تعيين كلمة المرور',
-    copied_msg: 'تم النسخ',
-    stats_title: '📊 نظرة عامة على المنصة', stats_load_error: 'تعذّر جلب الإحصاءات',
+    stats_title: '📊 نظرة عامة على المنصة',
     stat_on_duty: 'مناوبة الآن',
     stat_cosmetics: 'مستحضر تجميل',
     stat_nurses: 'ممرض', stat_available_stock: 'دواء متوفر بالصيدليات',
@@ -645,8 +644,8 @@ const translations = {
     bulk_import_parse_error: 'تعذّر قراءة الملف. تأكد إنه بصيغة CSV وبنفس تنسيق النموذج.',
     bulk_import_no_valid_rows: 'لا يوجد في الملف أي صف صالح للاستيراد.',
     bulk_import_success: 'تم الاستيراد: {added} دواء جديد، {linked} مربوط بمخزونك، {skipped} تم تجاهله.',
-    bulk_import_col_name: 'الاسم', bulk_import_col_generic: 'المادة الفعالة',
-    bulk_import_col_category: 'التصنيف', bulk_import_col_issue: 'ملاحظة'
+    bulk_import_col_name: 'الاسم',
+    bulk_import_col_category: 'التصنيف'
   },
   en: {
     nav_home: 'Home', nav_onduty: 'On-Duty Pharmacies', nav_pharmacist: 'Pharmacist Panel',
@@ -662,7 +661,7 @@ const translations = {
     hero_title_nursing: 'Dawaai Jahez Nursing Services<br><span class="hero-highlight">Anytime</span>, Anywhere',
     hero_desc_nursing: 'A Syrian platform that helps you find medicine and nursing service availability in Salamiyah city.',
     search_hint_nursing: 'Search for a nurse to check their availability in Salamiyah city.',
-    search_btn: 'Search', cart_btn: 'Cart', whatsapp_btn: 'Search via WhatsApp',
+    search_btn: 'Search', cart_btn: 'Cart',
     feature1_title: 'Medicine Search', feature1_desc: 'Find pharmacies that have your medicine.',
     feature2_title: 'On-Duty Pharmacies', feature2_desc: "See today's on-duty pharmacies.",
     feature3_title: 'Shopping Cart', feature3_desc: 'Collect medicines before visiting the pharmacy.',
@@ -751,8 +750,7 @@ const translations = {
     reset_password_done_title: 'New password for "{name}"',
     reset_password_done_hint: 'Copy it now and hand it to the pharmacist, it will not be shown again.',
     reset_password_error: 'Could not reset the password',
-    copied_msg: 'Copied',
-    stats_title: '📊 Platform overview', stats_load_error: 'Could not load statistics',
+    stats_title: '📊 Platform overview',
     stat_on_duty: 'on duty now',
     stat_cosmetics: 'cosmetic products',
     stat_nurses: 'nurses', stat_available_stock: 'medicines in stock',
@@ -1157,8 +1155,8 @@ const translations = {
     bulk_import_parse_error: "Couldn't read the file. Make sure it's a CSV matching the template format.",
     bulk_import_no_valid_rows: 'No valid rows found in the file.',
     bulk_import_success: 'Import complete: {added} new medicines, {linked} linked to your stock, {skipped} skipped.',
-    bulk_import_col_name: 'Name', bulk_import_col_generic: 'Active ingredient',
-    bulk_import_col_category: 'Category', bulk_import_col_issue: 'Note'
+    bulk_import_col_name: 'Name',
+    bulk_import_col_category: 'Category'
   }
 };
 
@@ -1967,7 +1965,7 @@ async function checkMyOrdersStatus() {
   try {
     const ids = myOrders.map(o => o.id).join(',');
     const res = await fetch(`${API}/orders/status?ids=${ids}`);
-    const rows = await res.json();
+    const rows = await readJsonOk(res);
     let newlyConfirmed = false;
     myOrders.forEach(local => {
       const found = rows.find(r => r.id === local.id);
@@ -2362,7 +2360,7 @@ async function loadOnDuty() {
   const container = document.getElementById('on-duty-section');
   try {
     const res = await fetch(`${API}/pharmacies/on-duty`);
-    const data = await res.json();
+    const data = await readJsonOk(res);
 
     // ما تغيّر شي بالبيانات؟ خلص، ما في داعي نعيد رسم الشاشة ونسبب وميض
     const snapshot = JSON.stringify(data);
@@ -2506,7 +2504,7 @@ async function loadNurses() {
   openNurseDetailIds.clear();
   try {
     const res = await fetch(`${API}/nurses`);
-    const nurses = await res.json();
+    const nurses = await readJsonOk(res);
     nursesCache = nurses;
     lastNursesSnapshot = JSON.stringify(nurses);
     container.innerHTML = renderNursesList(nurses);
@@ -2540,7 +2538,7 @@ function stopNursingPolling() {
 async function pollNurses() {
   try {
     const res = await fetch(`${API}/nurses`);
-    const nurses = await res.json();
+    const nurses = await readJsonOk(res);
     const snapshot = JSON.stringify(nurses);
     if (snapshot === lastNursesSnapshot) return; // ما تغيّر شي، صفر إعادة رسم
     lastNursesSnapshot = snapshot;
@@ -2581,7 +2579,7 @@ async function renderNurseDetail(nurseId) {
   let ratings = [];
   try {
     const res = await fetch(`${API}/nurses/${nurseId}/ratings`);
-    ratings = await res.json();
+    ratings = await readJsonOk(res);
   } catch (err) { /* بنكمل بعرض الملخص حتى لو فشل جلب التعليقات */ }
 
   const alreadyRated = hasRatedNurse(nurseId);
@@ -2692,7 +2690,7 @@ async function loadSuggestions() {
   }
   try {
     const res = await fetch(`${API}/medicines/suggest?q=${encodeURIComponent(q)}&category=${currentCategory}`);
-    const data = await res.json();
+    const data = await readJsonOk(res);
     if (data.length === 0) {
       box.classList.remove('show');
       box.innerHTML = '';
@@ -2802,7 +2800,7 @@ async function runSearch() {
   try {
     const cityParam = currentCity ? `&city=${encodeURIComponent(currentCity)}` : '';
     const res = await fetchWithTimeout(`${API}/medicines/search?q=${encodeURIComponent(q)}&category=${currentCategory}${cityParam}`, {}, 20000);
-    const data = await res.json();
+    const data = await readJsonOk(res);
     if (!stillCurrent()) return;
     lastSearchResultsCache = data;
     setResultsToolbar(true);
@@ -2820,7 +2818,7 @@ async function runSearch() {
         </div>`;
       try {
         const sugRes = await fetch(`${API}/medicines/suggest?q=${encodeURIComponent(q)}&category=${currentCategory}`);
-        const suggestions = await sugRes.json();
+        const suggestions = await readJsonArrayOr(sugRes, []);
         if (suggestions.length > 0) {
           html += `
             <div class="box">
@@ -2892,7 +2890,7 @@ async function runSearch() {
         try {
           const altCityParam = currentCity ? `&city=${encodeURIComponent(currentCity)}` : '';
           const altRes = await fetch(`${API}/medicines/search?q=${encodeURIComponent(item.medicine.generic_name)}&category=${currentCategory}${altCityParam}`);
-          const altData = await altRes.json();
+          const altData = await readJsonArrayOr(altRes, []);
           const alternatives = altData
             .filter(alt => alt.medicine.id !== item.medicine.id)
             .map(alt => ({ medicine: alt.medicine, availability: alt.availability.filter(a => a.available) }))
@@ -3699,7 +3697,7 @@ async function refreshStock() {
   try {
     // no-store: وقت التحديث يتغيّر بالثانية، وأي تخزين مؤقت بالمتصفح يعرض وقتاً بائتاً
     const res = await fetch(`${API}/stock/${currentPharmacy.id}`, { cache: 'no-store' });
-    const data = await res.json();
+    const data = await readJsonOk(res);
     pharmacistStockCache = data;
     renderStockUI();
   } catch (err) {
@@ -4641,6 +4639,23 @@ async function fetchWithTimeout(url, options = {}, timeoutMs = 20000) {
 
 // تصنيف سبب الفشل، ليعرف المستخدم ماذا يفعل بدل رسالة واحدة لكل الأسباب.
 // نفحص الاتصال أولاً: الطلب الفاشل أثناء الانقطاع قد يظهر كمهلة أو كخطأ شبكة.
+// قراءة رد بيانات: تتحقق من نجاحه وشكله معاً، وإلا ترمي خطأً يلتقطه catch المحيط.
+// كانت القراءات تأخذ ما يصل كما هو، فإن رد الخادم بخطأ صارت رسالة الخطأ "بيانات":
+// تُخزَّن في ذاكرة البحث أو المخزون أو الممرضين، فتنكسر الشاشة وما يُبنى عليها بعدها.
+async function readJsonOk(res, shape = 'array') {
+  const data = await res.json().catch(() => null);
+  if (!res.ok || data === null) throw new Error('bad response ' + res.status);
+  if (shape === 'array' && !Array.isArray(data)) throw new Error('unexpected response shape');
+  if (shape === 'object' && (typeof data !== 'object' || Array.isArray(data))) throw new Error('unexpected response shape');
+  return data;
+}
+
+// للبيانات الإضافية داخل البحث (الاقتراحات، والبدائل): فشلها يعيد قائمة فارغة، كي لا
+// يُفشل البحث كله ويخفي نتائج سليمة.
+async function readJsonArrayOr(res, fallback) {
+  try { return await readJsonOk(res, 'array'); } catch (e) { return fallback; }
+}
+
 // طلب إجراء (حذف، تأكيد، اعتماد...): يتحقق من النجاح ويشرح سبب الفشل.
 // كانت هذه الإجراءات ترسل الطلب ثم تعيد رسم الشاشة دون أن تفحص الرد: يضغط المستخدم
 // "حذف" فيفشل الطلب ولا يحدث شيء ولا يُقال له لماذا، وانقطاع الشبكة كان يضيع بصمت.
@@ -5284,7 +5299,7 @@ async function deleteNurseCertificate(id) {
 
 async function fetchStorageCheck() {
   const res = await fetch(`${API}/nurses/storage/check`, { headers: adminHeaders(), cache: 'no-store' });
-  return res.json();
+  return readJsonOk(res, 'object');
 }
 
 async function loadCertStorageUsage() {
@@ -5727,7 +5742,7 @@ async function loadPendingRatingsForAdmin() {
   if (!adminPassword) { stopAdminRatingsPolling(); return; }
   try {
     const res = await fetch(`${API}/nurses/ratings/pending`, { headers: adminHeaders() });
-    const ratings = await res.json();
+    const ratings = await readJsonOk(res);
     const snapshot = JSON.stringify(ratings);
     if (snapshot === lastPendingRatingsSnapshot) return; // ما تغيّر شي، صفر إعادة رسم
     lastPendingRatingsSnapshot = snapshot;
@@ -5764,7 +5779,7 @@ async function loadApprovedRatingsAdmin() {
   container.innerHTML = `<p class="muted">${t('loading_text')}</p>`;
   try {
     const res = await fetch(`${API}/nurses/ratings/approved`, { headers: adminHeaders() });
-    const ratings = await res.json();
+    const ratings = await readJsonOk(res);
     approvedRatingsLoaded = true;
     if (ratings.length === 0) {
       container.innerHTML = `<p class="muted" style="margin:0;">${t('no_published_ratings')}</p>`;
