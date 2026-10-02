@@ -1551,6 +1551,8 @@ function headerGoHome(link) {
     applyMedicineHeroText();
     document.getElementById('search').value = '';
     document.getElementById('results').innerHTML = '';
+    // كل مسح للنتائج يُخفي زر "تحديث النتائج" معه: بلا نتائج لا معنى له
+    setResultsToolbar(false);
   }
   document.getElementById('hero-search-wrap').style.display = '';
   showView('patient');
@@ -1569,6 +1571,8 @@ function headerGoCosmetics(link) {
   applyCosmeticHeroText();
   document.getElementById('search').value = '';
   document.getElementById('results').innerHTML = '';
+  // كل مسح للنتائج يُخفي زر "تحديث النتائج" معه: بلا نتائج لا معنى له
+  setResultsToolbar(false);
   document.getElementById('hero-search-wrap').style.display = '';
   showView('patient');
   document.getElementById('on-duty-section').style.display = 'none';
