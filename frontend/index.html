@@ -92,6 +92,12 @@
 <meta name="color-scheme" content="light">
 <!-- منع أندرويد/كروم من عكس ألوان الموقع تلقائياً عند تفعيل الوضع الليلي بالهاتف — هوية الموقع
      (Baby Blue) مصممة لتبقى فاتحة دائماً بغض النظر عن إعدادات الجهاز، داخل الموقع والتطبيق سوا -->
+<!-- خط عربي حديث موحّد. كان الموقع يستخدم Tahoma، وهو غير موجود على هواتف أندرويد،
+     فكان كل هاتف يعرض الموقع بخطه الافتراضي. display=swap: يظهر النص فوراً بالخط
+     الاحتياطي ثم يتبدّل حين يصل الخط، فلا تبقى الصفحة فارغة على شبكة بطيئة. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;600;700&display=swap">
 <style>
   html { color-scheme: only light; }
 </style>
@@ -127,7 +133,7 @@
     box-shadow: 0 0 0 3px rgba(92,155,216,0.5);
   }
   body {
-    font-family: 'Tahoma', 'Segoe UI', sans-serif;
+    font-family: 'IBM Plex Sans Arabic', 'Tahoma', 'Segoe UI', sans-serif;
     background: #eaf5fc;
     color: #2c2c2a;
     margin: 0;
@@ -1595,6 +1601,33 @@
   }
   @media (max-width: 700px) {
     body.staff-view .page-panel { background-size: 420px 525px; }
+  }
+
+  /* الحقول لا ترث خط الصفحة افتراضياً في المتصفحات، فنلزمها به */
+  input, select, textarea { font-family: inherit; }
+
+  /* ---- هياكل التحميل ---- */
+  /* بطاقات رمادية تنبض بشكل المحتوى القادم، بدل نص "جارٍ التحميل" */
+  .skeleton-list { display: flex; flex-direction: column; gap: 14px; }
+  .skeleton-card { background: #ffffff; border: 1px solid #e3ebf3; border-radius: 18px; padding: 18px 20px; }
+  .skeleton-line {
+    height: 12px; margin-bottom: 12px; border-radius: 6px;
+    background: linear-gradient(90deg, #eaf0f6 25%, #f6f9fc 37%, #eaf0f6 63%);
+    background-size: 400% 100%; animation: skeletonShimmer 1.4s ease infinite;
+  }
+  .skeleton-line:last-child { margin-bottom: 0; }
+  .skeleton-line.title { height: 16px; width: 55%; }
+  .skeleton-line.w-80 { width: 80%; }
+  .skeleton-line.w-40 { width: 40%; }
+  @keyframes skeletonShimmer { 0% { background-position: 100% 50%; } 100% { background-position: 0 50%; } }
+
+  /* ---- الظهور الناعم عند التمرير ---- */
+  /* الصنف reveal يضيفه JavaScript وحده: إن فشل تحميل الملف يبقى المحتوى ظاهراً لا مخفياً */
+  .reveal { opacity: 0; transform: translateY(18px); transition: opacity .6s ease, transform .6s ease; }
+  .reveal.revealed { opacity: 1; transform: none; }
+  @media (prefers-reduced-motion: reduce) {
+    .skeleton-line { animation: none; }
+    .reveal { opacity: 1; transform: none; transition: none; }
   }
 
   /* ---- بطاقة "انضم إلينا" تحت دخول الصيدلي ---- */
