@@ -233,7 +233,7 @@ router.post('/register', adminAuth, async (req, res) => {
     }
     const passwordHash = await bcrypt.hash(password, 10);
     const pharmacy = await db.addPharmacy({ name, address, phone, city, whatsappPhone: waPhone, managesStock: manages_stock === true || manages_stock === 'true', username, passwordHash });
-    const { owner_password_hash, ...safePharmacy } = pharmacy;
+    const { owner_password_hash: _passwordHash, ...safePharmacy } = pharmacy;
     res.status(201).json(safePharmacy);
   } catch (err) {
     console.error(err);
@@ -758,7 +758,7 @@ router.put('/:id/name', adminAuth, async (req, res) => {
 
     const updated = await db.setPharmacyName(req.params.id, name);
     // نحذف الهاش من الرد بنفس أسلوب مسار التسجيل — صفر تسريب لبيانات المصادقة
-    const { owner_password_hash, ...safePharmacy } = updated;
+    const { owner_password_hash: _passwordHash, ...safePharmacy } = updated;
     res.json(safePharmacy);
   } catch (err) {
     console.error(err);
