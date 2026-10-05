@@ -77,7 +77,7 @@
                  'onDutyToggle','saveDuty','digitsOnly','saveAssistantPhone','updateMedNamePlaceholder',
                  'addMedicineSelf','downloadBulkImportTemplate','handleBulkImportFile','togglePassword',
                  'changeMyPassword','deleteMyAccount',
-                 'saveMainPhone','onAdminAddressSearch','saveAdminAddress','clearAdminLocation','toggleJoinedList'];
+                 'saveMainPhone','heroGoOnDuty','onAdminAddressSearch','saveAdminAddress','clearAdminLocation','toggleJoinedList'];
     early.forEach(function (name) {
       window[name] = function () {
         if (name === 'onSearch' || name === 'submitSearch') window.__pendingSearch = true;
@@ -1606,6 +1606,20 @@
   /* الحقول لا ترث خط الصفحة افتراضياً في المتصفحات، فنلزمها به */
   input, select, textarea { font-family: inherit; }
 
+  /* ---- زر "المناوبة الآن" في الصفحة الرئيسية ---- */
+  /* شكل زر "استشر صيدلياً" وحجمه نفسه، لكن بأخضر "مفتوحة الآن" لا أخضر واتساب:
+     كل لون في الموقع لمعنى واحد، وهذا الزر معناه "مفتوح الآن" لا "راسل". */
+  .duty-now-btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: linear-gradient(135deg, #ffffff 0%, #e8f7f0 100%);
+    border: 1px solid rgba(255,255,255,0.85); color: #0f7a52;
+    padding: 12px 20px; border-radius: 999px; font-size: 14px; font-weight: 600;
+    cursor: pointer; font-family: inherit;
+    box-shadow: 0 8px 20px rgba(15,122,82,0.15); transition: transform .2s ease, box-shadow .2s ease;
+  }
+  .duty-now-btn:hover { transform: translateY(-2px); box-shadow: 0 12px 26px rgba(15,122,82,0.22); }
+  .duty-now-icon { font-size: 14px; }
+
   /* ---- هياكل التحميل ---- */
   /* بطاقات رمادية تنبض بشكل المحتوى القادم، بدل نص "جارٍ التحميل" */
   .skeleton-list { display: flex; flex-direction: column; gap: 14px; }
@@ -1847,6 +1861,9 @@
         </button>
         <button type="button" class="whatsapp-btn" onclick="openWhatsappPanel()">
           <span class="whatsapp-icon">💬</span> <span id="whatsapp-btn-label">استشر صيدلياً</span>
+        </button>
+        <button type="button" class="duty-now-btn" onclick="heroGoOnDuty()">
+          <span class="duty-now-icon" aria-hidden="true">🟢</span> <span id="duty-now-btn-label">المناوبة الآن</span>
         </button>
       </div>
     </div>
