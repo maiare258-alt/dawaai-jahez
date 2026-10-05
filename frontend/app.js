@@ -546,6 +546,7 @@ const translations = {
     location_outside_syria: 'تقع هذه الإحداثيات خارج سوريا. يُرجى التأكد من عدم عكس الرقمين. هل ترغب في حفظها رغم ذلك؟',
     location_swap_suggest: 'يبدو أن الرقمين معكوسان. الموقع الصحيح على الأرجح: {coords}\n\nهل ترغب في اعتماده بهذه الصيغة؟',
     location_admin_label: 'موقع',
+    duty_now_btn_label: 'المناوبة الآن',
     wa_consult_btn_label: 'استشر صيدلياً',
     wa_consult_title: '💬 استشر صيدلياً عبر واتساب',
     wa_consult_desc: 'وصفة طبية غير واضحة، أو استفسار عن جرعة أو بديل دوائي؟ تواصل مباشرة مع أحد الصيادلة.',
@@ -1057,6 +1058,7 @@ const translations = {
     location_outside_syria: 'These coordinates are outside Syria. Make sure you did not swap the two numbers. Save anyway?',
     location_swap_suggest: 'The two numbers look swapped. The correct location is most likely: {coords}\n\nSave it that way?',
     location_admin_label: 'location',
+    duty_now_btn_label: 'On duty now',
     wa_consult_btn_label: 'Ask a pharmacist',
     wa_consult_title: '💬 Ask a pharmacist on WhatsApp',
     wa_consult_desc: 'Unclear prescription? A question about a dose or an alternative? Message a pharmacist directly.',
@@ -1237,6 +1239,7 @@ function applyLanguage() {
   document.getElementById('search-btn').textContent = t('search_btn');
   document.getElementById('cart-btn-label').textContent = t('cart_btn');
   document.getElementById('whatsapp-btn-label').textContent = t('wa_consult_btn_label');
+  document.getElementById('duty-now-btn-label').textContent = t('duty_now_btn_label');
   // ---------- لوحة استشارة واتساب ----------
   document.getElementById('wa-panel-title').textContent = t('wa_consult_title');
   document.getElementById('wa-panel-desc').textContent = t('wa_consult_desc');
@@ -1579,6 +1582,13 @@ function headerGoCosmetics(link) {
   setActiveNav(link);
 }
 
+
+// زر "المناوبة الآن" في الصفحة الرئيسية. على الهاتف رابط "الصيدليات المناوبة" مخفي
+// داخل قائمة ☰، والمريض ليلاً يريد غالباً "من المفتوح الآن" لا دواءً بعينه. الزر يفعل
+// ما يفعله الرابط تماماً، ومنه تمييز الرابط في القائمة، فيبقى التنقل متسقاً.
+function heroGoOnDuty() {
+  headerGoOnDuty(document.querySelector('[onclick="headerGoOnDuty(this)"]'));
+}
 
 function headerGoOnDuty(link) {
   showView('patient');
