@@ -1608,11 +1608,16 @@
 
   /* ---- بطاقة الزيارات في لوحة الإدارة ---- */
   .visits-stats { display: flex; flex-wrap: wrap; gap: 6px 30px; }
+  /* الأعمدة تضيق لتتسع لأي عدد أيام: كان لها عرض أدنى ثابت، فلم تتسع ٩٠ عموداً لعرض
+     الهاتف، ففاضت لليسار ودُفع عمود اليوم (آخرها) خارج البطاقة، فبدا الرسم فارغاً.
+     overflow: hidden ضمانة إضافية ألا يخرج شيء عن حدود البطاقة أبداً. */
   .visits-chart {
     display: flex; align-items: flex-end; gap: 2px; height: 120px; margin: 14px 0 6px; padding: 10px 10px 0;
-    background: #f7fafd; border: 1px solid #e3ebf3; border-radius: 14px;
+    background: #f7fafd; border: 1px solid #e3ebf3; border-radius: 14px; overflow: hidden;
   }
-  .visits-bar { flex: 1 1 0; min-width: 2px; border-radius: 3px 3px 0 0; background: linear-gradient(180deg, #5b9bd5, #185fa5); }
+  .visits-chart.dense { gap: 1px; padding: 10px 6px 0; }
+  .visits-bar { flex: 1 1 0; min-width: 0; border-radius: 3px 3px 0 0; background: linear-gradient(180deg, #5b9bd5, #185fa5); }
+  .visits-bar.zero { background: #d6e2ee; border-radius: 0; }
   .visits-axis { display: flex; justify-content: space-between; font-size: 12px; color: #616e7a; }
 
   /* ---- زر "المناوبة الآن" في الصفحة الرئيسية ---- */
