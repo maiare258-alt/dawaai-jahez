@@ -4878,8 +4878,8 @@ function renderVisitsReport() {
       <div class="demand-total"><bdi>${r.total}</bdi><span>${t('visits_period')}</span></div>
       <div class="demand-total"><bdi>${mobilePct}%</bdi><span>${t('visits_mobile_share')}</span></div>
     </div>
-    <div class="visits-chart" role="img" aria-label="${t('visits_chart_label')}">
-      ${r.series.map(s => `<div class="visits-bar" title="${formatShortDay(s.day)}: ${s.total}" style="height:${Math.max(2, Math.round(s.total / max * 100))}%"></div>`).join('')}
+    <div class="visits-chart${r.series.length > 45 ? ' dense' : ''}" role="img" aria-label="${t('visits_chart_label')}">
+      ${r.series.map(s => `<div class="visits-bar${s.total ? '' : ' zero'}" title="${formatShortDay(s.day)}: ${s.total}" style="height:${s.total ? Math.max(4, Math.round(s.total / max * 100)) : 2}%"></div>`).join('')}
     </div>
     <div class="visits-axis"><span>${formatShortDay(r.series[0].day)}</span><span>${formatShortDay(r.series[r.series.length - 1].day)}</span></div>
     <p class="demand-hint" style="margin-top:12px;">${t('visits_note')}</p>`;
