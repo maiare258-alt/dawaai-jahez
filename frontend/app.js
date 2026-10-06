@@ -455,12 +455,21 @@ const translations = {
     staff_banner_pharmacist_sub: 'حدِّث توفر أدويتك ومناوبتك وساعات دوامك، واستقبل طلبات المرضى من مكان واحد.',
     staff_banner_admin_title: 'لوحة الإدارة',
     staff_banner_admin_sub: 'أدِر الصيدليات والمناوبة والأدوية، وتابع بيانات الطلب وحالة المنصة.',
+    visits_title: '📈 الزيارات',
+    visits_desc: 'عدد زيارات الموقع، لتعرف حجم جمهورك وتعرضه على المعلنين والشركاء.',
+    visits_today: 'زيارات اليوم',
+    visits_period: 'زيارات الفترة',
+    visits_mobile_share: 'من الهاتف',
+    visits_chart_label: 'الزيارات اليومية خلال الفترة المختارة',
+    visits_empty: 'لا زيارات مسجّلة بعد. يبدأ العدّ من لحظة رفع هذا التحديث.',
+    visits_note: 'زيارة واحدة لكل جلسة تصفّح، فمن يزور مرتين يُحسب مرتين. لا تُحفظ أي بيانات عن الزائر، ولا تُحسب زيارات الأجهزة التي دخلت لوحة الإدارة أو لوحة الصيدلي.',
+    visits_load_error: 'تعذّر تحميل الزيارات الآن.',
     launch_title: 'بدء الإطلاق الرسمي',
-    launch_desc: 'يمسح بيانات التجربة: عمليات البحث، والطلبات، وتقييمات الممرضين. ولا يمس الصيدليات ولا الأدوية ولا المخزون ولا الممرضين.',
+    launch_desc: 'يمسح بيانات التجربة: عمليات البحث، والطلبات، وتقييمات الممرضين، وإحصاءات الزيارات. ولا يمس الصيدليات ولا الأدوية ولا المخزون ولا الممرضين.',
     launch_warning: 'يُستخدم مرة واحدة فقط، ثم يختفي هذا القسم نهائياً. وتُنزَّل نسخة احتياطية كاملة تلقائياً قبل المسح.',
     launch_confirm_placeholder: 'اكتب كلمة: حذف',
     launch_btn: 'مسح بيانات التجربة وبدء الإطلاق',
-    launch_final_confirm: 'ستُمسح كل عمليات البحث والطلبات وتقييمات الممرضين نهائياً، ولا يمكن التراجع. هل تريد المتابعة؟',
+    launch_final_confirm: 'ستُمسح كل عمليات البحث والطلبات وتقييمات الممرضين وإحصاءات الزيارات نهائياً، ولا يمكن التراجع. هل تريد المتابعة؟',
     launch_backing_up: 'جارٍ تنزيل النسخة الاحتياطية...',
     launch_resetting: 'جارٍ المسح...',
     launch_backup_failed: 'تعذّر تنزيل النسخة الاحتياطية، فلم يُحذف أي شيء.',
@@ -967,12 +976,21 @@ const translations = {
     staff_banner_pharmacist_sub: 'Update your stock, duty and opening hours, and receive patient orders in one place.',
     staff_banner_admin_title: 'Admin dashboard',
     staff_banner_admin_sub: 'Manage pharmacies, duty and medicines, and follow demand data and platform health.',
+    visits_title: '📈 Visits',
+    visits_desc: 'How many visits the site receives, so you know your audience and can show it to advertisers and partners.',
+    visits_today: 'Visits today',
+    visits_period: 'Visits in period',
+    visits_mobile_share: 'From phones',
+    visits_chart_label: 'Daily visits over the selected period',
+    visits_empty: 'No visits recorded yet. Counting starts the moment this update is uploaded.',
+    visits_note: 'One visit per browsing session, so someone who visits twice counts twice. Nothing about the visitor is stored, and devices that signed in to the admin or pharmacist panel are not counted.',
+    visits_load_error: 'Visits could not be loaded right now.',
     launch_title: 'Official launch',
-    launch_desc: 'Clears test data: searches, orders and nurse ratings. It does not touch pharmacies, medicines, stock or nurses.',
+    launch_desc: 'Clears test data: searches, orders, nurse ratings and visit statistics. It does not touch pharmacies, medicines, stock or nurses.',
     launch_warning: 'This can be used only once, then this section disappears permanently. A full backup is downloaded automatically before anything is cleared.',
     launch_confirm_placeholder: 'Type the word: حذف',
     launch_btn: 'Clear test data and launch',
-    launch_final_confirm: 'All searches, orders and nurse ratings will be deleted permanently, with no undo. Do you want to continue?',
+    launch_final_confirm: 'All searches, orders, nurse ratings and visit statistics will be deleted permanently, with no undo. Do you want to continue?',
     launch_backing_up: 'Downloading backup...',
     launch_resetting: 'Clearing...',
     launch_backup_failed: 'The backup could not be downloaded, so nothing was deleted.',
@@ -3096,6 +3114,7 @@ async function login() {
     const data = await res.json();
     if (!res.ok) { customAlert(translateApiError(data.error), 'error'); return; }
     currentPharmacy = { ...data, username, password };
+    markStaffDevice();
     loadDashboard();
   } catch (err) {
     customAlert(t('server_error_title'), 'error');
@@ -4022,6 +4041,7 @@ async function checkAdminPassword() {
     const res = await fetch(`${API}/pharmacies`, { headers: { 'x-admin-password': password } });
     if (!res.ok) { customAlert(t('wrong_password'), 'error'); return; }
     adminPassword = password;
+    markStaffDevice();
     document.getElementById('admin-auth-section').innerHTML = '';
     document.getElementById('admin-panel').style.display = 'block';
     renderAdminPanel();
@@ -4291,6 +4311,18 @@ function renderAdminPanelUI() {
     </div>
 
     <div class="box" style="margin-bottom:20px;">
+      <h3 style="margin-top:0;">${t('visits_title')}</h3>
+      <p class="muted" style="margin-top:6px;">${t('visits_desc')}</p>
+      <div class="demand-toolbar">
+        <span class="muted">${t('demand_period')}</span>
+        <button type="button" class="visits-period-btn" data-days="7" onclick="loadVisitsReport(7)">${t('demand_days_7')}</button>
+        <button type="button" class="visits-period-btn" data-days="30" onclick="loadVisitsReport(30)">${t('demand_days_30')}</button>
+        <button type="button" class="visits-period-btn" data-days="90" onclick="loadVisitsReport(90)">${t('demand_days_90')}</button>
+      </div>
+      <div id="visits-report" class="demand-report"></div>
+    </div>
+
+    <div class="box" style="margin-bottom:20px;">
       <h3 style="margin-top:0;">${t('demand_title')}</h3>
       <p class="muted" style="margin-top:6px;">${t('demand_desc')}</p>
       <div class="demand-toolbar">
@@ -4462,6 +4494,7 @@ function renderAdminPanelUI() {
   renderBackupInfo();
   checkSystemStatus();
   loadDemandReport();
+  loadVisitsReport();
   loadCertStorageUsage();
 }
 
@@ -4804,6 +4837,68 @@ function renderDemandReport() {
       <div class="demand-block"><h4>${t('demand_not_found')}</h4><p class="demand-hint">${t('demand_not_found_hint')}</p>${demandListHtml(r.notFound, 'query', t('demand_empty'))}</div>
       <div class="demand-block"><h4>${t('demand_by_city')}</h4>${demandListHtml(cityRows, 'name', t('demand_empty'))}</div>
     </div>`;
+}
+
+// ================= عدّاد الزيارات =================
+// زيارة واحدة لكل جلسة تصفّح، ولا يُرسل عن الزائر إلا نوع جهازه (هاتف أو حاسوب).
+// أجهزة من دخل لوحة الإدارة أو الصيدلي لا تُحسب، كي لا تتضخم الأرقام بزياراتك أنت.
+// يُرسل بعد تحميل الصفحة وبلا انتظار: فشله لا يراه الزائر ولا يؤخر شيئاً.
+function markStaffDevice() { storageSet('dj_staff_device', '1'); }
+
+function recordVisitOnce() {
+  try {
+    if (sessionStorage.getItem('dj_visit_counted') || storageGet('dj_staff_device')) return;
+    sessionStorage.setItem('dj_visit_counted', '1');
+  } catch (e) { return; }   // التخزين معطّل: لا نعدّ، أفضل من عدّ الزيارة نفسها مرات
+  const body = JSON.stringify({ device: window.innerWidth <= 768 ? 'mobile' : 'desktop' });
+  try {
+    if (navigator.sendBeacon) navigator.sendBeacon(`${API}/stats/visit`, new Blob([body], { type: 'application/json' }));
+    else fetch(`${API}/stats/visit`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body, keepalive: true }).catch(() => {});
+  } catch (e) { /* العدّ لا يُفشل الصفحة أبداً */ }
+}
+
+let visitsDays = 30;
+let lastVisitsReport = null;
+
+function formatShortDay(day) {
+  return new Date(day + 'T00:00:00Z').toLocaleDateString(currentLang === 'ar' ? 'ar-SY' : 'en-GB', { day: 'numeric', month: 'short', timeZone: 'UTC' });
+}
+
+function renderVisitsReport() {
+  const box = document.getElementById('visits-report');
+  if (!box) return;
+  const r = lastVisitsReport;
+  if (!r) { box.innerHTML = skeletonHtml(1); return; }
+  if (!r.total) { box.innerHTML = `<p class="muted">${t('visits_empty')}</p>`; return; }
+  const max = Math.max(1, ...r.series.map(s => s.total));
+  const mobilePct = Math.round(r.mobile / r.total * 100);
+  box.innerHTML = `
+    <div class="visits-stats">
+      <div class="demand-total"><bdi>${r.today}</bdi><span>${t('visits_today')}</span></div>
+      <div class="demand-total"><bdi>${r.total}</bdi><span>${t('visits_period')}</span></div>
+      <div class="demand-total"><bdi>${mobilePct}%</bdi><span>${t('visits_mobile_share')}</span></div>
+    </div>
+    <div class="visits-chart" role="img" aria-label="${t('visits_chart_label')}">
+      ${r.series.map(s => `<div class="visits-bar" title="${formatShortDay(s.day)}: ${s.total}" style="height:${Math.max(2, Math.round(s.total / max * 100))}%"></div>`).join('')}
+    </div>
+    <div class="visits-axis"><span>${formatShortDay(r.series[0].day)}</span><span>${formatShortDay(r.series[r.series.length - 1].day)}</span></div>
+    <p class="demand-hint" style="margin-top:12px;">${t('visits_note')}</p>`;
+}
+
+async function loadVisitsReport(days) {
+  if (days) visitsDays = days;
+  document.querySelectorAll('.visits-period-btn').forEach(b =>
+    b.classList.toggle('active', Number(b.getAttribute('data-days')) === visitsDays));
+  lastVisitsReport = null;
+  renderVisitsReport();
+  try {
+    const res = await fetch(`${API}/stats/visits?days=${visitsDays}`, { headers: adminHeaders(), cache: 'no-store' });
+    lastVisitsReport = await readJsonOk(res, 'object');
+    renderVisitsReport();
+  } catch (err) {
+    const box = document.getElementById('visits-report');
+    if (box) box.innerHTML = `<p class="muted">${t('visits_load_error')}</p>`;
+  }
 }
 
 async function loadDemandReport(days) {
@@ -5870,6 +5965,7 @@ document.addEventListener('click', (e) => {
 showView('patient');
 applyLanguage();
 setupScrollReveal();
+recordVisitOnce();
 runSearch();
 loadOnDuty();
 updateCartCount();
