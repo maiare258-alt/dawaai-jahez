@@ -1606,6 +1606,38 @@
   /* الحقول لا ترث خط الصفحة افتراضياً في المتصفحات، فنلزمها به */
   input, select, textarea { font-family: inherit; }
 
+  /* ---- بطاقة الإعلانات في لوحة الإدارة ---- */
+  .ad-form { display: flex; flex-direction: column; gap: 10px; margin: 6px 0 16px; padding: 14px; background: #f7fafd; border: 1px solid #e3ebf3; border-radius: 14px; }
+  .ad-form h4 { margin: 0; font-size: 15px; color: #163a5c; }
+  .ad-form > input, .ad-form > button { margin: 0; }
+  /* المعاينة بالنسبة نفسها التي سيراها الزائر (٣:١)، فيرى المدير القصّ قبل النشر */
+  .ad-preview {
+    aspect-ratio: 3 / 1; width: 100%; overflow: hidden; display: flex; align-items: center; justify-content: center;
+    background: #ffffff; border: 1px dashed #b9cde0; border-radius: 12px; text-align: center;
+  }
+  .ad-preview img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .ad-preview .muted { padding: 0 14px; font-size: 13px; }
+  .ad-ratio-warn { margin: 0; font-size: 13px; color: #906400; }
+  .ad-placement, .ad-dates { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; font-size: 14px; }
+  .ad-placement label, .ad-dates label { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
+  /* القاعدة العامة تجعل كل حقل بعرض 100٪، ومنها أزرار الاختيار؛ هنا حجمها الطبيعي كبقية اللوحة */
+  .ad-placement input[type="radio"] { width: 19px; height: 19px; margin: 0; padding: 0; flex: 0 0 auto; accent-color: #185fa5; cursor: pointer; }
+  .ad-dates input[type="date"] { width: auto; margin: 0; padding: 8px 10px; }
+  .ads-list { display: flex; flex-direction: column; gap: 12px; }
+  .ad-item { overflow: hidden; background: #ffffff; border: 1px solid #e3ebf3; border-radius: 14px; }
+  .ad-item > img { display: block; width: 100%; aspect-ratio: 3 / 1; object-fit: cover; background: #eef3f8; }
+  .ad-item-body { display: flex; flex-direction: column; gap: 6px; padding: 12px 14px; }
+  .ad-item-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+  .ad-item-head strong { font-size: 15px; color: #163a5c; }
+  .ad-status { padding: 2px 10px; border-radius: 999px; font-size: 12.5px; font-weight: 700; }
+  .ad-status.running { background: #e8f7f0; color: #0f7a52; }
+  .ad-status.paused { background: #eef2f6; color: #5b6b7a; }
+  .ad-status.scheduled { background: #e9f2fb; color: #185fa5; }
+  .ad-status.ended { background: #f3efe7; color: #7a5d2a; }
+  .ad-meta { font-size: 13px; color: #5b6b7a; overflow-wrap: anywhere; }
+  .ad-item-actions { display: flex; gap: 8px; margin-top: 4px; }
+  .ad-item-actions button { margin: 0; }
+
   /* ---- بطاقة الزيارات في لوحة الإدارة ---- */
   .visits-stats { display: flex; flex-wrap: wrap; gap: 6px 30px; }
   /* الأعمدة تضيق لتتسع لأي عدد أيام: كان لها عرض أدنى ثابت، فلم تتسع ٩٠ عموداً لعرض
