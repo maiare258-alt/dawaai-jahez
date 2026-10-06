@@ -1161,6 +1161,25 @@ async function setAdActive(id, active) {
   return rows[0] || null;
 }
 
+// الإعلانات التي يراها الزوار الآن: مفعّلة وضمن مدتها بتوقيت دمشق. الاسم والرابط فقط،
+// لا الأرقام ولا شيء آخر.
+async function getRunningAds(placement) {
+  const { rows } = await pool.query(
+    `SELECT id, advertiser, link FROM ads
+      WHERE placement = $1 AND active AND (starts_on IS NULL OR starts_on <= (NOW() AT TIME ZONE 'Asia/Damascus')::date)
+         AND (ends_on IS NULL OR ends_on >= (NOW() AT TIME ZONE 'Asia/Damascus')::date)
+      ORDER BY id`, [placement]);
+  return rows;
+}
+
+// ظهور أو نقرة. لا تُحسب إلا لإعلان يعمل الآن: إعلان انتهى أو أُوقف لا تتضخم أرقامه بعد
+// ذلك من صفحة مفتوحة قديمة. عملية واحدة ذرّية، فلا يضيع حدث مع حدث متزامن.
+async function recordAdEvent(id, type) {
+  const col = type === 'click' ? 'clicks' : 'impressions';
+  await pool.query(`UPDATE ads SET ${col} = ${col} + 1 WHERE id = $1 AND active AND (starts_on IS NULL OR starts_on <= (NOW() AT TIME ZONE 'Asia/Damascus')::date)
+         AND (ends_on IS NULL OR ends_on >= (NOW() AT TIME ZONE 'Asia/Damascus')::date)`, [id]);
+}
+
 async function deleteAd(id) {
   const { rowCount } = await pool.query('DELETE FROM ads WHERE id = $1', [id]);
   return rowCount > 0;
@@ -1343,6 +1362,8 @@ module.exports = {
   getAdImage,
   setAdActive,
   deleteAd,
+  getRunningAds,
+  recordAdEvent,
   recordVisit,
   getVisitRows,
   getJoinedPharmacies,
