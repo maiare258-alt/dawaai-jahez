@@ -455,6 +455,7 @@ const translations = {
     staff_banner_pharmacist_sub: 'حدِّث توفر أدويتك ومناوبتك وساعات دوامك، واستقبل طلبات المرضى من مكان واحد.',
     staff_banner_admin_title: 'لوحة الإدارة',
     staff_banner_admin_sub: 'أدِر الصيدليات والمناوبة والأدوية، وتابع بيانات الطلب وحالة المنصة.',
+    ad_label: 'إعلان',
     ads_title: '📢 الإعلانات',
     ads_desc: 'إعلانات مباشرة تبيعها لمعلنين محليين. لا تظهر أبداً في نتائج البحث ولا في قائمة المناوبة.',
     ads_new: 'إعلان جديد',
@@ -1021,6 +1022,7 @@ const translations = {
     staff_banner_pharmacist_sub: 'Update your stock, duty and opening hours, and receive patient orders in one place.',
     staff_banner_admin_title: 'Admin dashboard',
     staff_banner_admin_sub: 'Manage pharmacies, duty and medicines, and follow demand data and platform health.',
+    ad_label: 'Ad',
     ads_title: '📢 Ads',
     ads_desc: 'Direct ads you sell to local advertisers. They never appear in search results or the on-duty list.',
     ads_new: 'New ad',
@@ -1416,6 +1418,7 @@ function applyLanguage() {
   document.getElementById('footer-center').textContent = t('footer_center');
   // السنة الحالية تلقائياً: سنة قديمة في التذييل تجعل الموقع يبدو متروكاً
   document.getElementById('footer-copy').textContent = tFormat('footer_copy', { year: new Date().getFullYear() });
+  renderAdSlot();   // وسم "إعلان" بلغة الواجهة
 
   document.getElementById('lang-toggle-btn').textContent = t('lang_toggle');
   document.getElementById('brand-name').textContent = t('brand_name');
@@ -1679,6 +1682,7 @@ function headerGoHome(link) {
   document.getElementById('on-duty-section').style.display = 'none';
   updateCartVisibility();
   window.scrollTo({ top: 0, behavior: 'smooth' });
+  loadAdSlot();   // إعلانات القسم الجديد (الرئيسية أو التجميل)
   setActiveNav(link);
 }
 
@@ -1694,6 +1698,7 @@ function headerGoCosmetics(link) {
   document.getElementById('on-duty-section').style.display = 'none';
   updateCartVisibility();
   window.scrollTo({ top: 0, behavior: 'smooth' });
+  loadAdSlot();   // إعلانات القسم الجديد (الرئيسية أو التجميل)
   setActiveNav(link);
 }
 
@@ -4964,6 +4969,77 @@ function renderDemandReport() {
     </div>`;
 }
 
+// ================= مساحة الإعلان للزوار =================
+// مساحة واحدة تحت بطاقات الميزات في الصفحة الرئيسية، بعيداً عن نتائج البحث والمناوبة.
+// في وضع مستحضرات التجميل تعرض إعلانات التجميل، وفي الوضع العادي إعلانات الرئيسية.
+// فشل الإعلانات لا يراه الزائر أبداً: لا إعلان، والصفحة سليمة.
+const adSlotLists = {};     // المكان ← الإعلانات العاملة، تُجلب مرة واحدة في الجلسة
+let adSlotCurrent = null;   // الإعلان المعروض الآن
+let adSlotObserver = null;
+
+function currentAdPlacement() { return currentCategory === 'cosmetic' ? 'cosmetic' : 'home'; }
+
+async function loadAdSlot() {
+  const placement = currentAdPlacement();
+  if (!adSlotLists[placement]) {
+    try {
+      const res = await fetchWithTimeout(`${API}/ads/active?placement=${placement}`, {}, 15000);
+      adSlotLists[placement] = await readJsonOk(res);
+    } catch (e) { adSlotLists[placement] = []; }
+  }
+  if (placement !== currentAdPlacement()) return;   // تبدّل القسم أثناء الانتظار
+  const list = adSlotLists[placement];
+  // تناوب عشوائي بين الإعلانات العاملة: كلها تأخذ فرصاً متساوية على المدى
+  adSlotCurrent = list.length ? list[Math.floor(Math.random() * list.length)] : null;
+  renderAdSlot();
+}
+
+function renderAdSlot() {
+  const slot = document.getElementById('ad-slot');
+  if (!slot) return;
+  if (adSlotObserver) { adSlotObserver.disconnect(); adSlotObserver = null; }
+  const ad = adSlotCurrent;
+  if (!ad) { slot.style.display = 'none'; slot.innerHTML = ''; return; }
+  const id = Number(ad.id);
+  // الوسم في الشريط تحت الصورة لا فوقها: الزاوية العليا اليمنى في الإعلانات العربية
+  // هي حيث يبدأ نص المعلن الأهم، والوسم فوقها كان يغطيه
+  const inner = `<img src="${API}/ads/${id}/image" alt="${escapeHtml(ad.advertiser)}" width="1200" height="400" loading="lazy">
+    <span class="ad-foot"><span class="ad-label">${t('ad_label')}</span><span class="ad-advertiser">${escapeHtml(ad.advertiser)}</span></span>`;
+  // الخادم يقبل https وtel فقط، ونتحقق هنا مرة ثانية: لا رابط غيرهما يصبح قابلاً للنقر
+  const link = typeof ad.link === 'string' ? ad.link : '';
+  const isTel = /^tel:\+?\d{6,15}$/.test(link), isWeb = /^https:\/\//i.test(link);
+  slot.innerHTML = (isTel || isWeb)
+    ? `<a class="ad-card" href="${escapeHtml(link)}"${isWeb ? ' target="_blank" rel="noopener noreferrer sponsored"' : ''} onclick="recordAdEvent(${id}, 'click')">${inner}</a>`
+    : `<div class="ad-card">${inner}</div>`;
+  slot.style.display = '';
+  // الظهور يُحسب حين يُرى نصف الإعلان فعلاً على الشاشة، لا لمجرد تحميل الصفحة: فالمعلن
+  // يدفع مقابل من رأى إعلانه، لا مقابل من فتح الصفحة ولم ينزل إليه
+  if ('IntersectionObserver' in window) {
+    adSlotObserver = new IntersectionObserver(entries => {
+      if (!entries.some(e => e.isIntersecting)) return;
+      recordAdEvent(id, 'impression');
+      if (adSlotObserver) { adSlotObserver.disconnect(); adSlotObserver = null; }
+    }, { threshold: 0.5 });
+    adSlotObserver.observe(slot);
+  }
+}
+
+// مرة واحدة لكل إعلان في كل جلسة، لكل نوع (ظهور أو نقرة)، فلا يضخّم زائر واحد الأرقام.
+// وأجهزة من دخل لوحة الإدارة أو الصيدلي لا تُحسب، كما في عدّاد الزيارات.
+function recordAdEvent(id, type) {
+  try {
+    if (storageGet('dj_staff_device')) return;
+    const key = `dj_ad_${type}_${id}`;
+    if (sessionStorage.getItem(key)) return;
+    sessionStorage.setItem(key, '1');
+  } catch (e) { return; }
+  const body = JSON.stringify({ type });
+  try {
+    if (navigator.sendBeacon) navigator.sendBeacon(`${API}/ads/${id}/event`, new Blob([body], { type: 'application/json' }));
+    else fetch(`${API}/ads/${id}/event`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body, keepalive: true }).catch(() => {});
+  } catch (e) { /* العدّ لا يُفشل الصفحة أبداً */ }
+}
+
 // ================= الإعلانات (لوحة الإدارة) =================
 // إعلانات مباشرة يبيعها صاحب المنصة. الصورة تُضغط في المتصفح قبل الرفع (عرض 1200 بكسل
 // كحد أقصى)، فتبقى نحو 100 كيلوبايت ولا تُثقل الموقع على الإنترنت الضعيف.
@@ -6236,6 +6312,7 @@ showView('patient');
 applyLanguage();
 setupScrollReveal();
 recordVisitOnce();
+loadAdSlot();
 runSearch();
 loadOnDuty();
 updateCartCount();
