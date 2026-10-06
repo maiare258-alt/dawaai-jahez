@@ -636,11 +636,11 @@
 
   /* ---- تقرير الطلب ---- */
   .demand-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 12px 0 16px; }
-  .demand-period-btn {
+  .demand-period-btn, .visits-period-btn {
     background: #f4f8fc; color: #163a5c; border: 1px solid #d6e2ee; border-radius: 999px;
     padding: 7px 16px; font-size: 13.5px; font-weight: 600; cursor: pointer;
   }
-  .demand-period-btn.active { background: #185fa5; color: #fff; border-color: #185fa5; }
+  .demand-period-btn.active, .visits-period-btn.active { background: #185fa5; color: #fff; border-color: #185fa5; }
   .demand-export-btn { margin-inline-start: auto; }
   .demand-total {
     display: flex; align-items: baseline; gap: 10px; margin-bottom: 14px;
@@ -1605,6 +1605,15 @@
 
   /* الحقول لا ترث خط الصفحة افتراضياً في المتصفحات، فنلزمها به */
   input, select, textarea { font-family: inherit; }
+
+  /* ---- بطاقة الزيارات في لوحة الإدارة ---- */
+  .visits-stats { display: flex; flex-wrap: wrap; gap: 6px 30px; }
+  .visits-chart {
+    display: flex; align-items: flex-end; gap: 2px; height: 120px; margin: 14px 0 6px; padding: 10px 10px 0;
+    background: #f7fafd; border: 1px solid #e3ebf3; border-radius: 14px;
+  }
+  .visits-bar { flex: 1 1 0; min-width: 2px; border-radius: 3px 3px 0 0; background: linear-gradient(180deg, #5b9bd5, #185fa5); }
+  .visits-axis { display: flex; justify-content: space-between; font-size: 12px; color: #616e7a; }
 
   /* ---- زر "المناوبة الآن" في الصفحة الرئيسية ---- */
   /* شكل زر "استشر صيدلياً" وحجمه نفسه، لكن بأخضر "مفتوحة الآن" لا أخضر واتساب:
