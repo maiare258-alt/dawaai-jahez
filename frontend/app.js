@@ -455,6 +455,51 @@ const translations = {
     staff_banner_pharmacist_sub: 'حدِّث توفر أدويتك ومناوبتك وساعات دوامك، واستقبل طلبات المرضى من مكان واحد.',
     staff_banner_admin_title: 'لوحة الإدارة',
     staff_banner_admin_sub: 'أدِر الصيدليات والمناوبة والأدوية، وتابع بيانات الطلب وحالة المنصة.',
+    ads_title: '📢 الإعلانات',
+    ads_desc: 'إعلانات مباشرة تبيعها لمعلنين محليين. لا تظهر أبداً في نتائج البحث ولا في قائمة المناوبة.',
+    ads_new: 'إعلان جديد',
+    ads_advertiser_ph: 'اسم المعلن',
+    ads_pick_image: '📷 اختيار صورة',
+    ads_preview_empty: 'معاينة الصورة كما ستظهر للزائر (نسبة ٣:١، مثل 1200×400 بكسل)',
+    ads_ratio_warn: 'الصورة ليست بنسبة ٣:١، فسيُقصّ منها ما لا تراه في المعاينة. اطلب من المعلن صورة بنسبة ٣:١ إن أمكن.',
+    ads_link_ph: 'الرابط (اختياري)',
+    ads_link_hint: 'موقع يبدأ بـ https://، أو رابط واتساب wa.me، أو رقم هاتف.',
+    ads_placement: 'المكان:',
+    ads_place_home: 'الرئيسية',
+    ads_place_cosmetic: 'مستحضرات التجميل',
+    ads_from: 'من',
+    ads_to: 'إلى',
+    ads_submit: 'إضافة الإعلان',
+    ads_preparing: 'جارٍ تجهيز الصورة...',
+    ads_uploading: 'جارٍ الرفع...',
+    ads_added: 'أُضيف الإعلان.',
+    ads_need_advertiser: 'اكتب اسم المعلن (حتى 80 حرفاً).',
+    ads_need_image: 'اختر صورة الإعلان.',
+    ads_bad_type: 'نوع الصورة غير مقبول. اختر صورة JPG أو PNG أو WEBP.',
+    ads_too_big: 'الصورة كبيرة جداً حتى بعد ضغطها. جرّب صورة أصغر.',
+    ads_bad_link: 'الرابط غير مقبول: يجب أن يبدأ بـ https:// أو أن يكون رقم هاتف.',
+    ads_bad_date: 'تاريخ غير صالح.',
+    ads_bad_place: 'مكان الإعلان غير صالح.',
+    ads_dates_order: 'تاريخ النهاية قبل تاريخ البداية.',
+    ads_not_found: 'الإعلان غير موجود.',
+    ads_empty: 'لا إعلانات بعد.',
+    ads_load_error: 'تعذّر تحميل الإعلانات الآن.',
+    ads_status_running: '🟢 يعمل',
+    ads_status_paused: '⏸️ متوقف',
+    ads_status_scheduled: '⏳ لم يبدأ',
+    ads_status_ended: '⌛ انتهى',
+    ads_in_home: 'في الرئيسية',
+    ads_in_cosmetic: 'في مستحضرات التجميل',
+    ads_counts: 'الظهور: {i} · النقرات: {c}',
+    ads_range_both: 'من {a} حتى {b}',
+    ads_range_from: 'من {a}، بلا تاريخ انتهاء',
+    ads_range_to: 'حتى {b}',
+    ads_range_none: 'بلا مدة محددة',
+    ads_pause: 'إيقاف',
+    ads_resume: 'استئناف',
+    ads_delete: 'حذف',
+    ads_delete_confirm: 'هل ترغب في حذف إعلان «{name}» نهائياً؟ ستُحذف أرقامه أيضاً.',
+    ads_deleted: 'حُذف الإعلان.',
     visits_title: '📈 الزيارات',
     visits_desc: 'عدد زيارات الموقع، لتعرف حجم جمهورك وتعرضه على المعلنين والشركاء.',
     visits_today: 'زيارات اليوم',
@@ -976,6 +1021,51 @@ const translations = {
     staff_banner_pharmacist_sub: 'Update your stock, duty and opening hours, and receive patient orders in one place.',
     staff_banner_admin_title: 'Admin dashboard',
     staff_banner_admin_sub: 'Manage pharmacies, duty and medicines, and follow demand data and platform health.',
+    ads_title: '📢 Ads',
+    ads_desc: 'Direct ads you sell to local advertisers. They never appear in search results or the on-duty list.',
+    ads_new: 'New ad',
+    ads_advertiser_ph: 'Advertiser name',
+    ads_pick_image: '📷 Choose image',
+    ads_preview_empty: 'Preview of the image as visitors will see it (3:1 ratio, e.g. 1200×400 px)',
+    ads_ratio_warn: 'The image is not 3:1, so whatever falls outside the preview will be cropped. Ask the advertiser for a 3:1 image if possible.',
+    ads_link_ph: 'Link (optional)',
+    ads_link_hint: 'A site starting with https://, a WhatsApp wa.me link, or a phone number.',
+    ads_placement: 'Placement:',
+    ads_place_home: 'Home',
+    ads_place_cosmetic: 'Cosmetics',
+    ads_from: 'From',
+    ads_to: 'To',
+    ads_submit: 'Add ad',
+    ads_preparing: 'Preparing the image...',
+    ads_uploading: 'Uploading...',
+    ads_added: 'Ad added.',
+    ads_need_advertiser: 'Enter the advertiser name (up to 80 characters).',
+    ads_need_image: 'Choose the ad image.',
+    ads_bad_type: 'Image type not accepted. Choose a JPG, PNG or WEBP image.',
+    ads_too_big: 'The image is too large even after compression. Try a smaller one.',
+    ads_bad_link: 'Link not accepted: it must start with https:// or be a phone number.',
+    ads_bad_date: 'Invalid date.',
+    ads_bad_place: 'Invalid ad placement.',
+    ads_dates_order: 'The end date is before the start date.',
+    ads_not_found: 'Ad not found.',
+    ads_empty: 'No ads yet.',
+    ads_load_error: 'Ads could not be loaded right now.',
+    ads_status_running: '🟢 Running',
+    ads_status_paused: '⏸️ Paused',
+    ads_status_scheduled: '⏳ Not started',
+    ads_status_ended: '⌛ Ended',
+    ads_in_home: 'On the home page',
+    ads_in_cosmetic: 'In cosmetics',
+    ads_counts: 'Impressions: {i} · Clicks: {c}',
+    ads_range_both: 'From {a} to {b}',
+    ads_range_from: 'From {a}, no end date',
+    ads_range_to: 'Until {b}',
+    ads_range_none: 'No set period',
+    ads_pause: 'Pause',
+    ads_resume: 'Resume',
+    ads_delete: 'Delete',
+    ads_delete_confirm: 'Delete the ad «{name}» permanently? Its numbers will be deleted too.',
+    ads_deleted: 'Ad deleted.',
     visits_title: '📈 Visits',
     visits_desc: 'How many visits the site receives, so you know your audience and can show it to advertisers and partners.',
     visits_today: 'Visits today',
@@ -1222,6 +1312,13 @@ const BACKEND_ERROR_MAP = {
   'التعليق طويل جداً': 'comment_too_long_error',
   'كلمة التأكيد غير صحيحة': 'launch_failed',
   'سنوات الخبرة يجب أن تكون رقماً بين 0 و60': 'exp_years_invalid',
+  'اسم المعلن مطلوب (حتى 80 حرفاً)': 'ads_need_advertiser',
+  'مكان الإعلان غير صالح': 'ads_bad_place',
+  'الرابط غير مقبول: يجب أن يبدأ بـ https:// أو أن يكون رقم هاتف': 'ads_bad_link',
+  'الرابط طويل جداً': 'ads_bad_link',
+  'تاريخ غير صالح': 'ads_bad_date',
+  'تاريخ النهاية قبل تاريخ البداية': 'ads_dates_order',
+  'الإعلان غير موجود': 'ads_not_found',
   'رقم الهاتف مطلوب': 'phone_required_error',
   'رقم الهاتف غير صالح': 'phone_invalid_error',
   'العنوان طويل جداً': 'address_too_long_error',
@@ -4337,6 +4434,32 @@ function renderAdminPanelUI() {
     </div>
 
     <div class="box" style="margin-bottom:20px;">
+      <h3 style="margin-top:0;">${t('ads_title')}</h3>
+      <p class="muted" style="margin-top:6px;">${t('ads_desc')}</p>
+      <div class="ad-form">
+        <h4>${t('ads_new')}</h4>
+        <input id="ad-advertiser" maxlength="80" placeholder="${t('ads_advertiser_ph')}">
+        <input type="file" id="ad-image-file" accept="image/jpeg,image/png,image/webp" style="display:none" onchange="onAdImageChosen(this)">
+        <button type="button" class="btn-outline blue" id="ad-pick-btn" onclick="document.getElementById('ad-image-file').click()">${t('ads_pick_image')}</button>
+        <div class="ad-preview" id="ad-preview"><span class="muted">${t('ads_preview_empty')}</span></div>
+        <p class="ad-ratio-warn" id="ad-ratio-warn" style="display:none">${t('ads_ratio_warn')}</p>
+        <input id="ad-link" maxlength="300" dir="ltr" placeholder="${t('ads_link_ph')}">
+        <p class="demand-hint" style="margin:-8px 0 0;">${t('ads_link_hint')}</p>
+        <div class="ad-placement">
+          <span>${t('ads_placement')}</span>
+          <label><input type="radio" name="ad-placement" value="home" checked> ${t('ads_place_home')}</label>
+          <label><input type="radio" name="ad-placement" value="cosmetic"> ${t('ads_place_cosmetic')}</label>
+        </div>
+        <div class="ad-dates">
+          <label>${t('ads_from')} <input type="date" id="ad-starts"></label>
+          <label>${t('ads_to')} <input type="date" id="ad-ends"></label>
+        </div>
+        <button type="button" class="primary" id="ad-submit" onclick="submitAd()">${t('ads_submit')}</button>
+      </div>
+      <div id="ads-list" class="ads-list"></div>
+    </div>
+
+    <div class="box" style="margin-bottom:20px;">
       <h3 style="margin-top:0;">${t('backup_title')}</h3>
       <p class="muted" style="margin-top:6px;">${t('backup_desc')}</p>
 
@@ -4495,6 +4618,8 @@ function renderAdminPanelUI() {
   checkSystemStatus();
   loadDemandReport();
   loadVisitsReport();
+  pendingAdImage = null;
+  loadAdsAdmin();
   loadCertStorageUsage();
 }
 
@@ -4837,6 +4962,151 @@ function renderDemandReport() {
       <div class="demand-block"><h4>${t('demand_not_found')}</h4><p class="demand-hint">${t('demand_not_found_hint')}</p>${demandListHtml(r.notFound, 'query', t('demand_empty'))}</div>
       <div class="demand-block"><h4>${t('demand_by_city')}</h4>${demandListHtml(cityRows, 'name', t('demand_empty'))}</div>
     </div>`;
+}
+
+// ================= الإعلانات (لوحة الإدارة) =================
+// إعلانات مباشرة يبيعها صاحب المنصة. الصورة تُضغط في المتصفح قبل الرفع (عرض 1200 بكسل
+// كحد أقصى)، فتبقى نحو 100 كيلوبايت ولا تُثقل الموقع على الإنترنت الضعيف.
+let pendingAdImage = null;   // { blob, w, h } للصورة المختارة بعد ضغطها
+let adsAdminCache = [];
+
+function compressAdImage(file) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      const scale = Math.min(1, 1200 / img.naturalWidth, 1200 / img.naturalHeight);
+      const c = document.createElement('canvas');
+      c.width = Math.round(img.naturalWidth * scale); c.height = Math.round(img.naturalHeight * scale);
+      const ctx = c.getContext('2d');
+      ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, c.width, c.height);   // خلفية بيضاء لصور PNG الشفافة
+      ctx.drawImage(img, 0, 0, c.width, c.height);
+      URL.revokeObjectURL(url);
+      c.toBlob(b => b ? resolve({ blob: b, w: c.width, h: c.height }) : reject(new Error('compress failed')), 'image/jpeg', 0.82);
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('bad image')); };
+    img.src = url;
+  });
+}
+
+async function onAdImageChosen(input) {
+  const file = input.files && input.files[0];
+  input.value = '';   // يسمح باختيار الصورة نفسها مرة أخرى
+  if (!file) return;
+  if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) { await customAlert(t('ads_bad_type'), 'warning'); return; }
+  const btn = document.getElementById('ad-pick-btn');
+  if (btn) { btn.disabled = true; btn.textContent = t('ads_preparing'); }
+  try {
+    pendingAdImage = await compressAdImage(file);
+  } catch (e) {
+    pendingAdImage = null;
+    await customAlert(t('ads_bad_type'), 'warning');
+  }
+  if (btn) { btn.disabled = false; btn.textContent = t('ads_pick_image'); }
+  const box = document.getElementById('ad-preview');
+  if (box && pendingAdImage) box.innerHTML = `<img alt="" src="${URL.createObjectURL(pendingAdImage.blob)}">`;
+  const warn = document.getElementById('ad-ratio-warn');
+  if (warn && pendingAdImage) warn.style.display = Math.abs(pendingAdImage.w / pendingAdImage.h - 3) / 3 > 0.1 ? '' : 'none';
+}
+
+// "0933 123 456" ← tel:0933123456، و"www.x.com" ← https://www.x.com، و"wa.me/963..." ← https://wa.me/963...
+function normalizeAdLink(raw) {
+  const v = String(raw || '').trim();
+  if (!v) return '';
+  const digits = v.replace(/[\s()-]/g, '');
+  if (/^\+?\d{6,15}$/.test(digits)) return 'tel:' + digits;
+  if (/^(www\.|wa\.me\/)/i.test(v)) return 'https://' + v;
+  return v;
+}
+
+async function submitAd() {
+  const advertiser = document.getElementById('ad-advertiser').value.trim();
+  if (!advertiser) { await customAlert(t('ads_need_advertiser'), 'warning'); return; }
+  if (!pendingAdImage) { await customAlert(t('ads_need_image'), 'warning'); return; }
+  const starts = document.getElementById('ad-starts').value, ends = document.getElementById('ad-ends').value;
+  if (starts && ends && ends < starts) { await customAlert(t('ads_dates_order'), 'warning'); return; }
+  const placement = (document.querySelector('input[name="ad-placement"]:checked') || {}).value || 'home';
+  const qs = new URLSearchParams({ advertiser, link: normalizeAdLink(document.getElementById('ad-link').value), placement, starts, ends });
+  const btn = document.getElementById('ad-submit');
+  if (btn) { btn.disabled = true; btn.textContent = t('ads_uploading'); }
+  try {
+    const headers = adminHeaders(); headers['Content-Type'] = pendingAdImage.blob.type || 'image/jpeg';
+    const res = await fetchWithTimeout(`${API}/ads?${qs}`, { method: 'POST', headers, body: pendingAdImage.blob }, 60000);
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      const msg = data.code === 'TOOBIG' ? t('ads_too_big') : data.code === 'BADTYPE' ? t('ads_bad_type') : translateApiError(data.error);
+      await customAlert(msg, 'error');
+      return;
+    }
+    pendingAdImage = null;
+    ['ad-advertiser', 'ad-link', 'ad-starts', 'ad-ends'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+    document.getElementById('ad-preview').innerHTML = `<span class="muted">${t('ads_preview_empty')}</span>`;
+    document.getElementById('ad-ratio-warn').style.display = 'none';
+    await loadAdsAdmin();
+    await customAlert(t('ads_added'), 'success');
+  } catch (err) {
+    await customAlert(t('err_network'), 'error');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = t('ads_submit'); }
+  }
+}
+
+function adRangeText(ad) {
+  const a = ad.starts_on ? formatShortDay(ad.starts_on) : '', b = ad.ends_on ? formatShortDay(ad.ends_on) : '';
+  if (a && b) return tFormat('ads_range_both', { a, b });
+  if (a) return tFormat('ads_range_from', { a });
+  if (b) return tFormat('ads_range_to', { b });
+  return t('ads_range_none');
+}
+
+function renderAdsAdmin() {
+  const box = document.getElementById('ads-list');
+  if (!box) return;
+  if (!adsAdminCache.length) { box.innerHTML = `<p class="muted">${t('ads_empty')}</p>`; return; }
+  box.innerHTML = adsAdminCache.map(ad => `
+    <div class="ad-item">
+      <img alt="${escapeHtml(ad.advertiser)}" loading="lazy" src="${API}/ads/${ad.id}/image">
+      <div class="ad-item-body">
+        <div class="ad-item-head">
+          <strong>${escapeHtml(ad.advertiser)}</strong>
+          <span class="ad-status ${escapeHtml(ad.status)}">${t('ads_status_' + (['running', 'paused', 'scheduled', 'ended'].includes(ad.status) ? ad.status : 'paused'))}</span>
+        </div>
+        <div class="ad-meta">${t(ad.placement === 'cosmetic' ? 'ads_in_cosmetic' : 'ads_in_home')} · ${adRangeText(ad)}</div>
+        <div class="ad-meta">${tFormat('ads_counts', { i: Number(ad.impressions) || 0, c: Number(ad.clicks) || 0 })}</div>
+        ${ad.link ? `<div class="ad-meta" dir="ltr" style="text-align:right;">${escapeHtml(ad.link)}</div>` : ''}
+        <div class="ad-item-actions">
+          <button type="button" class="btn-outline blue small" onclick="setAdActiveAdmin(${ad.id}, ${!ad.active})">${ad.active ? t('ads_pause') : t('ads_resume')}</button>
+          <button type="button" class="btn-outline red small" onclick="deleteAdAdmin(${ad.id})">${t('ads_delete')}</button>
+        </div>
+      </div>
+    </div>`).join('');
+}
+
+async function loadAdsAdmin() {
+  const box = document.getElementById('ads-list');
+  if (!box) return;
+  box.innerHTML = skeletonHtml(1);
+  try {
+    const res = await fetch(`${API}/ads/admin`, { headers: adminHeaders(), cache: 'no-store' });
+    adsAdminCache = await readJsonOk(res);
+    renderAdsAdmin();
+  } catch (err) {
+    box.innerHTML = `<p class="muted">${t('ads_load_error')}</p>`;
+  }
+}
+
+async function setAdActiveAdmin(id, active) {
+  if (!(await runAction(`${API}/ads/${id}/active`, { method: 'PUT', headers: adminHeaders(), body: JSON.stringify({ active }) }))) return;
+  loadAdsAdmin();
+}
+
+async function deleteAdAdmin(id) {
+  const ad = adsAdminCache.find(x => x.id === id);
+  if (!ad) return;
+  if (!(await customConfirm(tFormat('ads_delete_confirm', { name: ad.advertiser }), 'warning'))) return;
+  if (!(await runAction(`${API}/ads/${id}`, { method: 'DELETE', headers: adminHeaders() }))) return;
+  await loadAdsAdmin();
+  await customAlert(t('ads_deleted'), 'success');
 }
 
 // ================= عدّاد الزيارات =================
