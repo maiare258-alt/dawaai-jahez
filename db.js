@@ -270,7 +270,18 @@ async function initDb() {
   // كانت تُفعَّل يدوياً من لوحة Supabase، فلا تُطبَّق عند الاسترجاع إلى قاعدة جديدة.
   // آمنة للتكرار (تفعيلها مرة ثانية لا يفعل شيئاً)، والخادم يتصل بصفته مالك الجداول
   // فلا تقيّده. ملفوفة بـtry/catch: فشلها لا يمنع الإقلاع أبداً.
-  for (const table of ['search_log', 'app_settings']) {
+  // إحصاءات الزيارات (أكتوبر 2026): أرقام مجمّعة فقط، سطر لكل يوم ونوع جهاز.
+  // لا عنوان IP ولا هوية ولا أي أثر لزائر بعينه، فلا يمكن أصلاً معرفة من زار.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS visit_daily (
+      day DATE NOT NULL,
+      device TEXT NOT NULL,
+      visits INTEGER NOT NULL DEFAULT 0,
+      PRIMARY KEY (day, device)
+    );
+  `);
+
+  for (const table of ['search_log', 'app_settings', 'visit_daily']) {
     try {
       await pool.query(`ALTER TABLE ${table} ENABLE ROW LEVEL SECURITY;`);
     } catch (err) {
@@ -699,7 +710,7 @@ async function ping(timeoutMs = 4000) {
 // الحسابات ويلزم إعادة تعيين كلمة مرور كل صيدلية. الهاش ليس كلمة مرور، لكن
 // الملف يبقى حساساً ويجب حفظه في مكان آمن.
 async function exportAll() {
-  const tables = ['pharmacies', 'medicines', 'stock', 'orders', 'nurses', 'nurse_ratings', 'search_log', 'app_settings'];
+  const tables = ['pharmacies', 'medicines', 'stock', 'orders', 'nurses', 'nurse_ratings', 'search_log', 'app_settings', 'visit_daily'];
   const data = {};
   for (const table of tables) {
     // أسماء الجداول ثابتة في المصفوفة أعلاه ولا تأتي من المستخدم إطلاقاً،
@@ -823,11 +834,13 @@ async function launchReset() {
     const searches = await client.query('DELETE FROM search_log');
     const orders = await client.query('DELETE FROM orders');
     const ratings = await client.query('DELETE FROM nurse_ratings');
+    // زيارات التجربة قبل الإطلاق (زياراتك أنت والاختبارات) لا تُعرض على المعلنين أرقاماً حقيقية
+    const visits = await client.query('DELETE FROM visit_daily');
     await client.query('COMMIT');
     return {
       alreadyLaunched: false,
       launchedAt,
-      deleted: { searches: searches.rowCount, orders: orders.rowCount, ratings: ratings.rowCount }
+      deleted: { searches: searches.rowCount, orders: orders.rowCount, ratings: ratings.rowCount, visitDays: visits.rowCount }
     };
   } catch (err) {
     await client.query('ROLLBACK').catch(() => {});
@@ -1072,6 +1085,23 @@ async function getJoinedPharmacies() {
   return rows;
 }
 
+// زيارة واحدة تُضاف إلى عدّاد يومها (بتوقيت دمشق) ونوع جهازها. عملية واحدة ذرّية،
+// فزيارتان في اللحظة نفسها لا تضيع إحداهما.
+async function recordVisit(device) {
+  await pool.query(
+    `INSERT INTO visit_daily (day, device, visits)
+     VALUES ((NOW() AT TIME ZONE 'Asia/Damascus')::date, $1, 1)
+     ON CONFLICT (day, device) DO UPDATE SET visits = visit_daily.visits + 1`, [device]);
+}
+
+async function getVisitRows(days) {
+  const { rows } = await pool.query(
+    `SELECT to_char(day, 'YYYY-MM-DD') AS day, device, visits FROM visit_daily
+      WHERE day > (NOW() AT TIME ZONE 'Asia/Damascus')::date - $1::int
+      ORDER BY day`, [days]);
+  return rows;
+}
+
 async function getNurseById(id) {
   const { rows } = await pool.query('SELECT * FROM nurses WHERE id = $1', [id]);
   return rows[0] || null;
@@ -1244,6 +1274,8 @@ module.exports = {
   getNursesWithRatings,
   addNurse,
   getNurseById,
+  recordVisit,
+  getVisitRows,
   getJoinedPharmacies,
   setNurseProfile,
   setNurseCertificate,
