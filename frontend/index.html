@@ -1606,6 +1606,24 @@
   /* الحقول لا ترث خط الصفحة افتراضياً في المتصفحات، فنلزمها به */
   input, select, textarea { font-family: inherit; }
 
+  /* ---- مساحة الإعلان للزوار ---- */
+  /* بيضاء محايدة بحد رمادي، لا بالأزرق ولا بالأخضر، كي لا تُخلط بعناصر الموقع نفسه،
+     ووسم "إعلان" واضح دائماً: الشفافية جزء من الثقة */
+  .ad-slot { max-width: 820px; margin: 26px auto 4px; }
+  .ad-card {
+    position: relative; display: block; overflow: hidden; color: inherit; text-decoration: none;
+    background: #ffffff; border: 1px solid #e3ebf3; border-radius: 16px; box-shadow: 0 6px 18px rgba(24,95,165,0.06);
+  }
+  .ad-card img { display: block; width: 100%; height: auto; aspect-ratio: 3 / 1; object-fit: cover; background: #eef3f8; }
+  .ad-foot { display: flex; align-items: center; gap: 10px; padding: 9px 14px 11px; }
+  .ad-label {
+    flex: 0 0 auto; padding: 2px 10px; border-radius: 999px;
+    background: #eef2f6; border: 1px solid #dbe5ee; color: #5b6b7a; font-size: 12px; font-weight: 700;
+  }
+  .ad-advertiser { font-size: 13.5px; color: #5b6b7a; min-width: 0; overflow-wrap: anywhere; }
+  a.ad-card:hover { box-shadow: 0 10px 24px rgba(24,95,165,0.12); }
+  a.ad-card:focus-visible { outline: 3px solid #185fa5; outline-offset: 2px; }
+
   /* ---- بطاقة الإعلانات في لوحة الإدارة ---- */
   .ad-form { display: flex; flex-direction: column; gap: 10px; margin: 6px 0 16px; padding: 14px; background: #f7fafd; border: 1px solid #e3ebf3; border-radius: 14px; }
   .ad-form h4 { margin: 0; font-size: 15px; color: #163a5c; }
@@ -2029,6 +2047,2321 @@
           <p class="feature-desc" id="feature3-desc">اجمع الأدوية قبل زيارة الصيدلية.</p>
         </div>
       </div>
+      <!-- مساحة الإعلان: يملؤها app.js بإعلان عامل، أو تبقى مخفية إن لم يوجد -->
+      <div id="ad-slot" class="ad-slot" style="display:none"></div>
+      <h2 class="about-title-lg" id="about-title">حول الموقع</h2>
+      <p class="about-desc-lg" id="about-desc">دوائي جاهز منصة سورية محلية انطلقت من مدينة سلمية، هدفها مساعدتك على معرفة توفر دوائك في الصيدليات القريبة فوراً، بدل التنقل من صيدلية لصيدلية بحثاً عن دواء قد لا يكون متوفراً.</p>
+    </div>
+
+    <div class="section-divider"></div>
+
+    <footer class="site-footer">
+      <div class="footer-inner">
+        <div class="footer-links">
+          <a onclick="headerGoHome()" id="footer-home">الرئيسية</a>
+          <span class="footer-sep">|</span>
+          <a onclick="headerGoOnDuty()" id="footer-onduty">الصيدليات المناوبة</a>
+          <span class="footer-sep">|</span>
+          <a onclick="showContactUs()" id="footer-contact">تواصل معنا</a>
+          <span class="footer-sep">|</span>
+          <a onclick="showFaq()" id="footer-faq">الأسئلة الشائعة</a>
+          <span class="footer-sep">|</span>
+          <a onclick="showAboutUs()" id="footer-about">حول الموقع</a>
+        </div>
+        <div class="footer-center" id="footer-center">منصة سورية للبحث عن توفر الأدوية في الصيدليات.</div>
+        <div class="footer-copy" id="footer-copy">دوائي جاهز، جميع الحقوق محفوظة © 2026</div>
+      </div>
+    </footer>
+  </div>
+
+  <div id="view-pharmacist" style="display:none;">
+    <div id="pharmacist-auth-section"></div>
+    <div id="pharmacist-dashboard" style="display:none;">
+      <h2 class="dash-title" id="pharm-dash-title">لوحة الصيدلي</h2>
+      <div class="muted" id="pharmacy-label" style="display:flex; align-items:center; justify-content:space-between; margin-bottom:16px;"></div>
+      <div class="stats-grid stats-grid-5" id="stats-grid"></div>
+      <div class="orders-wrap" id="orders-wrap" style="display:none;">
+        <h3 style="margin-top:0;" id="new-orders-title">🛎️ طلبات جديدة من المرضى</h3>
+        <div id="orders-list"></div>
+      </div>
+      <div class="box" style="margin-bottom:20px;">
+        <h3 style="margin-top:0;" id="duty-status-title">🕐 حالة المناوبة</h3>
+        <label style="display:flex; align-items:center; gap:8px; font-size:16px; margin-bottom:12px;">
+          <input type="checkbox" id="duty-checkbox" onchange="onDutyToggle()"> <span id="duty-checkbox-label">صيدليتي مناوبة اليوم</span>
+        </label>
+        <select id="duty-day" disabled>
+          <option value="الأحد" id="opt-day-sun">الأحد</option>
+          <option value="الاثنين" id="opt-day-mon">الاثنين</option>
+          <option value="الثلاثاء" id="opt-day-tue">الثلاثاء</option>
+          <option value="الأربعاء" id="opt-day-wed">الأربعاء</option>
+          <option value="الخميس" id="opt-day-thu">الخميس</option>
+          <option value="الجمعة" id="opt-day-fri">الجمعة</option>
+          <option value="السبت" id="opt-day-sat">السبت</option>
+        </select>
+        <select id="duty-shift" disabled>
+          <option value="طوال اليوم" id="opt-shift-allday">طوال اليوم</option>
+          <option value="صباحاً" id="opt-shift-morning">صباحاً فقط</option>
+          <option value="مساءً" id="opt-shift-evening">مساءً فقط</option>
+        </select>
+        <button class="primary" onclick="saveDuty()" id="save-duty-btn">حفظ حالة المناوبة</button>
+      </div>
+      <div class="box" style="margin-bottom:20px;">
+        <h3 style="margin-top:0;" id="duty-hours-title">⏱️ تحديد ساعات المناوبة (اختياري)</h3>
+        <p class="muted" style="margin-top:-8px;" id="duty-hours-desc">حدِّد التوقيت ليظهر إلى جانب يوم المناوبة.</p>
+        <div style="display:flex; gap:12px;">
+          <div style="flex:1;">
+            <label class="muted" style="font-size:14px; display:block; margin-bottom:4px;" id="duty-start-label" for="duty-start-time">من الساعة</label>
+            <input type="time" id="duty-start-time" disabled>
+          </div>
+          <div style="flex:1;">
+            <label class="muted" style="font-size:14px; display:block; margin-bottom:4px;" id="duty-end-label" for="duty-end-time">إلى الساعة</label>
+            <input type="time" id="duty-end-time" disabled>
+          </div>
+        </div>
+      </div>
+      <div class="box" style="margin-bottom:20px;">
+        <h3 style="margin-top:0;" id="main-phone-title">☎️ الهاتف الأرضي للصيدلية</h3>
+        <p class="muted" style="margin-top:-8px;" id="main-phone-desc">الرقم الأساسي الذي يظهر للمرضى بجانب الرمز 📞. اكتبه مع رمز المنطقة إن أمكن.</p>
+        <input id="main-phone-input" type="tel" inputmode="tel" autocomplete="off" placeholder="رقم الهاتف الأرضي">
+        <button class="primary" onclick="saveMainPhone()" id="save-main-phone-btn">حفظ الرقم</button>
+      </div>
+
+      <div class="box" style="margin-bottom:20px;">
+        <h3 style="margin-top:0;" id="assistant-phone-title">📱 رقم صيدلي مساعد (اختياري)</h3>
+        <p class="muted" style="margin-top:-8px;" id="assistant-phone-desc">رقم تواصل إضافي يظهر للمرضى إلى جانب رقمك الأساسي، ويفيد عند ازدحام العمل.</p>
+        <input id="assistant-phone-input" type="tel" inputmode="numeric" oninput="digitsOnly(this)" placeholder="رقم الهاتف المساعد">
+        <button class="primary" onclick="saveAssistantPhone()" id="save-assistant-phone-btn">حفظ الرقم المساعد</button>
+      </div>
+
+      <div class="box" style="margin-top:20px;">
+        <h3 style="margin-top:0;" id="whatsapp-phone-section-title">💬 رقم واتساب الصيدلية</h3>
+        <input id="whatsapp-phone-input" type="tel" inputmode="numeric" placeholder="رقم واتساب (مثال: 0932985852)">
+        <p class="muted" id="whatsapp-phone-hint" style="margin-top:-4px; font-size:13px;">لن يظهر زر المراسلة للمرضى إلا إذا أدخلت رقماً. اترك الحقل فارغاً لإخفائه.</p>
+        <button class="primary" onclick="saveWhatsappPhone()" id="save-whatsapp-btn">حفظ رقم واتساب</button>
+      </div>
+
+      <div class="box" style="margin-top:20px;">
+        <h3 style="margin-top:0;" id="hours-section-title">🕒 ساعات دوام الصيدلية</h3>
+        <p class="muted" id="hours-section-desc" style="margin-top:-8px;">حدِّد ساعات الدوام مرة واحدة، لتُحسب حالة الفتح والإغلاق تلقائياً كل يوم. يمنع هذا وصول طلبات في ساعات متأخرة دون أن يعرف المريض أنك مغلق.</p>
+
+        <div id="hours-current" class="hours-current"></div>
+
+        <div class="hours-inputs">
+          <label class="hours-field">
+            <span id="hours-opens-label">وقت الفتح</span>
+            <input id="hours-opens-input" type="time" step="60">
+          </label>
+          <label class="hours-field">
+            <span id="hours-closes-label">وقت الإغلاق</span>
+            <input id="hours-closes-input" type="time" step="60">
+          </label>
+        </div>
+
+        <div class="hours-actions">
+          <button type="button" class="primary" onclick="savePharmacyHours()" id="save-hours-btn">حفظ ساعات الدوام</button>
+          <button type="button" class="btn-outline red" onclick="clearPharmacyHours()" id="clear-hours-btn">مسح الساعات</button>
+        </div>
+
+        <div class="closed-today-block">
+          <h4 id="closed-today-title">إغلاق استثنائي لليوم</h4>
+          <p class="muted" id="closed-today-desc">يُستخدم عند الإغلاق لظرف طارئ أو عطلة. يعود الدوام إلى جدوله المعتاد تلقائياً غداً.</p>
+          <button type="button" class="btn-outline" onclick="toggleClosedToday()" id="closed-today-btn">إعلان الإغلاق اليوم</button>
+        </div>
+      </div>
+
+      <div class="box" style="margin-top:20px;">
+        <h3 style="margin-top:0;" id="location-section-title">📍 موقع الصيدلية على الخريطة</h3>
+        <p class="muted" id="location-section-desc" style="margin-top:-8px;">يكفي تحديد موقع الصيدلية مرة واحدة، ليظهر للمريض زرٌّ يفتح له مسار الوصول إليها في خرائط جوجل.</p>
+
+        <div id="location-current" class="location-current"></div>
+
+        <button type="button" class="primary location-detect-btn" onclick="detectMyLocation()" id="detect-location-btn">📍 تحديد موقعي الحالي</button>
+
+        <input id="location-paste-input" type="text" inputmode="decimal" placeholder="أو الصق الإحداثيات هنا: 35.011667, 37.053056">
+        <p class="muted" id="location-paste-hint" style="margin-top:-4px; font-size:13px;">من خرائط جوجل: اضغط مطوّلاً على موقع الصيدلية، ثم انسخ السطر الذي يتضمن الحرفين N و E (مثل 35°00'57.8"N 37°03'25.3"E) والصقه هنا، فهذه الصيغة لا يقع فيها لبس.</p>
+
+        <div class="location-actions">
+          <button type="button" class="primary" onclick="saveLocationFromInput()" id="save-location-btn">حفظ الموقع</button>
+          <button type="button" class="btn-outline red" onclick="clearPharmacyLocation()" id="clear-location-btn">مسح الموقع</button>
+        </div>
+      </div>
+      <div class="box" style="margin-bottom:20px;">
+        <h3 style="margin-top:0;" id="add-med-title">💊 إضافة دواء غير موجود بالقائمة</h3>
+        <p class="muted" style="margin-top:-8px;" id="add-med-desc">إن كان لديك دواء في مخزون صيدليتك ولا يظهر ضمن القائمة، فيمكنك إضافته عبر الحقول أدناه.</p>
+        <input id="pharm-med-name" placeholder="اسم الدواء">
+        <input id="pharm-med-generic" placeholder="المادة الفعالة (اختياري)">
+        <input id="pharm-med-alt" placeholder="أسماء بديلة، افصل بينها بفاصلة (اختياري)">
+        <select id="pharm-med-category" onchange="updateMedNamePlaceholder('pharm-med-category', 'pharm-med-name')">
+          <option value="medicine" id="opt-cat-medicine">دواء</option>
+          <option value="cosmetic" id="opt-cat-cosmetic">مستحضر تجميل</option>
+        </select>
+        <button class="primary" onclick="addMedicineSelf()" id="add-med-btn">إضافة الدواء</button>
+      </div>
+      <div class="box" style="margin-bottom:20px;">
+        <h3 style="margin-top:0;" id="bulk-import-title">📥 استيراد أدوية من ملف</h3>
+        <p class="muted" style="margin-top:-8px;" id="bulk-import-desc">نزِّل نموذجاً فارغاً، وانسخ فيه بيانات أدوية الشركة، ثم ارفعه هنا لإضافتها دفعة واحدة إلى مخزون صيدليتك.</p>
+        <p class="muted" style="font-size:13px; margin-top:-4px;" id="bulk-import-hint-alt">💡 إن ظهرت الحروف العربية مشوّهة بعد الحفظ بصيغة CSV، فجرّب حفظ الملف بصيغة "Unicode Text" من نافذة الحفظ نفسها في إكسل.</p>
+        <button type="button" class="btn-outline blue small" onclick="downloadBulkImportTemplate()" id="download-template-btn" style="margin-bottom:12px;">⬇️ تحميل نموذج فارغ (CSV)</button>
+        <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:14px;">
+          <label class="btn-outline blue small" style="cursor:pointer; margin:0;">
+            <span id="choose-file-label">اختيار ملف CSV</span>
+            <input type="file" accept=".csv,.txt" id="bulk-import-file" style="display:none;" onchange="handleBulkImportFile(event)">
+          </label>
+          <span class="muted" id="bulk-import-filename" style="font-size:13px;">لم يُختر أي ملف</span>
+        </div>
+        <div id="bulk-import-preview" style="display:none;"></div>
+      </div>
+      <div class="stock-table-wrap">
+        <div class="stock-scroll">
+          <div class="stock-table-header"><span id="stock-table-medicine">الدواء</span><span class="col-status" id="stock-table-status">الحالة</span></div>
+          <div id="stock-list"></div>
+        </div>
+      </div>
+      <div class="box" style="margin-top:24px; margin-bottom:20px;">
+        <h3 style="margin-top:0;" id="change-password-title">🔑 تغيير كلمة المرور</h3>
+        <p class="muted" style="margin-top:-8px;" id="change-password-desc">يمكنك تغيير كلمة المرور في أي وقت، وستحتاج إلى كلمتك الحالية للتأكيد.</p>
+        <div class="password-field">
+          <input id="current-password-input" type="password" placeholder="كلمة المرور الحالية" autocomplete="current-password">
+          <button type="button" class="toggle-password" onclick="togglePassword('current-password-input', this)" aria-label="إظهار كلمة المرور">👁</button>
+        </div>
+        <div class="password-field">
+          <input id="new-password-input" type="password" placeholder="كلمة المرور الجديدة" autocomplete="new-password">
+          <button type="button" class="toggle-password" onclick="togglePassword('new-password-input', this)" aria-label="إظهار كلمة المرور">👁</button>
+        </div>
+        <div class="password-field">
+          <input id="confirm-password-input" type="password" placeholder="تأكيد كلمة المرور الجديدة" autocomplete="new-password">
+          <button type="button" class="toggle-password" onclick="togglePassword('confirm-password-input', this)" aria-label="إظهار كلمة المرور">👁</button>
+        </div>
+        <button class="primary" onclick="changeMyPassword()" id="change-password-btn">تغيير كلمة المرور</button>
+      </div>
+      <p style="margin-top:32px;">
+        <button class="action-pill-btn red" onclick="deleteMyAccount()" id="delete-account-btn">🗑️ حذف حسابي نهائياً</button>
+      </p>
+    </div>
+  </div>
+
+  <div id="view-admin" style="display:none;">
+    <div id="admin-auth-section"></div>
+    <div id="admin-panel" style="display:none;"></div>
+  </div>
+
+  <div id="view-nursing" style="display:none;">
+    <h2 class="dash-title" id="nursing-page-title">خدمات تمريض 🩺</h2>
+    <p class="muted" style="margin-top:-8px;" id="nursing-page-desc">تواصل مع ممرضين موثوقين لتلقّي الرعاية التمريضية في منزلك.</p>
+    <div id="nurses-list"></div>
+  </div>
+</div>
+</div>
+
+<div id="custom-modal-overlay" class="modal-overlay" style="display:none;">
+  <div class="modal-box">
+    <div class="modal-icon" id="modal-icon">✅</div>
+    <p class="modal-message" id="modal-message"></p>
+    <div class="modal-actions">
+      <button class="modal-btn-cancel" id="modal-btn-cancel" style="display:none;">إلغاء</button>
+      <button class="modal-btn-ok" id="modal-btn-ok">حسناً</button>
+    </div>
+  </div>
+</div>
+
+<div id="info-modal-overlay" class="modal-overlay" style="display:none;">
+  <div class="info-modal-box">
+    <div class="info-modal-header">
+      <h2 id="info-modal-title"></h2>
+      <button type="button" class="info-modal-close" onclick="closeInfoModal()" aria-label="إغلاق">✕</button>
+    </div>
+    <div class="info-modal-body" id="info-modal-body"></div>
+  </div>
+</div>
+
+
+<!-- لوحة استشارة واتساب: مدخل مستقل عن البحث عن دواء، للأسئلة التي لا تبدأ باسم دواء
+     (وصفة غير واضحة، جرعة، بديل دوائي). role=dialog وaria-modal لقارئات الشاشة. -->
+<div id="wa-panel" class="wa-panel-overlay" style="display:none;"
+     role="dialog" aria-modal="true" aria-labelledby="wa-panel-title"
+     onclick="onWaOverlayClick(event, this)">
+  <div class="wa-panel">
+    <div class="wa-panel-head">
+      <h3 id="wa-panel-title">💬 استشر صيدلياً عبر واتساب</h3>
+      <p class="muted" id="wa-panel-desc">وصفة طبية غير واضحة، أو استفسار عن جرعة أو بديل دوائي؟ تواصل مباشرة مع أحد الصيادلة.</p>
+    </div>
+    <div id="wa-panel-list" class="wa-panel-list"></div>
+    <div class="wa-panel-foot">
+      <p class="wa-panel-disclaimer" id="wa-panel-disclaimer">المنصة وسيط معلوماتي فحسب، والمحادثة تجري مباشرة بينك وبين الصيدلية، وهي لا تُغني عن استشارة الطبيب.</p>
+      <button type="button" class="btn-outline" id="wa-panel-close" onclick="closeWhatsappPanel()">إغلاق</button>
+    </div>
+  </div>
+</div>
+
+<!-- شريط انقطاع الإنترنت: يظهر فور فقدان الاتصال ويختفي مع عودته، فيعرف المستخدم
+     سبب الفشل قبل أن يحاول. role=status لتعلنه قارئات الشاشة دون مقاطعة. -->
+<div id="offline-banner" class="offline-banner" role="status" aria-live="polite" style="display:none;">
+  <span aria-hidden="true">📡</span>
+  <span id="offline-banner-text">لا يوجد اتصال بالإنترنت</span>
+</div>
+
+<script src="app.js"></script>
+<script>
+  // تسجيل الـService Worker (شرط أساسي لتحويل الموقع لتطبيق PWA قابل للتثبيت) —
+  // بشكل آمن تماماً: لو فشل التسجيل لأي سبب، الموقع بيستمر يشتغل عادي بدون أي تأثير
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('service-worker.js').catch(() => {});
+    });
+  }
+</script>
+</body>
+</html><!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>دوائي جاهز | ابحث عن توفر الدواء في صيدليات سلمية وسوريا</title>
+
+<!-- ===== وسوم محركات البحث =====
+     الوصف هو ما يظهر تحت العنوان في نتائج جوجل، وهو ما يقرر إن كان الباحث سيضغط أم لا.
+     كُتب ليجيب على سؤال الباحث مباشرة، لا ليصف الموقع من الداخل. -->
+<meta name="description" content="ابحث عن توفر الدواء في الصيدليات القريبة منك في سلمية وسوريا لحظياً، واعرف الصيدليات المناوبة الليلة، واطلب دواءك مباشرة من الصيدلية. منصة سورية مجانية.">
+<meta name="keywords" content="توفر الأدوية سوريا, صيدليات سلمية, الصيدليات المناوبة, البحث عن دواء, صيدلية مناوبة سلمية, دوائي جاهز, أدوية سوريا">
+<meta name="author" content="دوائي جاهز">
+<meta name="robots" content="index, follow, max-image-preview:large">
+<link rel="canonical" href="https://dawaai-jahez.onrender.com/">
+
+<!-- بطاقة المشاركة على واتساب وفيسبوك ولينكدإن: بدونها يظهر الرابط عارياً بلا صورة أو وصف،
+     وهذا يقلل النقر كثيراً — ومعظم انتشارك سيكون عبر واتساب. -->
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="دوائي جاهز">
+<meta property="og:locale" content="ar_SY">
+<meta property="og:title" content="دوائي جاهز | ابحث عن توفر الدواء في الصيدليات">
+<meta property="og:description" content="اعرف أي صيدلية عندها دواؤك قبل أن تخرج من البيت. بحث لحظي عن توفر الأدوية، والصيدليات المناوبة، وخدمات التمريض المنزلي.">
+<meta property="og:url" content="https://dawaai-jahez.onrender.com/">
+<meta property="og:image" content="https://dawaai-jahez.onrender.com/icon-512.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="دوائي جاهز | ابحث عن توفر الدواء في الصيدليات">
+<meta name="twitter:description" content="اعرف أي صيدلية عندها دواؤك قبل أن تخرج من البيت.">
+<meta name="twitter:image" content="https://dawaai-jahez.onrender.com/icon-512.png">
+
+<!-- بيانات منظَّمة (JSON-LD): تشرح لجوجل ماهية الموقع بلغة يفهمها، فيعرض نتيجة أغنى.
+     نوع WebApplication لأن الموقع أداة لا صفحة محتوى، وHealth لأن القطاع صحي. -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebApplication",
+  "name": "دوائي جاهز",
+  "alternateName": "Dawaai Jahez",
+  "url": "https://dawaai-jahez.onrender.com/",
+  "description": "منصة سورية للبحث عن توفر الأدوية في الصيدليات القريبة، ومعرفة الصيدليات المناوبة، وخدمات التمريض المنزلي.",
+  "applicationCategory": "HealthApplication",
+  "operatingSystem": "Web, Android",
+  "inLanguage": ["ar", "en"],
+  "isAccessibleForFree": true,
+  "offers": { "@type": "Offer", "price": "0", "priceCurrency": "SYP" },
+  "areaServed": { "@type": "Country", "name": "سوريا" },
+  "potentialAction": {
+    "@type": "SearchAction",
+    "target": "https://dawaai-jahez.onrender.com/?q={search_term_string}",
+    "query-input": "required name=search_term_string"
+  }
+}
+</script>
+
+<!-- ===== حارس التحميل المبكر =====
+     الموقع مبني على معالجات مضمّنة (onclick / oninput)، وملف app.js يُحمَّل بآخر الصفحة.
+     فالمستخدم الذي يتفاعل قبل اكتمال التحميل كان يحصل على
+     "Uncaught ReferenceError: onSearch is not defined" بالـConsole، ولا يستجيب الموقع.
+     نُعرّف هنا معالجات صامتة مؤقتة تُستبدَل تلقائياً بالحقيقية فور تحميل app.js
+     (تعريف الدالة اللاحق يطغى على السابق بنفس النطاق العام).
+     ونتذكّر أن المستخدم بدأ بحثاً قبل الجاهزية، لينفَّذ فور جاهزية الموقع. -->
+<script>
+  window.__pendingSearch = false;
+  (function () {
+    var early = ['onSearch','onSearchKeydown','submitSearch','onCityFilterChange','toggleCart',
+                 'toggleLanguage','toggleNav','whatsappComingSoon','openWhatsappPanel','closeWhatsappPanel',
+                 'onWaOverlayClick','onWaResultClick','saveWhatsappPhone','onDirectionsClick',
+                 'detectMyLocation','saveLocationFromInput','clearPharmacyLocation','togglePharmacyManagesStock',
+                 'savePharmacyHours','clearPharmacyHours','toggleClosedToday',
+                 'onAdminDutySearch','onAdminDutyToggle','saveAdminDuty','clearAllDuty',
+                 'onAdminUsernameSearch','saveAdminUsername','downloadBackup','loadDemandReport','exportDemandCsv','onLaunchConfirmInput','startOfficialLaunch',
+                 'headerGoHome','headerGoOnDuty',
+                 'headerGoPharmacist','headerGoCosmetics','headerGoNursing','headerGoAdmin',
+                 // أزرار التذييل ظاهرة فور فتح الصفحة، فقد تُضغط قبل اكتمال تحميل app.js.
+                 // والبقية في لوحات مخفية، نضيفها احتياطاً كي لا يبقى أي زر ثابت بلا حماية.
+                 'showFaq','showAboutUs','showContactUs','copyContactEmail','closeInfoModal','refreshResults',
+                 'onDutyToggle','saveDuty','digitsOnly','saveAssistantPhone','updateMedNamePlaceholder',
+                 'addMedicineSelf','downloadBulkImportTemplate','handleBulkImportFile','togglePassword',
+                 'changeMyPassword','deleteMyAccount',
+                 'saveMainPhone','heroGoOnDuty','onAdminAddressSearch','saveAdminAddress','clearAdminLocation','toggleJoinedList'];
+    early.forEach(function (name) {
+      window[name] = function () {
+        if (name === 'onSearch' || name === 'submitSearch') window.__pendingSearch = true;
+      };
+    });
+  })();
+</script>
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="theme-color" content="#185fa5">
+<meta name="color-scheme" content="light">
+<!-- منع أندرويد/كروم من عكس ألوان الموقع تلقائياً عند تفعيل الوضع الليلي بالهاتف — هوية الموقع
+     (Baby Blue) مصممة لتبقى فاتحة دائماً بغض النظر عن إعدادات الجهاز، داخل الموقع والتطبيق سوا -->
+<!-- خط عربي حديث موحّد. كان الموقع يستخدم Tahoma، وهو غير موجود على هواتف أندرويد،
+     فكان كل هاتف يعرض الموقع بخطه الافتراضي. display=swap: يظهر النص فوراً بالخط
+     الاحتياطي ثم يتبدّل حين يصل الخط، فلا تبقى الصفحة فارغة على شبكة بطيئة. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;600;700&display=swap">
+<style>
+  html { color-scheme: only light; }
+</style>
+<style>
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+
+  /* حل مركزي موحّد: إزالة مربع اللمس الأزرق الافتراضي (Mobile Tap Highlight) من
+     كل عنصر تفاعلي فعلي بالموقع. كل عنصر قابل للنقر بالمشروع مبني بـ onclick=
+     (تحققنا: صفر عنصر يستخدم addEventListener أو href عادي)، فهاد الـselector
+     الوحيد بيغطي كل الأزرار والروابط والعناصر التفاعلية الحالية والمستقبلية
+     تلقائياً، ويستثني تلقائياً كل حقول الإدخال النصية وخانات الاختيار
+     (ولا واحدة فيهم عندها onclick) — فتركيز لوحة المفاتيح وoutline الحالي
+     عليهم يضلوا تماماً متل ما هم، بدون أي تغيير. */
+  [onclick] { -webkit-tap-highlight-color: transparent; }
+  @keyframes fadeSlideUp {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  #results > *, #on-duty-section > * {
+    animation: fadeSlideUp .35s ease both;
+  }
+  ::selection { background: rgba(24,95,165,0.15); }
+  ::-webkit-scrollbar { width: 10px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #c3ddf0; border-radius: 999px; }
+  ::-webkit-scrollbar-thumb:hover { background: #a9cdea; }
+  input:focus, select:focus { border-color: #5c9bd8; }
+  input:focus:not(:focus-visible), select:focus:not(:focus-visible) { outline: none; }
+  /* مؤشر تركيز إضافي واضح للتنقل بلوحة المفاتيح تحديداً (Tab)، ما بيظهر مع نقر الماوس العادي
+     عشان نحافظ على الشكل الحالي الهادئ، وما بيغيّر أي أبعاد أو تخطيط (box-shadow بلا layout shift) */
+  input:focus-visible, select:focus-visible {
+    box-shadow: 0 0 0 3px rgba(92,155,216,0.5);
+  }
+  body {
+    font-family: 'IBM Plex Sans Arabic', 'Tahoma', 'Segoe UI', sans-serif;
+    background: #eaf5fc;
+    color: #2c2c2a;
+    margin: 0;
+    padding: 20px;
+    font-size: 17px;
+    line-height: 1.6;
+  }
+  .container { max-width: 680px; margin: 0 auto; }
+  .site-header {
+    position: sticky; top: 12px; z-index: 100;
+    max-width: 1080px; margin: 0 auto 16px;
+    background: rgba(255,255,255,0.82);
+    backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(255,255,255,0.9);
+    border-radius: 18px;
+    box-shadow: 0 6px 24px rgba(24,95,165,0.1);
+  }
+  .site-header-inner {
+    position: relative;
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 14px; padding: 10px 18px;
+  }
+  .site-header-right { display: flex; align-items: center; gap: 16px; }
+  .site-logo { display: flex; align-items: center; gap: 8px; font-size: 17px; font-weight: 700; color: #163a5c; white-space: nowrap; }
+  .site-logo .logo-dot {
+    width: 32px; height: 32px; border-radius: 50%; flex-shrink: 0;
+    box-shadow: 0 4px 10px rgba(24,95,165,0.28);
+    background: linear-gradient(135deg, #2e77bf, #185fa5);
+    display: flex; align-items: center; justify-content: center; font-size: 15px;
+  }
+  .site-nav { display: flex; align-items: center; gap: 2px; flex-wrap: wrap; }
+  .site-nav a {
+    font-size: 14px; color: #3a4a58; text-decoration: none; padding: 8px 12px; border-radius: 10px;
+    transition: background .2s, color .2s; cursor: pointer; white-space: nowrap; font-family: inherit;
+  }
+  .site-nav a:hover { background: rgba(24,95,165,0.08); color: #185fa5; }
+  .site-nav a.active { color: #185fa5; font-weight: 700; background: rgba(24,95,165,0.1); }
+  /* روابط بوابات الأدوار (لوحة الصيدلي / الإدارة) — نفس مكانها بالترتيب، بس بتمييز بصري خفيف
+     (حد رفيع + شفافية طفيفة) يوحي إنها بوابة دخول لنظام مختلف، مش تنقل رئيسي للمريض */
+  .site-nav a.nav-role-portal { border: 1px solid rgba(58,74,88,0.16); opacity: 0.8; margin-inline-start: 10px; }
+  .site-nav a.nav-role-portal:hover, .site-nav a.nav-role-portal.active { opacity: 1; }
+  .nav-toggle {
+    display: none; background: none; border: none; font-size: 22px; cursor: pointer; color: #185fa5; padding: 4px 8px;
+  }
+  .header-icons { display: flex; align-items: center; gap: 8px; }
+  .lang-toggle-btn {
+    background: none; border: 1px solid #185fa5; color: #185fa5; font-family: inherit;
+    padding: 6px 14px; border-radius: 999px; font-size: 13px; font-weight: 600; cursor: pointer;
+  }
+  .lang-toggle-btn:hover { background: #eef4fa; }
+  .cart-section-wrap { position: relative; }
+  /* صف الجرس: يُبنى ديناميكياً مع كل تحديث للسلة، جوا محتواها تماماً وتحت العنوان مباشرة —
+     صفر position:absolute على مستوى الصفحة، فمستحيل يظهر برا صندوق السلة أو يتراكب مع العنوان */
+  .cart-bell-row { position: absolute; top: 12px; right: 12px; z-index: 5; }
+  .cart-bell-wrap { position: relative; display: inline-block; }
+  .bell-btn {
+    position: relative; display: inline-flex; align-items: center; justify-content: center;
+    background: #fff; border: 1px solid #cfe0ef; cursor: pointer;
+    width: 40px; height: 40px; border-radius: 50%; font-size: 17px; color: #185fa5;
+    box-shadow: 0 4px 14px rgba(24,95,165,0.12);
+    transition: background .2s, transform .2s;
+  }
+  .bell-btn:hover { background: #eef4fa; transform: translateY(-2px); }
+  .bell-badge {
+    position: absolute; top: -2px; left: -2px;
+    background: #d43d3d; color: #fff; font-size: 11px; font-weight: 700;
+    min-width: 18px; height: 18px; border-radius: 999px;
+    display: flex; align-items: center; justify-content: center; padding: 0 4px;
+    box-shadow: 0 0 0 2px #fff;
+  }
+  .bell-panel {
+    position: absolute; top: calc(100% + 8px); right: 0; width: 280px; max-width: calc(100vw - 40px);
+    background: #fff; border: 1px solid #cfe0ef; border-radius: 16px;
+    box-shadow: 0 14px 32px rgba(24,95,165,0.18); padding: 10px;
+    max-height: 340px; overflow-y: auto; z-index: 50;
+  }
+  .bell-panel-empty { text-align: center; color: #606e7a; font-size: 14px; padding: 18px 6px; }
+  .orders-status-header { text-align: right; padding: 0 2px 8px; }
+  .orders-clear-all-btn {
+    background: none; border: none; color: #a33; font-size: 13px; font-weight: 600;
+    cursor: pointer; font-family: inherit; padding: 4px 6px;
+  }
+  .orders-clear-all-btn:hover { color: #7a2222; }
+  @media (max-width: 860px) {
+    .site-nav {
+      display: none; position: absolute; top: 100%; right: 0; left: 0; flex-direction: column; align-items: stretch;
+      background: rgba(255,255,255,0.97); backdrop-filter: blur(14px); border-radius: 14px; padding: 10px;
+      margin-top: 8px; box-shadow: 0 12px 24px rgba(24,95,165,0.15);
+    }
+    .site-nav.open { display: flex; }
+    .site-nav a { padding: 12px 14px; }
+    .nav-toggle { display: block; }
+    /* على الموبايل، القائمة مختفية فبيضل الشعار والأزرار عنصر وحيد بالهيدر ويلتصقوا بشكل غريب —
+       نفكّ التجميع هون بس عشان يرجعوا طرفين متقابلين (الشعار يمين، الأزرار يسار) */
+    .site-header-right { display: contents; }
+  }
+  .hero-outer { max-width: 1080px; margin: 0 auto 22px; }
+  .hero {
+    position: relative;
+    min-height: 70vh;
+    display: flex; align-items: center;
+    background: linear-gradient(160deg, #eaf4fb 0%, #dcecfa 40%, #f7fbfe 75%, #eaf5fc 100%);
+    border: 2px solid #a9cdea;
+    border-radius: 28px; padding: 40px; overflow: hidden;
+  }
+  .hero-glow {
+    position: absolute; left: -100px; bottom: -90px;
+    width: 480px; height: 480px; border-radius: 50%;
+    background: radial-gradient(circle, rgba(93,158,216,0.4) 0%, rgba(93,158,216,0) 70%);
+    z-index: 0;
+  }
+  .hero-particles span {
+    position: absolute; width: 6px; height: 6px; border-radius: 50%;
+    background: rgba(93,158,216,0.55); z-index: 1;
+    animation: particleFloat 5s ease-in-out infinite;
+  }
+  .hero-particles span:nth-child(1) { left: 20px; top: 55%; animation-delay: 0s; }
+  .hero-particles span:nth-child(2) { left: 80px; top: 82%; width:4px; height:4px; animation-delay: .8s; }
+  .hero-particles span:nth-child(3) { left: 160px; top: 60%; animation-delay: 1.6s; }
+  .hero-particles span:nth-child(4) { left: 220px; top: 88%; width:5px; height:5px; animation-delay: 2.4s; }
+  .hero-particles span:nth-child(5) { left: 270px; top: 68%; width:4px; height:4px; animation-delay: 3.2s; }
+  @keyframes particleFloat {
+    0%, 100% { transform: translateY(0); opacity: .5; }
+    50% { transform: translateY(-18px); opacity: 1; }
+  }
+  .hero-capsule {
+    position: absolute; left: -70px; bottom: -20px; width: 400px; z-index: 2;
+    animation: heroFloat 5s ease-in-out infinite;
+  }
+  .hero-capsule svg { width: 100%; height: auto; filter: drop-shadow(0 20px 26px rgba(24,95,165,0.3)); }
+  @keyframes heroFloat {
+    0%, 100% { transform: translateY(0) translateX(0); }
+    50% { transform: translateY(-14px) translateX(8px); }
+  }
+  .hero-cart-illustration {
+    position: absolute; top: 12%; left: 258px; width: 165px; z-index: 1;
+    pointer-events: none;
+    animation: heroCartFloat 6s ease-in-out infinite;
+  }
+  .hero-cart-illustration svg { width: 100%; height: auto; filter: drop-shadow(0 10px 18px rgba(24,95,165,0.16)); }
+  @keyframes heroCartFloat {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-8px); }
+  }
+  .hero-bottle-illustration {
+    position: absolute; top: 7%; left: 24px; width: 82px; z-index: 1;
+    pointer-events: none;
+    animation: heroBottleFloat 7s ease-in-out infinite;
+  }
+  .hero-bottle-illustration svg { width: 100%; height: auto; filter: drop-shadow(0 8px 14px rgba(24,95,165,0.14)); }
+  @keyframes heroBottleFloat {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
+  }
+  @media (max-width: 900px) {
+    .hero-cart-illustration { width: 125px; top: 9%; left: 195px; }
+    .hero-bottle-illustration { width: 64px; top: 5%; left: 16px; }
+  }
+  .hero-content { position: relative; z-index: 3; margin-left: 380px; max-width: 460px; }
+  /* بالإنكليزي (LTR) النص بيتكوم يسار الصندوق فبتبين فجوة فاضية على اليمين — نخلي الصندوق يمتد
+     ديناميكياً لآخر مساحة متاحة (بدل رقم ثابت قد يفيض بعرض كمبيوتر أضيق)، بعرض الكمبيوتر بس
+     عشان ما نتعارض مع تصميم الموبايل، وبدون أي لمسة على مواضع العناصر الزخرفية أو التصميم العربي */
+  @media (min-width: 721px) {
+    html[dir="ltr"] .hero-content { max-width: calc(100% - 380px); width: calc(100% - 380px); margin-left: 0; margin-right: 380px; }
+    /* عكس مواضع كل العناصر الزخرفية لتصير باتجاه اليمين بالوضع الإنكليزي، بدل اليسار بالعربي */
+    html[dir="ltr"] .hero-glow { left: auto; right: -100px; }
+    html[dir="ltr"] .hero-particles span:nth-child(1) { left: auto; right: 20px; }
+    html[dir="ltr"] .hero-particles span:nth-child(2) { left: auto; right: 80px; }
+    html[dir="ltr"] .hero-particles span:nth-child(3) { left: auto; right: 160px; }
+    html[dir="ltr"] .hero-particles span:nth-child(4) { left: auto; right: 220px; }
+    html[dir="ltr"] .hero-particles span:nth-child(5) { left: auto; right: 270px; }
+    html[dir="ltr"] .hero-capsule { left: auto; right: 20px; bottom: -40px; }
+    html[dir="ltr"] .hero-cart-illustration { left: auto; right: 258px; }
+    html[dir="ltr"] .hero-bottle-illustration { left: auto; right: 24px; }
+  }
+  @media (min-width: 721px) and (max-width: 900px) {
+    html[dir="ltr"] .hero-cart-illustration { left: auto; right: 195px; }
+    html[dir="ltr"] .hero-bottle-illustration { left: auto; right: 16px; }
+  }
+  .hero-title { font-size: 32px; font-weight: 800; line-height: 1.35; margin: 0 0 14px; color: #163a5c; }
+  .hero-highlight { color: #185fa5; }
+  .hero-description { font-size: 17px; color: #4a5b6b; margin: 0 0 24px; line-height: 1.6; }
+  .hero-search-wrap { position: relative; }
+  .hero-actions-row { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 16px; }
+  .hero-search-hint { font-size: 13px; color: #616e7a; margin: 10px 4px 0; }
+  .hero-cart-btn {
+    position: relative;
+    display: inline-flex; align-items: center; gap: 10px;
+    background: linear-gradient(135deg, #ffffff 0%, #eef6fd 100%);
+    border: 1px solid rgba(255,255,255,0.85);
+    color: #185fa5; padding: 12px 22px; border-radius: 999px;
+    font-size: 15px; font-weight: 600; cursor: pointer; font-family: inherit;
+    box-shadow: 0 8px 20px rgba(24,95,165,0.18);
+    transition: transform .2s ease, box-shadow .2s ease;
+  }
+  .cart-notify-badge {
+    position: absolute; top: -6px; right: -6px;
+    background: #d43d3d; color: #fff; font-size: 11px; font-weight: 700;
+    min-width: 18px; height: 18px; border-radius: 999px;
+    display: flex; align-items: center; justify-content: center; padding: 0 4px;
+    box-shadow: 0 0 0 2px #fff;
+  }
+  .hero-cart-btn:hover { transform: translateY(-2px); box-shadow: 0 12px 26px rgba(24,95,165,0.25); }
+  .hero-cart-icon { font-size: 17px; }
+  .whatsapp-btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: linear-gradient(135deg, #ffffff 0%, #eafaf0 100%);
+    border: 1px solid rgba(255,255,255,0.85);
+    color: #1c7b44; padding: 12px 20px; border-radius: 999px;
+    font-size: 14px; font-weight: 600; cursor: pointer; font-family: inherit;
+    box-shadow: 0 8px 20px rgba(31,138,76,0.15);
+    transition: transform .2s ease, box-shadow .2s ease;
+  }
+  .whatsapp-btn:hover { transform: translateY(-2px); box-shadow: 0 12px 26px rgba(31,138,76,0.22); }
+  .whatsapp-icon { font-size: 16px; }
+  .action-pill-btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    border-radius: 999px; padding: 11px 22px;
+    font-size: 14px; font-weight: 600; cursor: pointer; font-family: inherit;
+    border: 1px solid rgba(255,255,255,0.85);
+    box-shadow: 0 6px 16px rgba(24,95,165,0.14);
+    transition: transform .2s ease, box-shadow .2s ease;
+  }
+  .action-pill-btn:hover { transform: translateY(-2px); }
+  .action-pill-btn.blue { background: linear-gradient(135deg, #ffffff 0%, #eef6fd 100%); color: #185fa5; }
+  .action-pill-btn.blue:hover { box-shadow: 0 10px 22px rgba(24,95,165,0.22); }
+  .action-pill-btn.red { background: linear-gradient(135deg, #ffffff 0%, #fdeeee 100%); color: #a33; }
+  .action-pill-btn.red:hover { box-shadow: 0 10px 22px rgba(163,51,51,0.2); }
+  .about-section-wrap {
+    width: 100vw; margin-left: calc(-50vw + 50%); margin-right: calc(-50vw + 50%);
+    margin-top: 28px; background: #ffffff; padding: 32px 24px 26px;
+  }
+  .about-title-lg { font-size: 22px; font-weight: 800; color: #163a5c; text-align: center; margin: 30px 0 12px; }
+  .about-desc-lg { font-size: 15px; color: #4a5b6b; text-align: center; line-height: 1.75; max-width: 600px; margin: 0 auto; }
+  .feature-cards { display: flex; gap: 18px; max-width: 900px; margin: 0 auto; flex-wrap: wrap; justify-content: center; }
+  .feature-card {
+    flex: 1 1 220px; max-width: 260px;
+    background: #ffffff; border: 1px solid #e5eef7; border-radius: 16px; padding: 22px 20px;
+    text-align: center; box-shadow: 0 6px 18px rgba(24,95,165,0.07);
+    transition: transform .2s ease, box-shadow .2s ease;
+  }
+  .feature-card:hover { transform: translateY(-4px); box-shadow: 0 14px 28px rgba(24,95,165,0.15); }
+  .feature-icon {
+    font-size: 26px; margin: 0 auto 12px;
+    width: 58px; height: 58px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    background: linear-gradient(135deg, #eaf5fc, #d4e9f8);
+    box-shadow: inset 0 2px 6px rgba(255,255,255,0.9), 0 4px 12px rgba(24,95,165,0.1);
+  }
+  .feature-title { font-size: 16px; font-weight: 700; color: #163a5c; margin: 0 0 8px; }
+  .feature-desc { font-size: 14px; color: #616e7a; margin: 0; line-height: 1.6; }
+  .section-divider {
+    width: 100vw; margin-left: calc(-50vw + 50%); margin-right: calc(-50vw + 50%);
+    height: 1px; background: linear-gradient(90deg, transparent, #dde8f2, transparent);
+  }
+  .site-footer {
+    width: 100vw; margin-left: calc(-50vw + 50%); margin-right: calc(-50vw + 50%);
+    background: #ffffff; border-top: 1px solid #E5E7EB;
+    box-shadow: 0 -2px 8px rgba(24,95,165,0.04);
+    padding: 18px 24px;
+  }
+  .footer-inner {
+    max-width: 1100px; margin: 0 auto; min-height: 30px;
+    display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 14px;
+  }
+  .footer-links {
+    display: flex; align-items: center; justify-content: flex-start; gap: 5px; flex-wrap: wrap;
+    justify-self: end;
+  }
+  .footer-links a {
+    font-size: 12.5px; font-weight: 500; color: #616e7a; text-decoration: none; cursor: pointer;
+    transition: color .2s ease;
+  }
+  .footer-links a:hover { color: #185fa5; }
+  .footer-sep { color: #cbd5e0; font-size: 11px; }
+  .footer-center { font-size: 14px; font-weight: 500; color: #616e7a; text-align: center; justify-self: center; }
+  .footer-copy { font-size: 14px; font-weight: 500; color: #616e7a; text-align: left; white-space: nowrap; justify-self: start; }
+  @media (max-width: 700px) {
+    .footer-inner { grid-template-columns: 1fr; gap: 10px; padding: 6px 0; min-height: 0; }
+    .footer-links { justify-content: center; justify-self: stretch; gap: 4px 14px; }
+    .footer-links a { font-size: 14px; padding: 6px 2px; }
+    .footer-center { justify-self: stretch; }
+    .footer-copy { justify-self: stretch; white-space: normal; }
+    .footer-center, .footer-copy { text-align: center; }
+  }
+  .hero-cart-count {
+    background: #185fa5; color: #ffffff; font-size: 12px; font-weight: 700;
+    min-width: 20px; height: 20px; border-radius: 50%; padding: 0 5px;
+    display: inline-flex; align-items: center; justify-content: center;
+  }
+  /* كان للمربع backdrop-filter: blur فوق عناصر متحركة بلا توقف (الكبسولة والنقاط).
+     على كروم أندرويد يعيد المتصفح حساب التمويه مع كل حركة، ويفشل أحياناً في رسمه
+     فيختفي المربع حتى يُلمس. والخلفية بيضاء بنسبة 92٪ أصلاً، فالتمويه لم يكن يُظهر
+     إلا 8٪ مما خلفه. #fdfeff هو الناتج المرئي نفسه تقريباً، بلا كلفة رسم. */
+  #search {
+    width: 100%; height: 64px; border-radius: 9999px;
+    padding: 0 56px 0 132px; font-size: 17px;
+    box-shadow: 0 8px 24px rgba(24,95,165,0.15);
+    border: 2px solid #cfe0ef; background: #fdfeff;
+    transition: border-color .2s ease, box-shadow .2s ease;
+  }
+  #search:focus { border-color: #5c9bd8; box-shadow: 0 10px 30px rgba(24,95,165,0.28); }
+  #search:focus:not(:focus-visible) { outline: none; }
+  #search:focus-visible { box-shadow: 0 10px 30px rgba(24,95,165,0.28), 0 0 0 3px rgba(92,155,216,0.55); }
+  .search-icon {
+    position: absolute; right: 22px; top: 50%; transform: translateY(-50%);
+    font-size: 20px; color: #5496d6; pointer-events: none;
+  }
+  .search-btn {
+    position: absolute; left: 6px; top: 50%; transform: translateY(-50%);
+    height: 52px; padding: 0 28px; border-radius: 9999px; border: none;
+    background: #185fa5; color: #fff; font-size: 15px; font-weight: 700;
+    cursor: pointer; font-family: inherit;
+    transition: background .2s ease, transform .2s ease;
+  }
+  .search-btn:hover { background: #134b85; transform: translateY(-50%) scale(1.03); }
+  @media (max-width: 480px) {
+    #search { height: 56px; font-size: 15px; padding: 0 44px 0 100px; }
+    .search-btn { height: 44px; padding: 0 18px; font-size: 14px; }
+    .search-icon { right: 16px; font-size: 17px; }
+  }
+  @media (max-width: 720px) {
+    .hero { flex-direction: column; min-height: auto; padding: 32px 24px; text-align: center; }
+    .hero-glow, .hero-particles, .hero-cart-illustration, .hero-bottle-illustration { display: none; }
+    .hero-capsule {
+      position: static; width: 150px; margin: 0 auto 16px; transform: none;
+      animation: heroFloatMobile 4.5s ease-in-out infinite;
+    }
+    @keyframes heroFloatMobile {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-10px); }
+    }
+    .hero-content { margin-left: 0; max-width: 100%; }
+    .hero-title { font-size: 24px; }
+    .hero-description { margin-left: auto; margin-right: auto; }
+  }
+  h1 { font-size: 27px; font-weight: 600; margin-bottom: 6px; }
+  h3 { font-size: 18px; margin-top: 30px; }
+  p.subtitle { color: #5f5e5a; font-size: 16px; margin-bottom: 26px; }
+  .tabs { display: flex; gap: 8px; margin-bottom: 22px; }
+  .tabs button {
+    flex: 1; padding: 12px; border: 1px solid #cfe0ef; border-radius: 16px;
+    background: white; cursor: pointer; font-size: 16px; font-family: inherit;
+  }
+  .tabs button.active { border-color: #185fa5; color: #185fa5; font-weight: 600; }
+  input, select {
+    width: 100%; padding: 12px; border: 1px solid #cfe0ef; border-radius: 16px;
+    font-size: 16px; margin-bottom: 14px; font-family: inherit;
+  }
+  .row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 10px 0; border-top: 1px solid #eee; font-size: 16px;
+  }
+  .badge { font-size: 14px; padding: 5px 12px; border-radius: 999px; }
+  .badge.yes { background: #eaf3de; color: #27500a; }
+  .badge.no { background: #fcebeb; color: #7a1f1f; }
+  .star-picker { display: flex; gap: 6px; font-size: 28px; margin: 10px 0; }
+  .star-picker button {
+    background: none; border: none; padding: 0; margin: 0; font: inherit;
+    color: #929292; cursor: pointer; transition: color .15s ease; line-height: 1;
+  }
+  .star-picker button.filled { color: #ca8109; }
+  .star-picker button:focus-visible {
+    outline: 2px solid #185fa5; outline-offset: 3px; border-radius: 4px;
+  }
+  .star-display { color: #ca8109; font-size: 15px; letter-spacing: 2px; }
+  .toggle-btn {
+    font-size: 15px; padding: 7px 14px; border-radius: 999px; cursor: pointer; border: 1px solid; font-family: inherit;
+    min-width: 104px; text-align: center;
+  }
+  .toggle-btn.yes { background: #eaf3de; color: #27500a; border-color: #97c459; }
+  .toggle-btn.no { background: #fcebeb; color: #7a1f1f; border-color: #f09595; }
+  .muted { color: #6e6d67; font-size: 15px; }
+  .auth-box { background: white; border: 1px solid #cfe0ef; border-radius: 16px; padding: 22px; }
+  .auth-box button.primary, button.primary {
+    width: 100%; padding: 12px; color: white; border: none;
+    background: linear-gradient(135deg, #2e77bf, #185fa5);
+    border-radius: 999px; font-size: 16px; cursor: pointer; margin-top: 6px; font-family: inherit; font-weight: 700;
+    box-shadow: 0 6px 16px rgba(24,95,165,0.2);
+    transition: transform .2s ease, box-shadow .2s ease, filter .2s ease;
+  }
+  .auth-box button.primary:hover, button.primary:hover {
+    transform: translateY(-1px); filter: brightness(1.06); box-shadow: 0 10px 22px rgba(24,95,165,0.28);
+  }
+  .box { background: white; border: 1px solid #cfe0ef; border-radius: 16px; padding: 18px 20px; margin-top: 10px; }
+  /* ---- زر تحديث النتائج ---- */
+  /* نتائج البحث لقطة لحظة تنفيذها، وقد يتغيّر التوفر بينما المريض ينظر إليها.
+     الزر يعيد البحث بنقرة بدل مسح الكلمة وإعادة كتابتها. */
+  .results-toolbar { display: flex; justify-content: flex-end; margin: 4px 2px 10px; }
+  .refresh-results-btn {
+    background: white; color: #185fa5; border: 1.5px solid #a9cdea;
+    border-radius: 999px; padding: 8px 16px; font-size: 14px; font-weight: 600;
+    font-family: inherit; cursor: pointer; min-height: 40px;
+    transition: border-color .15s ease, background .15s ease;
+  }
+  .refresh-results-btn:hover { border-color: #6aa9d9; background: #f4f8fc; }
+  .refresh-results-btn:focus-visible { outline: 2px solid #185fa5; outline-offset: 2px; }
+  .refresh-results-btn[disabled] { opacity: .55; cursor: default; }
+
+  /* ---- اختيار نوع الإدراج عند تسجيل صيدلية ---- */
+  /* خياران صريحان بدل مربع اختيار واحد: المربع كان يحمل مفهومين متضادين في جملة
+     واحدة، فيضطر القارئ لاستنتاج معنى الحالة الفارغة. هنا كل خيار يذكر أثره. */
+  .listing-type-group {
+    border: 1px solid #e3ebf3; border-radius: 14px;
+    padding: 14px 16px 6px; margin: 4px 0 16px;
+  }
+  .listing-type-group legend {
+    padding: 0 8px; font-size: 14px; font-weight: 700; color: #163a5c;
+  }
+  .listing-type-option {
+    display: flex; align-items: flex-start; gap: 10px;
+    padding: 10px 4px; cursor: pointer; border-radius: 10px;
+    transition: background .14s ease;
+  }
+  .listing-type-option:hover { background: #f4f8fc; }
+  .listing-type-option input[type="radio"] {
+    width: 19px; height: 19px; margin: 2px 0 0; flex: 0 0 auto; cursor: pointer; accent-color: #185fa5;
+  }
+  .listing-type-text { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+  .listing-type-label { font-size: 14.5px; font-weight: 600; color: #23303a; }
+  .listing-type-desc { font-size: 12.5px; color: #616e7a; line-height: 1.6; }
+  /* تمييز الخيار المختار بصرياً، فيعرف المدير ما اختاره بنظرة */
+  .listing-type-option:has(input:checked) { background: #eef5fb; }
+  .listing-type-option:has(input:checked) .listing-type-label { color: #185fa5; }
+
+  /* ---- ساعات الدوام ---- */
+  .hours-current {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px;
+    background: #f4f8fc; border: 1px solid #e3ebf3; border-radius: 12px;
+    padding: 10px 14px; margin-bottom: 14px; font-size: 13.5px;
+  }
+  .hours-value { font-weight: 700; color: #163a5c; direction: ltr; unicode-bidi: isolate; }
+  .hours-overnight { color: #906400; font-size: 12.5px; }
+  .hours-closed-today { color: #b3261e; font-weight: 600; width: 100%; }
+  .hours-duty-note { color: #0f7a52; font-weight: 600; width: 100%; }
+  .hours-inputs { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+  .hours-field { display: flex; flex-direction: column; gap: 5px; flex: 1 1 150px; font-size: 13.5px; color: #3a4a58; }
+  /* حقل الوقت لاتيني دائماً: نثبّت اتجاهه حتى لا ينقلب داخل واجهة عربية */
+  .hours-field input { margin: 0; direction: ltr; text-align: left; }
+  .hours-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+  .hours-actions > button { flex: 1 1 160px; }
+  .closed-today-block { margin-top: 18px; padding-top: 16px; border-top: 1px dashed #e3ebf3; }
+  .closed-today-block h4 { margin: 0 0 4px; font-size: 15px; color: #163a5c; }
+  .closed-today-block .muted { margin: 0 0 10px; font-size: 12.5px; line-height: 1.6; }
+
+  /* شارة الفتح والإغلاق ببطاقات النتائج والمناوبة */
+  .open-badge {
+    display: inline-flex; align-items: center; gap: 4px;
+    font-size: 12px; font-weight: 600; padding: 2px 9px; border-radius: 999px;
+    margin: 0 6px; white-space: nowrap; vertical-align: middle;
+  }
+  .open-badge.open { background: #e8f7f0; color: #0f7a52; border: 1px solid #b6e3cf; }
+  .open-badge.closed { background: #fdeceb; color: #b3261e; border: 1px solid #f5c6c3; }
+
+  /* زر السلة حين تكون الصيدلية مغلقة: أحمر ويبقى قابلاً للضغط */
+  .result-add-btn-full.closed {
+    background: #b3261e;
+  }
+  .result-add-btn-full.closed:hover { background: #9a1f18; }
+
+  @media (max-width: 700px) {
+    .hours-actions > button { flex: 1 1 100%; }
+    .open-badge { margin: 4px 0 0; }
+  }
+
+  /* ---- مؤشر التركيز للتنقل بلوحة المفاتيح ---- */
+  /* ثلاثة حقول كانت تُلغي حدّ التركيز: اثنان يعوّضانه بلون حد خفيف، وحقل كلمة المرور
+     بلا أي بديل إطلاقاً — فمن يتنقل بلوحة المفاتيح لا يعرف أين هو.
+     :focus-visible يُظهر الحلقة لمستخدم لوحة المفاتيح، ولا يغيّر شكل النقر بالفأرة
+     على الأزرار. والمحددات مكتوبة بتخصيص يساوي المحددات الأصلية أو يفوقها لتغلبها. */
+  input:focus-visible, select:focus-visible, textarea:focus-visible,
+  .password-field input:focus-visible, #search:focus-visible {
+    outline: 2px solid #185fa5; outline-offset: 2px;
+  }
+  button:focus-visible, a:focus-visible, [role="button"]:focus-visible {
+    outline: 2px solid #185fa5; outline-offset: 2px;
+  }
+
+  /* ---- احترام إعداد تقليل الحركة ---- */
+  /* الموقع فيه سبع حركات. من فعّل "تقليل الحركة" في جهازه (لاضطراب دهليزي أو صداع
+     نصفي أو دوار) تزعجه الحركة فعلياً، والمتصفح يُبلغنا بتفضيله فنحترمه. */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+
+  /* ---- شريط انقطاع الإنترنت ---- */
+  .offline-banner {
+    position: fixed; left: 50%; transform: translateX(-50%);
+    bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+    z-index: 2000; align-items: center; gap: 8px;
+    background: #2b2f36; color: #fff; padding: 11px 20px; border-radius: 999px;
+    font-size: 14px; font-weight: 600; box-shadow: 0 8px 24px rgba(0,0,0,0.25);
+    max-width: calc(100% - 32px);
+  }
+
+  /* ---- تقرير الطلب ---- */
+  .demand-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 12px 0 16px; }
+  .demand-period-btn, .visits-period-btn {
+    background: #f4f8fc; color: #163a5c; border: 1px solid #d6e2ee; border-radius: 999px;
+    padding: 7px 16px; font-size: 13.5px; font-weight: 600; cursor: pointer;
+  }
+  .demand-period-btn.active, .visits-period-btn.active { background: #185fa5; color: #fff; border-color: #185fa5; }
+  .demand-export-btn { margin-inline-start: auto; }
+  .demand-total {
+    display: flex; align-items: baseline; gap: 10px; margin-bottom: 14px;
+    font-size: 34px; font-weight: 700; color: #163a5c;
+  }
+  .demand-total span { font-size: 14px; font-weight: 500; color: #616e7a; }
+  .demand-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+  .demand-block { background: #f7fafd; border: 1px solid #e3ebf3; border-radius: 14px; padding: 14px 16px; }
+  .demand-block h4 { margin: 0 0 4px; font-size: 15px; color: #163a5c; }
+  .demand-hint { margin: 0 0 8px; font-size: 12.5px; color: #616e7a; line-height: 1.5; }
+  .demand-row {
+    display: flex; justify-content: space-between; align-items: center; gap: 10px;
+    padding: 7px 0; border-top: 1px solid #e8eef4; font-size: 14px;
+  }
+  .demand-row:first-of-type { border-top: none; }
+  .demand-name { color: #23303a; overflow-wrap: anywhere; min-width: 0; }
+  .demand-count { color: #185fa5; font-weight: 700; white-space: nowrap; }
+  @media (max-width: 700px) {
+    .demand-grid { grid-template-columns: 1fr; }
+    .demand-export-btn { margin-inline-start: 0; width: 100%; }
+  }
+
+  /* ---- زرا واتساب والخريطة على الهاتف ---- */
+  /* نصف عرض البطاقة على الهاتف لا يتسع لـ"الموقع على الخريطة" في سطر واحد، فيتكدس
+     الزران عمودياً بعرض كامل، كزر الخريطة في بطاقة المناوبة. وflex: 0 0 auto ضروري
+     هنا: الأساس 0 داخل حاوية عمودية يُفسَّر ارتفاعاً لا عرضاً. */
+  @media (max-width: 520px) {
+    .result-actions-secondary { flex-direction: column; }
+    .result-actions-secondary > button,
+    .result-actions .wa-result-btn { flex: 0 0 auto; width: 100%; white-space: nowrap; }
+  }
+
+  /* ---- النص الإرشادي داخل الحقول ---- */
+  /* رمادي كروم الافتراضي (#a9a9a9) نسبة تباينه 2.3 فقط، فيصعب قراءته على الهاتف
+     خاصة تحت الشمس. هذا اللون يبلغ معيار 4.5، ويبقى أفتح من النص المكتوب فعلاً. */
+  ::placeholder { color: #6b7785; opacity: 1; }
+
+  /* ---- عنوان الصيدلية وموقعها (لوحة الإدارة) ---- */
+  /* الحقول تتكدس عمودياً على كل الشاشات، فلا يحتاج تخطيطاً خاصاً للهاتف. وعناصر
+     الحاويات العمودية بلا أساس بالبكسل عمداً: في الاتجاه العمودي يُفسَّر ارتفاعاً. */
+  .admin-address-list { max-height: 60vh; overflow-y: auto; overscroll-behavior: contain; }
+  .admin-address-row { display: flex; flex-direction: column; gap: 10px; padding: 16px 6px; border-top: 1px solid #eef2f6; }
+  .admin-address-row:first-child { border-top: none; }
+  .admin-address-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; }
+  .admin-address-name { font-size: 15px; font-weight: 600; color: #163a5c; overflow-wrap: anywhere; }
+  .admin-address-status { font-size: 12.5px; font-weight: 600; }
+  .admin-address-status.ok { color: #0f7a52; }
+  .admin-address-status.unset { color: #906400; }
+  .admin-address-maplink { font-size: 13px; color: #185fa5; font-weight: 600; text-decoration: none; }
+  .admin-address-maplink:hover { opacity: 0.8; }
+  /* الشرح في سطر ظاهر تحت العنوان لا داخل الحقل: النص الإرشادي كان يُقص على الهاتف
+     لأن الحقل ضيق، ويختفي أصلاً حين يبدأ المدير الكتابة. */
+  .admin-address-hint { margin: 0; font-size: 12.5px; line-height: 1.6; color: #616e7a; }
+  .admin-address-field { display: flex; flex-direction: column; gap: 5px; font-size: 13px; color: #3a4a58; }
+  .admin-address-field input { margin: 0; width: 100%; }
+  /* الإحداثيات أرقام لاتينية دائماً، فنثبّت اتجاهها حتى لا تنقلب داخل الواجهة العربية */
+  .admin-address-field input.coords-input { direction: ltr; text-align: left; }
+  .admin-address-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+  .admin-address-actions > button { flex: 1 1 140px; margin: 0; }
+
+  /* ---- بدء الإطلاق الرسمي ---- */
+  .launch-since {
+    margin: 0 0 12px; padding: 9px 14px; border-radius: 10px; font-size: 13.5px; font-weight: 600;
+    background: #e8f7f0; color: #0f7a52; border: 1px solid #b6e3cf;
+  }
+  /* منطقة خطرة: حدود حمراء متقطعة تفصلها بصرياً عن التقرير */
+  .launch-zone {
+    margin-top: 20px; padding: 18px; border: 1.5px dashed #e0a3a0; border-radius: 14px; background: #fdf6f5;
+  }
+  .launch-zone h4 { margin: 0 0 6px; font-size: 15px; color: #9a1f18; }
+  .launch-zone p { margin: 0 0 8px; font-size: 13.5px; line-height: 1.6; color: #3a2a28; }
+  .launch-zone .launch-warning { color: #906400; font-weight: 600; }
+  .launch-zone input { margin: 6px 0 10px; width: 100%; }
+  .launch-btn {
+    width: 100%; padding: 12px; border: none; border-radius: 10px; cursor: pointer;
+    background: #b3261e; color: #fff; font-size: 14.5px; font-weight: 700;
+  }
+  .launch-btn:disabled { background: #d9c4c2; color: #6e5a58; cursor: not-allowed; }
+
+  /* ---- النسخ الاحتياطي وحالة النظام ---- */
+  .status-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 12px 0; font-size: 13.5px; }
+  .status-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; margin-inline-end: 6px; }
+  .status-dot.ok { background: #17b978; }
+  .status-dot.bad { background: #b3261e; }
+  .status-ok { color: #0f7a52; font-weight: 600; }
+  .status-bad { color: #b3261e; font-weight: 600; }
+  .backup-info {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px;
+    background: #f4f8fc; border: 1px solid #e3ebf3; border-radius: 12px;
+    padding: 10px 14px; margin-bottom: 10px; font-size: 13.5px;
+  }
+  .backup-date { font-weight: 700; color: #163a5c; }
+  .backup-overdue { color: #906400; font-weight: 600; }
+  /* تحذير بارز لا مطموس: الملف يتضمن بيانات حسابات ومرضى */
+  .backup-warning {
+    margin: 0 0 12px; font-size: 12.5px; color: #906400; line-height: 1.6;
+    background: #fff8e6; border: 1px solid #ffe3a3; border-radius: 10px; padding: 9px 12px;
+  }
+
+  /* ---- تعديل أسماء المستخدمين ---- */
+  .admin-username-search { margin: 12px 0 8px; width: 100%; }
+  /* ارتفاع محدود وتمرير داخلي: قائمة بستين صيدلية تدفن بقية اللوحة بدونه */
+  .admin-username-list { max-height: 55vh; overflow-y: auto; overscroll-behavior: contain; }
+  .admin-username-row {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    padding: 12px 10px; border-top: 1px solid #eef2f6; flex-wrap: wrap; border-radius: 10px;
+  }
+  .admin-username-row:first-child { border-top: none; }
+  .admin-username-info { display: flex; flex-direction: column; gap: 4px; min-width: 0; flex: 1 1 200px; }
+  .admin-username-name { font-size: 15px; font-weight: 600; color: #163a5c; overflow-wrap: anywhere; }
+  .admin-username-meta { font-size: 12.5px; color: #616e7a; display: flex; flex-wrap: wrap; gap: 5px; }
+  /* اسم المستخدم لاتيني غالباً، فنثبّت اتجاهه حتى لا ينقلب داخل واجهة عربية */
+  .admin-username-value { font-weight: 700; color: #185fa5; direction: ltr; unicode-bidi: isolate; }
+  .admin-username-controls { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .admin-username-controls input {
+    margin: 0; min-width: 170px; flex: 1 1 170px;
+    direction: ltr; text-align: left;
+  }
+  .admin-username-controls button { flex: 0 0 auto; }
+
+  @media (max-width: 700px) {
+    /* الحاوية تصير عمودية، وفي الاتجاه العمودي يُفسَّر flex-basis بالبكسل
+       كارتفاع لا عرض — فكان flex: 1 1 200px على كتلة المعلومات يفرض عليها
+       ارتفاع 200 بكسل بينما محتواها نحو 50، فيظهر فراغ كبير قبل الحقول.
+       (نفس صنف الخطأ الذي نفخ زر السلة سابقاً.)
+       justify-content: space-between يوزّع الفراغ عمودياً هنا فيضاعف الأثر. */
+    .admin-username-row {
+      flex-direction: column; align-items: stretch;
+      justify-content: flex-start; flex-wrap: nowrap; gap: 10px;
+    }
+    .admin-username-info { flex: 0 0 auto; }
+    .admin-username-controls { width: 100%; }
+    .admin-username-controls input { flex: 1 1 100%; min-width: 0; }
+    .admin-username-controls button { width: 100%; }
+  }
+
+  /* ---- جدول المناوبة بلوحة الإدارة ---- */
+  .admin-duty-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  .admin-duty-tools { display: flex; gap: 10px; margin: 12px 0 6px; flex-wrap: wrap; }
+  .admin-duty-tools input[type="search"] { flex: 1 1 220px; margin: 0; }
+  .admin-duty-tools button { flex: 0 0 auto; }
+  /* ارتفاع محدود وتمرير داخلي: قائمة بستين صيدلية تدفن بقية اللوحة بلا هذا */
+  .admin-duty-list { max-height: 60vh; overflow-y: auto; overscroll-behavior: contain; margin-top: 8px; }
+  .admin-duty-row {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    padding: 12px 10px; border-top: 1px solid #eef2f6; flex-wrap: wrap;
+    border-radius: 10px;
+  }
+  .admin-duty-row:first-child { border-top: none; }
+  /* خلفية خضراء خفيفة للمناوبة: يميّزها المدير بنظرة واحدة وسط عشرات الصفوف */
+  .admin-duty-row.active { background: #f2faf5; }
+  .admin-duty-info { display: flex; flex-direction: column; gap: 4px; min-width: 0; flex: 1 1 200px; }
+  .admin-duty-name { font-size: 15px; font-weight: 600; color: #163a5c; overflow-wrap: anywhere; }
+  .admin-duty-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; font-size: 12.5px; color: #616e7a; }
+  .duty-audit { font-size: 12.5px; }
+  /* تمييز تعديل الصيدلي بلون مختلف: تحذير بصري للمدير ألا يدهس تعديلاً حديثاً */
+  .duty-audit.by-pharmacy { color: #0f7a52; font-weight: 600; }
+  .admin-duty-controls { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .admin-duty-controls select { margin: 0; min-width: 110px; flex: 0 1 auto; }
+  .admin-duty-controls button { flex: 0 0 auto; }
+  .admin-duty-toggle { display: flex; align-items: center; gap: 7px; font-size: 13.5px; cursor: pointer; white-space: nowrap; }
+  .admin-duty-toggle input[type="checkbox"] { width: 18px; height: 18px; margin: 0; cursor: pointer; }
+
+  @media (max-width: 700px) {
+    /* نفس علة أسماء المستخدمين أعلاه: أساس مرن بالبكسل داخل حاوية عمودية */
+    .admin-duty-row {
+      flex-direction: column; align-items: stretch;
+      justify-content: flex-start; flex-wrap: nowrap; gap: 10px;
+    }
+    .admin-duty-info { flex: 0 0 auto; }
+    .admin-duty-controls { width: 100%; }
+    .admin-duty-controls select { flex: 1 1 calc(50% - 4px); min-width: 0; }
+    .admin-duty-controls button { width: 100%; }
+    .admin-duty-toggle { width: 100%; }
+  }
+
+  /* ---- الصيدليات المُدرجة للمناوبة فقط ---- */
+  /* شارة محايدة رمادية لا خضراء ولا حمراء: الحالة ليست "متوفر" ولا "غير متوفر"،
+     بل "لم نسأل" — ولونها يجب ألا يوحي بأي من الادعاءين. */
+  .badge.neutral {
+    background: #eef2f6; color: #5f6e84; border: 1px solid #dbe3ec;
+  }
+  .stock-unmanaged-note {
+    margin-top: 10px; padding-top: 10px; border-top: 1px dashed #e3ebf3;
+    font-size: 12.5px; color: #5f6e84; line-height: 1.6;
+  }
+  /* حالة الصيدلية بلوحة الإدارة */
+  .tier-on { color: #0f7a52; font-weight: 600; }
+  .tier-off { color: #5f6d7c; }
+  .admin-checkbox-row {
+    display: flex; align-items: flex-start; gap: 9px;
+    margin: 4px 0 14px; font-size: 13.5px; color: #3a4a58; line-height: 1.55;
+    cursor: pointer;
+  }
+  .admin-checkbox-row input[type="checkbox"] {
+    width: 18px; height: 18px; margin: 2px 0 0; flex: 0 0 auto; cursor: pointer;
+  }
+
+  /* ---- زر الاتجاهات ---- */
+  /* أزرق هادئ يميّزه عن أخضر واتساب، وبنفس بنية الزر المحدَّد ليتناسقا بصرياً */
+  .directions-btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+    background: #f3f8fd; color: #17548f; border: 1.5px solid #a9cdea;
+    border-radius: 14px; padding: 12px 18px; font-size: 15px; font-weight: 700;
+    font-family: inherit; cursor: pointer; min-height: 46px; white-space: nowrap;
+    transition: background .14s ease, border-color .14s ease, color .14s ease;
+  }
+  .directions-btn:hover { background: #e6f0fa; border-color: #6aa9d9; color: #114472; }
+  .directions-btn:active { transform: translateY(1px); }
+  .directions-btn:focus-visible { outline: 2px solid #185fa5; outline-offset: 2px; }
+  .directions-icon { font-size: 16px; }
+
+  /* صف الأزرار الثانوية: واتساب والاتجاهات جنباً إلى جنب بعرض متساوٍ.
+     الأساسي (إضافة إلى السلة) يبقى بعرض كامل فوقهما، فلا يتنافس ثلاثة أزرار
+     على سطر واحد ويضيق كل منها — وهي المشكلة التي تظهر أولاً على الهاتف. */
+  .result-actions { display: flex; flex-direction: column; gap: 10px; margin-top: 12px; }
+  /* flex: 0 0 auto إلزامي هنا: الحاوية عمودية، فأي flex-basis بالبكسل يُفسَّر
+     كارتفاع لا عرض — وهو ما نفخ زر السلة إلى 200px طولاً حين بقيت قاعدة قديمة
+     من جولة سابقة تعطيه flex: 1 1 200px. */
+  .result-actions .result-add-btn-full { margin-top: 0; width: 100%; flex: 0 0 auto; }
+  .result-actions-secondary { display: flex; gap: 10px; flex: 0 0 auto; }
+  .result-actions-secondary > button { flex: 1 1 0; min-width: 0; }
+  /* "الموقع على الخريطة" ضعف طول "الاتجاهات"، والزر هنا بنصف العرض بجانب واتساب.
+     بدون هذا يمنع nowrap انكسار النص فيتجاوز حدود الزر على الهواتف الضيقة.
+     التخصيص (0,1,1) يغلب .directions-btn (0,1,0) أياً كان ترتيبهما. والزران يبقيان
+     بارتفاع متساوٍ لأن عناصر الصف تمتد عمودياً افتراضياً. */
+  .result-actions-secondary > button { white-space: normal; line-height: 1.3; text-align: center; }
+
+  /* زر الاتجاهات ببطاقة المناوبة */
+  .duty-card-actions { margin-top: 10px; }
+  .duty-card-actions .directions-btn { padding: 9px 15px; min-height: 40px; font-size: 14px; }
+
+  /* ---- قسم موقع الصيدلية بلوحة الصيدلي ---- */
+  .location-current {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px;
+    background: #f4f8fc; border: 1px solid #e3ebf3; border-radius: 12px;
+    padding: 10px 14px; margin-bottom: 12px; font-size: 13.5px;
+  }
+  .location-coords { font-weight: 700; color: #163a5c; direction: ltr; }
+  .location-preview-link { color: #185fa5; font-weight: 600; text-decoration: underline; }
+  .location-detect-btn { margin-bottom: 12px; }
+  /* الإحداثيات أرقام لاتينية دائماً — نثبّت الاتجاه حتى لا تنقلب بواجهة عربية */
+  #location-paste-input { direction: ltr; text-align: left; }
+  .location-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+  .location-actions > button { flex: 1 1 160px; }
+
+  @media (max-width: 700px) {
+    .location-actions > button { flex: 1 1 100%; }
+  }
+
+  /* ---- تكامل واتساب ---- */
+  /* لون واتساب الرسمي #25D366 فاقع جداً على خلفية فاتحة ومع ظل متوهج — مرهق للعين
+     ويسحب الانتباه من الإجراء الأساسي (إضافة إلى السلة).
+     الحل: أخضر أعمق ومشبع أقل (#1E8E4E) بلا توهج. يبقى معروفاً كواتساب، ويهدأ. */
+
+  /* زر البطاقة: إجراء ثانوي بجانب "إضافة إلى السلة"، فيأخذ شكلاً محدَّداً لا مملوءاً —
+     يبقى واضحاً دون أن ينافس الزر الأساسي بصرياً. */
+  .wa-result-btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+    background: #f2faf5; color: #15703f; border: 1.5px solid #9fd9b8;
+    border-radius: 14px; padding: 12px 18px; font-size: 15px; font-weight: 700;
+    font-family: inherit; cursor: pointer; min-height: 46px; white-space: nowrap;
+    transition: background .14s ease, border-color .14s ease, color .14s ease;
+  }
+  .wa-result-btn:hover { background: #e4f4ea; border-color: #6fc394; color: #0f5c32; }
+
+  /* زر اللوحة: هو الإجراء الأساسي هناك، فيبقى مملوءاً — لكن بأخضر هادئ وظل خفيف */
+  .wa-chat-btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+    background: #1c8649; color: #fff; border: none;
+    border-radius: 14px; padding: 12px 18px; font-size: 15px; font-weight: 700;
+    font-family: inherit; cursor: pointer; min-height: 46px; white-space: nowrap;
+    box-shadow: 0 2px 6px rgba(21,112,63,0.16);
+    transition: background .14s ease, box-shadow .14s ease;
+  }
+  .wa-chat-btn:hover { background: #17753f; box-shadow: 0 4px 10px rgba(21,112,63,0.22); }
+  .wa-result-btn:active, .wa-chat-btn:active { transform: translateY(1px); }
+  .wa-result-btn:focus-visible, .wa-chat-btn:focus-visible { outline: 2px solid #15703f; outline-offset: 2px; }
+  .wa-icon { font-size: 16px; }
+
+  /* الفاصل النقطي بين المدينة والعنوان — خارج bdi عمداً حتى لا ينقلب مع النص المعزول */
+
+  /* لوحة الاستشارة */
+  .wa-panel-overlay {
+    position: fixed; inset: 0; z-index: 1000;
+    background: rgba(12,32,52,0.55); backdrop-filter: blur(2px);
+    display: flex; align-items: center; justify-content: center; padding: 18px;
+  }
+  body.wa-panel-lock { overflow: hidden; }
+  .wa-panel {
+    background: #fff; border-radius: 22px; width: 100%; max-width: 620px;
+    max-height: 86vh; display: flex; flex-direction: column; overflow: hidden;
+    box-shadow: 0 24px 60px rgba(9,28,48,0.35);
+  }
+  .wa-panel-head { padding: 22px 22px 8px; }
+  .wa-panel-head h3 { margin: 0 0 6px; font-size: 20px; color: #163a5c; }
+  .wa-panel-head .muted { margin: 0; font-size: 13.5px; line-height: 1.6; }
+  /* القائمة وحدها تمرّر، فيبقى العنوان وزر الإغلاق ظاهرين دائماً */
+  .wa-panel-list { flex: 1 1 auto; overflow-y: auto; padding: 8px 22px 4px; overscroll-behavior: contain; }
+  .wa-pharmacy-row {
+    display: flex; align-items: center; justify-content: space-between; gap: 14px;
+    padding: 14px 2px; border-top: 1px solid #eef2f6; flex-wrap: wrap;
+  }
+  .wa-pharmacy-row:first-child { border-top: none; }
+  .wa-pharmacy-info { display: flex; flex-direction: column; gap: 5px; min-width: 0; flex: 1 1 220px; }
+  .wa-pharmacy-name { font-size: 16px; font-weight: 600; color: #163a5c; overflow-wrap: anywhere; }
+  .wa-pharmacy-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; font-size: 13px; color: #616e7a; }
+  .wa-panel-foot { padding: 12px 22px 18px; border-top: 1px solid #eef2f6; display: flex; flex-direction: column; gap: 12px; }
+  .wa-panel-disclaimer { margin: 0; font-size: 12px; color: #5f6d7c; line-height: 1.6; }
+  .wa-panel-foot .btn-outline { align-self: flex-end; min-height: 42px; padding: 9px 22px; }
+
+  @media (max-width: 700px) {
+    .wa-panel { max-width: 100%; max-height: 92vh; border-radius: 18px; }
+    .wa-panel-head, .wa-panel-list, .wa-panel-foot { padding-left: 16px; padding-right: 16px; }
+    .wa-pharmacy-row .wa-chat-btn { width: 100%; }
+    /* كانت flex: 1 1 auto فيأخذ واتساب عرض نصه ثم يشارك في الباقي، بينما زر الخريطة
+     يشارك في الباقي فقط، فيُعصر نصه إلى ثلاثة أسطر ويتمدد الزران عمودياً معه.
+     الآن العرض متساوٍ للزرين. */
+  .result-actions .wa-result-btn { flex: 1 1 0; }
+  }
+
+  /* ---- شارة التوثيق ---- */
+  .verified-badge {
+    display: inline-flex; align-items: center; gap: 3px;
+    background: #e8f7f0; color: #0f7a52; border: 1px solid #b6e3cf;
+    font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 999px;
+    margin: 0 6px; white-space: nowrap; vertical-align: middle;
+    cursor: help;  /* يلمّح إلى وجود شرح عند التحويم (title) */
+  }
+
+  /* ---- وقت آخر تحديث للمخزون ---- */
+  .stock-freshness {
+    font-size: 12.5px; color: #616e7a; margin-top: 8px;
+    padding-top: 8px; border-top: 1px dashed #e3ebf3;
+  }
+  /* التنبيه أصفر لا أحمر عن قصد: المعلومة قديمة لا خاطئة، والأحمر يوحي بعطل */
+  .stock-freshness.stale { color: #906400; }
+  .stock-stale-note {
+    margin-top: 4px; font-size: 12px; color: #906400;
+    background: #fff8e6; border: 1px solid #ffe3a3;
+    border-radius: 8px; padding: 6px 9px; line-height: 1.45;
+  }
+  .stock-row-time { font-size: 11.5px; margin: 0 6px; white-space: nowrap; }
+  .stock-row-time.stale { color: #906400; font-weight: 600; }
+
+  /* ---- فلتر المدينة بالهيرو ---- */
+  .hero-city-row {
+    display: flex; align-items: center; gap: 10px;
+    margin: 14px 0 6px; flex-wrap: wrap;
+  }
+  .hero-city-label {
+    font-size: 14px; color: #4a5a68; font-weight: 600;
+    display: inline-flex; align-items: center; gap: 4px;
+  }
+  .hero-city-select {
+    /* إخفاء سهم المتصفح الافتراضي واستبداله بسهم مرسوم: الافتراضي يختلف شكلاً وموضعاً
+       بين المتصفحات وكان يظهر ملتصقاً بالحافة بعيداً عن النص. */
+    appearance: none; -webkit-appearance: none; -moz-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8' fill='none'%3E%3Cpath d='M1 1.5L6 6.5L11 1.5' stroke='%23185fa5' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: left 16px center;   /* عربي: النص يمين والسهم يسار */
+    padding: 10px 18px 10px 42px;
+    border: 1.5px solid #a9cdea; border-radius: 999px;
+    background-color: white; color: #185fa5;
+    font-size: 15px; font-family: inherit; font-weight: 600;
+    cursor: pointer; min-height: 46px;
+    /* صفر عرض ثابت: المتصفح يقيسه على أطول مدينة فيبقى السهم قريباً من النص */
+    min-width: 158px;
+    box-shadow: 0 2px 6px rgba(24,95,165,0.07);
+    transition: border-color .15s ease, box-shadow .15s ease;
+  }
+  html[dir="ltr"] .hero-city-select {
+    background-position: right 16px center;
+    padding: 10px 42px 10px 18px;
+  }
+  .hero-city-select:hover { border-color: #6aa9d9; box-shadow: 0 3px 10px rgba(24,95,165,0.13); }
+  .hero-city-select:focus-visible { outline: 2px solid #185fa5; outline-offset: 2px; }
+  .hero-city-select option { color: #23303a; background: #ffffff; }
+
+  @media (max-width: 640px) {
+    .hero-city-row { gap: 8px; }
+    .hero-city-select { width: 100%; max-width: 100%; min-width: 0; }
+  }
+
+  #suggestions {
+    position: absolute; top: 100%; right: 0; left: 0; z-index: 10;
+    background: white; border: 1px solid #cfe0ef; border-radius: 16px;
+    margin-top: -8px; display: none;
+    /* الهيرو عليه overflow:hidden عن قصد (لقص التوهج والجزيئات على حدوده الدائرية)، فأي
+       قائمة اقتراحات أطول من المساحة المتبقية تحت خانة البحث كانت تنقص من الأسفل.
+       الحل: سقف ارتفاع + تمرير داخلي — بدون أي مساس بتصميم الهيرو نفسه. */
+    overflow: hidden;               /* يحافظ على قص المحتوى عند الحواف الدائرية */
+    overflow-y: auto;               /* تمرير عمودي عند تجاوز السقف */
+    max-height: 200px;              /* قيمة احتياطية للمتصفحات القديمة التي لا تدعم min() */
+    max-height: min(200px, 32vh);   /* تتكيّف تلقائياً مع الشاشات القصيرة */
+    overscroll-behavior: contain;   /* التمرير داخل القائمة لا ينتقل للصفحة خلفها */
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin; scrollbar-color: #a9cdea transparent;
+  }
+  /* شريط تمرير رفيع بلون الهوية بدل الشريط الافتراضي العريض */
+  #suggestions::-webkit-scrollbar { width: 8px; }
+  #suggestions::-webkit-scrollbar-track { background: transparent; }
+  #suggestions::-webkit-scrollbar-thumb { background: #a9cdea; border-radius: 999px; }
+  #suggestions.show { display: block; }
+  #suggestions .suggestion-item {
+    padding: 12px 16px; cursor: pointer; font-size: 16px; border-top: 1px solid #eee;
+  }
+  #suggestions .suggestion-item:first-child { border-top: none; }
+  #suggestions .suggestion-item:hover,
+  #suggestions .suggestion-item.active { background: rgba(24,95,165,0.06); }
+  #suggestions .suggestion-item .generic-hint { color: #6e6d67; font-size: 14px; }
+  .password-field {
+    display: flex; align-items: center; gap: 6px;
+    border: 1px solid #cfe0ef; border-radius: 16px; margin-bottom: 14px; padding: 0 12px;
+  }
+  .password-field input {
+    border: none; flex: 1; padding: 12px 0; margin-bottom: 0; font-size: 16px; font-family: inherit;
+  }
+  /* كان outline: none بلا أي بديل، فحقل كلمة المرور بلا مؤشر تركيز لمن يستخدم لوحة المفاتيح */
+  .password-field input:focus:not(:focus-visible) { outline: none; }
+  .password-field input:focus-visible { box-shadow: 0 0 0 3px rgba(92,155,216,0.5); border-radius: 8px; }
+  .password-field .toggle-password {
+    background: none; border: none; cursor: pointer; font-size: 18px; color: #6e6d67; padding: 12px;
+    display: inline-flex; align-items: center; justify-content: center;
+  }
+  .btn-outline {
+    display: inline-block; padding: 12px 22px; border-radius: 16px; border: 1px solid;
+    background: white; cursor: pointer; font-size: 16px; font-weight: 500; font-family: inherit;
+  }
+  .btn-outline.blue { border-color: #185fa5; color: #185fa5; }
+  .btn-outline.blue:hover { background: #eef4fa; }
+  .btn-outline.red { border-color: #a33; color: #a33; }
+  .btn-outline.red:hover { background: #fbeeee; }
+  .btn-outline.green { border-color: #3f8f3f; color: #2f6b2f; }
+  .btn-outline.green:hover { background: #eef8ee; }
+  .btn-outline.small { padding: 6px 16px; font-size: 15px; }
+  .duty-wrap {
+    background: rgba(255,255,255,0.72);
+    backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(255,255,255,0.6);
+    border-radius: 20px; padding: 22px; margin-bottom: 16px;
+    box-shadow: 0 10px 30px rgba(24,95,165,0.1);
+  }
+  .duty-wrap h3 { margin: 0 0 16px; font-size: 19px; }
+  .duty-grid { display: flex; flex-direction: column; gap: 14px; }
+  .duty-card {
+    background: #ffffff; border: 1px solid #e5eef7; border-radius: 16px;
+    padding: 16px 18px; transition: transform .2s ease, box-shadow .2s ease;
+  }
+  .duty-card:hover { transform: translateY(-3px); box-shadow: 0 12px 24px rgba(24,95,165,0.16); }
+  .duty-card-top {
+    display: flex; justify-content: space-between; align-items: center;
+    gap: 10px; flex-wrap: wrap; margin-bottom: 8px;
+  }
+  .duty-card-name { font-size: 18px; font-weight: 700; color: #163a5c; }
+  .duty-status-badge {
+    background: #eaf3de; color: #27500a; font-size: 13px; font-weight: 600;
+    padding: 5px 12px; border-radius: 999px; white-space: nowrap;
+  }
+  .duty-card-row {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 15px; color: #4a5b6b; margin-top: 6px;
+  }
+  .duty-icon { font-size: 15px; }
+  .result-card {
+    background: #ffffff; border: 1px solid #cfe0ef; border-radius: 20px;
+    padding: 16px 18px; margin-bottom: 14px;
+    box-shadow: 0 5px 14px rgba(24,95,165,0.08);
+    transition: transform .2s ease, box-shadow .2s ease;
+  }
+  .result-card:hover { transform: translateY(-2px); box-shadow: 0 10px 22px rgba(24,95,165,0.15); }
+  .result-card-top {
+    display: flex; justify-content: space-between; align-items: center;
+    gap: 10px; flex-wrap: wrap; margin-bottom: 8px;
+  }
+  .result-med-name { font-size: 18px; font-weight: 700; color: #163a5c; display: flex; align-items: center; gap: 8px; }
+  .result-row { font-size: 14px; color: #616e7a; margin-top: 4px; }
+  /* سطر الصيدلية: كان صفاً مرناً واحداً بلا التفاف، فتنضغط العناصر ويلتف النص داخلها —
+     ينزل الرقم تحت الاسم وتتباعد المقاطع عن فواصلها، خصوصاً بالإنكليزية على شاشة ضيقة
+     حيث يختلط اتجاهان في سطر واحد. الحل: سطران — اسم بارز، وبيانات ثانوية تحته. */
+  .result-pharmacy {
+    display: flex; align-items: flex-start; gap: 8px;
+    font-size: 14px; color: #3a4a58; font-weight: 500; margin-top: 8px;
+  }
+  .result-pharmacy-info { display: flex; flex-direction: column; gap: 3px; min-width: 0; flex: 1; }
+  .result-pharmacy-name {
+    display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+    font-weight: 600; color: #23303a; overflow-wrap: anywhere;
+  }
+  .result-pharmacy-meta {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px;
+    font-size: 13px; color: #616e7a; font-weight: 400; overflow-wrap: anywhere;
+  }
+  .result-icon { font-size: 14px; }
+  .result-add-btn-full {
+    display: block; width: 100%; text-align: center; margin-top: 14px;
+    padding: 12px 0; border-radius: 999px; border: none;
+    background: linear-gradient(135deg, #2e77bf, #185fa5);
+    color: #fff; font-size: 15px; font-weight: 700; cursor: pointer; font-family: inherit;
+    transition: transform .2s ease, box-shadow .2s ease, filter .2s ease;
+    box-shadow: 0 6px 16px rgba(24,95,165,0.25);
+  }
+  .result-add-btn-full:hover {
+    transform: translateY(-1px); filter: brightness(1.06);
+    box-shadow: 0 10px 22px rgba(24,95,165,0.32);
+  }
+  .result-add-btn-full.added-success {
+    background: linear-gradient(135deg, #547f2d, #3a843a);
+    box-shadow: 0 6px 16px rgba(63,143,63,0.3);
+    cursor: default;
+  }
+  .result-add-btn-full.added-success:hover { transform: none; filter: none; }
+  .alt-suggestion-box {
+    background: #fff8ec; border: 1px solid #f0d9a8; border-radius: 16px;
+    padding: 14px 16px; margin-bottom: 16px;
+  }
+  .alt-suggestion-title { font-size: 14px; color: #7a5c1e; margin: 0 0 10px; font-weight: 600; line-height: 1.6; }
+  .alt-suggestion-row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 8px 0; border-top: 1px solid #f3e6c8; font-size: 14px; color: #3a4a58;
+  }
+  .alt-suggestion-row:first-of-type { border-top: none; }
+  .modal-overlay {
+    position: fixed; inset: 0; background: rgba(22,58,92,0.45);
+    backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 10000; padding: 20px;
+  }
+  .modal-box {
+    background: #ffffff; border-radius: 20px; padding: 32px 26px; max-width: 380px; width: 100%;
+    text-align: center; box-shadow: 0 20px 50px rgba(24,95,165,0.25);
+    animation: modalPop .25s ease;
+    position: relative; z-index: 10001;
+  }
+  @keyframes modalPop { from { transform: scale(.92); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+  .modal-icon { font-size: 42px; margin-bottom: 14px; }
+  .modal-message { font-size: 16px; color: #163a5c; line-height: 1.6; margin: 0 0 24px; white-space: pre-line; }
+  .modal-actions { display: flex; gap: 10px; }
+  .modal-btn-ok, .modal-btn-cancel {
+    flex: 1; padding: 12px 0; border-radius: 999px; border: none; font-size: 15px; font-weight: 700;
+    cursor: pointer; font-family: inherit; transition: transform .2s ease, filter .2s ease, background .2s ease;
+  }
+  .modal-btn-ok { background: linear-gradient(135deg, #2e77bf, #185fa5); color: #fff; }
+  .modal-btn-ok:hover { transform: translateY(-1px); filter: brightness(1.06); }
+  .modal-btn-cancel { background: #f0f4f8; color: #3a4a58; }
+  .modal-btn-cancel:hover { background: #e5ecf2; }
+  /* نافذة المحتوى الطويل (الأسئلة الشائعة، حول الموقع) — نفس روح تصميم النافذة القصيرة، بحجم أكبر وتمرير داخلي */
+  .info-modal-box {
+    background: #ffffff; border-radius: 20px; max-width: 640px; width: 100%; max-height: 82vh;
+    box-shadow: 0 20px 50px rgba(24,95,165,0.25); animation: modalPop .25s ease;
+    position: relative; z-index: 10001; display: flex; flex-direction: column; overflow: hidden;
+  }
+  .info-modal-header {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    padding: 20px 26px; border-bottom: 1px solid #eef2f6; flex-shrink: 0;
+  }
+  .info-modal-header h2 { font-size: 19px; font-weight: 700; color: #163a5c; margin: 0; }
+  .info-modal-close {
+    background: #f0f4f8; border: none; border-radius: 999px; width: 32px; height: 32px; font-size: 15px;
+    color: #3a4a58; cursor: pointer; flex-shrink: 0; transition: background .2s ease;
+  }
+  .info-modal-close:hover { background: #e5ecf2; }
+  .info-modal-body { padding: 22px 26px 28px; overflow-y: auto; font-size: 15px; line-height: 1.8; color: #3a4a58; }
+  .info-modal-body p { margin: 0 0 14px; }
+  .info-modal-body h3 { font-size: 16px; font-weight: 700; color: #163a5c; margin: 22px 0 10px; }
+  .info-modal-body h3:first-child { margin-top: 0; }
+  .faq-item { border-bottom: 1px solid #eef2f6; padding: 4px 0; }
+  .faq-item:last-child { border-bottom: none; }
+  .faq-item summary {
+    cursor: pointer; font-weight: 600; color: #163a5c; padding: 12px 4px; list-style: none;
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  }
+  .faq-item summary::-webkit-details-marker { display: none; }
+  .faq-item summary::after { content: '+'; font-size: 20px; color: #185fa5; flex-shrink: 0; transition: transform .2s ease; }
+  .faq-item[open] summary::after { transform: rotate(45deg); }
+  .faq-item p { padding: 0 4px 14px; color: #5f5e5a; margin: 0; }
+  @media (max-width: 480px) {
+    .info-modal-box { max-height: 88vh; }
+    .info-modal-header { padding: 16px 18px; }
+    .info-modal-body { padding: 16px 18px 22px; }
+  }
+  .empty-state { text-align: center; padding: 40px 20px; }
+  .empty-icon { font-size: 44px; margin-bottom: 12px; }
+  .empty-title { font-size: 18px; font-weight: 700; color: #163a5c; margin: 0 0 6px; }
+  .empty-subtitle { font-size: 15px; color: #5f5e5a; margin: 0; }
+  .cart-header { position: relative; margin-bottom: 4px; }
+  .cart-title { font-size: 20px; font-weight: 700; color: #163a5c; margin: 0 0 2px; }
+  .cart-subtitle { font-size: 14px; color: #5f5e5a; margin: 0 0 16px; }
+  .cart-item-card {
+    background: #ffffff; border: 1px solid #cfe0ef; border-radius: 20px;
+    padding: 16px 18px; margin-bottom: 14px;
+    box-shadow: 0 5px 14px rgba(24,95,165,0.08);
+    transition: transform .2s ease, box-shadow .2s ease;
+  }
+  .cart-item-card:hover { transform: translateY(-2px); box-shadow: 0 10px 22px rgba(24,95,165,0.15); }
+  .cart-item-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+  .cart-item-name { font-size: 17px; font-weight: 700; color: #163a5c; display: flex; align-items: center; gap: 8px; }
+  .cart-item-generic { font-size: 13px; color: #606e79; margin-top: 2px; }
+  .cart-item-pharmacy { font-size: 14px; color: #4a5b6b; margin-top: 6px; }
+  .cart-item-bottom { display: flex; justify-content: flex-start; align-items: center; margin-top: 12px; }
+  .qty-control { display: flex; align-items: center; gap: 8px; }
+  .qty-btn {
+    width: 32px; height: 32px; border-radius: 50%; border: 1px solid #cfe0ef;
+    background: #f5f9fd; color: #185fa5; font-size: 16px; cursor: pointer; font-family: inherit;
+  }
+  .qty-value { min-width: 20px; text-align: center; font-weight: 600; }
+  .cart-remove-btn { background: none; border: none; color: #a33; font-size: 18px; cursor: pointer; padding: 4px; }
+  .cart-summary {
+    background: #ffffff; border: 1px solid #cfe0ef; border-radius: 20px;
+    padding: 18px 20px; margin-top: 6px; box-shadow: 0 5px 14px rgba(24,95,165,0.08);
+  }
+  .cart-summary-row { display: flex; justify-content: space-between; font-size: 15px; color: #3a4a58; margin-bottom: 14px; }
+  .checkout-btn {
+    display: block; width: 100%; text-align: center; padding: 13px 0; border-radius: 999px; border: none;
+    background: linear-gradient(135deg, #2e77bf, #185fa5);
+    color: #fff; font-size: 16px; font-weight: 700; cursor: pointer; font-family: inherit;
+    transition: transform .2s ease, box-shadow .2s ease, filter .2s ease;
+    box-shadow: 0 6px 16px rgba(24,95,165,0.25);
+  }
+  .checkout-btn:hover { transform: translateY(-1px); filter: brightness(1.06); box-shadow: 0 10px 22px rgba(24,95,165,0.32); }
+  .cart-empty { position: relative; text-align: center; padding: 36px 20px; }
+  .cart-empty-icon { font-size: 44px; margin-bottom: 12px; }
+  .cart-empty-title { font-size: 18px; font-weight: 700; color: #163a5c; margin: 0 0 6px; }
+  .cart-empty-subtitle { font-size: 15px; color: #5f5e5a; margin: 0; }
+  .dash-title { font-size: 22px; font-weight: 800; color: #163a5c; margin: 0 0 6px; }
+  .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px; }
+  .stats-grid.stats-grid-3 { grid-template-columns: repeat(3, 1fr); }
+  .stats-grid.stats-grid-5 { grid-template-columns: repeat(5, 1fr); }
+  .stat-card {
+    position: relative; overflow: hidden;
+    background: #ffffff; border: 1px solid #cfe0ef; border-radius: 16px;
+    padding: 16px 10px; text-align: center;
+    box-shadow: 0 5px 14px rgba(24,95,165,0.08);
+    transition: transform .2s ease, box-shadow .2s ease;
+  }
+  .stat-card::before {
+    content: ''; position: absolute; top: 0; right: 0; left: 0; height: 3px;
+    background: linear-gradient(90deg, #5c9bd8, #185fa5);
+  }
+  .stat-card:hover { transform: translateY(-2px); box-shadow: 0 10px 22px rgba(24,95,165,0.15); }
+  .stat-value { font-size: 23px; font-weight: 800; color: #163a5c; }
+  .stat-value.stat-green { color: #27500a; }
+  .stat-value.stat-red { color: #7a1f1f; }
+  .stat-label { font-size: 12px; color: #616e7a; margin-top: 4px; }
+  @media (max-width: 560px) {
+    .stats-grid { grid-template-columns: repeat(2, 1fr); }
+    .stats-grid.stats-grid-3 { grid-template-columns: repeat(2, 1fr); }
+    .stats-grid.stats-grid-5 { grid-template-columns: repeat(3, 1fr); }
+  }
+  @media (max-width: 380px) {
+    .stats-grid.stats-grid-3 { grid-template-columns: 1fr; }
+    .stats-grid.stats-grid-5 { grid-template-columns: repeat(2, 1fr); }
+  }
+  .stock-table-wrap {
+    background: #ffffff; border: 1px solid #cfe0ef; border-radius: 20px;
+    overflow: hidden; margin-bottom: 20px; box-shadow: 0 5px 14px rgba(24,95,165,0.08);
+  }
+  .stock-scroll { max-height: 440px; overflow-y: auto; }
+  .stock-table-header {
+    position: sticky; top: 0; z-index: 2;
+    display: flex; justify-content: space-between; align-items: center; padding: 12px 18px;
+    background: rgba(238,246,253,0.95); backdrop-filter: blur(6px);
+    font-size: 13px; font-weight: 700; color: #3a4a58; border-bottom: 1px solid #e5eef7;
+  }
+  .stock-table-header .col-status { min-width: 104px; text-align: center; }
+  .stock-table-header .col-action { min-width: 78px; text-align: center; }
+  .table-action-btn { min-width: 78px; text-align: center; }
+
+  /* ---- صف الصيدلية بلوحة الإدارة ----
+     أُفرد بأصنافه الخاصة بدل .row العام، لأن أزراره صارت ثلاثة بنصوص متفاوتة الطول
+     ("حذف" مقابل "إعادة تعيين كلمة المرور")، فكان النص يلتف على سطرين ويعطي كل زر
+     عرضاً وارتفاعاً مختلفاً، وتنزل شارة المناوبة تحت الاسم. الحل: معلومات الصيدلية
+     بسطرين (اسم بارز + بيانات ثانوية)، والأزرار بسطر واحد بلا التفاف. */
+  .admin-ph-row {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 14px; padding: 14px 2px; border-top: 1px solid #eef2f6; flex-wrap: wrap;
+  }
+  .admin-ph-row:first-of-type { border-top: none; }
+  .admin-ph-info { display: flex; flex-direction: column; gap: 5px; min-width: 0; flex: 1 1 240px; }
+  .admin-ph-name { font-size: 16px; font-weight: 600; color: #163a5c; overflow-wrap: anywhere; }
+  .admin-ph-meta {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px;
+    font-size: 13px; color: #616e7a;
+  }
+  .admin-ph-meta .badge { font-size: 12px; padding: 3px 10px; }
+  .admin-ph-sep { color: #c7d3dd; }
+  .admin-ph-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+  /* nowrap هو جوهر الإصلاح: يمنع التفاف نص الزر فيتساوى ارتفاع الأزرار الثلاثة */
+  .admin-ph-actions .btn-outline {
+    white-space: nowrap; min-width: 0; padding: 9px 15px; font-size: 14px;
+    border-radius: 12px; line-height: 1.2;
+  }
+  .admin-ph-edit-input { flex: 1 1 220px; min-width: 0; margin: 0 !important; }
+
+  /* تبديل نص الزر حسب عرض الشاشة: النص الكامل على الحاسوب، ومختصر على الموبايل.
+     التبديل بـCSS لا بـJS، فلا يحتاج إعادة رسم عند تغيير حجم النافذة. */
+  .btn-label-short { display: none; }
+
+  @media (max-width: 700px) {
+    /* شبكة أمان: لو ضاقت الشاشة أكثر مما نتوقع، ينزل الزر لسطر ثانٍ بدل أن يُقصّ نصه.
+       زر مقصوص غير مفهوم إطلاقاً، وزر على سطر ثانٍ مفهوم تماماً. */
+    .admin-ph-actions { width: 100%; flex-wrap: wrap; }
+    .admin-ph-actions .btn-outline { flex: 1 1 auto; text-align: center; }
+    .btn-label-full { display: none; }
+    .btn-label-short { display: inline; }
+  }
+  .stock-scroll .row { padding: 12px 18px; margin: 0; border-top: 1px solid #eef2f6; transition: background .2s ease; }
+  .expiry-badge { font-size: 14px; font-weight: 600; padding: 5px 12px; border-radius: 999px; margin-right: 6px; display: inline-block; }
+  html[dir="ltr"] .expiry-badge { margin-right: 0; margin-left: 6px; }
+  .expiry-badge.expired { background: #fcebeb; color: #7a1f1f; }
+  .expiry-badge.soon { background: #fdf3d8; color: #7a5a0a; }
+  .stock-dates-panel { padding: 16px 18px 20px; background: #f7fafc; border-top: 1px solid #eef2f6; }
+  .stock-dates-inputs { display: flex; flex-wrap: wrap; gap: 16px; margin-bottom: 16px; }
+  .stock-dates-panel label { display: flex; flex-direction: column; gap: 6px; font-size: 14px; font-weight: 500; color: #3a4a58; }
+  .stock-dates-panel input[type="date"] { padding: 10px 14px; border: 1px solid #cfe0ef; border-radius: 12px; font-family: inherit; font-size: 15px; min-width: 170px; background: #fff; }
+  .stock-scroll .row:first-child { border-top: none; }
+  .stock-scroll .row:hover { background: #f5f9fd; }
+  .orders-wrap {
+    background: rgba(255,255,255,0.72);
+    backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(255,255,255,0.6);
+    border-radius: 20px; padding: 22px; margin-bottom: 20px;
+    box-shadow: 0 10px 30px rgba(24,95,165,0.1);
+  }
+  .order-card {
+    background: #ffffff; border: 1px solid #e5eef7; border-radius: 16px;
+    padding: 16px 18px; margin-bottom: 12px;
+    transition: transform .2s ease, box-shadow .2s ease;
+  }
+  .order-card:last-child { margin-bottom: 0; }
+  .order-card:hover { transform: translateY(-2px); box-shadow: 0 10px 22px rgba(24,95,165,0.14); }
+  .order-card.is-new { border-color: #97c459; background: #f8fdf3; }
+  .order-card-top {
+    display: flex; justify-content: space-between; align-items: center;
+    gap: 10px; flex-wrap: wrap; margin-bottom: 8px;
+  }
+  .order-patient-name { font-size: 16px; font-weight: 700; color: #163a5c; }
+  .order-new-badge {
+    background: #eaf3de; color: #27500a; font-size: 12px; font-weight: 700;
+    padding: 3px 10px; border-radius: 999px;
+  }
+  .order-confirmed-badge {
+    background: #dcefe1; color: #1c6b3a; font-size: 12px; font-weight: 700;
+    padding: 3px 10px; border-radius: 999px;
+  }
+  .order-status-banner {
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    border-radius: 16px; padding: 14px 16px; margin-bottom: 12px;
+    font-size: 15px; font-weight: 600;
+  }
+  .order-status-banner-text { display: flex; align-items: center; gap: 10px; }
+  .order-status-banner.confirmed {
+    background: #f8fdf3; border: 1px solid #97c459; color: #2f5c14;
+  }
+  .order-status-banner.pending {
+    background: #f4f9fd; border: 1px solid #cfe0ef; color: #3a5b78;
+  }
+  .order-status-icon { font-size: 18px; }
+  .order-status-dismiss {
+    background: none; border: none; cursor: pointer;
+    color: #5f5e5a; font-size: 14px; padding: 10px 12px; flex-shrink: 0;
+    display: inline-flex; align-items: center; justify-content: center;
+  }
+  .order-row { font-size: 14px; color: #4a5b6b; margin-top: 4px; display: flex; align-items: center; gap: 6px; }
+  .order-items-list { font-size: 14px; color: #3a4a58; margin-top: 8px; padding-top: 8px; border-top: 1px solid #eef2f6; }
+  .order-notes-row { font-size: 14px; color: #6b5a1f; background: #fdf7e6; padding: 8px 12px; border-radius: 10px; margin-top: 8px; }
+  .order-item-line { padding: 2px 0; }
+  .order-actions-row { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+
+  /* ===================== الواجهة الجديدة: قسم علوي كامل العرض ولوحة تعلوه ===================== */
+  /* قسم علوي داكن يملأ عرض الشاشة بعنوان كبير أبيض، ثم لوحة بزوايا دائرية كبيرة تعلو
+     أسفله. يُطبَّق في الصفحة الرئيسية وصفحة التمريض فقط (الصنف has-hero على body)،
+     فلوحتا الصيدلي والإدارة تبقيان كما هما دون قسم علوي يُمرَّر فوقه في كل مرة.
+     النسخة السابقة محفوظة كاملة لمن يريد العودة إليها. */
+  body.has-hero .hero-outer {
+    max-width: none;
+    /* نسحب القسم إلى أعلى الصفحة تحت الشريط العائم: 20px حشوة الصفحة، وارتفاع الشريط
+       (يقيسه السكربت بعده مباشرة)، و16px هامشه السفلي */
+    margin: calc(-20px - var(--hdr, 0px) - 16px) -20px 0;
+  }
+  body.has-hero .hero {
+    min-height: 86vh;
+    justify-content: center;
+    text-align: center;
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+    /* مرئي عمداً لا مقصوص: قائمة اقتراحات البحث قد تمتد تحت حافة القسم، فلو قُصّت
+       لاختفت الاقتراحات السفلى. والزخارف التي كان القص يخدمها مخفية الآن. */
+    overflow: visible;
+    padding: calc(var(--hdr, 0px) + 100px) 24px 230px;
+    background:
+      radial-gradient(ellipse at 78% 12%, rgba(92,155,216,0.38) 0%, rgba(92,155,216,0) 55%),
+      radial-gradient(ellipse at 12% 88%, rgba(67,211,162,0.16) 0%, rgba(67,211,162,0) 50%),
+      linear-gradient(160deg, #0b2440 0%, #123a63 50%, #1b5c92 100%);
+  }
+  body.has-hero .hero-glow,
+  body.has-hero .hero-particles,
+  body.has-hero .hero-cart-illustration,
+  body.has-hero .hero-bottle-illustration,
+  body.has-hero .hero-capsule { display: none; }
+  body.has-hero .hero-content { margin: 0 auto; max-width: 760px; width: 100%; }
+  /* لا تباعد بين الحروف: في العربية يقطع وصل الحروف ببعضها */
+  body.has-hero .hero-title {
+    color: #ffffff; font-size: clamp(34px, 5.6vw, 76px); line-height: 1.22; margin: 0 0 18px;
+  }
+  body.has-hero .hero-highlight { color: #9fcbf2; }
+  body.has-hero .hero-description {
+    color: #e3edf6; font-size: clamp(15px, 1.3vw, 18px); line-height: 1.75; max-width: 600px; margin: 0 auto 30px;
+  }
+  body.has-hero .hero-search-wrap,
+  body.has-hero .hero-city-row { max-width: 640px; margin-left: auto; margin-right: auto; }
+  body.has-hero .hero-city-row { margin-top: 14px; }
+  body.has-hero #search { box-shadow: 0 18px 44px rgba(3,18,35,0.35); border-color: rgba(255,255,255,0.9); }
+  body.has-hero .hero-city-label { color: #ffffff; }
+  body.has-hero .hero-search-hint { color: #d4e4f3; text-align: center; }
+  body.has-hero .hero-actions-row { justify-content: center; }
+
+  /* اللوحة التي تعلو أسفل القسم الداكن. z-index 2 يضعها فوق خلفية القسم، بينما محتوى
+     القسم (z-index 3، ومعه قائمة الاقتراحات) يبقى فوقها، فلا تختفي الاقتراحات تحتها. */
+  body.has-hero .page-panel {
+    position: relative; z-index: 2;
+    margin: -64px -20px 0;
+    padding: 44px 20px 0;
+    background: #eaf5fc;
+    border-radius: 44px 44px 0 0;
+    box-shadow: 0 -14px 40px rgba(6,26,48,0.22);
+  }
+  @media (max-width: 700px) {
+    body.has-hero .hero { min-height: auto; padding: calc(var(--hdr, 0px) + 72px) 18px 130px; }
+    body.has-hero .page-panel { margin-top: -44px; padding-top: 32px; border-radius: 28px 28px 0 0; }
+  }
+
+  /* ===================== الرسوم على الخلفية الداكنة ===================== */
+  /* الحبة والعلبة والعربة صُمّمت بألوان فاتحة، فعلى الخلفية الداكنة تبدو كأنها مضيئة.
+     على الشاشات الواسعة تتوزع على جانبي المحتوى، وتنزل الحبة خلف حافة اللوحة فتبدو
+     اللوحة كأنها تعلوها. وعلى الشاشات الأضيق تبقى الحبة وحدها شعاراً فوق العنوان،
+     لأن الجوانب لا تتسع للرسوم دون أن تغطي النص. */
+  body.has-hero .hero-capsule,
+  body.has-hero .hero-bottle-illustration,
+  body.has-hero .hero-cart-illustration,
+  body.has-hero .hero-particles { display: block; }
+  body.has-hero .hero-capsule,
+  body.has-hero .hero-bottle-illustration,
+  body.has-hero .hero-cart-illustration,
+  .staff-banner-art > div { filter: drop-shadow(0 18px 34px rgba(0, 12, 28, 0.45)); }
+  body.has-hero .hero-particles span { background: rgba(159, 203, 242, 0.6); }
+  @media (min-width: 1100px) {
+    /* فوق الجزء الذي تعلوه اللوحة (64px) بمسافة، فتظهر الحبة كاملة لا مقصوصة */
+    body.has-hero .hero-capsule { position: absolute; left: 3%; right: auto; bottom: 96px; width: 300px; margin: 0; }
+    body.has-hero .hero-bottle-illustration { position: absolute; left: 8%; right: auto; top: calc(var(--hdr, 0px) + 70px); width: 92px; }
+    body.has-hero .hero-cart-illustration { position: absolute; left: auto; right: 7%; top: 40%; width: 175px; }
+    body.has-hero .hero-particles { position: absolute; inset: 0; pointer-events: none; }
+  }
+  @media (max-width: 1099px) {
+    body.has-hero .hero-bottle-illustration,
+    body.has-hero .hero-cart-illustration,
+    body.has-hero .hero-particles { display: none; }
+    body.has-hero .hero-capsule { position: static; width: 120px; margin: 0 auto 10px; transform: none; }
+  }
+  @media (max-width: 700px) {
+    body.has-hero .hero-capsule { width: 92px; margin-bottom: 6px; }
+  }
+
+  /* ===================== شريط لوحتي الصيدلي والإدارة ===================== */
+  .staff-banner { display: none; }
+  body.staff-view .staff-banner {
+    display: block; position: relative; overflow: hidden; text-align: center;
+    margin: calc(-20px - var(--hdr, 0px) - 16px) -20px 0;
+    padding: calc(var(--hdr, 0px) + 60px) 24px 160px;
+    background:
+      radial-gradient(ellipse at 78% 10%, rgba(92,155,216,0.38) 0%, rgba(92,155,216,0) 55%),
+      radial-gradient(ellipse at 12% 90%, rgba(67,211,162,0.16) 0%, rgba(67,211,162,0) 50%),
+      linear-gradient(160deg, #0b2440 0%, #123a63 50%, #1b5c92 100%);
+  }
+  .staff-banner-content { position: relative; z-index: 1; max-width: 720px; margin: 0 auto; }
+  /* لا تباعد بين الحروف: في العربية يقطع وصل الحروف ببعضها */
+  .staff-banner-content h2 { margin: 0 0 10px; color: #ffffff; font-size: clamp(26px, 3.6vw, 46px); line-height: 1.25; font-weight: 800; }
+  .staff-banner-content p { margin: 0 auto; max-width: 600px; color: #e3edf6; font-size: clamp(15px, 1.5vw, 18px); line-height: 1.7; }
+  /* فوق الجزء الذي تعلوه اللوحة (64px) بمسافة: كانت عند 8px فغطّت اللوحة نصفها */
+  .staff-art-capsule { position: absolute; left: 4%; bottom: 82px; width: 210px; animation: heroFloat 5s ease-in-out infinite; }
+  .staff-art-bottle { position: absolute; right: 7%; top: calc(var(--hdr, 0px) + 40px); width: 78px; animation: heroBottleFloat 7s ease-in-out infinite; }
+  /* اللوحة في هاتين الصفحتين تعلو الشريط بالتداخل الدائري نفسه للصفحة الرئيسية */
+  body.staff-view .page-panel {
+    position: relative; z-index: 2;
+    margin: -64px -20px 0; padding: 44px 20px 0;
+    background: #eaf5fc; border-radius: 44px 44px 0 0;
+    box-shadow: 0 -14px 40px rgba(6,26,48,0.22);
+  }
+  @media (max-width: 900px) {
+    /* على الشاشات الأضيق تبقى الرسوم خارج مساحة النص: تصغر وتلتصق بالزاويتين */
+    .staff-art-capsule { width: 120px; left: -10px; bottom: 76px; }
+    .staff-art-bottle { width: 54px; right: 12px; }
+  }
+  @media (max-width: 700px) {
+    body.staff-view .staff-banner { padding: calc(var(--hdr, 0px) + 40px) 18px 118px; }
+    body.staff-view .page-panel { margin-top: -44px; padding-top: 32px; border-radius: 28px 28px 0 0; }
+    .staff-art-capsule { width: 88px; left: -14px; bottom: 54px; opacity: 0.9; }
+    .staff-art-bottle { width: 42px; top: calc(var(--hdr, 0px) + 18px); opacity: 0.9; }
+  }
+
+  /* ---- تخفيف البياض أسفل الصفحة ---- */
+  /* قسم "حول الموقع" والتذييل كانا أبيضين ناصعين بعرض الشاشة، تحت لوحة زرقاء فاتحة،
+     فيظهر بينهما حد حاد. القسم الآن بلون اللوحة نفسه فتبرز بطاقاته البيضاء عليه،
+     والتذييل أبيض مائل للزرقة يتدرج مع اللوحة بدل أن يقطعها. */
+  .about-section-wrap { background: transparent; }
+  .site-footer { background: #f4f9fd; border-top-color: #dbe7f2; }
+
+  /* ---- دوائر طائرة فوق الرسوم ---- */
+  /* داخل حاوية الرسم نفسها لا بجانبها، فتطفو معه في حركته، ولكل دائرة فوق ذلك حركة
+     خفيفة خاصة بها (particleFloat نفسها التي تتحرك بها الدوائر قرب الحبة). */
+  .art-dots { position: absolute; inset: 0; pointer-events: none; }
+  .art-dots i {
+    position: absolute; display: block; border-radius: 50%;
+    background: rgba(159, 203, 242, 0.75);
+    animation: particleFloat 4.5s ease-in-out infinite;
+  }
+  .art-dots i:nth-child(1) { width: 7px; height: 7px; top: -14px; left: 20%; animation-delay: 0s; }
+  .art-dots i:nth-child(2) { width: 5px; height: 5px; top: -32px; left: 55%; animation-delay: 1.4s; }
+  .art-dots i:nth-child(3) { width: 4px; height: 4px; top: -8px;  left: 84%; animation-delay: 2.8s; }
+
+  /* ---- حجم العناوين ---- */
+  /* كانت تصل إلى 76px فتطغى على الصفحة. هنا حجم واضح يقرؤه كبار السن بسهولة دون أن
+     يكون ضخماً: نحو 44px على الحاسوب و28px على الهاتف. العنوان عنصر واحد بثلاثة نصوص
+     (الأدوية، ومستحضرات التجميل، والتمريض)، فتعديله يضبطها كلها. */
+  body.has-hero .hero-title { font-size: clamp(28px, 3.4vw, 44px); line-height: 1.4; }
+  .staff-banner-content h2 { font-size: clamp(26px, 3vw, 40px); }
+
+  /* العناوين لا تُحدَّد عند اللمس أو السحب: لمسة خاطئة على الهاتف كانت تلوّنها بالأزرق.
+     وهذا تجميلي لا حماية، فالنص ظاهر في مصدر الصفحة. ويبقى التحديد متاحاً في بقية
+     الموقع، لأن المريض يحتاج أحياناً نسخ رقم صيدلية أو اسم دواء. */
+  body.has-hero .hero-title,
+  body.has-hero .hero-description,
+  .staff-banner-content { -webkit-user-select: none; user-select: none; }
+
+  /* ---- الحافة السفلية للوحة ---- */
+  /* كانت اللوحة تنتهي مباشرة تحت محتواها (تحت بطاقة الدخول مثلاً)، وظلها العلوي يتسرب
+     من أسفلها قليلاً، فيظهر شريط منكسر. الآن: الظل في الأعلى فقط (انزياح للأعلى مع
+     انكماش سالب يُبقيه فوق الحافة السفلية)، ولا حشوة تحت اللوحة تكشف لوناً مختلفاً. */
+  body.has-hero, body.staff-view { padding-bottom: 0; }
+  body.has-hero .page-panel,
+  body.staff-view .page-panel { box-shadow: 0 -18px 28px -12px rgba(6, 26, 48, 0.28); }
+
+  /* ---- زخارف لوحتي الصيدلي والإدارة ---- */
+  /* أيقونات الموقع نفسها (الحبة، والعلبة، والعربة، والصليب الطبي مضلعاً مفرغاً كبقية
+     الأيقونات، ودوائر صغيرة) بخطوط
+     رفيعة وشفافية 10٪ فقط، متباعدة نحو 150px، فتُرى نقشاً هادئاً لا صورة مزدحمة.
+     تبقى خلف البطاقات البيضاء فلا تمس وضوح أي نص. واللوحة تمتد قرب أسفل الشاشة
+     على الأقل، فلا تنتهي فجأة تحت بطاقة قصيرة كبطاقة الدخول. */
+  body.staff-view .page-panel {
+    min-height: calc(100vh - 300px);
+    padding-bottom: 48px;
+    background-color: #eaf5fc;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='560' height='700' viewBox='0 0 560 700'%3E%3Cg transform='translate%2890 100%29 rotate%28-30%29 scale%281%29' stroke='%23185fa5' stroke-opacity='0.10' fill='none' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='-46' y='-17' width='92' height='34' rx='17'/%3E%3Cline x1='0' y1='-17' x2='0' y2='17'/%3E%3C/g%3E%3Cpolygon stroke='%23185fa5' stroke-opacity='0.10' fill='none' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round' points='324.5%2C54 335.5%2C54 335.5%2C64.5 346%2C64.5 346%2C75.5 335.5%2C75.5 335.5%2C86 324.5%2C86 324.5%2C75.5 314%2C75.5 314%2C64.5 324.5%2C64.5'/%3E%3Cg transform='translate%28470 210%29 scale%281%29' stroke='%23185fa5' stroke-opacity='0.10' fill='none' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='-15' y='-44' width='30' height='12' rx='3'/%3E%3Crect x='-24' y='-32' width='48' height='66' rx='11'/%3E%3Cline x1='-12' y1='-6' x2='12' y2='-6'/%3E%3Cline x1='-12' y1='4' x2='6' y2='4'/%3E%3C/g%3E%3Ccircle cx='255' cy='250' r='4' fill='%23185fa5' fill-opacity='0.12'/%3E%3Cg transform='translate%28110 400%29 scale%281%29' stroke='%23185fa5' stroke-opacity='0.10' fill='none' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M-44 -26 L-32 -26 L-22 14 L28 14 L38 -14 L-28 -14'/%3E%3Ccircle cx='-16' cy='28' r='5'/%3E%3Ccircle cx='22' cy='28' r='5'/%3E%3C/g%3E%3Cpolygon stroke='%23185fa5' stroke-opacity='0.10' fill='none' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round' points='325.5%2C467 334.5%2C467 334.5%2C475.5 343%2C475.5 343%2C484.5 334.5%2C484.5 334.5%2C493 325.5%2C493 325.5%2C484.5 317%2C484.5 317%2C475.5 325.5%2C475.5'/%3E%3Cg transform='translate%28460 580%29 rotate%2825%29 scale%280.8%29' stroke='%23185fa5' stroke-opacity='0.10' fill='none' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='-46' y='-17' width='92' height='34' rx='17'/%3E%3Cline x1='0' y1='-17' x2='0' y2='17'/%3E%3C/g%3E%3Ccircle cx='520' cy='410' r='3' fill='%23185fa5' fill-opacity='0.12'/%3E%3Ccircle cx='180' cy='640' r='5' fill='%23185fa5' fill-opacity='0.12'/%3E%3Ccircle cx='40' cy='250' r='3' fill='%23185fa5' fill-opacity='0.12'/%3E%3C/svg%3E");
+    background-size: 560px 700px;
+    background-position: center 24px;
+    background-repeat: repeat;
+  }
+  @media (max-width: 700px) {
+    body.staff-view .page-panel { background-size: 420px 525px; }
+  }
+
+  /* الحقول لا ترث خط الصفحة افتراضياً في المتصفحات، فنلزمها به */
+  input, select, textarea { font-family: inherit; }
+
+  /* ---- مساحة الإعلان للزوار ---- */
+  /* بيضاء محايدة بحد رمادي، لا بالأزرق ولا بالأخضر، كي لا تُخلط بعناصر الموقع نفسه،
+     ووسم "إعلان" واضح دائماً: الشفافية جزء من الثقة */
+  .ad-slot { max-width: 820px; margin: 26px auto 4px; }
+  .ad-card {
+    position: relative; display: block; overflow: hidden; color: inherit; text-decoration: none;
+    background: #ffffff; border: 1px solid #e3ebf3; border-radius: 16px; box-shadow: 0 6px 18px rgba(24,95,165,0.06);
+  }
+  .ad-card img { display: block; width: 100%; height: auto; aspect-ratio: 3 / 1; object-fit: cover; background: #eef3f8; }
+  .ad-foot { display: flex; align-items: center; gap: 10px; padding: 9px 14px 11px; }
+  .ad-label {
+    flex: 0 0 auto; padding: 2px 10px; border-radius: 999px;
+    background: #eef2f6; border: 1px solid #dbe5ee; color: #5b6b7a; font-size: 12px; font-weight: 700;
+  }
+  .ad-advertiser { font-size: 13.5px; color: #5b6b7a; min-width: 0; overflow-wrap: anywhere; }
+  a.ad-card:hover { box-shadow: 0 10px 24px rgba(24,95,165,0.12); }
+  a.ad-card:focus-visible { outline: 3px solid #185fa5; outline-offset: 2px; }
+
+  /* ---- بطاقة الإعلانات في لوحة الإدارة ---- */
+  .ad-form { display: flex; flex-direction: column; gap: 10px; margin: 6px 0 16px; padding: 14px; background: #f7fafd; border: 1px solid #e3ebf3; border-radius: 14px; }
+  .ad-form h4 { margin: 0; font-size: 15px; color: #163a5c; }
+  .ad-form > input, .ad-form > button { margin: 0; }
+  /* المعاينة بالنسبة نفسها التي سيراها الزائر (٣:١)، فيرى المدير القصّ قبل النشر */
+  .ad-preview {
+    aspect-ratio: 3 / 1; width: 100%; overflow: hidden; display: flex; align-items: center; justify-content: center;
+    background: #ffffff; border: 1px dashed #b9cde0; border-radius: 12px; text-align: center;
+  }
+  .ad-preview img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .ad-preview .muted { padding: 0 14px; font-size: 13px; }
+  .ad-ratio-warn { margin: 0; font-size: 13px; color: #906400; }
+  .ad-placement, .ad-dates { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; font-size: 14px; }
+  .ad-placement label, .ad-dates label { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
+  /* القاعدة العامة تجعل كل حقل بعرض 100٪، ومنها أزرار الاختيار؛ هنا حجمها الطبيعي كبقية اللوحة */
+  .ad-placement input[type="radio"] { width: 19px; height: 19px; margin: 0; padding: 0; flex: 0 0 auto; accent-color: #185fa5; cursor: pointer; }
+  .ad-dates input[type="date"] { width: auto; margin: 0; padding: 8px 10px; }
+  .ads-list { display: flex; flex-direction: column; gap: 12px; }
+  .ad-item { overflow: hidden; background: #ffffff; border: 1px solid #e3ebf3; border-radius: 14px; }
+  .ad-item > img { display: block; width: 100%; aspect-ratio: 3 / 1; object-fit: cover; background: #eef3f8; }
+  .ad-item-body { display: flex; flex-direction: column; gap: 6px; padding: 12px 14px; }
+  .ad-item-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+  .ad-item-head strong { font-size: 15px; color: #163a5c; }
+  .ad-status { padding: 2px 10px; border-radius: 999px; font-size: 12.5px; font-weight: 700; }
+  .ad-status.running { background: #e8f7f0; color: #0f7a52; }
+  .ad-status.paused { background: #eef2f6; color: #5b6b7a; }
+  .ad-status.scheduled { background: #e9f2fb; color: #185fa5; }
+  .ad-status.ended { background: #f3efe7; color: #7a5d2a; }
+  .ad-meta { font-size: 13px; color: #5b6b7a; overflow-wrap: anywhere; }
+  .ad-item-actions { display: flex; gap: 8px; margin-top: 4px; }
+  .ad-item-actions button { margin: 0; }
+
+  /* ---- بطاقة الزيارات في لوحة الإدارة ---- */
+  .visits-stats { display: flex; flex-wrap: wrap; gap: 6px 30px; }
+  /* الأعمدة تضيق لتتسع لأي عدد أيام: كان لها عرض أدنى ثابت، فلم تتسع ٩٠ عموداً لعرض
+     الهاتف، ففاضت لليسار ودُفع عمود اليوم (آخرها) خارج البطاقة، فبدا الرسم فارغاً.
+     overflow: hidden ضمانة إضافية ألا يخرج شيء عن حدود البطاقة أبداً. */
+  .visits-chart {
+    display: flex; align-items: flex-end; gap: 2px; height: 120px; margin: 14px 0 6px; padding: 10px 10px 0;
+    background: #f7fafd; border: 1px solid #e3ebf3; border-radius: 14px; overflow: hidden;
+  }
+  .visits-chart.dense { gap: 1px; padding: 10px 6px 0; }
+  .visits-bar { flex: 1 1 0; min-width: 0; border-radius: 3px 3px 0 0; background: linear-gradient(180deg, #5b9bd5, #185fa5); }
+  .visits-bar.zero { background: #d6e2ee; border-radius: 0; }
+  .visits-axis { display: flex; justify-content: space-between; font-size: 12px; color: #616e7a; }
+
+  /* ---- زر "المناوبة الآن" في الصفحة الرئيسية ---- */
+  /* شكل زر "استشر صيدلياً" وحجمه نفسه، لكن بأخضر "مفتوحة الآن" لا أخضر واتساب:
+     كل لون في الموقع لمعنى واحد، وهذا الزر معناه "مفتوح الآن" لا "راسل". */
+  .duty-now-btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: linear-gradient(135deg, #ffffff 0%, #e8f7f0 100%);
+    border: 1px solid rgba(255,255,255,0.85); color: #0f7a52;
+    padding: 12px 20px; border-radius: 999px; font-size: 14px; font-weight: 600;
+    cursor: pointer; font-family: inherit;
+    box-shadow: 0 8px 20px rgba(15,122,82,0.15); transition: transform .2s ease, box-shadow .2s ease;
+  }
+  .duty-now-btn:hover { transform: translateY(-2px); box-shadow: 0 12px 26px rgba(15,122,82,0.22); }
+  .duty-now-icon { font-size: 14px; }
+
+  /* ---- هياكل التحميل ---- */
+  /* بطاقات رمادية تنبض بشكل المحتوى القادم، بدل نص "جارٍ التحميل" */
+  .skeleton-list { display: flex; flex-direction: column; gap: 14px; }
+  .skeleton-card { background: #ffffff; border: 1px solid #e3ebf3; border-radius: 18px; padding: 18px 20px; }
+  .skeleton-line {
+    height: 12px; margin-bottom: 12px; border-radius: 6px;
+    background: linear-gradient(90deg, #eaf0f6 25%, #f6f9fc 37%, #eaf0f6 63%);
+    background-size: 400% 100%; animation: skeletonShimmer 1.4s ease infinite;
+  }
+  .skeleton-line:last-child { margin-bottom: 0; }
+  .skeleton-line.title { height: 16px; width: 55%; }
+  .skeleton-line.w-80 { width: 80%; }
+  .skeleton-line.w-40 { width: 40%; }
+  @keyframes skeletonShimmer { 0% { background-position: 100% 50%; } 100% { background-position: 0 50%; } }
+
+  /* ---- الظهور الناعم عند التمرير ---- */
+  /* الصنف reveal يضيفه JavaScript وحده: إن فشل تحميل الملف يبقى المحتوى ظاهراً لا مخفياً */
+  .reveal { opacity: 0; transform: translateY(18px); transition: opacity .6s ease, transform .6s ease; }
+  .reveal.revealed { opacity: 1; transform: none; }
+  @media (prefers-reduced-motion: reduce) {
+    .skeleton-line { animation: none; }
+    .reveal { opacity: 1; transform: none; transition: none; }
+  }
+
+  /* ---- بطاقة "انضم إلينا" تحت دخول الصيدلي ---- */
+  /* بمقاييس بطاقة الدخول نفسها (العرض والحدود والزوايا والحشوة) فتبدوان مجموعة واحدة */
+  .join-box { margin-top: 18px; padding: 22px; background: #ffffff; border: 1px solid #cfe0ef; border-radius: 16px; }
+  .join-box h3 { margin: 0 0 8px; font-size: 17px; color: #163a5c; }
+  .join-count { margin: 0 0 10px; font-size: 15px; color: #23303a; }
+  .join-count strong { color: #185fa5; }
+  .join-toggle { margin: 0 0 10px; }
+  .join-list { list-style: none; margin: 0 0 12px; padding: 10px 14px; max-height: 220px; overflow-y: auto; background: #f7fafd; border-radius: 12px; }
+  .join-list li { padding: 6px 0; border-top: 1px solid #e8eef4; font-size: 14px; }
+  .join-list li:first-child { border-top: none; }
+  .join-hint { margin: 0 0 12px; font-size: 13.5px; line-height: 1.6; }
+  .join-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+  .join-btn { flex: 1 1 180px; display: inline-flex; align-items: center; justify-content: center; text-decoration: none; margin: 0; min-height: 46px; }
+  /* الزر الأزرق الأساسي مكتوب لـ button.primary تحديداً، وهذا رابط (a) لأنه يفتح البريد،
+     فنعطيه الشكل نفسه صراحةً وإلا ظهر نصاً عادياً */
+  .join-btn.primary {
+    color: #ffffff; border: none; border-radius: 16px; padding: 12px 18px; font-weight: 700;
+    background: linear-gradient(135deg, #2e77bf, #185fa5);
+  }
+  .join-btn.primary:hover { filter: brightness(1.06); box-shadow: 0 10px 22px rgba(24, 95, 165, 0.28); }
+
+  /* ---- العنوان مكتوباً مع زر نسخ (نافذة التواصل وبطاقة الانضمام) ---- */
+  .contact-email-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin: 14px 0 0; font-size: 14px; }
+  .contact-email { font-weight: 700; color: #163a5c; direction: ltr; overflow-wrap: anywhere; }
+  .contact-actions { margin-top: 6px; }
+  .contact-note { margin: 16px 0 0; font-size: 13.5px; line-height: 1.7; }
+
+  /* ---- خبرة الممرضين وشهاداتهم ---- */
+  .nurse-verified-badge {
+    display: inline-block; margin-inline-start: 8px; padding: 2px 10px; border-radius: 999px;
+    background: #e8f7f0; color: #0f7a52; border: 1px solid #b6e3cf; font-size: 12.5px; font-weight: 700; vertical-align: middle;
+  }
+  .cert-storage-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin: -4px 0 12px; font-size: 13.5px; }
+  .nurse-editor { padding: 14px 16px 16px; background: #f7fafd; border-top: 1px dashed #d6e2ee; }
+  .nurse-editor-grid { display: flex; flex-direction: column; gap: 10px; }
+  .nurse-editor-grid > .primary { align-self: flex-start; margin: 0; }
+  .nurse-cert-box { margin-top: 16px; padding: 14px; background: #ffffff; border: 1px solid #e3ebf3; border-radius: 12px; }
+  .nurse-cert-box h4 { margin: 0 0 6px; font-size: 14.5px; color: #163a5c; }
+  .nurse-cert-info { margin: 0 0 6px; font-size: 13.5px; color: #3a4a58; }
+  .nurse-cert-state { margin: 0 0 10px; font-size: 13px; font-weight: 600; }
+  .nurse-cert-state.ok { color: #0f7a52; }
+  .nurse-cert-state.pending { color: #906400; }
+  .nurse-cert-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+  .nurse-cert-actions > button { margin: 0; }
+</style>
+</head>
+<body class="has-hero">
+<header class="site-header">
+  <div class="site-header-inner">
+    <nav class="site-nav" id="site-nav">
+      <a class="nav-link active" onclick="headerGoHome(this)" id="nav-home">الرئيسية</a>
+      <a class="nav-link" onclick="headerGoOnDuty(this)" id="nav-onduty">الصيدليات المناوبة</a>
+      <a class="nav-link nav-role-portal" onclick="headerGoPharmacist(this)" id="nav-pharmacist">لوحة الصيدلي</a>
+      <a class="nav-link" onclick="headerGoCosmetics(this)" id="nav-cosmetics">مستحضرات تجميل</a>
+      <a class="nav-link" onclick="headerGoNursing(this)" id="nav-nursing">خدمات تمريض</a>
+      <a class="nav-link nav-role-portal" onclick="headerGoAdmin(this)" id="nav-admin">الإدارة</a>
+    </nav>
+    <div class="site-header-right">
+      <div class="site-logo">
+        <span class="logo-dot">💊</span> <span id="brand-name">دوائي جاهز</span>
+      </div>
+      <div class="header-icons">
+        <button id="lang-toggle-btn" class="lang-toggle-btn" onclick="toggleLanguage()">English</button>
+        <button class="nav-toggle" onclick="toggleNav()" aria-label="القائمة">☰</button>
+      </div>
+    </div>
+  </div>
+</header>
+<script>
+  // ارتفاع الشريط العلوي العائم، ليمتد القسم الداكن تحته حتى أعلى الصفحة (--hdr في CSS).
+  // يُقاس هنا فوراً قبل تحميل app.js، فلا يقفز التصميم أثناء التحميل.
+  (function () {
+    function setHdr() {
+      var h = document.querySelector('.site-header');
+      if (h) document.documentElement.style.setProperty('--hdr', h.offsetHeight + 'px');
+    }
+    setHdr();
+    window.addEventListener('resize', setHdr);
+    window.addEventListener('load', setHdr);
+  })();
+</script>
+
+<div class="hero-outer">
+  <div class="hero">
+    <div class="hero-glow" aria-hidden="true"></div>
+    <div class="hero-particles" aria-hidden="true">
+      <span></span><span></span><span></span><span></span><span></span>
+    </div>
+    <div class="hero-cart-illustration" aria-hidden="true">
+      <svg viewBox="0 0 160 150" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="cartBody" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#ffffff"/>
+            <stop offset="100%" stop-color="#e3eff9"/>
+          </linearGradient>
+          <linearGradient id="cartBoxGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#a8d4f2"/>
+            <stop offset="100%" stop-color="#5c9bd8"/>
+          </linearGradient>
+        </defs>
+        <path d="M30 52 L38 52 L46 78" stroke="#a9c8e0" stroke-width="4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M44 78 L118 78 L108 118 L54 118 Z" fill="url(#cartBody)" stroke="#bcdcf3" stroke-width="2"/>
+        <line x1="60" y1="78" x2="66" y2="118" stroke="#cfe3f5" stroke-width="1.5"/>
+        <line x1="81" y1="78" x2="81" y2="118" stroke="#cfe3f5" stroke-width="1.5"/>
+        <line x1="102" y1="78" x2="96" y2="118" stroke="#cfe3f5" stroke-width="1.5"/>
+        <circle cx="62" cy="130" r="7" fill="#7ba9cc"/>
+        <circle cx="100" cy="130" r="7" fill="#7ba9cc"/>
+        <circle cx="62" cy="130" r="3" fill="#ffffff"/>
+        <circle cx="100" cy="130" r="3" fill="#ffffff"/>
+        <rect x="56" y="55" width="26" height="24" rx="3" fill="url(#cartBoxGrad)"/>
+        <line x1="69" y1="60" x2="69" y2="74" stroke="#ffffff" stroke-width="2"/>
+        <line x1="62" y1="67" x2="76" y2="67" stroke="#ffffff" stroke-width="2"/>
+        <rect x="86" y="58" width="24" height="16" rx="3" fill="#ffffff" stroke="#bcdcf3" stroke-width="1.5"/>
+        <circle cx="91" cy="66" r="2.3" fill="#a9cdea"/>
+        <circle cx="98" cy="66" r="2.3" fill="#a9cdea"/>
+        <circle cx="105" cy="66" r="2.3" fill="#a9cdea"/>
+        <g transform="translate(78,42) rotate(-20)">
+          <rect x="-12" y="-5" width="24" height="10" rx="5" fill="#ffffff" stroke="#bcdcf3" stroke-width="1"/>
+          <path d="M0 -5 a5 5 0 0 1 0 10 Z" fill="#5c9bd8"/>
+        </g>
+      </svg>
+      <span class="art-dots" aria-hidden="true"><i></i><i></i><i></i></span>
+    </div>
+    <div class="hero-bottle-illustration" aria-hidden="true">
+      <svg viewBox="0 0 100 140" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="bottleBody" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#ffffff"/>
+            <stop offset="100%" stop-color="#e3eff9"/>
+          </linearGradient>
+          <linearGradient id="bottleCap" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#a8d4f2"/>
+            <stop offset="100%" stop-color="#5c9bd8"/>
+          </linearGradient>
+        </defs>
+        <rect x="40" y="20" width="20" height="16" fill="#e3eff9" stroke="#bcdcf3" stroke-width="1.5"/>
+        <rect x="30" y="6" width="40" height="18" rx="5" fill="url(#bottleCap)"/>
+        <line x1="30" y1="15" x2="70" y2="15" stroke="#ffffff" stroke-width="1.5" opacity="0.6"/>
+        <rect x="22" y="32" width="56" height="100" rx="16" fill="url(#bottleBody)" stroke="#bcdcf3" stroke-width="2"/>
+        <rect x="32" y="64" width="36" height="38" rx="5" fill="#ffffff" stroke="#bcdcf3" stroke-width="1.5"/>
+        <line x1="38" y1="75" x2="62" y2="75" stroke="#a9cdea" stroke-width="2.5" stroke-linecap="round"/>
+        <line x1="38" y1="83" x2="58" y2="83" stroke="#cfe3f5" stroke-width="2.5" stroke-linecap="round"/>
+        <line x1="38" y1="91" x2="52" y2="91" stroke="#cfe3f5" stroke-width="2.5" stroke-linecap="round"/>
+      </svg>
+      <span class="art-dots" aria-hidden="true"><i></i><i></i><i></i></span>
+    </div>
+    <div class="hero-capsule" aria-hidden="true">
+      <svg viewBox="0 0 300 220" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="lightHalf" x1="20%" y1="0%" x2="80%" y2="100%">
+            <stop offset="0%" stop-color="#ffffff"/>
+            <stop offset="55%" stop-color="#fbfdff"/>
+            <stop offset="100%" stop-color="#d9e8f5"/>
+          </linearGradient>
+          <linearGradient id="darkHalf" x1="20%" y1="0%" x2="80%" y2="100%">
+            <stop offset="0%" stop-color="#a8d4f2"/>
+            <stop offset="45%" stop-color="#74b6e8"/>
+            <stop offset="100%" stop-color="#4a94cf"/>
+          </linearGradient>
+          <linearGradient id="trail" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stop-color="#bcdcf3" stop-opacity="0"/>
+            <stop offset="100%" stop-color="#bcdcf3" stop-opacity="0.75"/>
+          </linearGradient>
+          <radialGradient id="shineGrad" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stop-color="#ffffff" stop-opacity="0.95"/>
+            <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
+          </radialGradient>
+          <clipPath id="capsuleClip">
+            <rect x="90" y="80" width="160" height="60" rx="30"/>
+          </clipPath>
+        </defs>
+        <g transform="rotate(-30 170 110)">
+          <!-- خطوط حركة خفيفة خلف الكبسولة -->
+          <rect x="8" y="104" width="74" height="7" rx="3.5" fill="url(#trail)"/>
+          <rect x="24" y="119" width="58" height="5" rx="2.5" fill="url(#trail)" opacity="0.75"/>
+          <rect x="34" y="91" width="48" height="4" rx="2" fill="url(#trail)" opacity="0.65"/>
+
+          <!-- جسم الكبسولة -->
+          <g clip-path="url(#capsuleClip)">
+            <rect x="90" y="80" width="82" height="60" fill="url(#lightHalf)"/>
+            <rect x="172" y="80" width="78" height="60" fill="url(#darkHalf)"/>
+            <!-- ظل داخلي سفلي لإحساس الحجم -->
+            <ellipse cx="170" cy="152" rx="90" ry="22" fill="#7ba9cc" opacity="0.22"/>
+            <!-- لمعة علوية ممتدة على طول الكبسولة -->
+            <ellipse cx="160" cy="93" rx="62" ry="9" fill="#ffffff" opacity="0.5"/>
+          </g>
+          <rect x="90" y="80" width="160" height="60" rx="30" fill="none" stroke="#ffffff" stroke-opacity="0.55" stroke-width="1.5"/>
+          <!-- بقعة ضوء ناعمة على النصف الأبيض -->
+          <ellipse cx="120" cy="98" rx="22" ry="12" fill="url(#shineGrad)"/>
+          <!-- بقعة ضوء على النصف الأزرق -->
+          <ellipse cx="208" cy="97" rx="17" ry="7" fill="#ffffff" opacity="0.45" transform="rotate(-14 208 97)"/>
+        </g>
+      </svg>
+    </div>
+    <div class="hero-content">
+      <h1 class="hero-title" id="hero-title">دوائي جاهز<br>في <span class="hero-highlight">أي وقت</span>، من أي مكان</h1>
+      <p class="hero-description" id="hero-description">منصة سورية تساعدك على معرفة توفر الدواء في الصيدليات القريبة وطلبه بسهولة.</p>
+      <div class="hero-search-wrap" id="hero-search-wrap">
+        <span class="search-icon" aria-hidden="true">🔍</span>
+        <input id="search" type="text" placeholder="ابحث عن دواء أو مادة فعالة..." aria-label="البحث عن دواء أو مادة فعالة" oninput="onSearch()" onkeydown="onSearchKeydown(event)" autocomplete="off">
+        <button type="button" class="search-btn" id="search-btn" onclick="submitSearch()">بحث</button>
+        <div id="suggestions" role="listbox" aria-label="اقتراحات البحث"></div>
+      </div>
+      <div class="hero-city-row">
+        <label class="hero-city-label" for="city-filter" id="city-filter-label">📍 المدينة</label>
+        <select id="city-filter" class="hero-city-select" aria-label="تصفية النتائج حسب المدينة" onchange="onCityFilterChange(this)">
+          <option value="">كل المدن</option>
+        </select>
+      </div>
+      <p class="hero-search-hint" id="hero-search-hint">اكتب اسم الدواء للبحث عن توفره في صيدليات سلمية.</p>
+      <div class="hero-actions-row">
+        <button id="cart-toggle-btn" class="hero-cart-btn" onclick="toggleCart()">
+          <span class="hero-cart-icon">🛒</span> <span id="cart-btn-label">عربة المشتريات</span> <span class="hero-cart-count" id="cart-count">0</span>
+          <span class="cart-notify-badge" id="cart-notify-badge" style="display:none">0</span>
+        </button>
+        <button type="button" class="whatsapp-btn" onclick="openWhatsappPanel()">
+          <span class="whatsapp-icon">💬</span> <span id="whatsapp-btn-label">استشر صيدلياً</span>
+        </button>
+        <button type="button" class="duty-now-btn" onclick="heroGoOnDuty()">
+          <span class="duty-now-icon" aria-hidden="true">🟢</span> <span id="duty-now-btn-label">المناوبة الآن</span>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- شريط لوحتي الصيدلي والإدارة: بالتدرّج الداكن نفسه للصفحة الرئيسية لكنه أقصر بكثير،
+     فيصل الصيدلي والمدير إلى عملهما فوراً. الرسوم نسخ بمعرّفات تدرّج جديدة (-s): لو
+     أشارت إلى تدرّجات القسم الرئيسي وهو مخفي في هاتين اللوحتين، لما رسمها كروم. -->
+<div class="staff-banner">
+  <div class="staff-banner-art" aria-hidden="true">
+    <div class="staff-art-capsule" aria-hidden="true">
+      <svg viewBox="0 0 300 220" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="lightHalf-s" x1="20%" y1="0%" x2="80%" y2="100%">
+            <stop offset="0%" stop-color="#ffffff"/>
+            <stop offset="55%" stop-color="#fbfdff"/>
+            <stop offset="100%" stop-color="#d9e8f5"/>
+          </linearGradient>
+          <linearGradient id="darkHalf-s" x1="20%" y1="0%" x2="80%" y2="100%">
+            <stop offset="0%" stop-color="#a8d4f2"/>
+            <stop offset="45%" stop-color="#74b6e8"/>
+            <stop offset="100%" stop-color="#4a94cf"/>
+          </linearGradient>
+          <linearGradient id="trail-s" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stop-color="#bcdcf3" stop-opacity="0"/>
+            <stop offset="100%" stop-color="#bcdcf3" stop-opacity="0.75"/>
+          </linearGradient>
+          <radialGradient id="shineGrad-s" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stop-color="#ffffff" stop-opacity="0.95"/>
+            <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
+          </radialGradient>
+          <clipPath id="capsuleClip-s">
+            <rect x="90" y="80" width="160" height="60" rx="30"/>
+          </clipPath>
+        </defs>
+        <g transform="rotate(-30 170 110)">
+          <!-- خطوط حركة خفيفة خلف الكبسولة -->
+          <rect x="8" y="104" width="74" height="7" rx="3.5" fill="url(#trail-s)"/>
+          <rect x="24" y="119" width="58" height="5" rx="2.5" fill="url(#trail-s)" opacity="0.75"/>
+          <rect x="34" y="91" width="48" height="4" rx="2" fill="url(#trail-s)" opacity="0.65"/>
+
+          <!-- جسم الكبسولة -->
+          <g clip-path="url(#capsuleClip-s)">
+            <rect x="90" y="80" width="82" height="60" fill="url(#lightHalf-s)"/>
+            <rect x="172" y="80" width="78" height="60" fill="url(#darkHalf-s)"/>
+            <!-- ظل داخلي سفلي لإحساس الحجم -->
+            <ellipse cx="170" cy="152" rx="90" ry="22" fill="#7ba9cc" opacity="0.22"/>
+            <!-- لمعة علوية ممتدة على طول الكبسولة -->
+            <ellipse cx="160" cy="93" rx="62" ry="9" fill="#ffffff" opacity="0.5"/>
+          </g>
+          <rect x="90" y="80" width="160" height="60" rx="30" fill="none" stroke="#ffffff" stroke-opacity="0.55" stroke-width="1.5"/>
+          <!-- بقعة ضوء ناعمة على النصف الأبيض -->
+          <ellipse cx="120" cy="98" rx="22" ry="12" fill="url(#shineGrad-s)"/>
+          <!-- بقعة ضوء على النصف الأزرق -->
+          <ellipse cx="208" cy="97" rx="17" ry="7" fill="#ffffff" opacity="0.45" transform="rotate(-14 208 97)"/>
+        </g>
+      </svg>
+      <span class="art-dots" aria-hidden="true"><i></i><i></i><i></i></span>
+    </div>
+    <div class="staff-art-bottle" aria-hidden="true">
+      <svg viewBox="0 0 100 140" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="bottleBody-s" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#ffffff"/>
+            <stop offset="100%" stop-color="#e3eff9"/>
+          </linearGradient>
+          <linearGradient id="bottleCap-s" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#a8d4f2"/>
+            <stop offset="100%" stop-color="#5c9bd8"/>
+          </linearGradient>
+        </defs>
+        <rect x="40" y="20" width="20" height="16" fill="#e3eff9" stroke="#bcdcf3" stroke-width="1.5"/>
+        <rect x="30" y="6" width="40" height="18" rx="5" fill="url(#bottleCap-s)"/>
+        <line x1="30" y1="15" x2="70" y2="15" stroke="#ffffff" stroke-width="1.5" opacity="0.6"/>
+        <rect x="22" y="32" width="56" height="100" rx="16" fill="url(#bottleBody-s)" stroke="#bcdcf3" stroke-width="2"/>
+        <rect x="32" y="64" width="36" height="38" rx="5" fill="#ffffff" stroke="#bcdcf3" stroke-width="1.5"/>
+        <line x1="38" y1="75" x2="62" y2="75" stroke="#a9cdea" stroke-width="2.5" stroke-linecap="round"/>
+        <line x1="38" y1="83" x2="58" y2="83" stroke="#cfe3f5" stroke-width="2.5" stroke-linecap="round"/>
+        <line x1="38" y1="91" x2="52" y2="91" stroke="#cfe3f5" stroke-width="2.5" stroke-linecap="round"/>
+      </svg>
+      <span class="art-dots" aria-hidden="true"><i></i><i></i><i></i></span>
+    </div>
+  </div>
+  <div class="staff-banner-content">
+    <h2 id="staff-banner-title"></h2>
+    <p id="staff-banner-sub"></p>
+  </div>
+</div>
+<div class="page-panel">
+<div class="container">
+  <div class="cart-section-wrap">
+    <div id="cart-section" style="display:none; margin-bottom:16px;"></div>
+  </div>
+  <div id="view-patient">
+    <div id="on-duty-section" style="display:none;"></div>
+    <div id="results-toolbar" class="results-toolbar" style="display:none;">
+      <button type="button" class="refresh-results-btn" id="refresh-results-btn" onclick="refreshResults(this)">↻ تحديث النتائج</button>
+    </div>
+    <div id="results" aria-live="polite"></div>
+
+    <div class="about-section-wrap">
+      <div class="feature-cards">
+        <div class="feature-card">
+          <div class="feature-icon">🔍</div>
+          <h3 class="feature-title" id="feature1-title">البحث عن الدواء</h3>
+          <p class="feature-desc" id="feature1-desc">اعرف الصيدليات التي توفر الدواء.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">🏥</div>
+          <h3 class="feature-title" id="feature2-title">الصيدليات المناوبة</h3>
+          <p class="feature-desc" id="feature2-desc">اعرض الصيدليات المناوبة اليوم.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">🛒</div>
+          <h3 class="feature-title" id="feature3-title">عربة المشتريات</h3>
+          <p class="feature-desc" id="feature3-desc">اجمع الأدوية قبل زيارة الصيدلية.</p>
+        </div>
+      </div>
+      <!-- مساحة الإعلان: يملؤها app.js بإعلان عامل، أو تبقى مخفية إن لم يوجد -->
+      <div id="ad-slot" class="ad-slot" style="display:none"></div>
       <h2 class="about-title-lg" id="about-title">حول الموقع</h2>
       <p class="about-desc-lg" id="about-desc">دوائي جاهز منصة سورية محلية انطلقت من مدينة سلمية، هدفها مساعدتك على معرفة توفر دوائك في الصيدليات القريبة فوراً، بدل التنقل من صيدلية لصيدلية بحثاً عن دواء قد لا يكون متوفراً.</p>
     </div>
