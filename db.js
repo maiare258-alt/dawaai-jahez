@@ -281,7 +281,28 @@ async function initDb() {
     );
   `);
 
-  for (const table of ['search_log', 'app_settings', 'visit_daily']) {
+  // الإعلانات المباشرة (أكتوبر 2026): يبيعها صاحب المنصة لمعلنين محليين ويديرها من لوحته.
+  // الصورة في القاعدة نفسها بعد ضغطها في المتصفح (نحو 100 كيلوبايت)، فلا تحتاج إعداد
+  // تخزين خارجي. والعدّادان (الظهور والنقر) أرقام مجمّعة فقط، لا أثر لزائر بعينه.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS ads (
+      id SERIAL PRIMARY KEY,
+      advertiser TEXT NOT NULL,
+      link TEXT,
+      placement TEXT NOT NULL DEFAULT 'home',
+      starts_on DATE,
+      ends_on DATE,
+      active BOOLEAN NOT NULL DEFAULT true,
+      image BYTEA NOT NULL,
+      image_mime TEXT NOT NULL,
+      image_size INTEGER NOT NULL,
+      impressions INTEGER NOT NULL DEFAULT 0,
+      clicks INTEGER NOT NULL DEFAULT 0,
+      created_at TIMESTAMP DEFAULT NOW()
+    );
+  `);
+
+  for (const table of ['search_log', 'app_settings', 'visit_daily', 'ads']) {
     try {
       await pool.query(`ALTER TABLE ${table} ENABLE ROW LEVEL SECURITY;`);
     } catch (err) {
@@ -710,12 +731,18 @@ async function ping(timeoutMs = 4000) {
 // الحسابات ويلزم إعادة تعيين كلمة مرور كل صيدلية. الهاش ليس كلمة مرور، لكن
 // الملف يبقى حساساً ويجب حفظه في مكان آمن.
 async function exportAll() {
-  const tables = ['pharmacies', 'medicines', 'stock', 'orders', 'nurses', 'nurse_ratings', 'search_log', 'app_settings', 'visit_daily'];
+  const tables = ['pharmacies', 'medicines', 'stock', 'orders', 'nurses', 'nurse_ratings', 'search_log', 'app_settings', 'visit_daily', 'ads'];
   const data = {};
   for (const table of tables) {
     // أسماء الجداول ثابتة في المصفوفة أعلاه ولا تأتي من المستخدم إطلاقاً،
     // فلا مجال لحقن SQL هنا رغم أن الاسم يُدمج نصياً.
-    const { rows } = await pool.query(`SELECT * FROM ${table}`);
+    // صور الإعلانات تُصدَّر نصاً بترميز base64: لو صُدّرت كما هي لصارت في الملف قائمة
+    // أرقام طويلة لا تُقرأ ولا تُسترجع.
+    const sql = table === 'ads'
+      ? `SELECT id, advertiser, link, placement, starts_on, ends_on, active, image_mime, image_size,
+                impressions, clicks, created_at, encode(image, 'base64') AS image_base64 FROM ads`
+      : `SELECT * FROM ${table}`;
+    const { rows } = await pool.query(sql);
     data[table] = rows;
   }
   return {
@@ -1102,6 +1129,43 @@ async function getVisitRows(days) {
   return rows;
 }
 
+// ===== الإعلانات =====
+// الحالة تُحسب بتوقيت دمشق: إعلان ينتهي "اليوم" يبقى ظاهراً حتى نهاية يوم دمشق لا UTC.
+const AD_FIELDS = `id, advertiser, link, placement, to_char(starts_on, 'YYYY-MM-DD') AS starts_on,
+  to_char(ends_on, 'YYYY-MM-DD') AS ends_on, active, image_mime, image_size, impressions, clicks, created_at,
+  CASE WHEN NOT active THEN 'paused'
+       WHEN starts_on IS NOT NULL AND starts_on > (NOW() AT TIME ZONE 'Asia/Damascus')::date THEN 'scheduled'
+       WHEN ends_on IS NOT NULL AND ends_on < (NOW() AT TIME ZONE 'Asia/Damascus')::date THEN 'ended'
+       ELSE 'running' END AS status`;
+
+async function createAd({ advertiser, link, placement, startsOn, endsOn, image, mime }) {
+  const { rows } = await pool.query(
+    `INSERT INTO ads (advertiser, link, placement, starts_on, ends_on, image, image_mime, image_size)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING ${AD_FIELDS}`,
+    [cleanText(advertiser), link || null, placement, startsOn || null, endsOn || null, image, mime, image.length]);
+  return rows[0];
+}
+
+async function listAdsAdmin() {
+  const { rows } = await pool.query(`SELECT ${AD_FIELDS} FROM ads ORDER BY created_at DESC, id DESC`);
+  return rows;
+}
+
+async function getAdImage(id) {
+  const { rows } = await pool.query('SELECT image, image_mime FROM ads WHERE id = $1', [id]);
+  return rows[0] || null;
+}
+
+async function setAdActive(id, active) {
+  const { rows } = await pool.query(`UPDATE ads SET active = $2 WHERE id = $1 RETURNING ${AD_FIELDS}`, [id, active === true]);
+  return rows[0] || null;
+}
+
+async function deleteAd(id) {
+  const { rowCount } = await pool.query('DELETE FROM ads WHERE id = $1', [id]);
+  return rowCount > 0;
+}
+
 async function getNurseById(id) {
   const { rows } = await pool.query('SELECT * FROM nurses WHERE id = $1', [id]);
   return rows[0] || null;
@@ -1274,6 +1338,11 @@ module.exports = {
   getNursesWithRatings,
   addNurse,
   getNurseById,
+  createAd,
+  listAdsAdmin,
+  getAdImage,
+  setAdActive,
+  deleteAd,
   recordVisit,
   getVisitRows,
   getJoinedPharmacies,
