@@ -37,6 +37,7 @@ const stockRoutes = require('./routes/stock');
 const ordersRoutes = require('./routes/orders');
 const nursesRoutes = require('./routes/nurses');
 const statsRoutes = require('./routes/stats');
+const adsRoutes = require('./routes/ads');
 const { clientIp } = require('./middleware/rateLimit');
 
 const app = express();
@@ -148,6 +149,7 @@ app.use('/api/stock', stockRoutes);
 app.use('/api/orders', ordersRoutes);
 app.use('/api/nurses', nursesRoutes);
 app.use('/api/stats', statsRoutes);
+app.use('/api/ads', adsRoutes);
 
 // فحص الصحة. يفحص قاعدة البيانات فعلياً لا يرد "ok" بلا شرط:
 // رد إيجابي من خادم لا يصل إلى قاعدته يُفرغ المراقبة من معناها.
