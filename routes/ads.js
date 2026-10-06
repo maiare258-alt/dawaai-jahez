@@ -2,6 +2,10 @@ const express = require('express');
 const router = express.Router();
 const db = require('../db');
 const adminAuth = require('../middleware/adminAuth');
+const rateLimit = require('../middleware/rateLimit');
+
+// زوار ليسوا بشراً لا تُحسب لهم مشاهدة ولا نقرة (القائمة نفسها في عدّاد الزيارات)
+const NON_HUMAN_UA = /bot|crawl|spider|slurp|uptimerobot|monitor|preview|facebookexternalhit|whatsapp|headless|lighthouse/i;
 
 // الإعلانات المباشرة (أكتوبر 2026)
 // يبيعها صاحب المنصة لمعلنين محليين ويديرها من لوحة الإدارة. لا شبكات إعلان خارجية:
@@ -93,6 +97,28 @@ router.post('/', adminAuth, (req, res, next) => {
     console.error(err);
     res.status(500).json({ error: 'حدث خطأ أثناء حفظ الإعلان' });
   }
+});
+
+// الإعلانات المعروضة الآن (عام) — GET /api/ads/active?placement=home|cosmetic
+router.get('/active', async (req, res) => {
+  const placement = PLACEMENTS.includes(req.query.placement) ? req.query.placement : 'home';
+  try {
+    res.set('Cache-Control', 'no-store');
+    res.json(await db.getRunningAds(placement));
+  } catch (err) {
+    console.error(err);
+    res.json([]);   // فشل الإعلانات لا يظهر للزائر أبداً: لا إعلان، والصفحة سليمة
+  }
+});
+
+// تسجيل ظهور أو نقرة (عام) — POST /api/ads/:id/event { type: 'impression' | 'click' }
+// يرد دائماً 204 بلا محتوى، حتى عند الرفض، فلا يعرف من يحاول التلاعب هل احتُسب حدثه.
+router.post('/:id/event', rateLimit(60, 15 * 60 * 1000), async (req, res) => {
+  const type = req.body && req.body.type;
+  if ((type === 'impression' || type === 'click') && !NON_HUMAN_UA.test(String(req.get('user-agent') || ''))) {
+    try { await db.recordAdEvent(req.params.id, type); } catch (err) { console.error('تعذّر تسجيل حدث إعلان (لا يؤثر على الزائر):', err.message); }
+  }
+  res.status(204).end();
 });
 
 // صورة الإعلان — GET /api/ads/:id/image
