@@ -157,7 +157,11 @@ router.get('/status', async (req, res) => {
 // GET /api/orders/:pharmacyId  Headers: { x-pharmacy-username, x-pharmacy-password }
 // ملاحظة: الترويسات تُرسل مشفّرة (encodeURIComponent) من الواجهة لتفادي كسرها لو احتوت على
 // أحرف غير إنكليزية (عربي مثلاً) — نفك التشفير هون قبل أي استخدام لها
-router.get('/:pharmacyId', rateLimit(60, 15 * 60 * 1000), async (req, res) => {
+// الحد 240 طلباً كل 15 دقيقة: لوحة الصيدلي تتحدث كل 12 ثانية (75 طلباً)، وقد تُفتح من جهازين
+// أو ثلاثة على شبكة الصيدلية نفسها، إضافة إلى التحديث بعد كل إجراء. كان الحد 60، فتتوقف
+// الطلبات الجديدة عن الظهور بصمت نحو 3 دقائق من كل 15. ⚠️ أي تغيير لفترة التحديث في
+// app.js (POLL_PHARMACY_ORDERS_MS) يجب أن يُراجع هذا الحد معه.
+router.get('/:pharmacyId', rateLimit(240, 15 * 60 * 1000), async (req, res) => {
   const rawUsername = req.headers['x-pharmacy-username'];
   const rawPassword = req.headers['x-pharmacy-password'];
   if (!rawUsername || !rawPassword) {
