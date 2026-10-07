@@ -1747,6 +1747,7 @@ function headerGoOnDuty(link) {
   refreshCurrentHeroText();
   const section = document.getElementById('on-duty-section');
   section.style.display = 'block';
+  placeAdSlot();   // في قسم التجميل يعود الإعلان إلى مكانه الأصلي، لا فوق قائمة المناوبة
   updateCartVisibility();
   section.scrollIntoView({ behavior: 'smooth', block: 'start' });
   setActiveNav(link);
@@ -5030,6 +5031,7 @@ let adSlotObserver = null;
 function currentAdPlacement() { return currentCategory === 'cosmetic' ? 'cosmetic' : 'home'; }
 
 async function loadAdSlot() {
+  placeAdSlot();   // الموضع يتبع القسم فوراً، قبل أن يصل الإعلان من الخادم
   const placement = currentAdPlacement();
   if (!adSlotLists[placement]) {
     try {
@@ -5051,9 +5053,51 @@ function adLocalText(ad, field) {
   return currentLang === 'en' && en ? en : ar;
 }
 
+// ===== موضع مساحة الإعلان =====
+// مساحة واحدة فقط في الصفحة دائماً (فلا يرى الزائر إعلانين، ولا يتضاعف عدّ الظهور)،
+// ننقلها بين ثلاثة مواضع:
+//  - "home": مكانها الأصلي تحت بطاقات الميزات. هذا هو القسم العادي (الأدوية) دائماً،
+//    وقسم التجميل حين تظهر قائمة المناوبة.
+//  - "top": قسم التجميل قبل البحث: تحت مربع البحث مباشرة، فيراها الزائر دون تمرير.
+//  - "after": قسم التجميل بعد بحث وجد نتائج: بعد آخر نتيجة، فلا تدفع النتائج إلى
+//    الأسفل ولا تقف بين الزائر وما يبحث عنه.
+// وأثناء التحميل، أو حين لا توجد نتيجة، أو عند خطأ: تختفي، فلا يزاحم الإعلان رسالةً مهمة.
+let adSlotHomeAnchor = null;    // علامة غير مرئية في المكان الأصلي، للعودة إليه
+let adSlotResultsWatch = null;  // يراقب تغيّر النتائج أياً كان مصدره
+
+function placeAdSlot() {
+  const slot = document.getElementById('ad-slot');
+  const results = document.getElementById('results');
+  const toolbar = document.getElementById('results-toolbar');
+  const onDuty = document.getElementById('on-duty-section');
+  if (!slot || !results || !toolbar || !onDuty) return;
+  if (!adSlotHomeAnchor) {
+    adSlotHomeAnchor = document.createComment(' ad-slot-home ');
+    slot.parentNode.insertBefore(adSlotHomeAnchor, slot);
+  }
+  // كل تغيير في النتائج (بحث، مسح، تحديث، خطأ) يعيد حساب الموضع تلقائياً،
+  // بدل ربط كل مكان في الشيفرة يكتب في النتائج بهذه الدالة
+  if (!adSlotResultsWatch && 'MutationObserver' in window) {
+    adSlotResultsWatch = new MutationObserver(placeAdSlot);
+    adSlotResultsWatch.observe(results, { childList: true });
+  }
+  let pos = 'home';
+  if (currentAdPlacement() === 'cosmetic' && onDuty.style.display === 'none') {
+    if (!results.firstElementChild) pos = 'top';
+    else if (results.querySelector('.result-card')) pos = 'after';
+    else pos = 'off';   // تحميل، أو لم يُعثر على شيء، أو خطأ
+  }
+  if (slot.dataset.pos === pos) return;   // لا نحرّك العنصر بلا داعٍ
+  if (pos === 'top') toolbar.parentNode.insertBefore(slot, toolbar);
+  else if (pos === 'after') results.parentNode.insertBefore(slot, results.nextSibling);
+  else if (pos === 'home') adSlotHomeAnchor.parentNode.insertBefore(slot, adSlotHomeAnchor.nextSibling);
+  slot.dataset.pos = pos;
+}
+
 function renderAdSlot() {
   const slot = document.getElementById('ad-slot');
   if (!slot) return;
+  placeAdSlot();
   if (adSlotObserver) { adSlotObserver.disconnect(); adSlotObserver = null; }
   const ad = adSlotCurrent;
   if (!ad) { slot.style.display = 'none'; slot.innerHTML = ''; return; }
