@@ -301,6 +301,11 @@ async function initDb() {
       created_at TIMESTAMP DEFAULT NOW()
     );
   `);
+  // اسم المعلن بالإنكليزية وشرح قصير بالعربية والإنكليزية (أكتوبر 2026). اختيارية كلها،
+  // فالإعلانات القديمة تبقى كما هي، وحين يُترك الحقل الإنكليزي فارغاً يُعرض العربي.
+  for (const col of ['advertiser_en TEXT', 'description TEXT', 'description_en TEXT']) {
+    await pool.query(`ALTER TABLE ads ADD COLUMN IF NOT EXISTS ${col};`);
+  }
 
   for (const table of ['search_log', 'app_settings', 'visit_daily', 'ads']) {
     try {
@@ -739,7 +744,7 @@ async function exportAll() {
     // صور الإعلانات تُصدَّر نصاً بترميز base64: لو صُدّرت كما هي لصارت في الملف قائمة
     // أرقام طويلة لا تُقرأ ولا تُسترجع.
     const sql = table === 'ads'
-      ? `SELECT id, advertiser, link, placement, starts_on, ends_on, active, image_mime, image_size,
+      ? `SELECT id, advertiser, advertiser_en, description, description_en, link, placement, starts_on, ends_on, active, image_mime, image_size,
                 impressions, clicks, created_at, encode(image, 'base64') AS image_base64 FROM ads`
       : `SELECT * FROM ${table}`;
     const { rows } = await pool.query(sql);
@@ -1131,18 +1136,19 @@ async function getVisitRows(days) {
 
 // ===== الإعلانات =====
 // الحالة تُحسب بتوقيت دمشق: إعلان ينتهي "اليوم" يبقى ظاهراً حتى نهاية يوم دمشق لا UTC.
-const AD_FIELDS = `id, advertiser, link, placement, to_char(starts_on, 'YYYY-MM-DD') AS starts_on,
+const AD_FIELDS = `id, advertiser, advertiser_en, description, description_en, link, placement, to_char(starts_on, 'YYYY-MM-DD') AS starts_on,
   to_char(ends_on, 'YYYY-MM-DD') AS ends_on, active, image_mime, image_size, impressions, clicks, created_at,
   CASE WHEN NOT active THEN 'paused'
        WHEN starts_on IS NOT NULL AND starts_on > (NOW() AT TIME ZONE 'Asia/Damascus')::date THEN 'scheduled'
        WHEN ends_on IS NOT NULL AND ends_on < (NOW() AT TIME ZONE 'Asia/Damascus')::date THEN 'ended'
        ELSE 'running' END AS status`;
 
-async function createAd({ advertiser, link, placement, startsOn, endsOn, image, mime }) {
+async function createAd({ advertiser, advertiserEn, description, descriptionEn, link, placement, startsOn, endsOn, image, mime }) {
   const { rows } = await pool.query(
-    `INSERT INTO ads (advertiser, link, placement, starts_on, ends_on, image, image_mime, image_size)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING ${AD_FIELDS}`,
-    [cleanText(advertiser), link || null, placement, startsOn || null, endsOn || null, image, mime, image.length]);
+    `INSERT INTO ads (advertiser, advertiser_en, description, description_en, link, placement, starts_on, ends_on, image, image_mime, image_size)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING ${AD_FIELDS}`,
+    [cleanText(advertiser), cleanText(advertiserEn) || null, cleanText(description) || null, cleanText(descriptionEn) || null,
+     link || null, placement, startsOn || null, endsOn || null, image, mime, image.length]);
   return rows[0];
 }
 
@@ -1165,7 +1171,7 @@ async function setAdActive(id, active) {
 // لا الأرقام ولا شيء آخر.
 async function getRunningAds(placement) {
   const { rows } = await pool.query(
-    `SELECT id, advertiser, link FROM ads
+    `SELECT id, advertiser, advertiser_en, description, description_en, link FROM ads
       WHERE placement = $1 AND active AND (starts_on IS NULL OR starts_on <= (NOW() AT TIME ZONE 'Asia/Damascus')::date)
          AND (ends_on IS NULL OR ends_on >= (NOW() AT TIME ZONE 'Asia/Damascus')::date)
       ORDER BY id`, [placement]);
