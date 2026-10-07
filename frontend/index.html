@@ -112,6 +112,12 @@
      خط الهاتف كما هو: قيس أنه أضيق بنحو 3٪ فقط، أي قريب أصلاً. */
   @font-face { font-family: 'Plex Fallback'; font-style: normal; font-weight: 100 500; src: local('Tahoma'); size-adjust: 89.1%; ascent-override: 121.8%; descent-override: 46.6%; line-gap-override: 0%; }
   @font-face { font-family: 'Plex Fallback'; font-style: normal; font-weight: 600 900; src: local('Tahoma Bold'), local('Tahoma-Bold'); size-adjust: 89.1%; ascent-override: 121.8%; descent-override: 46.6%; line-gap-override: 0%; }
+  /* لا تمرير أفقي للصفحة أبداً. ثلاثة أقسام تمتد لحافتي الشاشة بعرض 100vw، وهذه الوحدة
+     تشمل شريط التمرير العمودي، فعلى ويندوز (شريط بعرض نحو 17 بكسل) كانت أعرض من الصفحة
+     بنحو 9 بكسل، فيظهر شريط أفقي وتنسحب الصفحة جانبياً. clip يقصّ ما يتجاوز الحافة دون أن
+     يجعل الصفحة حاوية تمرير، فلا يمس الشريط العلوي الثابت. hidden للمتصفحات القديمة. */
+  html { overflow-x: hidden; }
+  @supports (overflow-x: clip) { html { overflow-x: clip; } }
 
   html { color-scheme: only light; }
 </style>
