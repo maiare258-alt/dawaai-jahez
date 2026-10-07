@@ -1635,12 +1635,21 @@
     background: #ffffff; border: 1px solid #e3ebf3; border-radius: 16px; box-shadow: 0 6px 18px rgba(24,95,165,0.06);
   }
   .ad-card img { display: block; width: 100%; height: auto; aspect-ratio: 3 / 1; object-fit: cover; background: #eef3f8; }
-  .ad-foot { display: flex; align-items: center; gap: 10px; padding: 9px 14px 11px; }
+  .ad-foot { display: flex; align-items: flex-start; gap: 10px; padding: 10px 14px 12px; }
   .ad-label {
     flex: 0 0 auto; padding: 2px 10px; border-radius: 999px;
     background: #eef2f6; border: 1px solid #dbe5ee; color: #5b6b7a; font-size: 12px; font-weight: 700;
   }
-  .ad-advertiser { font-size: 13.5px; color: #5b6b7a; min-width: 0; overflow-wrap: anywhere; }
+  /* الاسم عريض داكن، والشرح أهدأ لوناً بجانبه بعد نقطة فاصلة. على الهاتف ينزل الشرح
+     إلى سطر ثانٍ تحت الاسم، فلا يُقصّ النص ولا يظهر تمرير جانبي */
+  .ad-text { min-width: 0; display: flex; flex-wrap: wrap; align-items: baseline; column-gap: 6px; row-gap: 2px; line-height: 1.5; }
+  .ad-name { font-size: 14px; font-weight: 700; color: #33475b; overflow-wrap: anywhere; }
+  .ad-sep { color: #9aa8b5; font-weight: 700; }
+  .ad-desc { font-size: 13px; color: #6b7a89; overflow-wrap: anywhere; }
+  @media (max-width: 600px) {
+    .ad-text { flex-direction: column; align-items: flex-start; }
+    .ad-sep { display: none; }
+  }
   a.ad-card:hover { box-shadow: 0 10px 24px rgba(24,95,165,0.12); }
   a.ad-card:focus-visible { outline: 3px solid #185fa5; outline-offset: 2px; }
 
