@@ -457,7 +457,7 @@ const translations = {
     staff_banner_admin_sub: 'أدِر الصيدليات والمناوبة والأدوية، وتابع بيانات الطلب وحالة المنصة.',
     ad_label: 'إعلان',
     ads_title: '📢 الإعلانات',
-    ads_desc: 'إعلانات مباشرة تبيعها لمعلنين محليين. لا تظهر أبداً في نتائج البحث ولا في قائمة المناوبة.',
+    ads_desc: 'إعلانات مباشرة تبيعها لمعلنين محليين. لا تظهر أبداً في قائمة المناوبة، ولا مع رسالة «غير متوفر».',
     ads_new: 'إعلان جديد',
     ads_advertiser_ph: 'اسم المعلن',
     ads_advertiser_en_ph: 'اسم المعلن بالإنكليزية (اختياري)',
@@ -482,6 +482,8 @@ const translations = {
     ads_placement: 'المكان:',
     ads_place_home: 'الرئيسية',
     ads_place_cosmetic: 'مستحضرات التجميل',
+    ads_place_results: 'بعد نتائج البحث',
+    ads_results_hint: '«بعد نتائج البحث»: يظهر تحت نتائج البحث عن الأدوية بدل إعلان الرئيسية. لا تبع هذا المكان لصيدلية أو لشركة أدوية، كي لا تبدو المنصة منحازة إلى أحد؛ ويناسب المخابر والعيادات والأجهزة الطبية.',
     ads_from: 'من',
     ads_to: 'إلى',
     ads_submit: 'إضافة الإعلان',
@@ -505,6 +507,7 @@ const translations = {
     ads_status_ended: '⌛ انتهى',
     ads_in_home: 'في الرئيسية',
     ads_in_cosmetic: 'في مستحضرات التجميل',
+    ads_in_results: 'بعد نتائج البحث',
     ads_counts: 'الظهور: {i} · النقرات: {c}',
     ads_range_both: 'من {a} حتى {b}',
     ads_range_from: 'من {a}، بلا تاريخ انتهاء',
@@ -1038,7 +1041,7 @@ const translations = {
     staff_banner_admin_sub: 'Manage pharmacies, duty and medicines, and follow demand data and platform health.',
     ad_label: 'Ad',
     ads_title: '📢 Ads',
-    ads_desc: 'Direct ads you sell to local advertisers. They never appear in search results or the on-duty list.',
+    ads_desc: 'Direct ads you sell to local advertisers. They never appear in the on-duty list or next to a “not available” message.',
     ads_new: 'New ad',
     ads_advertiser_ph: 'Advertiser name',
     ads_advertiser_en_ph: 'Advertiser name in English (optional)',
@@ -1063,6 +1066,8 @@ const translations = {
     ads_placement: 'Placement:',
     ads_place_home: 'Home',
     ads_place_cosmetic: 'Cosmetics',
+    ads_place_results: 'After search results',
+    ads_results_hint: '“After search results”: shown below medicine search results instead of the home ad. Do not sell this spot to a pharmacy or a drug company, so the platform never looks biased; it suits labs, clinics and medical equipment.',
     ads_from: 'From',
     ads_to: 'To',
     ads_submit: 'Add ad',
@@ -1086,6 +1091,7 @@ const translations = {
     ads_status_ended: '⌛ Ended',
     ads_in_home: 'On the home page',
     ads_in_cosmetic: 'In cosmetics',
+    ads_in_results: 'After search results',
     ads_counts: 'Impressions: {i} · Clicks: {c}',
     ads_range_both: 'From {a} to {b}',
     ads_range_from: 'From {a}, no end date',
@@ -4504,7 +4510,9 @@ function renderAdminPanelUI() {
           <span>${t('ads_placement')}</span>
           <label><input type="radio" name="ad-placement" value="home" checked> ${t('ads_place_home')}</label>
           <label><input type="radio" name="ad-placement" value="cosmetic"> ${t('ads_place_cosmetic')}</label>
+          <label><input type="radio" name="ad-placement" value="results"> ${t('ads_place_results')}</label>
         </div>
+        <p class="demand-hint" style="margin:-4px 0 0;">${t('ads_results_hint')}</p>
         <div class="ad-dates">
           <label>${t('ads_from')} <input type="date" id="ad-starts"></label>
           <label>${t('ads_to')} <input type="date" id="ad-ends"></label>
@@ -5021,29 +5029,58 @@ function renderDemandReport() {
 }
 
 // ================= مساحة الإعلان للزوار =================
-// مساحة واحدة تحت بطاقات الميزات في الصفحة الرئيسية، بعيداً عن نتائج البحث والمناوبة.
-// في وضع مستحضرات التجميل تعرض إعلانات التجميل، وفي الوضع العادي إعلانات الرئيسية.
+// ثلاثة أماكن يختارها المدير لكل إعلان: "الرئيسية" تحت بطاقات الميزات، و"مستحضرات
+// التجميل" في قسم التجميل، و"بعد نتائج البحث" تحت نتائج البحث عن الأدوية.
 // فشل الإعلانات لا يراه الزائر أبداً: لا إعلان، والصفحة سليمة.
 const adSlotLists = {};     // المكان ← الإعلانات العاملة، تُجلب مرة واحدة في الجلسة
+const adSlotPicked = {};    // المكان ← الإعلان المختار للعرض فيه
+const adSlotLoading = {};   // المكان ← طلب جلب جارٍ، فلا يتكرر الطلب نفسه
+let adSlotGen = 0;          // يزيد عند تحديث الإعلانات من اللوحة، فيُهمَل أي رد قديم وصل متأخراً
 let adSlotCurrent = null;   // الإعلان المعروض الآن
+let adSlotDrawnKey = null;  // ما رُسم في المساحة الآن (المكان والإعلان)، فلا يُعاد رسمه بلا داعٍ
 let adSlotObserver = null;
 
 function currentAdPlacement() { return currentCategory === 'cosmetic' ? 'cosmetic' : 'home'; }
 
+function fetchAdList(placement) {
+  if (adSlotLists[placement]) return Promise.resolve(adSlotLists[placement]);
+  if (!adSlotLoading[placement]) {
+    const gen = adSlotGen;
+    adSlotLoading[placement] = (async () => {
+      let list = [];
+      try {
+        const res = await fetchWithTimeout(`${API}/ads/active?placement=${placement}`, {}, 15000);
+        const data = await readJsonOk(res);
+        if (Array.isArray(data)) list = data;
+      } catch (e) { /* لا إعلانات، والصفحة سليمة */ }
+      if (gen === adSlotGen) { adSlotLists[placement] = list; delete adSlotLoading[placement]; }
+      return list;
+    })();
+  }
+  return adSlotLoading[placement];
+}
+
+// تناوب عشوائي بين الإعلانات العاملة: كلها تأخذ فرصاً متساوية على المدى
+function pickAd(placement) {
+  const list = adSlotLists[placement] || [];
+  adSlotPicked[placement] = list.length ? list[Math.floor(Math.random() * list.length)] : null;
+}
+
 async function loadAdSlot() {
   placeAdSlot();   // الموضع يتبع القسم فوراً، قبل أن يصل الإعلان من الخادم
   const placement = currentAdPlacement();
-  if (!adSlotLists[placement]) {
-    try {
-      const res = await fetchWithTimeout(`${API}/ads/active?placement=${placement}`, {}, 15000);
-      adSlotLists[placement] = await readJsonOk(res);
-    } catch (e) { adSlotLists[placement] = []; }
-  }
+  await fetchAdList(placement);
   if (placement !== currentAdPlacement()) return;   // تبدّل القسم أثناء الانتظار
-  const list = adSlotLists[placement];
-  // تناوب عشوائي بين الإعلانات العاملة: كلها تأخذ فرصاً متساوية على المدى
-  adSlotCurrent = list.length ? list[Math.floor(Math.random() * list.length)] : null;
+  pickAd(placement);
+  if (adSlotLists.results) pickAd('results');   // إعلان ما بعد النتائج يتناوب أيضاً مع كل تنقّل
   renderAdSlot();
+}
+
+// إعلانات "بعد نتائج البحث" لا تُجلب عند فتح الصفحة، بل عند أول بحث يجد نتائج فقط:
+// من لا يبحث لا يدفع ثمن طلب إضافي على إنترنت ضعيف
+function ensureResultsAds() {
+  if (adSlotLists.results || adSlotLoading.results) return;
+  fetchAdList('results').then(() => { pickAd('results'); placeAdSlot(); });
 }
 
 // نص الإعلان بلغة الواجهة: الحقل الإنكليزي (field_en) في الواجهة الإنكليزية إن وُجد، وإلا العربي
@@ -5054,16 +5091,32 @@ function adLocalText(ad, field) {
 }
 
 // ===== موضع مساحة الإعلان =====
-// مساحة واحدة فقط في الصفحة دائماً (فلا يرى الزائر إعلانين، ولا يتضاعف عدّ الظهور)،
-// ننقلها بين ثلاثة مواضع:
-//  - "home": مكانها الأصلي تحت بطاقات الميزات. هذا هو القسم العادي (الأدوية) دائماً،
-//    وقسم التجميل حين تظهر قائمة المناوبة.
+// مساحة واحدة فقط في الصفحة دائماً: فلا يرى الزائر إعلانين معاً، ولا يتضاعف عدّ الظهور.
+// تتبدّل محتواها وتنتقل بين ثلاثة مواضع:
+//  - "home": مكانها الأصلي تحت بطاقات الميزات.
 //  - "top": قسم التجميل قبل البحث: تحت مربع البحث مباشرة، فيراها الزائر دون تمرير.
-//  - "after": قسم التجميل بعد بحث وجد نتائج: بعد آخر نتيجة، فلا تدفع النتائج إلى
-//    الأسفل ولا تقف بين الزائر وما يبحث عنه.
-// وأثناء التحميل، أو حين لا توجد نتيجة، أو عند خطأ: تختفي، فلا يزاحم الإعلان رسالةً مهمة.
+//  - "after": بعد آخر نتيجة بحث، فلا تدفع النتائج إلى الأسفل ولا تقف بين الزائر وما يبحث عنه.
+//  - "off": مخفية (قسم التجميل أثناء التحميل، أو حين لا توجد نتيجة، أو عند خطأ).
+// قسم الأدوية: إعلان الرئيسية في مكانه دائماً، إلا بعد بحث وجد نتائج وفيه إعلان عامل
+// في مكان "بعد نتائج البحث": حينها يظهر هو بعد النتائج ويغيب إعلان الرئيسية مؤقتاً.
+// وعند "غير متوفر" أو الخطأ لا يظهر إعلان بعد النتائج أبداً: المريض هنا قلق، والرسالة أهم.
 let adSlotHomeAnchor = null;    // علامة غير مرئية في المكان الأصلي، للعودة إليه
 let adSlotResultsWatch = null;  // يراقب تغيّر النتائج أياً كان مصدره
+
+function adSlotTarget(results, onDuty) {
+  const placement = currentAdPlacement();
+  if (onDuty.style.display !== 'none') return { placement, pos: 'home' };
+  const hasCards = !!results.querySelector('.result-card');
+  if (placement === 'cosmetic') {
+    if (!results.firstElementChild) return { placement, pos: 'top' };
+    return { placement, pos: hasCards ? 'after' : 'off' };
+  }
+  if (hasCards) {
+    if (!adSlotLists.results) ensureResultsAds();
+    else if (adSlotPicked.results) return { placement: 'results', pos: 'after' };
+  }
+  return { placement: 'home', pos: 'home' };
+}
 
 function placeAdSlot() {
   const slot = document.getElementById('ad-slot');
@@ -5081,12 +5134,10 @@ function placeAdSlot() {
     adSlotResultsWatch = new MutationObserver(placeAdSlot);
     adSlotResultsWatch.observe(results, { childList: true });
   }
-  let pos = 'home';
-  if (currentAdPlacement() === 'cosmetic' && onDuty.style.display === 'none') {
-    if (!results.firstElementChild) pos = 'top';
-    else if (results.querySelector('.result-card')) pos = 'after';
-    else pos = 'off';   // تحميل، أو لم يُعثر على شيء، أو خطأ
-  }
+  const { placement, pos } = adSlotTarget(results, onDuty);
+  const ad = adSlotPicked[placement] || null;
+  const key = ad ? `${placement}:${ad.id}` : 'none';
+  if (key !== adSlotDrawnKey) { adSlotCurrent = ad; drawAdSlot(slot); adSlotDrawnKey = key; }
   if (slot.dataset.pos === pos) return;   // لا نحرّك العنصر بلا داعٍ
   if (pos === 'top') toolbar.parentNode.insertBefore(slot, toolbar);
   else if (pos === 'after') results.parentNode.insertBefore(slot, results.nextSibling);
@@ -5094,10 +5145,13 @@ function placeAdSlot() {
   slot.dataset.pos = pos;
 }
 
+// إعادة رسم إجبارية (عند تبديل اللغة أو وصول الإعلانات)
 function renderAdSlot() {
-  const slot = document.getElementById('ad-slot');
-  if (!slot) return;
+  adSlotDrawnKey = null;
   placeAdSlot();
+}
+
+function drawAdSlot(slot) {
   if (adSlotObserver) { adSlotObserver.disconnect(); adSlotObserver = null; }
   const ad = adSlotCurrent;
   if (!ad) { slot.style.display = 'none'; slot.innerHTML = ''; return; }
@@ -5355,7 +5409,9 @@ function renderAdEditorOutput() {
 
 // الإعلانات تتغير من اللوحة، فتُجلب مساحة الإعلان من جديد فوراً بدل انتظار تحديث الصفحة
 function refreshAdSlotNow() {
-  for (const k of Object.keys(adSlotLists)) delete adSlotLists[k];
+  adSlotGen++;
+  for (const obj of [adSlotLists, adSlotPicked, adSlotLoading]) for (const k of Object.keys(obj)) delete obj[k];
+  adSlotDrawnKey = null;
   loadAdSlot();
 }
 
@@ -5424,7 +5480,7 @@ function renderAdsAdmin() {
           <span class="ad-status ${escapeHtml(ad.status)}">${t('ads_status_' + (['running', 'paused', 'scheduled', 'ended'].includes(ad.status) ? ad.status : 'paused'))}</span>
         </div>
         ${ad.description || ad.description_en ? `<div class="ad-desc-line">${ad.description ? escapeHtml(ad.description) : ''}${ad.description && ad.description_en ? ' · ' : ''}${ad.description_en ? `<bdi dir="ltr">${escapeHtml(ad.description_en)}</bdi>` : ''}</div>` : ''}
-        <div class="ad-meta">${t(ad.placement === 'cosmetic' ? 'ads_in_cosmetic' : 'ads_in_home')} · ${adRangeText(ad)}</div>
+        <div class="ad-meta">${t(ad.placement === 'cosmetic' ? 'ads_in_cosmetic' : ad.placement === 'results' ? 'ads_in_results' : 'ads_in_home')} · ${adRangeText(ad)}</div>
         <div class="ad-meta">${tFormat('ads_counts', { i: Number(ad.impressions) || 0, c: Number(ad.clicks) || 0 })}</div>
         ${ad.link ? `<div class="ad-meta" dir="ltr" style="text-align:right;">${escapeHtml(ad.link)}</div>` : ''}
         <div class="ad-item-actions">
