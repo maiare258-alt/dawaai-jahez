@@ -77,7 +77,7 @@
                  'onDutyToggle','saveDuty','digitsOnly','saveAssistantPhone','updateMedNamePlaceholder',
                  'addMedicineSelf','downloadBulkImportTemplate','handleBulkImportFile','togglePassword',
                  'changeMyPassword','deleteMyAccount',
-                 'saveMainPhone','heroGoOnDuty','onAdZoomInput','adEditorFit','onAdminAddressSearch','saveAdminAddress','clearAdminLocation','toggleJoinedList'];
+                 'saveMainPhone','heroGoOnDuty','onAdZoomInput','adEditorFit','adEditorNudge','adEditorCenter','onAdminAddressSearch','saveAdminAddress','clearAdminLocation','toggleJoinedList'];
     early.forEach(function (name) {
       window[name] = function () {
         if (name === 'onSearch' || name === 'submitSearch') window.__pendingSearch = true;
@@ -1667,6 +1667,7 @@
   /* المحرر: الصورة حرة الموضع داخل الإطار. الإطار باتجاه ltr كي تُحسب المواضع من اليسار
      دائماً كما يحسبها الرسم النهائي، وtouch-action: none كي لا يمرّر السحبُ الصفحةَ على الهاتف */
   .ad-preview.editing { position: relative; display: block; direction: ltr; cursor: grab; touch-action: none; border-style: solid; }
+  .ad-preview.editing canvas.ad-bg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; pointer-events: none; }
   .ad-preview.editing.dragging { cursor: grabbing; }
   .ad-preview.editing:focus-visible { outline: 3px solid #185fa5; outline-offset: 2px; }
   .ad-preview.editing img { position: absolute; max-width: none; object-fit: fill; user-select: none; -webkit-user-drag: none; pointer-events: none; }
@@ -1675,6 +1676,25 @@
   .ad-zoom-row .ad-zoom { flex: 1; width: auto; margin: 0; padding: 0; height: 36px; accent-color: #185fa5; cursor: pointer; }
   .ad-fit-row { display: flex; flex-wrap: wrap; gap: 8px; }
   .ad-fit-row button { margin: 0; min-height: 44px; flex: 1 1 140px; }
+  /* أزرار التحريك على شكل صليب. الاتجاه ltr دائماً كي يبقى زر ← على اليسار فعلاً
+     في الواجهتين العربية والإنكليزية، فالسهم يعني الاتجاه على الشاشة لا اتجاه القراءة */
+  .ad-move-pad {
+    direction: ltr; display: grid; justify-content: center; gap: 6px;
+    grid-template-columns: 52px 76px 52px; grid-template-rows: repeat(3, 44px);
+    grid-template-areas: ". up ." "left center right" ". down .";
+  }
+  .ad-move-pad button {
+    margin: 0; padding: 0; min-height: 44px; width: 100%; border-radius: 12px; cursor: pointer;
+    background: #eef3f8; border: 1px solid #c9d8e6; color: #185fa5; font-size: 20px; font-weight: 700; line-height: 1;
+    -webkit-tap-highlight-color: transparent; touch-action: manipulation;
+  }
+  .ad-move-pad button:active { background: #dde8f3; }
+  .ad-move-pad button:focus-visible { outline: 3px solid #185fa5; outline-offset: 2px; }
+  .ad-move-pad .pad-up { grid-area: up; }
+  .ad-move-pad .pad-left { grid-area: left; }
+  .ad-move-pad .pad-center { grid-area: center; font-size: 14px; }
+  .ad-move-pad .pad-right { grid-area: right; }
+  .ad-move-pad .pad-down { grid-area: down; }
   .ad-en { font-weight: 400; font-size: 13px; color: #5b6b7a; }
   .ad-desc-line { font-size: 14px; color: #23303a; overflow-wrap: anywhere; }
   .ad-placement, .ad-dates { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; font-size: 14px; }
