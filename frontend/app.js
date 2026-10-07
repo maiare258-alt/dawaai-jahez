@@ -5025,6 +5025,13 @@ async function loadAdSlot() {
   renderAdSlot();
 }
 
+// نص الإعلان بلغة الواجهة: الحقل الإنكليزي (field_en) في الواجهة الإنكليزية إن وُجد، وإلا العربي
+function adLocalText(ad, field) {
+  const pick = v => (typeof v === 'string' ? v.trim() : '');
+  const ar = pick(ad[field]), en = pick(ad[field + '_en']);
+  return currentLang === 'en' && en ? en : ar;
+}
+
 function renderAdSlot() {
   const slot = document.getElementById('ad-slot');
   if (!slot) return;
@@ -5034,8 +5041,12 @@ function renderAdSlot() {
   const id = Number(ad.id);
   // الوسم في الشريط تحت الصورة لا فوقها: الزاوية العليا اليمنى في الإعلانات العربية
   // هي حيث يبدأ نص المعلن الأهم، والوسم فوقها كان يغطيه
-  const inner = `<img src="${API}/ads/${id}/image" alt="${escapeHtml(ad.advertiser)}" width="1200" height="400" loading="lazy">
-    <span class="ad-foot"><span class="ad-label">${t('ad_label')}</span><span class="ad-advertiser">${escapeHtml(ad.advertiser)}</span></span>`;
+  // الاسم والشرح بلغة الواجهة؛ وإن ترك المعلن الحقل الإنكليزي فارغاً ظهر العربي بدل فراغ.
+  // dir="auto" كي يُكتب النص العربي من اليمين حتى لو ظهر داخل الواجهة الإنكليزية
+  const name = adLocalText(ad, 'advertiser'), desc = adLocalText(ad, 'description');
+  const descHtml = desc ? `<span class="ad-sep" aria-hidden="true">·</span><span class="ad-desc" dir="auto">${escapeHtml(desc)}</span>` : '';
+  const inner = `<img src="${API}/ads/${id}/image" alt="${escapeHtml(name)}" width="1200" height="400" loading="lazy">
+    <span class="ad-foot"><span class="ad-label">${t('ad_label')}</span><span class="ad-text"><span class="ad-name" dir="auto">${escapeHtml(name)}</span>${descHtml}</span></span>`;
   // الخادم يقبل https وtel فقط، ونتحقق هنا مرة ثانية: لا رابط غيرهما يصبح قابلاً للنقر
   const link = typeof ad.link === 'string' ? ad.link : '';
   const isTel = /^tel:\+?\d{6,15}$/.test(link), isWeb = /^https:\/\//i.test(link);
