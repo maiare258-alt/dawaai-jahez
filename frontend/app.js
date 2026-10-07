@@ -460,9 +460,17 @@ const translations = {
     ads_desc: 'إعلانات مباشرة تبيعها لمعلنين محليين. لا تظهر أبداً في نتائج البحث ولا في قائمة المناوبة.',
     ads_new: 'إعلان جديد',
     ads_advertiser_ph: 'اسم المعلن',
+    ads_advertiser_en_ph: 'اسم المعلن بالإنكليزية (اختياري)',
+    ads_desc_ph: 'شرح قصير (اختياري، حتى 60 حرفاً)',
+    ads_desc_en_ph: 'الشرح بالإنكليزية (اختياري)',
+    ads_editor_hint: 'اسحب الصورة لتحريكها، واستعمل الشريط للتكبير. ما تراه في الإطار هو بالضبط ما سيراه الزائر.',
+    ads_zoom_label: 'التكبير',
+    ads_fit_fill: 'ملء الإطار',
+    ads_fit_whole: 'الصورة كاملة',
+    ads_en_too_long: 'اسم المعلن بالإنكليزية طويل جداً (حتى 80 حرفاً).',
+    ads_desc_too_long: 'الشرح طويل جداً.',
     ads_pick_image: '📷 اختيار صورة',
-    ads_preview_empty: 'معاينة الصورة كما ستظهر للزائر (نسبة ٣:١، مثل 1200×400 بكسل)',
-    ads_ratio_warn: 'الصورة ليست بنسبة ٣:١، فسيُقصّ منها ما لا تراه في المعاينة. اطلب من المعلن صورة بنسبة ٣:١ إن أمكن.',
+    ads_preview_empty: 'اختر صورة لتظهر هنا، ثم اضبط موضعها وحجمها داخل الإطار.',
     ads_link_ph: 'الرابط (اختياري)',
     ads_link_hint: 'موقع يبدأ بـ https://، أو رابط واتساب wa.me، أو رقم هاتف.',
     ads_placement: 'المكان:',
@@ -1027,9 +1035,17 @@ const translations = {
     ads_desc: 'Direct ads you sell to local advertisers. They never appear in search results or the on-duty list.',
     ads_new: 'New ad',
     ads_advertiser_ph: 'Advertiser name',
+    ads_advertiser_en_ph: 'Advertiser name in English (optional)',
+    ads_desc_ph: 'Short description in Arabic (optional, up to 60 characters)',
+    ads_desc_en_ph: 'Description in English (optional)',
+    ads_editor_hint: 'Drag the image to move it and use the slider to zoom. What you see in the frame is exactly what visitors will see.',
+    ads_zoom_label: 'Zoom',
+    ads_fit_fill: 'Fill the frame',
+    ads_fit_whole: 'Whole image',
+    ads_en_too_long: 'The English advertiser name is too long (up to 80 characters).',
+    ads_desc_too_long: 'The description is too long.',
     ads_pick_image: '📷 Choose image',
-    ads_preview_empty: 'Preview of the image as visitors will see it (3:1 ratio, e.g. 1200×400 px)',
-    ads_ratio_warn: 'The image is not 3:1, so whatever falls outside the preview will be cropped. Ask the advertiser for a 3:1 image if possible.',
+    ads_preview_empty: 'Choose an image to show it here, then adjust its position and size inside the frame.',
     ads_link_ph: 'Link (optional)',
     ads_link_hint: 'A site starting with https://, a WhatsApp wa.me link, or a phone number.',
     ads_placement: 'Placement:',
@@ -1320,6 +1336,8 @@ const BACKEND_ERROR_MAP = {
   'الرابط طويل جداً': 'ads_bad_link',
   'تاريخ غير صالح': 'ads_bad_date',
   'تاريخ النهاية قبل تاريخ البداية': 'ads_dates_order',
+  'اسم المعلن بالإنكليزية طويل جداً (حتى 80 حرفاً)': 'ads_en_too_long',
+  'الشرح طويل جداً': 'ads_desc_too_long',
   'الإعلان غير موجود': 'ads_not_found',
   'رقم الهاتف مطلوب': 'phone_required_error',
   'رقم الهاتف غير صالح': 'phone_invalid_error',
@@ -4444,10 +4462,22 @@ function renderAdminPanelUI() {
       <div class="ad-form">
         <h4>${t('ads_new')}</h4>
         <input id="ad-advertiser" maxlength="80" placeholder="${t('ads_advertiser_ph')}">
+        <input id="ad-advertiser-en" maxlength="80" dir="ltr" placeholder="${t('ads_advertiser_en_ph')}">
+        <input id="ad-desc" maxlength="60" placeholder="${t('ads_desc_ph')}">
+        <input id="ad-desc-en" maxlength="80" dir="ltr" placeholder="${t('ads_desc_en_ph')}">
         <input type="file" id="ad-image-file" accept="image/jpeg,image/png,image/webp" style="display:none" onchange="onAdImageChosen(this)">
         <button type="button" class="btn-outline blue" id="ad-pick-btn" onclick="document.getElementById('ad-image-file').click()">${t('ads_pick_image')}</button>
-        <div class="ad-preview" id="ad-preview"><span class="muted">${t('ads_preview_empty')}</span></div>
-        <p class="ad-ratio-warn" id="ad-ratio-warn" style="display:none">${t('ads_ratio_warn')}</p>
+        <div class="ad-preview" id="ad-preview" aria-label="${t('ads_editor_hint')}"><span class="muted">${t('ads_preview_empty')}</span></div>
+        <div class="ad-editor-controls" id="ad-editor-controls" style="display:none">
+          <p class="demand-hint" style="margin:0;">${t('ads_editor_hint')}</p>
+          <label class="ad-zoom-row"><span>${t('ads_zoom_label')}</span>
+            <input type="range" id="ad-zoom" class="ad-zoom" min="0" max="100" step="1" value="0" oninput="onAdZoomInput(this.value)">
+          </label>
+          <div class="ad-fit-row">
+            <button type="button" class="btn-outline blue small" onclick="adEditorFit('cover')">${t('ads_fit_fill')}</button>
+            <button type="button" class="btn-outline blue small" onclick="adEditorFit('whole')">${t('ads_fit_whole')}</button>
+          </div>
+        </div>
         <input id="ad-link" maxlength="300" dir="ltr" placeholder="${t('ads_link_ph')}">
         <p class="demand-hint" style="margin:-8px 0 0;">${t('ads_link_hint')}</p>
         <div class="ad-placement">
@@ -4623,7 +4653,8 @@ function renderAdminPanelUI() {
   checkSystemStatus();
   loadDemandReport();
   loadVisitsReport();
-  pendingAdImage = null;
+  adEditor = null;
+  setupAdEditorEvents();
   loadAdsAdmin();
   loadCertStorageUsage();
 }
@@ -5043,23 +5074,72 @@ function recordAdEvent(id, type) {
 // ================= الإعلانات (لوحة الإدارة) =================
 // إعلانات مباشرة يبيعها صاحب المنصة. الصورة تُضغط في المتصفح قبل الرفع (عرض 1200 بكسل
 // كحد أقصى)، فتبقى نحو 100 كيلوبايت ولا تُثقل الموقع على الإنترنت الضعيف.
-let pendingAdImage = null;   // { blob, w, h } للصورة المختارة بعد ضغطها
 let adsAdminCache = [];
 
-function compressAdImage(file) {
+// ===== محرر صورة الإعلان =====
+// الصورة تُعرض داخل إطار بنسبة ٣:١، فيسحبها المدير ويكبّرها، وما يراه في الإطار هو بالضبط
+// ما يُحفظ: عند الإضافة تُرسم المنطقة الظاهرة على لوحة 1200×400 وتُرفع هي وحدها. فلا قصّ
+// مفاجئ، وكل الإعلانات بالمقاس نفسه، والصورة صغيرة (نحو 100 كيلوبايت) مهما كان الأصل.
+// الحساب كله بوحدات الصورة النهائية (1200×400)، فيعمل على أي عرض للإطار.
+const AD_OUT_W = 1200, AD_OUT_H = 400;
+let adEditor = null;   // { img, url, iw, ih, s, x, y, sMin, sMax, sCover, sContain }
+
+function adEditorClamp() {
+  const e = adEditor; const w = e.iw * e.s, h = e.ih * e.s;
+  // صورة أكبر من الإطار: لا تُسحب حتى يظهر فراغ. وأصغر منه: تبقى في الوسط على خلفية بيضاء
+  e.x = w >= AD_OUT_W ? Math.min(0, Math.max(AD_OUT_W - w, e.x)) : (AD_OUT_W - w) / 2;
+  e.y = h >= AD_OUT_H ? Math.min(0, Math.max(AD_OUT_H - h, e.y)) : (AD_OUT_H - h) / 2;
+}
+
+function adEditorRender() {
+  const e = adEditor; if (!e) return;
+  const img = document.querySelector('#ad-preview img');
+  if (!img) return;
+  img.style.left = (e.x / AD_OUT_W * 100) + '%';
+  img.style.top = (e.y / AD_OUT_H * 100) + '%';
+  img.style.width = (e.iw * e.s / AD_OUT_W * 100) + '%';
+  img.style.height = (e.ih * e.s / AD_OUT_H * 100) + '%';
+  const zoom = document.getElementById('ad-zoom');
+  if (zoom) zoom.value = String(Math.round(Math.log(e.s / e.sMin) / Math.log(e.sMax / e.sMin) * 100));
+}
+
+// تكبير مع إبقاء مركز الإطار ثابتاً، فلا "تقفز" الصورة عند التكبير
+function adEditorSetScale(s) {
+  const e = adEditor; if (!e) return;
+  s = Math.min(e.sMax, Math.max(e.sMin, s));
+  const cx = AD_OUT_W / 2, cy = AD_OUT_H / 2;
+  const px = (cx - e.x) / e.s, py = (cy - e.y) / e.s;
+  e.s = s; e.x = cx - px * s; e.y = cy - py * s;
+  adEditorClamp(); adEditorRender();
+}
+
+function onAdZoomInput(v) {
+  const e = adEditor; if (!e) return;
+  adEditorSetScale(e.sMin * Math.pow(e.sMax / e.sMin, Number(v) / 100));
+}
+
+// "ملء الإطار": تغطي الصورة الإطار كله. "الصورة كاملة": تظهر كلها ولو بقيت حواف بيضاء (للشعارات)
+function adEditorFit(mode) {
+  const e = adEditor; if (!e) return;
+  e.s = mode === 'whole' ? e.sContain : e.sCover;
+  e.x = (AD_OUT_W - e.iw * e.s) / 2; e.y = (AD_OUT_H - e.ih * e.s) / 2;
+  adEditorClamp(); adEditorRender();
+}
+
+function adEditorReset() {
+  if (adEditor && adEditor.url) URL.revokeObjectURL(adEditor.url);
+  adEditor = null;
+  const box = document.getElementById('ad-preview');
+  if (box) { box.classList.remove('editing'); box.removeAttribute('tabindex'); box.innerHTML = `<span class="muted">${t('ads_preview_empty')}</span>`; }
+  const ctl = document.getElementById('ad-editor-controls');
+  if (ctl) ctl.style.display = 'none';
+}
+
+function loadAdEditorImage(file) {
   return new Promise((resolve, reject) => {
     const url = URL.createObjectURL(file);
     const img = new Image();
-    img.onload = () => {
-      const scale = Math.min(1, 1200 / img.naturalWidth, 1200 / img.naturalHeight);
-      const c = document.createElement('canvas');
-      c.width = Math.round(img.naturalWidth * scale); c.height = Math.round(img.naturalHeight * scale);
-      const ctx = c.getContext('2d');
-      ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, c.width, c.height);   // خلفية بيضاء لصور PNG الشفافة
-      ctx.drawImage(img, 0, 0, c.width, c.height);
-      URL.revokeObjectURL(url);
-      c.toBlob(b => b ? resolve({ blob: b, w: c.width, h: c.height }) : reject(new Error('compress failed')), 'image/jpeg', 0.82);
-    };
+    img.onload = () => resolve({ img, url });
     img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('bad image')); };
     img.src = url;
   });
@@ -5070,19 +5150,69 @@ async function onAdImageChosen(input) {
   input.value = '';   // يسمح باختيار الصورة نفسها مرة أخرى
   if (!file) return;
   if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) { await customAlert(t('ads_bad_type'), 'warning'); return; }
-  const btn = document.getElementById('ad-pick-btn');
-  if (btn) { btn.disabled = true; btn.textContent = t('ads_preparing'); }
-  try {
-    pendingAdImage = await compressAdImage(file);
-  } catch (e) {
-    pendingAdImage = null;
-    await customAlert(t('ads_bad_type'), 'warning');
-  }
-  if (btn) { btn.disabled = false; btn.textContent = t('ads_pick_image'); }
+  let loaded;
+  try { loaded = await loadAdEditorImage(file); } catch (e) { await customAlert(t('ads_bad_type'), 'warning'); return; }
+  adEditorReset();
+  const iw = loaded.img.naturalWidth, ih = loaded.img.naturalHeight;
+  const sCover = Math.max(AD_OUT_W / iw, AD_OUT_H / ih), sContain = Math.min(AD_OUT_W / iw, AD_OUT_H / ih);
+  adEditor = { img: loaded.img, url: loaded.url, iw, ih, sCover, sContain, sMin: sContain, sMax: sCover * 3, s: sCover, x: 0, y: 0 };
   const box = document.getElementById('ad-preview');
-  if (box && pendingAdImage) box.innerHTML = `<img alt="" src="${URL.createObjectURL(pendingAdImage.blob)}">`;
-  const warn = document.getElementById('ad-ratio-warn');
-  if (warn && pendingAdImage) warn.style.display = Math.abs(pendingAdImage.w / pendingAdImage.h - 3) / 3 > 0.1 ? '' : 'none';
+  box.classList.add('editing');
+  box.setAttribute('tabindex', '0');
+  box.innerHTML = `<img alt="" draggable="false" src="${loaded.url}">`;
+  document.getElementById('ad-editor-controls').style.display = '';
+  adEditorFit('cover');
+}
+
+// السحب بالفأرة أو الإصبع، والأسهم ولوحة المفاتيح لمن يفضّلها
+function setupAdEditorEvents() {
+  const box = document.getElementById('ad-preview');
+  if (!box || box.dataset.wired) return;
+  box.dataset.wired = '1';
+  let drag = null;
+  box.addEventListener('pointerdown', ev => {
+    if (!adEditor) return;
+    drag = { id: ev.pointerId, px: ev.clientX, py: ev.clientY };
+    box.setPointerCapture(ev.pointerId);
+    box.classList.add('dragging');
+    ev.preventDefault();
+  });
+  box.addEventListener('pointermove', ev => {
+    if (!drag || ev.pointerId !== drag.id || !adEditor) return;
+    const k = AD_OUT_W / box.clientWidth;   // من بكسلات الشاشة إلى وحدات الصورة النهائية
+    adEditor.x += (ev.clientX - drag.px) * k; adEditor.y += (ev.clientY - drag.py) * k;
+    drag.px = ev.clientX; drag.py = ev.clientY;
+    adEditorClamp(); adEditorRender();
+  });
+  const end = ev => { if (drag && ev.pointerId === drag.id) { drag = null; box.classList.remove('dragging'); } };
+  box.addEventListener('pointerup', end);
+  box.addEventListener('pointercancel', end);
+  box.addEventListener('keydown', ev => {
+    if (!adEditor) return;
+    const step = 20, moves = { ArrowLeft: [step, 0], ArrowRight: [-step, 0], ArrowUp: [0, step], ArrowDown: [0, -step] };
+    if (moves[ev.key]) { adEditor.x += moves[ev.key][0]; adEditor.y += moves[ev.key][1]; adEditorClamp(); adEditorRender(); ev.preventDefault(); }
+    else if (ev.key === '+' || ev.key === '=') { adEditorSetScale(adEditor.s * 1.1); ev.preventDefault(); }
+    else if (ev.key === '-') { adEditorSetScale(adEditor.s / 1.1); ev.preventDefault(); }
+  });
+}
+
+// الصورة النهائية: المنطقة الظاهرة في الإطار بالضبط، على لوحة 1200×400 بخلفية بيضاء
+function renderAdEditorOutput() {
+  return new Promise((resolve, reject) => {
+    const e = adEditor;
+    const c = document.createElement('canvas'); c.width = AD_OUT_W; c.height = AD_OUT_H;
+    const ctx = c.getContext('2d');
+    ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, AD_OUT_W, AD_OUT_H);
+    ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(e.img, e.x, e.y, e.iw * e.s, e.ih * e.s);
+    c.toBlob(b => b ? resolve(b) : reject(new Error('render failed')), 'image/jpeg', 0.85);
+  });
+}
+
+// الإعلانات تتغير من اللوحة، فتُجلب مساحة الإعلان من جديد فوراً بدل انتظار تحديث الصفحة
+function refreshAdSlotNow() {
+  for (const k of Object.keys(adSlotLists)) delete adSlotLists[k];
+  loadAdSlot();
 }
 
 // "0933 123 456" ← tel:0933123456، و"www.x.com" ← https://www.x.com، و"wa.me/963..." ← https://wa.me/963...
@@ -5098,27 +5228,29 @@ function normalizeAdLink(raw) {
 async function submitAd() {
   const advertiser = document.getElementById('ad-advertiser').value.trim();
   if (!advertiser) { await customAlert(t('ads_need_advertiser'), 'warning'); return; }
-  if (!pendingAdImage) { await customAlert(t('ads_need_image'), 'warning'); return; }
+  if (!adEditor) { await customAlert(t('ads_need_image'), 'warning'); return; }
   const starts = document.getElementById('ad-starts').value, ends = document.getElementById('ad-ends').value;
   if (starts && ends && ends < starts) { await customAlert(t('ads_dates_order'), 'warning'); return; }
   const placement = (document.querySelector('input[name="ad-placement"]:checked') || {}).value || 'home';
-  const qs = new URLSearchParams({ advertiser, link: normalizeAdLink(document.getElementById('ad-link').value), placement, starts, ends });
+  const val = id => (document.getElementById(id) || {}).value || '';
+  const qs = new URLSearchParams({ advertiser, advertiser_en: val('ad-advertiser-en').trim(), desc: val('ad-desc').trim(), desc_en: val('ad-desc-en').trim(),
+    link: normalizeAdLink(val('ad-link')), placement, starts, ends });
   const btn = document.getElementById('ad-submit');
   if (btn) { btn.disabled = true; btn.textContent = t('ads_uploading'); }
   try {
-    const headers = adminHeaders(); headers['Content-Type'] = pendingAdImage.blob.type || 'image/jpeg';
-    const res = await fetchWithTimeout(`${API}/ads?${qs}`, { method: 'POST', headers, body: pendingAdImage.blob }, 60000);
+    const blob = await renderAdEditorOutput();
+    const headers = adminHeaders(); headers['Content-Type'] = 'image/jpeg';
+    const res = await fetchWithTimeout(`${API}/ads?${qs}`, { method: 'POST', headers, body: blob }, 60000);
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
       const msg = data.code === 'TOOBIG' ? t('ads_too_big') : data.code === 'BADTYPE' ? t('ads_bad_type') : translateApiError(data.error);
       await customAlert(msg, 'error');
       return;
     }
-    pendingAdImage = null;
-    ['ad-advertiser', 'ad-link', 'ad-starts', 'ad-ends'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
-    document.getElementById('ad-preview').innerHTML = `<span class="muted">${t('ads_preview_empty')}</span>`;
-    document.getElementById('ad-ratio-warn').style.display = 'none';
+    adEditorReset();
+    ['ad-advertiser', 'ad-advertiser-en', 'ad-desc', 'ad-desc-en', 'ad-link', 'ad-starts', 'ad-ends'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
     await loadAdsAdmin();
+    refreshAdSlotNow();
     await customAlert(t('ads_added'), 'success');
   } catch (err) {
     await customAlert(t('err_network'), 'error');
@@ -5144,9 +5276,10 @@ function renderAdsAdmin() {
       <img alt="${escapeHtml(ad.advertiser)}" loading="lazy" src="${API}/ads/${ad.id}/image">
       <div class="ad-item-body">
         <div class="ad-item-head">
-          <strong>${escapeHtml(ad.advertiser)}</strong>
+          <strong>${escapeHtml(ad.advertiser)}${ad.advertiser_en ? ` <span class="ad-en" dir="ltr">${escapeHtml(ad.advertiser_en)}</span>` : ''}</strong>
           <span class="ad-status ${escapeHtml(ad.status)}">${t('ads_status_' + (['running', 'paused', 'scheduled', 'ended'].includes(ad.status) ? ad.status : 'paused'))}</span>
         </div>
+        ${ad.description || ad.description_en ? `<div class="ad-desc-line">${ad.description ? escapeHtml(ad.description) : ''}${ad.description && ad.description_en ? ' · ' : ''}${ad.description_en ? `<bdi dir="ltr">${escapeHtml(ad.description_en)}</bdi>` : ''}</div>` : ''}
         <div class="ad-meta">${t(ad.placement === 'cosmetic' ? 'ads_in_cosmetic' : 'ads_in_home')} · ${adRangeText(ad)}</div>
         <div class="ad-meta">${tFormat('ads_counts', { i: Number(ad.impressions) || 0, c: Number(ad.clicks) || 0 })}</div>
         ${ad.link ? `<div class="ad-meta" dir="ltr" style="text-align:right;">${escapeHtml(ad.link)}</div>` : ''}
@@ -5174,6 +5307,7 @@ async function loadAdsAdmin() {
 async function setAdActiveAdmin(id, active) {
   if (!(await runAction(`${API}/ads/${id}/active`, { method: 'PUT', headers: adminHeaders(), body: JSON.stringify({ active }) }))) return;
   loadAdsAdmin();
+  refreshAdSlotNow();
 }
 
 async function deleteAdAdmin(id) {
@@ -5182,6 +5316,7 @@ async function deleteAdAdmin(id) {
   if (!(await customConfirm(tFormat('ads_delete_confirm', { name: ad.advertiser }), 'warning'))) return;
   if (!(await runAction(`${API}/ads/${id}`, { method: 'DELETE', headers: adminHeaders() }))) return;
   await loadAdsAdmin();
+  refreshAdSlotNow();
   await customAlert(t('ads_deleted'), 'success');
 }
 
