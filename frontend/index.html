@@ -1652,6 +1652,13 @@
   }
   a.ad-card:hover { box-shadow: 0 10px 24px rgba(24,95,165,0.12); }
   a.ad-card:focus-visible { outline: 3px solid #185fa5; outline-offset: 2px; }
+  /* مواضع قسم التجميل (يحددها placeAdSlot في app.js). "top": تحت مربع البحث مباشرة،
+     و"after": بعد آخر نتيجة بالمسافة نفسها التي بين بطاقات النتائج تقريباً. وتظهر بالحركة
+     نفسها التي تظهر بها النتائج، فتبدو جزءاً من الصفحة لا عنصراً يقفز فجأة.
+     "off" أثناء التحميل أو حين لا نتيجة: تختفي، فلا تزاحم رسالة "لم يُعثر" أو الخطأ */
+  .ad-slot[data-pos="top"] { margin: 0 auto 22px; animation: fadeSlideUp .35s ease both; }
+  .ad-slot[data-pos="after"] { margin: 22px auto 8px; animation: fadeSlideUp .35s ease both; }
+  .ad-slot[data-pos="off"] { display: none !important; }
 
   /* ---- بطاقة الإعلانات في لوحة الإدارة ---- */
   .ad-form { display: flex; flex-direction: column; gap: 10px; margin: 6px 0 16px; padding: 14px; background: #f7fafd; border: 1px solid #e3ebf3; border-radius: 14px; }
