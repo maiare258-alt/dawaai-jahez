@@ -463,7 +463,13 @@ const translations = {
     ads_advertiser_en_ph: 'اسم المعلن بالإنكليزية (اختياري)',
     ads_desc_ph: 'شرح قصير (اختياري، حتى 60 حرفاً)',
     ads_desc_en_ph: 'الشرح بالإنكليزية (اختياري)',
-    ads_editor_hint: 'اسحب الصورة لتحريكها، واستعمل الشريط للتكبير. ما تراه في الإطار هو بالضبط ما سيراه الزائر.',
+    ads_editor_hint: 'اسحب الصورة أو استعمل الأسهم لتحريكها، والشريط للتكبير. الفراغ حول الصورة يُملأ بامتداد ناعم لألوان أطرافها. ما تراه في الإطار هو بالضبط ما سيراه الزائر.',
+    ads_move_left: 'تحريك الصورة إلى اليسار',
+    ads_move_right: 'تحريك الصورة إلى اليمين',
+    ads_move_up: 'تحريك الصورة إلى الأعلى',
+    ads_move_down: 'تحريك الصورة إلى الأسفل',
+    ads_center: 'توسيط',
+    ads_center_aria: 'توسيط الصورة في الإطار',
     ads_zoom_label: 'التكبير',
     ads_fit_fill: 'ملء الإطار',
     ads_fit_whole: 'الصورة كاملة',
@@ -1038,7 +1044,13 @@ const translations = {
     ads_advertiser_en_ph: 'Advertiser name in English (optional)',
     ads_desc_ph: 'Short description in Arabic (optional, up to 60 characters)',
     ads_desc_en_ph: 'Description in English (optional)',
-    ads_editor_hint: 'Drag the image to move it and use the slider to zoom. What you see in the frame is exactly what visitors will see.',
+    ads_editor_hint: 'Drag the image or use the arrows to move it, and the slider to zoom. Empty space around the image is filled with a soft extension of its edge colours. What you see in the frame is exactly what visitors will see.',
+    ads_move_left: 'Move the image left',
+    ads_move_right: 'Move the image right',
+    ads_move_up: 'Move the image up',
+    ads_move_down: 'Move the image down',
+    ads_center: 'Center',
+    ads_center_aria: 'Center the image in the frame',
     ads_zoom_label: 'Zoom',
     ads_fit_fill: 'Fill the frame',
     ads_fit_whole: 'Whole image',
@@ -4477,6 +4489,13 @@ function renderAdminPanelUI() {
             <button type="button" class="btn-outline blue small" onclick="adEditorFit('cover')">${t('ads_fit_fill')}</button>
             <button type="button" class="btn-outline blue small" onclick="adEditorFit('whole')">${t('ads_fit_whole')}</button>
           </div>
+          <div class="ad-move-pad" role="group" aria-label="${t('ads_center_aria')}">
+            <button type="button" class="pad-up" onclick="adEditorNudge(0, -1)" aria-label="${t('ads_move_up')}" title="${t('ads_move_up')}">↑</button>
+            <button type="button" class="pad-left" onclick="adEditorNudge(-1, 0)" aria-label="${t('ads_move_left')}" title="${t('ads_move_left')}">←</button>
+            <button type="button" class="pad-center" onclick="adEditorCenter()" aria-label="${t('ads_center_aria')}">${t('ads_center')}</button>
+            <button type="button" class="pad-right" onclick="adEditorNudge(1, 0)" aria-label="${t('ads_move_right')}" title="${t('ads_move_right')}">→</button>
+            <button type="button" class="pad-down" onclick="adEditorNudge(0, 1)" aria-label="${t('ads_move_down')}" title="${t('ads_move_down')}">↓</button>
+          </div>
         </div>
         <input id="ad-link" maxlength="300" dir="ltr" placeholder="${t('ads_link_ph')}">
         <p class="demand-hint" style="margin:-8px 0 0;">${t('ads_link_hint')}</p>
@@ -5097,15 +5116,83 @@ let adEditor = null;   // { img, url, iw, ih, s, x, y, sMin, sMax, sCover, sCont
 
 function adEditorClamp() {
   const e = adEditor; const w = e.iw * e.s, h = e.ih * e.s;
-  // صورة أكبر من الإطار: لا تُسحب حتى يظهر فراغ. وأصغر منه: تبقى في الوسط على خلفية بيضاء
-  e.x = w >= AD_OUT_W ? Math.min(0, Math.max(AD_OUT_W - w, e.x)) : (AD_OUT_W - w) / 2;
-  e.y = h >= AD_OUT_H ? Math.min(0, Math.max(AD_OUT_H - h, e.y)) : (AD_OUT_H - h) / 2;
+  // صورة أكبر من الإطار: لا تُسحب حتى يظهر فراغ. وأصغر منه: تتحرك بحرية داخله دون أن
+  // يخرج منها شيء (مثلاً صورة مربعة على أحد الجانبين)
+  const clamp = (v, size, frame) => Math.min(Math.max(0, frame - size), Math.max(Math.min(0, frame - size), v));
+  e.x = clamp(e.x, w, AD_OUT_W);
+  e.y = clamp(e.y, h, AD_OUT_H);
+}
+
+// أزرار الأسهم: كل ضغطة تحرّك الصورة ٥٪ من الإطار في اتجاه السهم المرسوم على الشاشة
+function adEditorNudge(dx, dy) {
+  const e = adEditor; if (!e) return;
+  e.x += dx * AD_OUT_W * 0.05; e.y += dy * AD_OUT_H * 0.05;
+  adEditorClamp(); adEditorRender();
+}
+
+// "توسيط": الصورة إلى منتصف الإطار دون تغيير التكبير
+function adEditorCenter() {
+  const e = adEditor; if (!e) return;
+  e.x = (AD_OUT_W - e.iw * e.s) / 2; e.y = (AD_OUT_H - e.ih * e.s) / 2;
+  adEditorClamp(); adEditorRender();
+}
+
+// ملء الفراغ حول الصورة: لا أبيض ولا نسخة مموّهة كاملة (فهذه تُظهر "شبحاً" للصورة بجانبها
+// وهالات حول الشعارات)، بل امتداد ناعم لألوان طرف الصورة الملاصق للفراغ: يُؤخذ شريط رفيع
+// من حافة الصورة، وتُدمج ألوانه حتى تصير تدرّجاً ناعماً، ثم يُمدّ على عرض الفراغ ويفتح لونه
+// قليلاً كلما ابتعد عن الصورة. فالشعار على خلفية بيضاء يبقى على أبيض، والصورة الملونة تمتد
+// ألوانها بسلاسة. والدالة نفسها ترسم المعاينة والصورة النهائية، فهما متطابقتان.
+function adEdgeStrip(img, sx, sy, sw, sh, alongY) {
+  const mk = (w, h) => { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; };
+  const a = alongY ? mk(4, 64) : mk(64, 4);
+  let ctx = a.getContext('2d'); ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(img, sx, sy, sw, sh, 0, 0, a.width, a.height);
+  const b = alongY ? mk(1, 16) : mk(16, 1);   // ١٦ لوناً فقط على الطول: تدرّج ناعم بلا تفاصيل
+  ctx = b.getContext('2d'); ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(a, 0, 0, b.width, b.height);
+  return b;
+}
+
+function drawAdBackdrop(ctx, e) {
+  const W = AD_OUT_W, H = AD_OUT_H, w = e.iw * e.s, h = e.ih * e.s;
+  ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, W, H);
+  ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
+  // الجزء الظاهر من الصورة داخل الإطار، بوحدات الإطار ثم بوحدات الصورة الأصلية
+  const vx0 = Math.max(0, e.x), vx1 = Math.min(W, e.x + w), vy0 = Math.max(0, e.y), vy1 = Math.min(H, e.y + h);
+  if (vx1 <= vx0 || vy1 <= vy0) return;
+  const sx0 = (vx0 - e.x) / e.s, sx1 = (vx1 - e.x) / e.s, sy0 = (vy0 - e.y) / e.s, sy1 = (vy1 - e.y) / e.s;
+  const bandX = Math.max(1, Math.min(sx1 - sx0, e.iw * 0.02)), bandY = Math.max(1, Math.min(sy1 - sy0, e.ih * 0.02));
+  const fade = (x0, y0, x1, y1, rx, ry, rw, rh) => {
+    const g = ctx.createLinearGradient(x0, y0, x1, y1);
+    g.addColorStop(0, 'rgba(255,255,255,0)'); g.addColorStop(1, 'rgba(255,255,255,0.35)');
+    ctx.fillStyle = g; ctx.fillRect(rx, ry, rw, rh);
+  };
+  // كل امتداد يدخل قليلاً تحت الصورة (والصورة تغطيه)، فلا يظهر خط فاتح رفيع عند الحافة
+  const o = 4;
+  if (vx0 > 0) {
+    ctx.drawImage(adEdgeStrip(e.img, sx0, sy0, bandX, sy1 - sy0, true), 0, vy0, vx0 + o, vy1 - vy0);
+    fade(vx0, 0, 0, 0, 0, vy0, vx0, vy1 - vy0);
+  }
+  if (vx1 < W) {
+    ctx.drawImage(adEdgeStrip(e.img, sx1 - bandX, sy0, bandX, sy1 - sy0, true), vx1 - o, vy0, W - vx1 + o, vy1 - vy0);
+    fade(vx1, 0, W, 0, vx1, vy0, W - vx1, vy1 - vy0);
+  }
+  if (vy0 > 0) {
+    ctx.drawImage(adEdgeStrip(e.img, sx0, sy0, sx1 - sx0, bandY, false), vx0, 0, vx1 - vx0, vy0 + o);
+    fade(0, vy0, 0, 0, vx0, 0, vx1 - vx0, vy0);
+  }
+  if (vy1 < H) {
+    ctx.drawImage(adEdgeStrip(e.img, sx0, sy1 - bandY, sx1 - sx0, bandY, false), vx0, vy1 - o, vx1 - vx0, H - vy1 + o);
+    fade(0, vy1, 0, H, vx0, vy1, vx1 - vx0, H - vy1);
+  }
 }
 
 function adEditorRender() {
   const e = adEditor; if (!e) return;
   const img = document.querySelector('#ad-preview img');
   if (!img) return;
+  const bgc = document.querySelector('#ad-preview canvas.ad-bg');
+  if (bgc) drawAdBackdrop(bgc.getContext('2d'), e);
   img.style.left = (e.x / AD_OUT_W * 100) + '%';
   img.style.top = (e.y / AD_OUT_H * 100) + '%';
   img.style.width = (e.iw * e.s / AD_OUT_W * 100) + '%';
@@ -5129,7 +5216,7 @@ function onAdZoomInput(v) {
   adEditorSetScale(e.sMin * Math.pow(e.sMax / e.sMin, Number(v) / 100));
 }
 
-// "ملء الإطار": تغطي الصورة الإطار كله. "الصورة كاملة": تظهر كلها ولو بقيت حواف بيضاء (للشعارات)
+// "ملء الإطار": تغطي الصورة الإطار كله. "الصورة كاملة": تظهر كلها والفراغ حولها امتداد لألوان أطرافها (للشعارات)
 function adEditorFit(mode) {
   const e = adEditor; if (!e) return;
   e.s = mode === 'whole' ? e.sContain : e.sCover;
@@ -5170,7 +5257,8 @@ async function onAdImageChosen(input) {
   const box = document.getElementById('ad-preview');
   box.classList.add('editing');
   box.setAttribute('tabindex', '0');
-  box.innerHTML = `<img alt="" draggable="false" src="${loaded.url}">`;
+  // لوحة الخلفية خلف الصورة تُرسم بالدالة نفسها التي ترسم الصورة النهائية، فالمعاينة مطابقة لما يراه الزائر
+  box.innerHTML = `<canvas class="ad-bg" width="${AD_OUT_W}" height="${AD_OUT_H}" aria-hidden="true"></canvas><img alt="" draggable="false" src="${loaded.url}">`;
   document.getElementById('ad-editor-controls').style.display = '';
   adEditorFit('cover');
 }
@@ -5200,20 +5288,21 @@ function setupAdEditorEvents() {
   box.addEventListener('pointercancel', end);
   box.addEventListener('keydown', ev => {
     if (!adEditor) return;
-    const step = 20, moves = { ArrowLeft: [step, 0], ArrowRight: [-step, 0], ArrowUp: [0, step], ArrowDown: [0, -step] };
-    if (moves[ev.key]) { adEditor.x += moves[ev.key][0]; adEditor.y += moves[ev.key][1]; adEditorClamp(); adEditorRender(); ev.preventDefault(); }
+    // الأسهم تحرّك الصورة في اتجاهها، تماماً كأزرار الأسهم تحت الإطار
+    const moves = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] };
+    if (moves[ev.key]) { adEditorNudge(moves[ev.key][0], moves[ev.key][1]); ev.preventDefault(); }
     else if (ev.key === '+' || ev.key === '=') { adEditorSetScale(adEditor.s * 1.1); ev.preventDefault(); }
     else if (ev.key === '-') { adEditorSetScale(adEditor.s / 1.1); ev.preventDefault(); }
   });
 }
 
-// الصورة النهائية: المنطقة الظاهرة في الإطار بالضبط، على لوحة 1200×400 بخلفية بيضاء
+// الصورة النهائية: المنطقة الظاهرة في الإطار بالضبط، على لوحة 1200×400 فوق امتداد ألوان أطرافها
 function renderAdEditorOutput() {
   return new Promise((resolve, reject) => {
     const e = adEditor;
     const c = document.createElement('canvas'); c.width = AD_OUT_W; c.height = AD_OUT_H;
     const ctx = c.getContext('2d');
-    ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, AD_OUT_W, AD_OUT_H);
+    drawAdBackdrop(ctx, e);
     ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
     ctx.drawImage(e.img, e.x, e.y, e.iw * e.s, e.ih * e.s);
     c.toBlob(b => b ? resolve(b) : reject(new Error('render failed')), 'image/jpeg', 0.85);
