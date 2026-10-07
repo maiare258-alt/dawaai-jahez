@@ -140,7 +140,13 @@ app.use('/api', (req, res, next) => {
 });
 
 // تقديم واجهة الموقع الثابتة
-app.use(express.static(path.join(__dirname, 'frontend')));
+// ملفات الخط لا تتغير أبداً (تغييرها يكون باسم ملف جديد)، فيحفظها المتصفح سنة كاملة دون
+// أن يسأل الخادم عنها. هذا ما يجعل الخط حاضراً فوراً في كل زيارة بعد الأولى، فلا وميض.
+app.use(express.static(path.join(__dirname, 'frontend'), {
+  setHeaders(res, filePath) {
+    if (filePath.endsWith('.woff2')) res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+  }
+}));
 
 // مسارات API
 app.use('/api/medicines', medicinesRoutes);
