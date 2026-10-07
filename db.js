@@ -954,6 +954,9 @@ async function getAvailability(medicineId, city) {
             p.latitude, p.longitude,
             COALESCE(p.manages_stock, false) AS manages_stock,
             p.opens_at, p.closes_at, p.closed_override_date,
+            -- حالة المناوبة: الواجهة تعدّ الصيدلية المناوبة "مفتوحة الآن" أياً كانت ساعات
+            -- دوامها. بدون هذا الحقل كانت المناوبة تظهر "مغلقة" في نتائج البحث ليلاً
+            COALESCE(p.on_duty, false) AS on_duty,
             COALESCE(s.available, false) AS available,
             s.updated_at AS stock_updated_at
      FROM pharmacies p
@@ -1070,11 +1073,18 @@ async function confirmOrder(orderId) {
   await pool.query(`UPDATE orders SET status = 'confirmed' WHERE id = $1 AND deleted_at IS NULL`, [orderId]);
 }
 
+// حالة طلبات المريض. الطلب الذي حذفه الصيدلي يبقى في الرد بحالته الحقيقية:
+// إن كان مؤكداً قبل حذفه فقد سُلّم (confirmed)، وإن حُذف دون تأكيد فالصيدلية لم تجهّزه
+// (declined). كان الطلب المحذوف يُستبعد، فتعدّه الواجهة "مؤكداً" ويذهب المريض ظاناً
+// أن دواءه محجوز. لا يُرسَل أي شيء من بيانات المريض هنا.
 async function getOrdersStatus(ids) {
   const { rows } = await pool.query(
-    `SELECT o.id, o.status, p.name AS pharmacy_name
+    `SELECT o.id,
+            CASE WHEN o.deleted_at IS NOT NULL AND o.status <> 'confirmed' THEN 'declined'
+                 ELSE o.status END AS status,
+            p.name AS pharmacy_name
      FROM orders o JOIN pharmacies p ON o.pharmacy_id = p.id
-     WHERE o.id = ANY($1::int[]) AND o.deleted_at IS NULL`,
+     WHERE o.id = ANY($1::int[])`,
     [ids]
   );
   return rows;
