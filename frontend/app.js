@@ -183,6 +183,7 @@ const translations = {
     bell_empty: 'لا توجد إشعارات حالياً', bell_aria_label: 'إشعارات الطلبات', bell_dismiss_aria: 'إخفاء', bell_clear_all: '🗑️ مسح الكل',
     bell_confirmed_text: 'تم الاستجابة لطلبك من قبل الصيدلية',
     bell_pending_prefix: 'طلبك عند صيدلية', bell_pending_suffix: 'قيد المراجعة...',
+    bell_declined_prefix: 'تعذّر على الصيدلية', bell_declined_suffix: 'تجهيز طلبك. يمكنك الاتصال بها أو البحث في صيدلية أخرى.',
     excess_quantity_confirm: 'أضفت {qty} من {name} من {pharmacy} إلى عربتك. هل ترغب في إضافة المزيد؟',
     pharm_login_title: 'دخول الصيدلي',
     pharm_login_no_account: 'إن لم يكن لديك حساب بعد، فتواصل مع فريق دوائي جاهز لتسجيل صيدليتك من البطاقة أدناه.',
@@ -768,6 +769,7 @@ const translations = {
     bell_empty: 'No notifications yet', bell_aria_label: 'Order notifications', bell_dismiss_aria: 'Dismiss', bell_clear_all: '🗑️ Clear all',
     bell_confirmed_text: 'Your order was confirmed by the pharmacy',
     bell_pending_prefix: 'Your order at', bell_pending_suffix: 'is under review...',
+    bell_declined_prefix: 'The pharmacy', bell_declined_suffix: 'could not prepare your order. You can call it or search another pharmacy.',
     excess_quantity_confirm: "You've added {qty} of {name} from {pharmacy} to your cart. Add more?",
     pharm_login_title: 'Pharmacist Login',
     pharm_login_no_account: "If you don't have an account yet, contact the Dawaai Jahez team to register your pharmacy using the card below.",
@@ -2066,8 +2068,12 @@ function saveMyOrders() {
   storageSet('myOrders', JSON.stringify(myOrders));
 }
 
+// الطلب "انتهى" حين تردّ الصيدلية عليه: بالتأكيد أو بتعذّر التجهيز. كلاهما خبر يستحق
+// أن يراه المريض، فكلاهما يُحسب في عدّاد الجرس، وعند انتهاء كل الطلبات يتوقف الفحص الدوري.
+function isOrderAnswered(o) { return o.status === 'confirmed' || o.status === 'declined'; }
+
 function updateBellBadge() {
-  const confirmedCount = myOrders.filter(o => o.status === 'confirmed').length;
+  const confirmedCount = myOrders.filter(isOrderAnswered).length;
   const badge = document.getElementById('bell-badge');
   if (badge) {
     badge.textContent = confirmedCount;
@@ -2085,7 +2091,7 @@ function updateBellBadge() {
 // بيظهر بس لما يكون في طلبات مرسلة فعلاً، وبيختفي تلقائياً مع أي إعادة رسم تصفّر الطلبات.
 function renderBellRow() {
   if (!myOrders || myOrders.length === 0) return '';
-  const confirmedCount = myOrders.filter(o => o.status === 'confirmed').length;
+  const confirmedCount = myOrders.filter(isOrderAnswered).length;
   return `
     <div class="cart-bell-row">
       <div class="cart-bell-wrap">
@@ -2124,6 +2130,16 @@ function renderBellPanel() {
           <div class="order-status-banner-text">
             <span class="order-status-icon">✅</span>
             <span>${t('bell_confirmed_text')} (${escapeHtml(o.pharmacyName)})</span>
+          </div>
+          <button class="order-status-dismiss" onclick="dismissMyOrder(${o.id})" aria-label="${t('bell_dismiss_aria')}">✕</button>
+        </div>`;
+    }
+    if (o.status === 'declined') {
+      return `
+        <div class="order-status-banner declined">
+          <div class="order-status-banner-text">
+            <span class="order-status-icon">ℹ️</span>
+            <span>${t('bell_declined_prefix')} (${escapeHtml(o.pharmacyName)}) ${t('bell_declined_suffix')}</span>
           </div>
           <button class="order-status-dismiss" onclick="dismissMyOrder(${o.id})" aria-label="${t('bell_dismiss_aria')}">✕</button>
         </div>`;
@@ -2185,17 +2201,15 @@ async function checkMyOrdersStatus() {
     const rows = await readJsonOk(res);
     let newlyConfirmed = false;
     myOrders.forEach(local => {
+      if (isOrderAnswered(local)) return;   // حالة نهائية: لا تتغير بعد ذلك
       const found = rows.find(r => r.id === local.id);
-      // لو الصيدلية حذفت الطلب من عندها (عادةً بعد ما تسلّمه/تجاوبت عليه)، منعتبره "تم التأكيد" ومنخليه
-      // ظاهر بإشعارات المريض — لحد ما يمسحه هو بنفسه يدوياً، بدل ما يختفي تلقائياً من غير علمه
-      if (!found) {
-        if (local.status !== 'confirmed') { local.status = 'confirmed'; newlyConfirmed = true; }
-        return;
-      }
-      if (found.status === 'confirmed' && local.status !== 'confirmed') {
-        local.status = 'confirmed';
-        newlyConfirmed = true;
-      }
+      // الخادم يعيد الطلب المحذوف بحالته الحقيقية (مؤكد، أو "تعذّر التجهيز" إن حُذف دون تأكيد).
+      // الطلب الغائب كلياً لم يعد موجوداً أصلاً (حُذفت صيدليته أو بدأ الإطلاق الرسمي)، فلن
+      // يُجهَّز: نعرضه "تعذّر التجهيز" لا "مؤكداً"، كي لا يذهب المريض ظاناً أن دواءه محجوز.
+      const next = !found ? 'declined'
+                 : (found.status === 'confirmed' || found.status === 'declined') ? found.status
+                 : null;
+      if (next) { local.status = next; newlyConfirmed = true; }
     });
 
     // ما منلمس أي عنصر بالصفحة إلا إذا صار تغيير فعلي — تجنباً لأي إعادة رسم بلا داعي
@@ -2203,7 +2217,7 @@ async function checkMyOrdersStatus() {
       saveMyOrders();
       refreshBellUI();
     }
-    if (myOrders.every(o => o.status === 'confirmed')) stopMyOrdersPolling();
+    if (myOrders.every(isOrderAnswered)) stopMyOrdersPolling();
   } catch (err) { /* تجاهل بصمت، رح يعيد المحاولة بالجولة الجاية */ }
 }
 
