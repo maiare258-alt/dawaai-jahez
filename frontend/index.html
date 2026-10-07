@@ -104,6 +104,14 @@
   @font-face { font-family: 'IBM Plex Sans Arabic'; font-style: normal; font-weight: 400; font-display: optional; src: url('/plex-arabic-400.woff2') format('woff2'); }
   @font-face { font-family: 'IBM Plex Sans Arabic'; font-style: normal; font-weight: 600; font-display: optional; src: url('/plex-arabic-600.woff2') format('woff2'); }
   @font-face { font-family: 'IBM Plex Sans Arabic'; font-style: normal; font-weight: 700; font-display: optional; src: url('/plex-arabic-700.woff2') format('woff2'); }
+  /* خط احتياطي مضبوط المقاس: يظهر فقط في الزيارة الأولى إن تأخر الخط لحظة. Tahoma على
+     ويندوز أعرض من خطنا بنحو 12٪ (قيس على جهاز صاحب الموقع: 89.1٪)، فكانت الصفحة تبدو
+     منفوخة وتنكسر عناوينها لأسطر إضافية. نصغّره بالنسبة المقيسة، ونضبط ارتفاعه وخط أساسه
+     على مقاييس خطنا (ascent 1085 وdescent 415 من 1000، مقسومة على النسبة)، فتبقى الصفحة
+     بالمقاسات نفسها. على أندرويد لا يطابق local('Tahoma') شيئاً، فيُتخطى هذا الوجه ويُستعمل
+     خط الهاتف كما هو: قيس أنه أضيق بنحو 3٪ فقط، أي قريب أصلاً. */
+  @font-face { font-family: 'Plex Fallback'; font-style: normal; font-weight: 100 500; src: local('Tahoma'); size-adjust: 89.1%; ascent-override: 121.8%; descent-override: 46.6%; line-gap-override: 0%; }
+  @font-face { font-family: 'Plex Fallback'; font-style: normal; font-weight: 600 900; src: local('Tahoma Bold'), local('Tahoma-Bold'); size-adjust: 89.1%; ascent-override: 121.8%; descent-override: 46.6%; line-gap-override: 0%; }
 
   html { color-scheme: only light; }
 </style>
@@ -139,7 +147,7 @@
     box-shadow: 0 0 0 3px rgba(92,155,216,0.5);
   }
   body {
-    font-family: 'IBM Plex Sans Arabic', 'Tahoma', 'Segoe UI', sans-serif;
+    font-family: 'IBM Plex Sans Arabic', 'Plex Fallback', 'Tahoma', 'Segoe UI', sans-serif;
     background: #eaf5fc;
     color: #2c2c2a;
     margin: 0;
