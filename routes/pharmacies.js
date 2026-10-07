@@ -261,6 +261,7 @@ router.post('/login', rateLimit(10, 15 * 60 * 1000), async (req, res) => {
       id: pharmacy.id,
       name: pharmacy.name,
       address: pharmacy.address,
+      phone: pharmacy.phone || null,   // الهاتف الأرضي: لوحة الصيدلي تعرضه في خانته، وكان غائباً فتظهر فارغة
       city: pharmacy.city || null,
       assistant_phone: pharmacy.assistant_phone || null,
       whatsapp_phone: pharmacy.whatsapp_phone || null,
@@ -564,8 +565,14 @@ router.put('/:id/duty', adminAuth, async (req, res) => {
     const existing = await db.getPharmacyById(req.params.id);
     if (!existing) return res.status(404).json({ error: 'الصيدلية غير موجودة' });
 
+    // نموذج الإدارة لا يحوي خانتي الساعات، فلا يرسلهما. حينها نُبقي الساعات التي أدخلها
+    // الصيدلي بدل محوها (كان حفظ المدير للمناوبة يمسحها). إيقاف المناوبة يمسحها كالعادة.
+    const keepTimes = on_duty_start_time === undefined && on_duty_end_time === undefined;
     const updated = await db.setDutyStatus(
-      req.params.id, value, on_duty_day, on_duty_shift, on_duty_start_time, on_duty_end_time, 'admin'
+      req.params.id, value, on_duty_day, on_duty_shift,
+      keepTimes ? existing.on_duty_start_time : on_duty_start_time,
+      keepTimes ? existing.on_duty_end_time : on_duty_end_time,
+      'admin'
     );
     res.json({
       id: updated.id,
