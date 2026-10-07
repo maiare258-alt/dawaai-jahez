@@ -24,7 +24,8 @@ function validIdParam(req, res, next, value) {
 router.param('id', validIdParam);
 
 const AD_MAX_BYTES = 600 * 1024;   // الصورة تُضغط في المتصفح إلى نحو 100 كيلوبايت، والحد هامش أمان
-const PLACEMENTS = ['home', 'cosmetic'];
+// home: تحت بطاقات الرئيسية · cosmetic: قسم التجميل · results: بعد نتائج البحث عن الأدوية
+const PLACEMENTS = ['home', 'cosmetic', 'results'];
 
 function sniffImage(buf) {
   if (!Buffer.isBuffer(buf)) return null;
@@ -105,7 +106,7 @@ router.post('/', adminAuth, (req, res, next) => {
   }
 });
 
-// الإعلانات المعروضة الآن (عام) — GET /api/ads/active?placement=home|cosmetic
+// الإعلانات المعروضة الآن (عام) — GET /api/ads/active?placement=home|cosmetic|results
 router.get('/active', async (req, res) => {
   const placement = PLACEMENTS.includes(req.query.placement) ? req.query.placement : 'home';
   try {
