@@ -81,6 +81,12 @@ router.post('/', adminAuth, (req, res, next) => {
   if (!advertiser || advertiser.length > 80) return res.status(400).json({ error: 'اسم المعلن مطلوب (حتى 80 حرفاً)' });
   const placement = PLACEMENTS.includes(req.query.placement) ? req.query.placement : null;
   if (!placement) return res.status(400).json({ error: 'مكان الإعلان غير صالح' });
+  // حقول اختيارية: الاسم بالإنكليزية، وشرح قصير بلغتين. الشرح قصير عمداً: النص الأهم في
+  // الصورة نفسها، والشرح سطر واحد تحتها لا فقرة
+  const opt = (k) => typeof req.query[k] === 'string' ? req.query[k].trim() : '';
+  const advertiserEn = opt('advertiser_en'), description = opt('desc'), descriptionEn = opt('desc_en');
+  if (advertiserEn.length > 80) return res.status(400).json({ error: 'اسم المعلن بالإنكليزية طويل جداً (حتى 80 حرفاً)' });
+  if (description.length > 60 || descriptionEn.length > 80) return res.status(400).json({ error: 'الشرح طويل جداً' });
   let link, startsOn, endsOn;
   try {
     link = cleanLink(req.query.link);
@@ -91,7 +97,7 @@ router.post('/', adminAuth, (req, res, next) => {
   }
   if (startsOn && endsOn && endsOn < startsOn) return res.status(400).json({ error: 'تاريخ النهاية قبل تاريخ البداية' });
   try {
-    const ad = await db.createAd({ advertiser, link, placement, startsOn, endsOn, image: req.body, mime });
+    const ad = await db.createAd({ advertiser, advertiserEn, description, descriptionEn, link, placement, startsOn, endsOn, image: req.body, mime });
     res.status(201).json(ad);
   } catch (err) {
     console.error(err);
