@@ -59,6 +59,9 @@ function onCityFilterChange(el) {
   currentCity = el.value;
   const q = document.getElementById('search').value.trim();
   if (q) submitSearch();
+  // قائمة المناوبة تتبع المدينة المختارة أيضاً (الخادم يدعم التصفية)
+  lastOnDutySnapshot = null;
+  loadOnDuty();
 }
 
 // تعبئة قائمة المدن بالهيرو — تُستدعى عند الإقلاع وعند تبديل اللغة (لتترجم الأسماء)
@@ -358,6 +361,7 @@ const translations = {
     a11y_duty_shift: 'وردية المناوبة',
     a11y_med_category: 'تصنيف المنتج',
     err_offline: 'لا يوجد اتصال بالإنترنت. تحقق من الشبكة ثم أعد المحاولة.',
+    retry_btn: 'إعادة المحاولة',
     err_timeout_search: 'استغرق الخادم وقتاً أطول من المعتاد. أعد المحاولة بعد قليل.',
     err_timeout_order: 'لم يصل رد الخادم في الوقت المحدد. يمكنك إعادة الإرسال بأمان، فلن يتكرر طلبك.',
     err_network: 'تعذّر الوصول إلى الخادم. تحقق من اتصالك وأعد المحاولة.',
@@ -942,6 +946,7 @@ const translations = {
     a11y_duty_shift: 'Duty shift',
     a11y_med_category: 'Product category',
     err_offline: 'No internet connection. Check your network and try again.',
+    retry_btn: 'Try again',
     err_timeout_search: 'The server took longer than usual. Please try again shortly.',
     err_timeout_order: 'The server did not respond in time. You can safely send again; your order will not be duplicated.',
     err_network: 'Could not reach the server. Check your connection and try again.',
@@ -1871,13 +1876,57 @@ function toggleCart() {
   if (section.style.display === 'none') {
     renderCart();
     section.style.display = 'block';
+    // على الهاتف القسم العلوي طويل، فكانت العربة تنفتح تحت حافة الشاشة ويظن المريض أن
+    // الزر لا يعمل. ننزل إليها فقط إن لم يكن أعلاها ظاهراً، مع ترك مكان للشريط العلوي الثابت.
+    const header = document.querySelector('.site-header');
+    const offset = header ? header.getBoundingClientRect().bottom + 10 : 10;
+    const top = section.getBoundingClientRect().top;
+    if (top < offset || top > window.innerHeight - 120) {
+      window.scrollTo({ top: Math.max(0, top + window.scrollY - offset), behavior: 'smooth' });
+    }
   } else {
     section.style.display = 'none';
   }
 }
 
+// ما كتبه المريض في نموذج الطلب. renderCart يعيد بناء النموذج كاملاً، ويُستدعى عند + و −
+// وتبديل اللغة ووصول تحديث لطلب سابق كل بضع ثوانٍ، فكان الاسم والهاتف والملاحظات تُمحى
+// أثناء الكتابة. نحفظها قبل إعادة البناء ونعيدها بعده، ومعها موضع المؤشر إن كان المريض يكتب،
+// كي لا تُغلق لوحة المفاتيح على الهاتف.
+const CHECKOUT_FIELDS = ['checkout-name', 'checkout-phone', 'checkout-notes'];
+
+function readCheckoutDraft() {
+  const draft = { values: {}, focus: null };
+  for (const id of CHECKOUT_FIELDS) {
+    const el = document.getElementById(id);
+    if (!el) continue;
+    draft.values[id] = el.value;
+    if (document.activeElement === el) {
+      let start = null, end = null;
+      try { start = el.selectionStart; end = el.selectionEnd; } catch (e) { /* بعض الحقول لا تدعم التحديد */ }
+      draft.focus = { id, start, end };
+    }
+  }
+  return draft;
+}
+
+function restoreCheckoutDraft(draft) {
+  for (const id of CHECKOUT_FIELDS) {
+    const el = document.getElementById(id);
+    if (el && draft.values[id]) el.value = draft.values[id];
+  }
+  if (draft.focus) {
+    const el = document.getElementById(draft.focus.id);
+    if (el) {
+      el.focus({ preventScroll: true });
+      try { if (draft.focus.start !== null) el.setSelectionRange(draft.focus.start, draft.focus.end); } catch (e) { /* لا شيء */ }
+    }
+  }
+}
+
 function renderCart() {
   const container = document.getElementById('cart-section');
+  const draft = readCheckoutDraft();
   const bellRow = renderBellRow();
   if (cart.length === 0) {
     // السلة فاضية: هون بس بيظهر الجرس (بزاوية البطاقة العلوية اليمنى)
@@ -1918,12 +1967,13 @@ function renderCart() {
     `).join('')}
     <div class="cart-summary">
       <div class="cart-summary-row"><span>${t('cart_items_count_label')}</span><span>${cart.length}</span></div>
-      <input id="checkout-name" placeholder="${t('checkout_name_placeholder')}" aria-label="${t('checkout_name_placeholder')}">
-      <input id="checkout-phone" placeholder="${t('checkout_phone_placeholder')}" aria-label="${t('checkout_phone_placeholder')}" type="tel" inputmode="numeric" oninput="digitsOnly(this)">
-      <textarea id="checkout-notes" placeholder="${t('checkout_notes_placeholder')}" rows="2" style="width:100%; padding:10px 14px; border:1px solid #cfe0ef; border-radius:14px; font-family:inherit; font-size:15px; resize:vertical; margin-bottom:10px;"></textarea>
+      <input id="checkout-name" maxlength="80" autocomplete="name" placeholder="${t('checkout_name_placeholder')}" aria-label="${t('checkout_name_placeholder')}">
+      <input id="checkout-phone" maxlength="15" autocomplete="tel" placeholder="${t('checkout_phone_placeholder')}" aria-label="${t('checkout_phone_placeholder')}" type="tel" inputmode="numeric" oninput="digitsOnly(this)">
+      <textarea id="checkout-notes" maxlength="500" placeholder="${t('checkout_notes_placeholder')}" aria-label="${t('checkout_notes_placeholder')}" rows="2" style="width:100%; padding:10px 14px; border:1px solid #cfe0ef; border-radius:14px; font-family:inherit; font-size:15px; resize:vertical; margin-bottom:10px;"></textarea>
       <button class="checkout-btn" onclick="submitOrder()">${t('checkout_btn')}</button>
     </div>
   `;
+  restoreCheckoutDraft(draft);
 }
 
 let orderSubmitInProgress = false;
@@ -2526,7 +2576,8 @@ let lastOnDutySnapshot = null;
 async function loadOnDuty() {
   const container = document.getElementById('on-duty-section');
   try {
-    const res = await fetch(`${API}/pharmacies/on-duty`);
+    const cityParam = currentCity ? `?city=${encodeURIComponent(currentCity)}` : '';
+    const res = await fetchWithTimeout(`${API}/pharmacies/on-duty${cityParam}`, {}, 15000);
     const data = await readJsonOk(res);
 
     // ما تغيّر شي بالبيانات؟ خلص، ما في داعي نعيد رسم الشاشة ونسبب وميض
@@ -2551,10 +2602,12 @@ async function loadOnDuty() {
         <h3>${t('onduty_title')}</h3>
         <div class="duty-grid">
           ${data.map(p => {
+            // اليوم والفترة والساعات يكتبها الصيدلي، فتمر كلها عبر escapeHtml قبل الصفحة:
+            // بدونها كان أي حساب صيدلية يستطيع حقن شيفرة تعمل في متصفح كل زائر
             const extras = [];
-            if (p.on_duty_shift && p.on_duty_shift !== 'طوال اليوم') extras.push(translateDutyShift(p.on_duty_shift));
-            if (p.on_duty_start_time && p.on_duty_end_time) extras.push(`${formatTime12(p.on_duty_start_time)} - ${formatTime12(p.on_duty_end_time)}`);
-            const timeLine = translateDutyDay(p.on_duty_day || '') + (extras.length ? ` (${extras.join('، ')})` : '');
+            if (p.on_duty_shift && p.on_duty_shift !== 'طوال اليوم') extras.push(escapeHtml(translateDutyShift(p.on_duty_shift)));
+            if (p.on_duty_start_time && p.on_duty_end_time) extras.push(escapeHtml(`${formatTime12(p.on_duty_start_time)} - ${formatTime12(p.on_duty_end_time)}`));
+            const timeLine = escapeHtml(translateDutyDay(p.on_duty_day || '')) + (extras.length ? ` (${extras.join(currentLang === 'en' ? ', ' : '، ')})` : '');
             return `
               <div class="duty-card">
                 <div class="duty-card-top">
@@ -2573,8 +2626,29 @@ async function loadOnDuty() {
       </div>
     `;
   } catch (err) {
-    container.innerHTML = '';
+    // كان الفشل يُفرغ القائمة ويُبقي اللقطة القديمة، فيرى الرد التالي البيانات نفسها
+    // ولا يعيد الرسم: تختفي القائمة حتى تتغير المناوبة. الآن: آخر قائمة سليمة تبقى ظاهرة،
+    // واللقطة تُمسح كي يرسم أول رد ناجح من جديد. وإن لم تُعرض قائمة قط، تظهر رسالة واضحة.
+    lastOnDutySnapshot = null;
+    if (!container.querySelector('.duty-card, .empty-state')) {
+      const kind = classifyFetchError(err);
+      container.innerHTML = `
+        <div class="duty-wrap">
+          <div class="empty-state">
+            <div class="empty-icon">${kind === 'offline' ? '📡' : '⚠️'}</div>
+            <p class="empty-title">${t('server_error_title')}</p>
+            <p class="empty-subtitle">${t(kind === 'offline' ? 'err_offline' : 'err_network')}</p>
+            <button type="button" class="refresh-results-btn" style="margin-top:12px;" onclick="retryOnDuty(this)">${t('retry_btn')}</button>
+          </div>
+        </div>`;
+    }
   }
+}
+
+function retryOnDuty(btn) {
+  if (btn) btn.disabled = true;
+  document.getElementById('on-duty-section').innerHTML = skeletonHtml(2);
+  loadOnDuty();
 }
 
 // ---------- خدمات التمريض ----------
@@ -2588,9 +2662,15 @@ let lastSearchResultsCache = [];
 let pharmacistStockCache = [];
 let pharmacistOrdersCache = [];
 
-// تسمح فقط بكتابة أرقام بخانات الهاتف (تمنع الحروف أثناء الكتابة مباشرة)
+// خانات الهاتف: أرقام فقط. الأرقام العربية (٠١٢…) والفارسية (۰۱۲…) تُحوَّل إلى 0-9 بدل
+// أن تُحذف: لوحات المفاتيح العربية على أندرويد تكتبها افتراضياً، وكان حذفها يُفرغ الخانة
+// فلا يستطيع المريض إرسال طلبه. والخادم يقبل 0-9 فقط، فالتحويل هنا يكفيه.
 function digitsOnly(input) {
-  input.value = input.value.replace(/[^0-9]/g, '');
+  const v = input.value
+    .replace(/[\u0660-\u0669]/g, d => String(d.charCodeAt(0) - 0x0660))
+    .replace(/[\u06F0-\u06F9]/g, d => String(d.charCodeAt(0) - 0x06F0))
+    .replace(/[^0-9]/g, '');
+  if (v !== input.value) input.value = v;
 }
 
 // حماية النص قبل وضعه في HTML.
@@ -2830,6 +2910,8 @@ async function submitNurseRating(nurseId) {
 
 let searchTimeout;
 let suggestionIndex = -1;
+let searchSeq = 0;    // رقم آخر بحث: أي رد لبحث أقدم يُهمل (نص أو مدينة أو قسم تغيّر)
+let suggestSeq = 0;   // رقم آخر طلب اقتراحات: يُلغى عند تنفيذ البحث فلا تنفتح القائمة فوق النتائج
 function onSearch() {
   clearTimeout(searchTimeout);
   searchTimeout = setTimeout(() => {
@@ -2849,6 +2931,7 @@ function onSearch() {
 async function loadSuggestions() {
   const q = document.getElementById('search').value.trim();
   const box = document.getElementById('suggestions');
+  const seq = ++suggestSeq;
   suggestionIndex = -1;
   if (!q) {
     box.classList.remove('show');
@@ -2856,8 +2939,10 @@ async function loadSuggestions() {
     return;
   }
   try {
-    const res = await fetch(`${API}/medicines/suggest?q=${encodeURIComponent(q)}&category=${currentCategory}`);
+    const res = await fetchWithTimeout(`${API}/medicines/suggest?q=${encodeURIComponent(q)}&category=${currentCategory}`, {}, 10000);
     const data = await readJsonOk(res);
+    // رد متأخر لنص أقدم، أو بحث نُفّذ أثناء الانتظار: لا نعرضه
+    if (seq !== suggestSeq || document.getElementById('search').value.trim() !== q) return;
     if (data.length === 0) {
       box.classList.remove('show');
       box.innerHTML = '';
@@ -2917,6 +3002,7 @@ function highlightSuggestion(items) {
 }
 
 async function pickSuggestion(el) {
+  clearTimeout(searchTimeout); suggestSeq++;
   const nameEl = el.querySelector('.suggestion-name-text');
   const name = nameEl ? nameEl.textContent : '';
   document.getElementById('search').value = name;
@@ -2927,6 +3013,9 @@ async function pickSuggestion(el) {
 }
 
 async function submitSearch() {
+  // بحث صريح الآن: نلغي البحث الحي المؤجَّل والاقتراحات المنتظرة، وإلا تكرر البحث
+  // وعادت قائمة الاقتراحات فوق النتائج
+  clearTimeout(searchTimeout); suggestSeq++;
   document.getElementById('suggestions').classList.remove('show');
   suggestionIndex = -1;
   await runSearch();
@@ -2955,6 +3044,7 @@ async function refreshResults(btn) {
 async function runSearch() {
   const q = document.getElementById('search').value.trim();
   const container = document.getElementById('results');
+  const seq = ++searchSeq;
   if (!q) {
     container.innerHTML = '';
     setResultsToolbar(false);
@@ -2963,7 +3053,9 @@ async function runSearch() {
   container.innerHTML = skeletonHtml(3);
   // لو المستخدم غيّر أو مسح خانة البحث وقت ما كنا منتظرين رد السيرفر، نتجاهل هالرد القديم بالكامل —
   // تفادياً لمشكلة نتيجة بحث قديمة ترجع وتطلع فوق نتيجة أحدث أو فوق خانة بحث فاضية
-  const stillCurrent = () => document.getElementById('search').value.trim() === q;
+  // الرد يُعرض فقط إن بقي هذا آخر بحث: كان يُقارَن النص وحده، فرد متأخر لمدينة سابقة
+  // كان يغطي نتائج المدينة الجديدة
+  const stillCurrent = () => seq === searchSeq && document.getElementById('search').value.trim() === q;
   try {
     const cityParam = currentCity ? `&city=${encodeURIComponent(currentCity)}` : '';
     const res = await fetchWithTimeout(`${API}/medicines/search?q=${encodeURIComponent(q)}&category=${currentCategory}${cityParam}`, {}, 20000);
@@ -2984,7 +3076,7 @@ async function runSearch() {
           <p class="empty-subtitle">${t('not_found_subtitle')}</p>
         </div>`;
       try {
-        const sugRes = await fetch(`${API}/medicines/suggest?q=${encodeURIComponent(q)}&category=${currentCategory}`);
+        const sugRes = await fetchWithTimeout(`${API}/medicines/suggest?q=${encodeURIComponent(q)}&category=${currentCategory}`, {}, 10000);
         const suggestions = await readJsonArrayOr(sugRes, []);
         if (suggestions.length > 0) {
           html += `
@@ -3004,6 +3096,20 @@ async function runSearch() {
     }
 
     document.getElementById('suggestions').classList.remove('show');
+    // البدائل (لدواء غير متوفر في أي صيدلية) تُجلب كلها معاً وبمهلة محددة، لا واحداً بعد آخر:
+    // على الإنترنت الضعيف كان كل طلب ينتظر الذي قبله، وطلب واحد عالق يُبقي هيكل التحميل ظاهراً.
+    // والمادة الفعالة المتكررة تُجلب مرة واحدة.
+    const altCityParam = currentCity ? `&city=${encodeURIComponent(currentCity)}` : '';
+    const altByGeneric = new Map();
+    for (const item of data) {
+      const g = item.medicine.generic_name;
+      if (!g || altByGeneric.has(g) || item.availability.some(a => a.available)) continue;
+      altByGeneric.set(g, fetchWithTimeout(`${API}/medicines/search?q=${encodeURIComponent(g)}&category=${currentCategory}${altCityParam}`, {}, 10000)
+        .then(r => readJsonArrayOr(r, [])).catch(() => []));
+    }
+    const altResults = new Map();
+    await Promise.all([...altByGeneric].map(async ([g, pr]) => altResults.set(g, await pr)));
+    if (!stillCurrent()) return;
     let cardsHtml = '';
     for (const item of data) {
       const anyAvailable = item.availability.some(a => a.available);
@@ -3055,9 +3161,7 @@ async function runSearch() {
 
       if (!anyAvailable && item.medicine.generic_name) {
         try {
-          const altCityParam = currentCity ? `&city=${encodeURIComponent(currentCity)}` : '';
-          const altRes = await fetch(`${API}/medicines/search?q=${encodeURIComponent(item.medicine.generic_name)}&category=${currentCategory}${altCityParam}`);
-          const altData = await readJsonArrayOr(altRes, []);
+          const altData = altResults.get(item.medicine.generic_name) || [];
           const alternatives = altData
             .filter(alt => alt.medicine.id !== item.medicine.id)
             .map(alt => ({ medicine: alt.medicine, availability: alt.availability.filter(a => a.available) }))
@@ -6648,18 +6752,15 @@ applyLanguage();
 setupScrollReveal();
 recordVisitOnce();
 loadAdSlot();
-runSearch();
-loadOnDuty();
+// applyLanguage أعلاه يجلب قائمة المناوبة وينفّذ البحث إن كان في الخانة نص (ومنه ما كتبه
+// الزائر قبل اكتمال تحميل هذا الملف)، فلا نكرر الطلبين هنا: كان كل زائر يرسلهما مرتين أو ثلاثاً
 updateCartCount();
 setInterval(whenVisible(loadOnDuty), POLL_ON_DUTY_MS);
 updateBellBadge();
 if (myOrders.length > 0) startMyOrdersPolling();
 
 // المستخدم قد يكون بدأ الكتابة بالبحث قبل تحميل هذا الملف (حارس التحميل المبكر بالـHTML
-// يسجّل ذلك في __pendingSearch). ننفّذ بحثه الآن بدل أن يضيع تفاعله ويضطر لإعادة الكتابة.
-if (window.__pendingSearch && document.getElementById('search').value.trim()) {
-  runSearch();
-}
+// يسجّل ذلك في __pendingSearch). بحثه نُفّذ فعلاً داخل applyLanguage، فنكتفي بمسح العلامة.
 window.__pendingSearch = false;
 
 // لو فُتح الموقع والاتصال مقطوع أصلاً، فحدث offline لن يُطلق — نفحص مرة عند البدء
