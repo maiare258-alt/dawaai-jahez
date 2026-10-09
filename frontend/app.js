@@ -371,6 +371,11 @@ const translations = {
     offline_banner: 'لا يوجد اتصال بالإنترنت',
     sending_order: 'جارٍ إرسال الطلب...',
     rate_limited_error: 'محاولات كثيرة جداً. حاول بعد قليل.',
+    admin_session_expired: 'انتهت جلسة الإدارة. أدخل كلمة المرور من جديد.',
+    launch_saved_check: 'هل حُفظ ملف النسخة الاحتياطية في جهازك؟\nتحقق من مجلد التنزيلات قبل المتابعة. لن يُحذف شيء قبل تأكيدك.',
+    launch_saved_yes: 'نعم، حُفظ — تابع',
+    launch_saved_no: 'لا، أعد التنزيل',
+    launch_not_confirmed: 'لم يُحذف شيء. نزّل النسخة الاحتياطية من زر «تنزيل نسخة احتياطية» وتأكد من حفظها، ثم أعد المحاولة.',
     duty_day_invalid_error: 'يوم المناوبة غير صالح.',
     duty_shift_invalid_error: 'فترة المناوبة غير صالحة.',
     duty_time_invalid_error: 'وقت المناوبة غير صالح. اختر الساعة من القائمة.',
@@ -965,6 +970,11 @@ const translations = {
     offline_banner: 'No internet connection',
     sending_order: 'Sending order...',
     rate_limited_error: 'Too many attempts. Please try again shortly.',
+    admin_session_expired: 'Your admin session has ended. Please enter the password again.',
+    launch_saved_check: 'Was the backup file saved on your device?\nCheck your Downloads folder before continuing. Nothing is deleted until you confirm.',
+    launch_saved_yes: 'Yes, it is saved — continue',
+    launch_saved_no: 'No, download it again',
+    launch_not_confirmed: 'Nothing was deleted. Download a backup with the “Download backup” button, make sure it is saved, then try again.',
     duty_day_invalid_error: 'Invalid duty day.',
     duty_shift_invalid_error: 'Invalid duty shift.',
     duty_time_invalid_error: 'Invalid duty time. Pick the time from the list.',
@@ -1584,7 +1594,9 @@ function applyLanguage() {
   renderCityFilter();
 
   // ---------- لوحة الإدارة ----------
-  if (adminPassword) {
+  // تُعاد رسم لوحة الإدارة فقط إن كانت ظاهرة: كان تبديل اللغة من صفحة المريض يعيد تشغيل
+  // فحوصاتها الدورية وتقاريرها وهي مخفية. وعند فتحها لاحقاً تُرسم من جديد على أي حال.
+  if (adminPassword && document.getElementById('view-admin').style.display !== 'none') {
     renderAdminPanelUI();
   } else if (document.getElementById('admin-auth-section').innerHTML.trim()) {
     renderAdminAuthForm();
@@ -4438,16 +4450,20 @@ function renderAdminAuthForm() {
         <input id="admin-password-input" type="password" placeholder="${t('admin_password_placeholder')}" onkeydown="if(event.key==='Enter') checkAdminPassword()">
         <button type="button" class="toggle-password" onclick="togglePassword('admin-password-input', this)" aria-label="${t('show_password_aria')}">👁</button>
       </div>
-      <button class="primary" onclick="checkAdminPassword()">${t('login_btn')}</button>
+      <button class="primary" id="admin-login-btn" onclick="checkAdminPassword()">${t('login_btn')}</button>
     </div>
   `;
 }
 
-async function checkAdminPassword() {
+function checkAdminPassword() { return runGuarded('checkAdminPassword', 'admin-login-btn', checkAdminPasswordNow); }
+async function checkAdminPasswordNow() {
   const password = document.getElementById('admin-password-input').value;
   try {
-    const res = await fetch(`${API}/pharmacies`, { headers: { 'x-admin-password': password } });
-    if (!res.ok) { customAlert(t('wrong_password'), 'error'); return; }
+    const res = await fetchWithTimeout(`${API}/pharmacies`, { headers: { 'x-admin-password': password } }, 20000);
+    // كانت كل الحالات تُعرض "كلمة مرور خاطئة"، فيعيد المدير المحاولة وهو محظور مؤقتاً فيطول الحظر
+    if (res.status === 401) { await customAlert(t('wrong_password'), 'error'); return; }
+    if (res.status === 429) { await customAlert(t('rate_limited_error'), 'warning'); return; }
+    if (!res.ok) { await customAlert(t('server_error_title'), 'error'); return; }
     adminPassword = password;
     markStaffDevice();
     document.getElementById('admin-auth-section').innerHTML = '';
@@ -4455,7 +4471,8 @@ async function checkAdminPassword() {
     renderAdminPanel();
   } catch (err) {
     // ترويسات HTTP لازم تكون بترميز ASCII — أي حرف غير إنكليزي (عربي مثلاً) برقم مرور الإدارة بيخلي fetch نفسها ترمي استثناء قبل ما توصل السيرفر
-    customAlert(t('wrong_password'), 'error');
+    // (فهي كلمة مرور خاطئة حتماً). غير ذلك فهو انقطاع اتصال لا كلمة مرور خاطئة.
+    await customAlert(/[^\x00-\x7F]/.test(password) ? t('wrong_password') : t('server_error_title'), 'error');
   }
 }
 
@@ -4463,6 +4480,14 @@ function logoutAdmin() {
   adminPassword = null;
   stopAdminRatingsPolling();
   adminPanelLoadedOnce = false;
+  // ن10: لا يبقى شيء من جلسة الإدارة في الذاكرة بعد الخروج
+  adminDataCache = { pharmacies: [], medicines: [], nurses: [], pendingRatings: [], stats: null };
+  adsAdminCache = [];
+  editingPharmacyId = null;
+  editingPharmacyNameDraft = '';
+  lastPendingRatingsSnapshot = null;
+  launchZoneState = undefined;
+  adEditorReset();
   document.getElementById('admin-panel').style.display = 'none';
   document.getElementById('admin-panel').innerHTML = '';
   renderAdminAuthForm();
@@ -4486,6 +4511,90 @@ let editingPharmacyId = null;
 // بحفظ المسودة هون، النص بيبقى سليماً عبر أي إعادة رسم مهما كان مصدرها.
 let editingPharmacyNameDraft = '';
 
+// م5: كل إجراء في لوحة الإدارة (موافقة على تقييم، تعديل، تبديل اللغة...) يعيد رسمها كاملة،
+// فكانت النماذج نصف المعبأة وصورة الإعلان المجهّزة تُمحى. الآن تُحفظ قيم النماذج قبل إعادة
+// الرسم وتُعاد بعدها، ومعها موضع المؤشر، ويبقى محرر صورة الإعلان مفتوحاً بصورته وموضعها.
+// (قوائم البيانات نفسها كالمناوبة والأسماء تُرسم من جديد من بيانات الخادم، لا من الحقول.)
+const ADMIN_DRAFT_FIELDS = ['ph-name', 'ph-address', 'ph-city', 'ph-phone', 'ph-whatsapp', 'ph-username', 'ph-password',
+  'med-name', 'med-generic', 'med-alt', 'med-category',
+  'nurse-name', 'nurse-specialty', 'nurse-university', 'nurse-grad-year', 'nurse-phone', 'nurse-exp-years', 'nurse-services',
+  'ad-advertiser', 'ad-advertiser-en', 'ad-desc', 'ad-desc-en', 'ad-link', 'ad-starts', 'ad-ends'];
+const ADMIN_DRAFT_RADIOS = ['ph-listing-type', 'ad-placement'];
+
+function readAdminDraft() {
+  const draft = { values: {}, radios: {}, focus: null };
+  for (const id of ADMIN_DRAFT_FIELDS) {
+    const el = document.getElementById(id);
+    if (!el) continue;
+    draft.values[id] = el.value;
+    if (document.activeElement === el) {
+      let start = null, end = null;
+      try { start = el.selectionStart; end = el.selectionEnd; } catch (e) { /* حقول بلا تحديد */ }
+      draft.focus = { id, start, end };
+    }
+  }
+  for (const name of ADMIN_DRAFT_RADIOS) {
+    const checked = document.querySelector(`input[name="${name}"]:checked`);
+    if (checked) draft.radios[name] = checked.value;
+  }
+  return draft;
+}
+
+function restoreAdminDraft(draft) {
+  if (!draft) return;
+  for (const id of ADMIN_DRAFT_FIELDS) {
+    const el = document.getElementById(id);
+    if (el && draft.values[id] !== undefined && draft.values[id] !== '') el.value = draft.values[id];
+  }
+  for (const name of ADMIN_DRAFT_RADIOS) {
+    const v = draft.radios[name];
+    if (!v) continue;
+    const el = document.querySelector(`input[name="${name}"][value="${v}"]`);
+    if (el) el.checked = true;
+  }
+  if (draft.focus) {
+    const el = document.getElementById(draft.focus.id);
+    if (el) {
+      el.focus({ preventScroll: true });
+      try { if (draft.focus.start !== null) el.setSelectionRange(draft.focus.start, draft.focus.end); } catch (e) { /* لا شيء */ }
+    }
+  }
+}
+
+// تفريغ نموذج بعد نجاحه (القوائم المنسدلة تعود إلى خيارها الأول)
+function clearAdminFields(ids) {
+  for (const id of ids) {
+    const el = document.getElementById(id);
+    if (!el) continue;
+    if (el.tagName === 'SELECT') el.selectedIndex = 0; else el.value = '';
+  }
+}
+
+// محرر صورة الإعلان بعد إعادة رسم اللوحة: الصورة والتكبير والموضع محفوظة في adEditor،
+// فنعيد بناء الإطار حولها كما بناه onAdImageChosen
+function restoreAdEditorView() {
+  const box = document.getElementById('ad-preview');
+  const ctl = document.getElementById('ad-editor-controls');
+  if (!adEditor || !box || !ctl) return;
+  box.classList.add('editing');
+  box.setAttribute('tabindex', '0');
+  box.innerHTML = `<canvas class="ad-bg" width="${AD_OUT_W}" height="${AD_OUT_H}" aria-hidden="true"></canvas><img alt="" draggable="false" src="${adEditor.url}">`;
+  ctl.style.display = '';
+  adEditorRender();
+}
+
+// م10: كلمة مرور الإدارة لم تعد صحيحة (غُيّرت في Render واللوحة ما زالت مفتوحة). نتوقف فوراً
+// ونعود إلى شاشة الدخول: الاستمرار كان يرسل محاولات خاطئة كل 15 ثانية، فيحظر حد المحاولات
+// عنوان الشبكة كلها (كل من يستعمل شبكة الصيدلية أو المكتب) عن الموقع.
+let adminSessionEnding = false;
+async function adminSessionExpired() {
+  if (adminSessionEnding || !adminPassword) return;
+  adminSessionEnding = true;
+  logoutAdmin();
+  await customAlert(t('admin_session_expired'), 'warning');
+  adminSessionEnding = false;
+}
+
 async function renderAdminPanel() {
   const wasFirstLoad = !adminPanelLoadedOnce;
   if (wasFirstLoad) {
@@ -4496,7 +4605,8 @@ async function renderAdminPanel() {
     // غُيّرت في Render) يُخزَّن كأنه قائمة الصيدليات، فتنهار اللوحة عند رسمه، وتبقى
     // البيانات المخزّنة تالفة لكل إجراء بعده. الآن أي رد فاشل يُلغي التحديث كله
     // وتبقى آخر بيانات سليمة كما هي.
-    const list = (url, opts) => fetch(url, opts).then(async r => {
+    const list = (url, opts) => fetchWithTimeout(url, opts, 20000).then(async r => {
+      if (r.status === 401) { const e = new Error('admin session expired'); e.sessionExpired = true; throw e; }
       const data = await r.json();
       if (!r.ok || !Array.isArray(data)) throw new Error('admin list failed: ' + r.status);
       return data;
@@ -4507,12 +4617,13 @@ async function renderAdminPanel() {
       list(`${API}/nurses/admin/all`, { headers: adminHeaders(), cache: 'no-store' }),
       list(`${API}/nurses/ratings/pending`, { headers: adminHeaders() }),
       // فشل الإحصاءات وحدها يجب ألا يُسقط اللوحة كلها — تُعاد null فيُخفى القسم فقط
-      fetch(`${API}/stats`, { headers: adminHeaders() }).then(r => r.ok ? r.json() : null).catch(() => null)
+      fetchWithTimeout(`${API}/stats`, { headers: adminHeaders() }, 20000).then(r => r.ok ? r.json() : null).catch(() => null)
     ]);
     adminDataCache = { pharmacies, medicines, nurses, pendingRatings, stats };
     renderAdminPanelUI();
     adminPanelLoadedOnce = true;
   } catch (err) {
+    if (err && err.sessionExpired) { adminSessionExpired(); return; }
     // فشل أول تحميل بس — نستبدل "جاري التحميل" برسالة خطأ واضحة، بدل ما تضل عالقة للأبد.
     // فشل بعد إجراء إداري عادي (مش أول مرة) بيتجاهل بصمت — اللوحة بمحتواها القديم تضل ظاهرة بدل ما تُمحى
     if (wasFirstLoad) {
@@ -4609,6 +4720,7 @@ function renderStatsSection(stats) {
 }
 
 function renderAdminPanelUI() {
+  const adminDraft = readAdminDraft();
   const { pharmacies, medicines, nurses, pendingRatings, stats } = adminDataCache;
 
   approvedRatingsLoaded = false;
@@ -4670,7 +4782,7 @@ function renderAdminPanelUI() {
         <input id="ph-password" type="password" placeholder="${t('password_placeholder')}">
         <button type="button" class="toggle-password" onclick="togglePassword('ph-password', this)" aria-label="${t('show_password_aria')}">👁</button>
       </div>
-      <button class="primary" onclick="addPharmacy()">${t('add_pharmacy_btn')}</button>
+      <button class="primary" id="add-pharmacy-btn" onclick="addPharmacy()">${t('add_pharmacy_btn')}</button>
     </div>
 
     <h3>${t('registered_pharmacies_title')} (${pharmacies.length})</h3>
@@ -4853,7 +4965,7 @@ function renderAdminPanelUI() {
         <option value="medicine">${t('cat_medicine')}</option>
         <option value="cosmetic">${t('cat_cosmetic')}</option>
       </select>
-      <button class="primary" onclick="addMedicineAdmin()">${t('add_med_btn')}</button>
+      <button class="primary" id="add-medicine-admin-btn" onclick="addMedicineAdmin()">${t('add_med_btn')}</button>
     </div>
 
     <h3>${t('registered_medicines_title')} (${medicines.length})</h3>
@@ -4879,7 +4991,7 @@ function renderAdminPanelUI() {
       <input id="nurse-exp-years" type="number" min="0" max="60" inputmode="numeric" placeholder="${t('exp_years_placeholder')}">
       <input id="nurse-services" maxlength="200" placeholder="${t('services_placeholder')}">
       <p class="muted" style="margin:-2px 0 10px; font-size:13px;">${t('nurse_cert_after_add_hint')}</p>
-      <button class="primary" onclick="addNurseAdmin()">${t('add_nurse_btn')}</button>
+      <button class="primary" id="add-nurse-btn" onclick="addNurseAdmin()">${t('add_nurse_btn')}</button>
     </div>
 
     <h3>${t('registered_nurses_title')} (${nurses.length})</h3>
@@ -4950,13 +5062,15 @@ function renderAdminPanelUI() {
   checkSystemStatus();
   loadDemandReport();
   loadVisitsReport();
-  adEditor = null;
+  restoreAdminDraft(adminDraft);
+  restoreAdEditorView();   // كان هنا adEditor = null، فتضيع الصورة المجهّزة مع أي إعادة رسم
   setupAdEditorEvents();
   loadAdsAdmin();
   loadCertStorageUsage();
 }
 
-async function addPharmacy() {
+function addPharmacy() { return runGuarded('addPharmacy', 'add-pharmacy-btn', addPharmacyNow); }
+async function addPharmacyNow() {
   const body = {
     name: document.getElementById('ph-name').value,
     address: document.getElementById('ph-address').value,
@@ -4970,11 +5084,19 @@ async function addPharmacy() {
     username: document.getElementById('ph-username').value,
     password: document.getElementById('ph-password').value,
   };
-  const res = await fetch(`${API}/pharmacies/register`, {
-    method: 'POST', headers: adminHeaders(), body: JSON.stringify(body)
-  });
-  const data = await res.json();
-  if (!res.ok) { customAlert(translateApiError(data.error), 'error'); return; }
+  let data;
+  try {
+    const res = await fetchWithTimeout(`${API}/pharmacies/register`, {
+      method: 'POST', headers: adminHeaders(), body: JSON.stringify(body)
+    }, 20000);
+    data = await res.json().catch(() => ({}));
+    if (!res.ok) { await customAlert(translateApiError(data.error), 'error'); return; }
+  } catch (err) {
+    await customAlert(t('server_error_title'), 'error');
+    return;
+  }
+  // النماذج تُحفظ الآن عبر إعادة رسم اللوحة، فنفرغ هذا النموذج صراحة بعد نجاحه
+  clearAdminFields(['ph-name', 'ph-address', 'ph-city', 'ph-phone', 'ph-whatsapp', 'ph-username', 'ph-password']);
   customAlert(tFormat('pharmacy_added_success', { name: data.name }), 'success');
   renderAdminPanel();
 }
@@ -5022,7 +5144,8 @@ async function changeMyPasswordNow() {
 }
 
 // إعادة تعيين كلمة مرور صيدلية من لوحة الإدارة
-async function resetPharmacyPassword(id) {
+function resetPharmacyPassword(id) { return runGuarded('resetPharmacyPassword:' + id, null, () => resetPharmacyPasswordNow(id)); }
+async function resetPharmacyPasswordNow(id) {
   const pharmacy = adminDataCache.pharmacies.find(p => p.id === id);
   const name = pharmacy ? pharmacy.name : '';
 
@@ -5030,9 +5153,9 @@ async function resetPharmacyPassword(id) {
   if (!proceed) return;
 
   try {
-    const res = await fetch(`${API}/pharmacies/${id}/reset-password`, {
+    const res = await fetchWithTimeout(`${API}/pharmacies/${id}/reset-password`, {
       method: 'POST', headers: adminHeaders()
-    });
+    }, 20000);
     const data = await res.json();
     if (!res.ok) { await customAlert(translateApiError(data.error) || t('reset_password_error'), 'error'); return; }
 
@@ -5766,7 +5889,7 @@ async function loadAdsAdmin() {
   if (!box) return;
   box.innerHTML = skeletonHtml(1);
   try {
-    const res = await fetch(`${API}/ads/admin`, { headers: adminHeaders(), cache: 'no-store' });
+    const res = await fetchWithTimeout(`${API}/ads/admin`, { headers: adminHeaders(), cache: 'no-store' }, 20000);
     adsAdminCache = await readJsonOk(res);
     renderAdsAdmin();
   } catch (err) {
@@ -5843,7 +5966,7 @@ async function loadVisitsReport(days) {
   lastVisitsReport = null;
   renderVisitsReport();
   try {
-    const res = await fetch(`${API}/stats/visits?days=${visitsDays}`, { headers: adminHeaders(), cache: 'no-store' });
+    const res = await fetchWithTimeout(`${API}/stats/visits?days=${visitsDays}`, { headers: adminHeaders(), cache: 'no-store' }, 20000);
     lastVisitsReport = await readJsonOk(res, 'object');
     renderVisitsReport();
   } catch (err) {
@@ -5859,7 +5982,7 @@ async function loadDemandReport(days) {
   lastDemandReport = null;
   renderDemandReport();
   try {
-    const res = await fetch(`${API}/stats/demand?days=${demandDays}`, { headers: adminHeaders(), cache: 'no-store' });
+    const res = await fetchWithTimeout(`${API}/stats/demand?days=${demandDays}`, { headers: adminHeaders(), cache: 'no-store' }, 20000);
     if (!res.ok) throw new Error('status ' + res.status);
     lastDemandReport = await res.json();
     renderDemandReport();
@@ -5950,31 +6073,48 @@ async function startOfficialLaunch() {
 
   const setBtn = (label, disabled) => { if (btn) { btn.textContent = label; btn.disabled = disabled; } };
   setBtn(t('launch_backing_up'), true);
+  // ١) النسخة الاحتياطية أولاً. أي فشل هنا يوقف كل شيء قبل أن يُحذف سطر واحد.
+  // م16: نزول الملف لا يعني أنه حُفظ: بعض متصفحات الهاتف تتجاهل التنزيل الذي لا يتبع لمسة
+  // مباشرة، أو تُلغيه إن أُزيل رابطه فوراً. فالرابط يبقى صالحاً دقيقة، ثم يُسأل المدير صراحة
+  // إن كان الملف في جهازه، ويُعاد التنزيل إن قال لا. لا يُحذف شيء قبل "نعم".
+  let blob;
   try {
-    // ١) النسخة الاحتياطية أولاً. أي فشل هنا يوقف كل شيء قبل أن يُحذف سطر واحد.
-    const bres = await fetch(`${API}/stats/backup`, { headers: adminHeaders(), cache: 'no-store' });
+    const bres = await fetchWithTimeout(`${API}/stats/backup`, { headers: adminHeaders(), cache: 'no-store' }, 60000);
     if (!bres.ok) throw new Error('backup');
-    const blob = await bres.blob();
+    blob = await bres.blob();
     if (!blob || blob.size < 50) throw new Error('backup');
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `dawaai-jahez-before-launch-${new Date().toISOString().slice(0, 10)}.json`;
-    document.body.appendChild(a); a.click(); document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-    writeLastBackup(new Date().toISOString());
   } catch (err) {
     setBtn(t('launch_btn'), false);
     await customAlert(t('launch_backup_failed'), 'error');
     return;
   }
+  const saveBackupFile = () => {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `dawaai-jahez-before-launch-${new Date().toISOString().slice(0, 10)}.json`;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+  };
+  let saved = false;
+  for (let attempt = 0; attempt < 3 && !saved; attempt++) {
+    saveBackupFile();
+    saved = await showModal({ message: t('launch_saved_check'), type: 'warning', showCancel: true,
+                              okText: t('launch_saved_yes'), cancelText: t('launch_saved_no') });
+  }
+  if (!saved) {
+    setBtn(t('launch_btn'), false);
+    await customAlert(t('launch_not_confirmed'), 'info');
+    return;
+  }
+  writeLastBackup(new Date().toISOString());
 
   // ٢) المسح وتسجيل تاريخ الإطلاق، في معاملة واحدة على الخادم
   setBtn(t('launch_resetting'), true);
   try {
-    const res = await fetch(`${API}/stats/launch-reset`, {
+    const res = await fetchWithTimeout(`${API}/stats/launch-reset`, {
       method: 'POST', headers: adminHeaders(), body: JSON.stringify({ confirm: 'حذف' })
-    });
+    }, 60000);
     const data = await res.json().catch(() => ({}));
     if (res.status === 409) {
       await customAlert(t('launch_already'), 'info');
@@ -6030,7 +6170,7 @@ async function downloadBackup() {
   const btn = document.getElementById('backup-btn');
   if (btn) { btn.disabled = true; btn.textContent = t('backup_preparing'); }
   try {
-    const res = await fetch(`${API}/stats/backup`, { headers: adminHeaders(), cache: 'no-store' });
+    const res = await fetchWithTimeout(`${API}/stats/backup`, { headers: adminHeaders(), cache: 'no-store' }, 60000);
     if (!res.ok) { await customAlert(t('backup_failed'), 'error'); return; }
 
     // نحوّل الاستجابة إلى ملف ينزّله المتصفح. الرابط المؤقت يُحرَّر بعده
@@ -6063,7 +6203,7 @@ async function checkSystemStatus() {
   if (!box) return;
   box.innerHTML = `<span class="muted">${t('system_status_checking')}</span>`;
   try {
-    const res = await fetch('/health', { cache: 'no-store' });
+    const res = await fetchWithTimeout('/health', { cache: 'no-store' }, 15000);
     const data = await res.json().catch(() => null);
     const okState = res.ok && data && data.db === 'ok';
     box.innerHTML = okState
@@ -6132,7 +6272,7 @@ function renderAdminAddressList() {
 }
 
 async function adminPut(path, body) {
-  const res = await fetch(`${API}/pharmacies/${path}`, { method: 'PUT', headers: adminHeaders(), body: JSON.stringify(body) });
+  const res = await fetchWithTimeout(`${API}/pharmacies/${path}`, { method: 'PUT', headers: adminHeaders(), body: JSON.stringify(body) }, 20000);
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(translateApiError(data.error));
   return data;
@@ -6288,8 +6428,8 @@ function toggleNurseEditor(id) {
 async function saveNurseProfile(id) {
   const n = nurseFromCache(id); if (!n) return;
   try {
-    const res = await fetch(`${API}/nurses/${id}/profile`, { method: 'PUT', headers: adminHeaders(),
-      body: JSON.stringify({ experience_years: document.getElementById(`nurse-exp-${id}`).value, services: document.getElementById(`nurse-svc-${id}`).value }) });
+    const res = await fetchWithTimeout(`${API}/nurses/${id}/profile`, { method: 'PUT', headers: adminHeaders(),
+      body: JSON.stringify({ experience_years: document.getElementById(`nurse-exp-${id}`).value, services: document.getElementById(`nurse-svc-${id}`).value }) }, 20000);
     const data = await res.json().catch(() => ({}));
     if (!res.ok) { await customAlert(translateApiError(data.error), 'error'); return; }
     n.experience_years = data.experience_years; n.services = data.services;
@@ -6355,7 +6495,7 @@ async function viewNurseCertificate(id) {
   // لاعتبرها المتصفح نافذة منبثقة غير مطلوبة ومنعها.
   const win = window.open('', '_blank');
   try {
-    const res = await fetch(`${API}/nurses/${id}/certificate/link`, { headers: adminHeaders(), cache: 'no-store' });
+    const res = await fetchWithTimeout(`${API}/nurses/${id}/certificate/link`, { headers: adminHeaders(), cache: 'no-store' }, 20000);
     const data = await res.json().catch(() => ({}));
     if (!res.ok || !data.url) { if (win) win.close(); await customAlert(data.code ? t('storage_' + data.code) : translateApiError(data.error), 'error'); return; }
     if (win) { win.opener = null; win.location.href = data.url; }
@@ -6365,7 +6505,7 @@ async function viewNurseCertificate(id) {
 
 async function setNurseCertVerified(id, verified) {
   try {
-    const res = await fetch(`${API}/nurses/${id}/certificate/verified`, { method: 'PUT', headers: adminHeaders(), body: JSON.stringify({ verified }) });
+    const res = await fetchWithTimeout(`${API}/nurses/${id}/certificate/verified`, { method: 'PUT', headers: adminHeaders(), body: JSON.stringify({ verified }) }, 20000);
     const data = await res.json().catch(() => ({}));
     if (!res.ok) { await customAlert(translateApiError(data.error), 'error'); return; }
     const n = nurseFromCache(id); if (n) n.cert_verified = data.cert_verified;
@@ -6377,7 +6517,7 @@ async function deleteNurseCertificate(id) {
   const n = nurseFromCache(id); if (!n) return;
   if (!(await customConfirm(tFormat('cert_delete_confirm', { name: n.name }), 'warning'))) return;
   try {
-    const res = await fetch(`${API}/nurses/${id}/certificate`, { method: 'DELETE', headers: adminHeaders() });
+    const res = await fetchWithTimeout(`${API}/nurses/${id}/certificate`, { method: 'DELETE', headers: adminHeaders() }, 20000);
     if (!res.ok) { const d = await res.json().catch(() => ({})); await customAlert(translateApiError(d.error), 'error'); return; }
     Object.assign(n, { has_certificate: false, cert_mime: null, cert_size: null, cert_uploaded_at: null, cert_verified: false });
     refreshNurseEditor(id);
@@ -6387,7 +6527,7 @@ async function deleteNurseCertificate(id) {
 }
 
 async function fetchStorageCheck() {
-  const res = await fetch(`${API}/nurses/storage/check`, { headers: adminHeaders(), cache: 'no-store' });
+  const res = await fetchWithTimeout(`${API}/nurses/storage/check`, { headers: adminHeaders(), cache: 'no-store' }, 20000);
   return readJsonOk(res, 'object');
 }
 
@@ -6452,7 +6592,8 @@ function renderAdminUsernameList() {
     </div>`).join('');
 }
 
-async function saveAdminUsername(id) {
+function saveAdminUsername(id) { return runGuarded('saveAdminUsername:' + id, null, () => saveAdminUsernameNow(id)); }
+async function saveAdminUsernameNow(id) {
   const input = document.getElementById(`uname-input-${id}`);
   const btn = document.getElementById(`uname-save-${id}`);
   const next = (input.value || '').trim();
@@ -6474,11 +6615,11 @@ async function saveAdminUsername(id) {
 
   if (btn) btn.disabled = true;
   try {
-    const res = await fetch(`${API}/pharmacies/${id}/username`, {
+    const res = await fetchWithTimeout(`${API}/pharmacies/${id}/username`, {
       method: 'PUT',
       headers: adminHeaders(),
       body: JSON.stringify({ username: next })
-    });
+    }, 20000);
     const data = await res.json();
     if (!res.ok) { await customAlert(translateApiError(data.error), 'error'); return; }
 
@@ -6584,18 +6725,19 @@ function onAdminDutyToggle(id, el) {
   if (label) label.textContent = on ? t('admin_duty_on') : t('admin_duty_off');
 }
 
-async function saveAdminDuty(id) {
+function saveAdminDuty(id) { return runGuarded('saveAdminDuty:' + id, null, () => saveAdminDutyNow(id)); }
+async function saveAdminDutyNow(id) {
   const btn = document.getElementById(`duty-save-${id}`);
   const on = document.getElementById(`duty-on-${id}`).checked;
   const day = document.getElementById(`duty-day-${id}`).value;
   const shift = document.getElementById(`duty-shift-${id}`).value;
   if (btn) btn.disabled = true;
   try {
-    const res = await fetch(`${API}/pharmacies/${id}/duty`, {
+    const res = await fetchWithTimeout(`${API}/pharmacies/${id}/duty`, {
       method: 'PUT',
       headers: adminHeaders(),
       body: JSON.stringify({ on_duty: on, on_duty_day: day, on_duty_shift: shift })
-    });
+    }, 20000);
     const data = await res.json();
     if (!res.ok) { await customAlert(translateApiError(data.error), 'error'); return; }
 
@@ -6619,13 +6761,14 @@ async function saveAdminDuty(id) {
   }
 }
 
-async function clearAllDuty() {
+function clearAllDuty() { return runGuarded('clearAllDuty', null, clearAllDutyNow); }
+async function clearAllDutyNow() {
   const active = (adminDataCache.pharmacies || []).filter(p => p.on_duty).length;
   if (active === 0) { await customAlert(t('admin_duty_none_active'), 'info'); return; }
   const confirmed = await customConfirm(tFormat('admin_duty_clear_confirm', { n: active }), 'warning');
   if (!confirmed) return;
   try {
-    const res = await fetch(`${API}/pharmacies/duty/clear-all`, { method: 'POST', headers: adminHeaders() });
+    const res = await fetchWithTimeout(`${API}/pharmacies/duty/clear-all`, { method: 'POST', headers: adminHeaders() }, 20000);
     const data = await res.json();
     if (!res.ok) { await customAlert(translateApiError(data.error), 'error'); return; }
     await customAlert(tFormat('admin_duty_cleared', { n: data.cleared }), 'success');
@@ -6635,7 +6778,8 @@ async function clearAllDuty() {
   }
 }
 
-async function togglePharmacyManagesStock(id, newValue) {
+function togglePharmacyManagesStock(id, newValue) { return runGuarded('togglePharmacyManagesStock:' + id, null, () => togglePharmacyManagesStockNow(id, newValue)); }
+async function togglePharmacyManagesStockNow(id, newValue) {
   const pharmacy = (adminDataCache.pharmacies || []).find(p => p.id === id);
   const name = pharmacy ? pharmacy.name : '';
   const msg = tFormat(newValue ? 'manages_stock_confirm_on' : 'manages_stock_confirm_off', { name });
@@ -6643,11 +6787,11 @@ async function togglePharmacyManagesStock(id, newValue) {
   if (!confirmed) return;
 
   try {
-    const res = await fetch(`${API}/pharmacies/${id}/manages-stock`, {
+    const res = await fetchWithTimeout(`${API}/pharmacies/${id}/manages-stock`, {
       method: 'PUT',
       headers: adminHeaders(),
       body: JSON.stringify({ manages_stock: newValue })
-    });
+    }, 20000);
     const data = await res.json();
     if (!res.ok) { await customAlert(translateApiError(data.error), 'error'); return; }
     await customAlert(t('manages_stock_updated'), 'success');
@@ -6657,7 +6801,8 @@ async function togglePharmacyManagesStock(id, newValue) {
   }
 }
 
-async function savePharmacyName(id) {
+function savePharmacyName(id) { return runGuarded('savePharmacyName:' + id, null, () => savePharmacyNameNow(id)); }
+async function savePharmacyNameNow(id) {
   const input = document.getElementById(`edit-ph-name-${id}`);
   if (!input) return;
   const name = input.value.trim();
@@ -6679,9 +6824,9 @@ async function savePharmacyName(id) {
   }
 
   try {
-    const res = await fetch(`${API}/pharmacies/${id}/name`, {
+    const res = await fetchWithTimeout(`${API}/pharmacies/${id}/name`, {
       method: 'PUT', headers: adminHeaders(), body: JSON.stringify({ name })
-    });
+    }, 20000);
     const data = await res.json();
     if (!res.ok) {
       await customAlert(translateApiError(data.error) || t('pharmacy_name_update_error'), 'error');
@@ -6696,7 +6841,8 @@ async function savePharmacyName(id) {
   }
 }
 
-async function deletePharmacyAdmin(id) {
+function deletePharmacyAdmin(id) { return runGuarded('deletePharmacyAdmin:' + id, null, () => deletePharmacyAdminNow(id)); }
+async function deletePharmacyAdminNow(id) {
   const pharmacy = adminDataCache.pharmacies.find(p => p.id === id);
   const name = pharmacy ? pharmacy.name : '';
   const confirmed = await customConfirm(tFormat('delete_pharmacy_confirm', { name }), 'warning');
@@ -6705,7 +6851,8 @@ async function deletePharmacyAdmin(id) {
   renderAdminPanel();
 }
 
-async function addMedicineAdmin() {
+function addMedicineAdmin() { return runGuarded('addMedicineAdmin', 'add-medicine-admin-btn', addMedicineAdminNow); }
+async function addMedicineAdminNow() {
   const alt_names = document.getElementById('med-alt').value.split(',').map(s => s.trim()).filter(Boolean);
   const body = {
     name: document.getElementById('med-name').value,
@@ -6713,16 +6860,24 @@ async function addMedicineAdmin() {
     alt_names,
     category: document.getElementById('med-category').value
   };
-  const res = await fetch(`${API}/medicines`, {
-    method: 'POST', headers: adminHeaders(), body: JSON.stringify(body)
-  });
-  const data = await res.json();
-  if (!res.ok) { customAlert(translateApiError(data.error), 'error'); return; }
+  let data;
+  try {
+    const res = await fetchWithTimeout(`${API}/medicines`, {
+      method: 'POST', headers: adminHeaders(), body: JSON.stringify(body)
+    }, 20000);
+    data = await res.json().catch(() => ({}));
+    if (!res.ok) { await customAlert(translateApiError(data.error), 'error'); return; }
+  } catch (err) {
+    await customAlert(t('server_error_title'), 'error');
+    return;
+  }
+  clearAdminFields(['med-name', 'med-generic', 'med-alt', 'med-category']);
   customAlert(tFormat('item_added_success', { name: data.name }), 'success');
   renderAdminPanel();
 }
 
-async function deleteMedicineAdmin(id) {
+function deleteMedicineAdmin(id) { return runGuarded('deleteMedicineAdmin:' + id, null, () => deleteMedicineAdminNow(id)); }
+async function deleteMedicineAdminNow(id) {
   const medicine = adminDataCache.medicines.find(m => m.id === id);
   const name = medicine ? medicine.name : '';
   const confirmed = await customConfirm(tFormat('delete_medicine_confirm', { name }), 'warning');
@@ -6746,7 +6901,8 @@ function togglePassword(inputId, btn) {
 
 // ---------- إدارة خدمات التمريض (لوحة الإدارة) ----------
 
-async function addNurseAdmin() {
+function addNurseAdmin() { return runGuarded('addNurseAdmin', 'add-nurse-btn', addNurseAdminNow); }
+async function addNurseAdminNow() {
   const body = {
     name: document.getElementById('nurse-name').value,
     specialty: document.getElementById('nurse-specialty').value,
@@ -6756,16 +6912,24 @@ async function addNurseAdmin() {
     experience_years: document.getElementById('nurse-exp-years').value,
     services: document.getElementById('nurse-services').value,
   };
-  const res = await fetch(`${API}/nurses`, {
-    method: 'POST', headers: adminHeaders(), body: JSON.stringify(body)
-  });
-  const data = await res.json();
-  if (!res.ok) { customAlert(translateApiError(data.error), 'error'); return; }
+  let data;
+  try {
+    const res = await fetchWithTimeout(`${API}/nurses`, {
+      method: 'POST', headers: adminHeaders(), body: JSON.stringify(body)
+    }, 20000);
+    data = await res.json().catch(() => ({}));
+    if (!res.ok) { await customAlert(translateApiError(data.error), 'error'); return; }
+  } catch (err) {
+    await customAlert(t('server_error_title'), 'error');
+    return;
+  }
+  clearAdminFields(['nurse-name', 'nurse-specialty', 'nurse-university', 'nurse-grad-year', 'nurse-phone', 'nurse-exp-years', 'nurse-services']);
   customAlert(tFormat('item_added_success', { name: data.name }), 'success');
   renderAdminPanel();
 }
 
-async function deleteNurseAdmin(id) {
+function deleteNurseAdmin(id) { return runGuarded('deleteNurseAdmin:' + id, null, () => deleteNurseAdminNow(id)); }
+async function deleteNurseAdminNow(id) {
   const nurse = adminDataCache.nurses.find(n => n.id === id);
   const name = nurse ? nurse.name : '';
   const confirmed = await customConfirm(tFormat('delete_nurse_confirm', { name }), 'warning');
@@ -6774,19 +6938,22 @@ async function deleteNurseAdmin(id) {
   renderAdminPanel();
 }
 
-async function toggleNurseAvailabilityAdmin(id, newAvailable) {
+function toggleNurseAvailabilityAdmin(id, newAvailable) { return runGuarded('toggleNurseAvailabilityAdmin:' + id, null, () => toggleNurseAvailabilityAdminNow(id, newAvailable)); }
+async function toggleNurseAvailabilityAdminNow(id, newAvailable) {
   if (!(await runAction(`${API}/nurses/${id}/availability`, {
     method: 'PUT', headers: adminHeaders(), body: JSON.stringify({ available: newAvailable })
   }))) return;
   renderAdminPanel();
 }
 
-async function approveRatingAdmin(id) {
+function approveRatingAdmin(id) { return runGuarded('approveRatingAdmin:' + id, null, () => approveRatingAdminNow(id)); }
+async function approveRatingAdminNow(id) {
   if (!(await runAction(`${API}/nurses/ratings/${id}/approve`, { method: 'PUT', headers: adminHeaders() }))) return;
   renderAdminPanel();
 }
 
-async function rejectRatingAdmin(id) {
+function rejectRatingAdmin(id) { return runGuarded('rejectRatingAdmin:' + id, null, () => rejectRatingAdminNow(id)); }
+async function rejectRatingAdminNow(id) {
   const confirmed = await customConfirm(t('reject_rating_confirm'), 'warning');
   if (!confirmed) return;
   if (!(await runAction(`${API}/nurses/ratings/${id}`, { method: 'DELETE', headers: adminHeaders() }))) return;
@@ -6830,7 +6997,8 @@ function stopAdminRatingsPolling() {
 async function loadPendingRatingsForAdmin() {
   if (!adminPassword) { stopAdminRatingsPolling(); return; }
   try {
-    const res = await fetch(`${API}/nurses/ratings/pending`, { headers: adminHeaders() });
+    const res = await fetchWithTimeout(`${API}/nurses/ratings/pending`, { headers: adminHeaders() }, 20000);
+    if (res.status === 401) { adminSessionExpired(); return; }
     const ratings = await readJsonOk(res);
     const snapshot = JSON.stringify(ratings);
     if (snapshot === lastPendingRatingsSnapshot) return; // ما تغيّر شي، صفر إعادة رسم
@@ -6867,7 +7035,7 @@ async function loadApprovedRatingsAdmin() {
   const container = document.getElementById('approved-ratings-list');
   container.innerHTML = skeletonHtml(3);
   try {
-    const res = await fetch(`${API}/nurses/ratings/approved`, { headers: adminHeaders() });
+    const res = await fetchWithTimeout(`${API}/nurses/ratings/approved`, { headers: adminHeaders() }, 20000);
     const ratings = await readJsonOk(res);
     approvedRatingsLoaded = true;
     if (ratings.length === 0) {
