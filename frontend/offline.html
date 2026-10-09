@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#185fa5">
+<meta name="robots" content="noindex">
+<title>دوائي جاهز — لا يوجد اتصال</title>
+<!-- صفحة "لا يوجد اتصال": يعرضها service-worker.js بدل نسخة قديمة من الموقع حين يُفتح
+     التطبيق دون إنترنت. لا تحوي أي بيانات أدوية أو صيدليات: نص ثابت فقط، فلا يرى المريض
+     معلومة قديمة. كل ما فيها داخل هذا الملف (لا ملفات خارجية) كي تعمل دون إنترنت. -->
+<style>
+  @font-face { font-family: 'IBM Plex Sans Arabic'; font-weight: 400; font-display: swap; src: url('/plex-arabic-400.woff2') format('woff2'); }
+  @font-face { font-family: 'IBM Plex Sans Arabic'; font-weight: 700; font-display: swap; src: url('/plex-arabic-700.woff2') format('woff2'); }
+  html, body { margin: 0; height: 100%; }
+  body {
+    font-family: 'IBM Plex Sans Arabic', Tahoma, 'Segoe UI', sans-serif;
+    background: #eaf5fc; color: #2c2c2a;
+    display: flex; align-items: center; justify-content: center;
+    padding: 24px 16px; box-sizing: border-box; text-align: center;
+  }
+  .card {
+    width: 100%; max-width: 420px; background: #ffffff; border: 1px solid #cfe0ef;
+    border-radius: 24px; padding: 32px 22px 28px; box-shadow: 0 8px 24px rgba(24,95,165,0.08);
+  }
+  .brand { display: inline-flex; align-items: center; gap: 10px; margin-bottom: 26px; }
+  .brand svg { width: 44px; height: 44px; }
+  .brand span { font-size: 22px; font-weight: 700; color: #163a5c; }
+  .icon { font-size: 44px; line-height: 1; margin-bottom: 12px; }
+  h1 { font-size: 21px; font-weight: 700; color: #163a5c; margin: 0 0 10px; }
+  p { font-size: 15.5px; line-height: 1.8; color: #4a5560; margin: 0 0 24px; }
+  button {
+    font-family: inherit; font-size: 17px; font-weight: 700; color: #ffffff;
+    background: linear-gradient(135deg, #2b78c2, #185fa5); border: none; border-radius: 16px;
+    min-height: 52px; width: 100%; max-width: 260px; cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+  button:focus-visible { outline: 3px solid #185fa5; outline-offset: 3px; }
+  button:disabled { opacity: 0.7; }
+  @media (prefers-reduced-motion: no-preference) { button:active { transform: scale(0.98); } }
+</style>
+</head>
+<body>
+  <main class="card">
+    <div class="brand" aria-hidden="true">
+      <svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+        <defs><linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#5c9bd8"/><stop offset="100%" stop-color="#185fa5"/></linearGradient></defs>
+        <circle cx="32" cy="32" r="32" fill="url(#bg)"/>
+        <g transform="translate(32,32) rotate(-45) translate(-17,-8.5)">
+          <rect x="0" y="0" width="34" height="17" rx="8.5" fill="#eaf5fc"/>
+          <path d="M17 0 h9 a8.5 8.5 0 0 1 0 17 h-9 z" fill="#ffffff"/>
+          <line x1="17" y1="1.5" x2="17" y2="15.5" stroke="#a9cdea" stroke-width="1.2"/>
+        </g>
+      </svg>
+      <span id="brand">دوائي جاهز</span>
+    </div>
+    <div class="icon" aria-hidden="true">📡</div>
+    <h1 id="title">لا يوجد اتصال بالإنترنت</h1>
+    <p id="desc">تحقق من الشبكة أو البيانات، وسيُعاد تحميل الموقع تلقائياً فور عودة الاتصال.</p>
+    <button type="button" id="retry">إعادة المحاولة</button>
+  </main>
+<script>
+  // لغة الواجهة التي اختارها المستخدم في الموقع (المفتاح نفسه في app.js)
+  var lang = 'ar';
+  try { lang = localStorage.getItem('lang') === 'en' ? 'en' : 'ar'; } catch (e) {}
+  if (lang === 'en') {
+    document.documentElement.lang = 'en';
+    document.documentElement.dir = 'ltr';
+    document.title = 'Dawaai Jahez — No connection';
+    document.getElementById('brand').textContent = 'Dawaai Jahez';
+    document.getElementById('title').textContent = 'No internet connection';
+    document.getElementById('desc').textContent = 'Check your network or mobile data. The site will reload automatically as soon as the connection is back.';
+    document.getElementById('retry').textContent = 'Try again';
+  }
+
+  var reloading = false;
+  function reload() { if (reloading) return; reloading = true; location.reload(); }
+
+  // زر إعادة المحاولة: إعادة تحميل الرابط نفسه، فإن عاد الاتصال يظهر الموقع وإلا تعود هذه الصفحة
+  document.getElementById('retry').addEventListener('click', function () {
+    this.disabled = true;
+    reload();
+  });
+
+  // عودة الاتصال: حدث online لا يُطلق دائماً على أندرويد، فنفحص الخادم أيضاً كل 10 ثوانٍ
+  // بطلب صغير جداً، ونعيد التحميل فور نجاحه
+  window.addEventListener('online', reload);
+  setInterval(function () {
+    if (reloading) return;
+    fetch('/health', { cache: 'no-store' }).then(function (r) { if (r.ok) reload(); }).catch(function () {});
+  }, 10000);
+</script>
+</body>
+</html>
