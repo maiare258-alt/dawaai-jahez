@@ -1378,6 +1378,17 @@
   .stock-dates-panel input[type="date"] { padding: 10px 14px; border: 1px solid #cfe0ef; border-radius: 12px; font-family: inherit; font-size: 15px; min-width: 170px; background: #fff; }
   .stock-scroll .row:first-child { border-top: none; }
   .stock-scroll .row:hover { background: #f5f9fd; }
+  /* بطاقة المناوبة: الساعات جزء منها، مفصولة بخط خفيف كي تبقى قراءتها سهلة */
+  /* خانة "صيدليتي مناوبة اليوم": القاعدة العامة تجعل كل حقل بعرض 100٪، ومنها خانات الاختيار،
+     فكانت الخانة تتمدد وتضغط النص إلى سطرين */
+  #duty-checkbox { width: 22px; height: 22px; margin: 0; padding: 0; flex: 0 0 auto; accent-color: #185fa5; cursor: pointer; }
+  .duty-hours-block { margin: 6px 0 4px; padding-top: 14px; border-top: 1px dashed #cfe0ef; }
+  .duty-hours-heading { margin: 0 0 4px; font-size: 15px; color: #163a5c; }
+  /* تنبيه توقف تحديث الطلبات: كهرماني هادئ، تحذير لا إنذار */
+  .orders-sync-note {
+    margin: 0 0 14px; padding: 10px 14px; border-radius: 12px;
+    background: #fff7e6; border: 1px solid #f3d9a4; color: #7a5200; font-size: 14px; font-weight: 600;
+  }
   .orders-wrap {
     background: rgba(255,255,255,0.72);
     backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
@@ -2152,6 +2163,7 @@
       <h2 class="dash-title" id="pharm-dash-title">لوحة الصيدلي</h2>
       <div class="muted" id="pharmacy-label" style="display:flex; align-items:center; justify-content:space-between; margin-bottom:16px;"></div>
       <div class="stats-grid stats-grid-5" id="stats-grid"></div>
+      <p class="orders-sync-note" id="orders-sync-note" role="status" style="display:none;"></p>
       <div class="orders-wrap" id="orders-wrap" style="display:none;">
         <h3 style="margin-top:0;" id="new-orders-title">🛎️ طلبات جديدة من المرضى</h3>
         <div id="orders-list"></div>
@@ -2175,21 +2187,23 @@
           <option value="صباحاً" id="opt-shift-morning">صباحاً فقط</option>
           <option value="مساءً" id="opt-shift-evening">مساءً فقط</option>
         </select>
-        <button class="primary" onclick="saveDuty()" id="save-duty-btn">حفظ حالة المناوبة</button>
-      </div>
-      <div class="box" style="margin-bottom:20px;">
-        <h3 style="margin-top:0;" id="duty-hours-title">⏱️ تحديد ساعات المناوبة (اختياري)</h3>
-        <p class="muted" style="margin-top:-8px;" id="duty-hours-desc">حدِّد التوقيت ليظهر إلى جانب يوم المناوبة.</p>
-        <div style="display:flex; gap:12px;">
-          <div style="flex:1;">
-            <label class="muted" style="font-size:14px; display:block; margin-bottom:4px;" id="duty-start-label" for="duty-start-time">من الساعة</label>
-            <input type="time" id="duty-start-time" disabled>
-          </div>
-          <div style="flex:1;">
-            <label class="muted" style="font-size:14px; display:block; margin-bottom:4px;" id="duty-end-label" for="duty-end-time">إلى الساعة</label>
-            <input type="time" id="duty-end-time" disabled>
+        <!-- م15: الساعات داخل بطاقة المناوبة نفسها وقبل زر الحفظ. كانت في بطاقة منفصلة بلا زر،
+             وزر الحفظ في البطاقة السابقة، فمن يملأ الساعات بعد الحفظ تضيع منه. -->
+        <div class="duty-hours-block">
+          <h4 class="duty-hours-heading" id="duty-hours-title">⏱️ تحديد ساعات المناوبة (اختياري)</h4>
+          <p class="muted" style="margin:0 0 10px;" id="duty-hours-desc">حدِّد التوقيت ليظهر إلى جانب يوم المناوبة.</p>
+          <div style="display:flex; gap:12px;">
+            <div style="flex:1;">
+              <label class="muted" style="font-size:14px; display:block; margin-bottom:4px;" id="duty-start-label" for="duty-start-time">من الساعة</label>
+              <input type="time" id="duty-start-time" disabled>
+            </div>
+            <div style="flex:1;">
+              <label class="muted" style="font-size:14px; display:block; margin-bottom:4px;" id="duty-end-label" for="duty-end-time">إلى الساعة</label>
+              <input type="time" id="duty-end-time" disabled>
+            </div>
           </div>
         </div>
+        <button class="primary" onclick="saveDuty()" id="save-duty-btn">حفظ حالة المناوبة</button>
       </div>
       <div class="box" style="margin-bottom:20px;">
         <h3 style="margin-top:0;" id="main-phone-title">☎️ الهاتف الأرضي للصيدلية</h3>
