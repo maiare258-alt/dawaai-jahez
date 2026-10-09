@@ -87,13 +87,13 @@ function relativeTime(iso) {
   const mins = Math.floor((Date.now() - then.getTime()) / 60000);
   // توقيت مستقبلي (انحراف ساعة الجهاز مثلاً) يُعامل كـ"قبل لحظات" بدل رقم سالب مربك
   if (mins < 2) return t('time_just_now');
-  if (mins < 60) return tFormat('time_minutes', { n: mins });
+  if (mins < 60) return tPlural('time_minutes', mins);
   const hours = Math.floor(mins / 60);
-  if (hours < 24) return tFormat('time_hours', { n: hours });
+  if (hours < 24) return tPlural('time_hours', hours);
   const days = Math.floor(hours / 24);
-  if (days < 7) return tFormat('time_days', { n: days });
+  if (days < 7) return tPlural('time_days', days);
   const weeks = Math.floor(days / 7);
-  if (weeks <= 4) return tFormat('time_weeks', { n: weeks });
+  if (weeks <= 4) return tPlural('time_weeks', weeks);
   return t('time_long_ago');
 }
 
@@ -146,7 +146,7 @@ const translations = {
     hero_desc_medicine: 'منصة سورية تساعدك على معرفة توفر الدواء في الصيدليات القريبة وطلبه بسهولة.',
     search_placeholder_medicine: 'ابحث عن دواء أو مادة فعالة...',
     search_hint_medicine: 'اكتب اسم الدواء للبحث عن توفره في صيدليات سلمية.',
-    hero_title_cosmetic: 'دوائي جاهز<br>مستحضرات <span class="hero-highlight">تجميلك</span>، بأي وقت',
+    hero_title_cosmetic: 'دوائي جاهز<br>مستحضرات <span class="hero-highlight">تجميلك</span>، في أي وقت',
     hero_desc_cosmetic: 'منصة سورية تساعدك على معرفة توفر مستحضرات التجميل في الصيدليات القريبة.',
     search_placeholder_cosmetic: 'ابحث عن مستحضر تجميل...',
     search_hint_cosmetic: 'اكتب اسم المستحضر للبحث عن توفره في صيدليات سلمية.',
@@ -157,20 +157,20 @@ const translations = {
     feature1_title: 'البحث عن الدواء', feature1_desc: 'اعرف الصيدليات التي توفر الدواء.',
     feature2_title: 'الصيدليات المناوبة', feature2_desc: 'اعرض الصيدليات المناوبة اليوم.',
     feature3_title: 'عربة المشتريات', feature3_desc: 'اجمع الأدوية قبل زيارة الصيدلية.',
-    about_desc: 'دوائي جاهز منصة سورية محلية انطلقت من مدينة سلمية، هدفها مساعدتك على معرفة توفر دوائك في الصيدليات القريبة فوراً، بدل التنقل من صيدلية لصيدلية بحثاً عن دواء قد لا يكون متوفراً.',
+    about_desc: 'دوائي جاهز منصة سورية محلية انطلقت من مدينة سلمية، هدفها مساعدتك على معرفة توفر دوائك في الصيدليات القريبة فوراً، بدل التنقل من صيدلية إلى أخرى بحثاً عن دواء قد لا يكون متوفراً.',
     footer_home: 'الرئيسية', footer_onduty: 'الصيدليات المناوبة', footer_contact: 'تواصل معنا',
     footer_center: 'منصة سورية للبحث عن توفر الأدوية في الصيدليات.',
     footer_copy: 'دوائي جاهز، جميع الحقوق محفوظة © {year}',
     cart_empty_title: 'عربة المشتريات فارغة', cart_empty_subtitle: 'ابدأ بإضافة الأدوية من نتائج البحث.',
     lang_toggle: 'English', brand_name: 'دوائي جاهز',
-    not_found_title_medicine: 'لم يتم العثور على الدواء', not_found_title_cosmetic: 'لم يتم العثور على المستحضر',
+    not_found_title_medicine: 'لم يُعثر على الدواء', not_found_title_cosmetic: 'لم يُعثر على المستحضر',
     not_found_subtitle: 'يمكنك تجربة اسم آخر، أو البحث بالمادة الفعالة.',
     did_you_mean_results: 'هل تقصد أحد هذه النتائج؟',
     suggest_did_you_mean: 'هل تقصد', q_mark: '؟',
     available_badge: '🟢 متوفر', unavailable_badge: '🔴 غير متوفر',
     active_ingredient_label: 'المادة الفعالة:', add_to_cart_btn: 'إضافة إلى السلة', added_feedback: '✓ تمت الإضافة',
     alt_unavailable_but: 'غير متوفر حالياً، غير أنّ هناك بديلاً بالمادة الفعالة نفسها', alt_view_btn: 'عرض',
-    server_error_title: 'تعذر الاتصال بالخادم', server_error_subtitle: 'تحقق من اتصالك بالإنترنت وحاول مرة أخرى.',
+    server_error_title: 'تعذّر الاتصال بالخادم', server_error_subtitle: 'تحقق من اتصالك بالإنترنت وحاول مرة أخرى.',
     cart_panel_title: 'عربة المشتريات', cart_panel_subtitle: 'راجع الأدوية قبل إتمام الطلب.',
     cart_items_count_label: 'عدد الأدوية', checkout_name_placeholder: 'الاسم الكامل',
     checkout_phone_placeholder: 'رقم الهاتف', checkout_notes_placeholder: 'ملاحظات إضافية (اختياري)', checkout_btn: 'إتمام الطلب', remove_aria: 'حذف',
@@ -181,7 +181,7 @@ const translations = {
     onduty_empty_title: 'لا توجد صيدليات مناوبة حالياً',
     onduty_empty_subtitle: 'يمكنك المحاولة لاحقاً، أو التواصل مباشرة مع الصيدلية التي تفضّلها.',
     bell_empty: 'لا توجد إشعارات حالياً', bell_aria_label: 'إشعارات الطلبات', bell_dismiss_aria: 'إخفاء', bell_clear_all: '🗑️ مسح الكل',
-    bell_confirmed_text: 'تم الاستجابة لطلبك من قبل الصيدلية',
+    bell_confirmed_text: 'استجابت الصيدلية لطلبك',
     bell_pending_prefix: 'طلبك عند صيدلية', bell_pending_suffix: 'قيد المراجعة...',
     bell_declined_prefix: 'تعذّر على الصيدلية', bell_declined_suffix: 'تجهيز طلبك. يمكنك الاتصال بها أو البحث في صيدلية أخرى.',
     excess_quantity_confirm: 'أضفت {qty} من {name} من {pharmacy} إلى عربتك. هل ترغب في إضافة المزيد؟',
@@ -222,7 +222,7 @@ const translations = {
     stat_pharmacies_count: 'عدد الصيدليات', stat_onduty_pharmacies: 'الصيدليات المناوبة اليوم',
     add_pharmacy_title: '🏥 إضافة صيدلية جديدة', pharmacy_name_placeholder: 'اسم الصيدلية',
     address_placeholder: 'العنوان', phone_placeholder: 'رقم الهاتف', add_pharmacy_btn: 'إضافة الصيدلية',
-    registered_pharmacies_title: 'الصيدليات المسجّلة', no_pharmacies_yet: 'لا يوجد صيدليات مسجّلة بعد.',
+    registered_pharmacies_title: 'الصيدليات المسجّلة', no_pharmacies_yet: 'لا توجد صيدليات مسجّلة بعد.',
     pharmacies_table_header: 'الصيدلية', action_col_header: 'إجراء', delete_btn: 'حذف', onduty_badge_short: '🟢 مناوبة',
     delete_pharmacy_confirm: 'هل ترغب في حذف صيدلية "{name}" نهائياً؟', pharmacy_added_success: 'تمت إضافة صيدلية "{name}" بنجاح',
     edit_name_btn: 'تعديل الاسم', save_name_btn: 'حفظ', cancel_edit_btn: 'إلغاء',
@@ -244,14 +244,14 @@ const translations = {
     reset_password_done_hint: 'انسخ كلمة المرور الآن وسلّمها إلى الصيدلي، فلن تظهر مرة أخرى.',
     reset_password_error: 'تعذّرت إعادة تعيين كلمة المرور',
     stats_title: '📊 نظرة عامة على المنصة',
-    stat_on_duty: 'مناوبة الآن',
-    stat_cosmetics: 'مستحضر تجميل',
-    stat_nurses: 'ممرض', stat_available_stock: 'دواء متوفر بالصيدليات',
-    stat_orders_total: 'إجمالي الطلبات', stat_orders_24h: 'طلب آخر ٢٤ ساعة',
-    stat_orders_7d: 'طلب آخر ٧ أيام', stat_orders_30d: 'طلب آخر ٣٠ يوماً',
+    stat_on_duty: 'صيدليات مناوبة الآن',
+    stat_cosmetics: 'مستحضرات التجميل',
+    stat_nurses: 'الممرضون', stat_available_stock: 'أدوية متوفرة في الصيدليات',
+    stat_orders_total: 'إجمالي الطلبات', stat_orders_24h: 'طلبات آخر 24 ساعة',
+    stat_orders_7d: 'طلبات آخر 7 أيام', stat_orders_30d: 'طلبات آخر 30 يوماً',
     stats_top_medicines: 'أكثر الأدوية طلباً', stats_top_pharmacies: 'أنشط الصيدليات',
     stats_by_city: 'الصيدليات حسب المدينة',
-    stats_orders_count_unit: 'طلب', stats_times_unit: 'مرة', stats_pharmacy_unit: 'صيدلية',
+    stats_orders_count_unit: 'طلب واحد|طلبان|{n} طلبات|{n} طلباً|{n} طلب|لا طلبات', stats_times_unit: 'مرة واحدة|مرتان|{n} مرات|{n} مرة|{n} مرة', stats_pharmacy_unit: 'صيدلية واحدة|صيدليتان|{n} صيدليات|{n} صيدلية|{n} صيدلية',
     stats_no_orders_yet: 'لا توجد طلبات بعد، ستظهر هنا فور وصول أول طلب.',
     stats_refresh_btn: 'تحديث',
     page_title: 'دوائي جاهز | ابحث عن توفر الدواء في صيدليات سلمية وسوريا',
@@ -259,8 +259,8 @@ const translations = {
     refresh_results_btn: '↻ تحديث النتائج', refreshing_results: '⏳ جارٍ التحديث...',
     verified_badge: 'موثَّقة', verified_badge_title: 'صيدلية سجّلتها إدارة المنصة بعد التحقق من بياناتها',
     stock_updated_prefix: 'آخر تحديث للمخزون:',
-    time_just_now: 'قبل لحظات', time_minutes: 'قبل {n} دقيقة', time_hours: 'قبل {n} ساعة',
-    time_days: 'قبل {n} يوم', time_weeks: 'قبل {n} أسبوع', time_long_ago: 'منذ أكثر من شهر',
+    time_just_now: 'قبل لحظات', time_minutes: 'قبل دقيقة|قبل دقيقتين|قبل {n} دقائق|قبل {n} دقيقة|قبل {n} دقيقة', time_hours: 'قبل ساعة|قبل ساعتين|قبل {n} ساعات|قبل {n} ساعة|قبل {n} ساعة',
+    time_days: 'قبل يوم|قبل يومين|قبل {n} أيام|قبل {n} يوماً|قبل {n} يوم', time_weeks: 'قبل أسبوع|قبل أسبوعين|قبل {n} أسابيع|قبل {n} أسبوعاً|قبل {n} أسبوع', time_long_ago: 'منذ أكثر من شهر',
     stock_never_updated: 'لم يُحدَّث بعد',
     stock_stale_warning: 'قد لا تكون هذه المعلومة محدَّثة، ويُنصح بالاتصال بالصيدلية للتأكد',
     city_placeholder: 'المدينة', city_label: 'المدينة', all_cities: 'كل المدن',
@@ -282,11 +282,11 @@ const translations = {
     reject_rating_confirm: 'هل ترغب في رفض هذا التقييم؟ سيُحذف نهائياً.',
     published_ratings_title: '💬 التقييمات المنشورة', show_ratings_btn: 'عرض التقييمات', hide_ratings_btn: 'إخفاء التقييمات',
     loading_text: 'جارٍ التحميل...', no_published_ratings: 'لا توجد تقييمات منشورة بعد.',
-    delete_final_btn: '🗑️ حذف نهائي', failed_load_ratings: 'تعذر تحميل التقييمات.',
+    delete_final_btn: '🗑️ حذف نهائي', failed_load_ratings: 'تعذّر تحميل التقييمات.',
     delete_rating_final_confirm: 'هل ترغب في حذف هذا التقييم نهائياً؟ لا يمكن التراجع عن هذا الإجراء.',
-    nursing_empty_title: 'لا يوجد ممرضون مسجّلون حالياً', nursing_empty_subtitle: 'سوف يتم إضافة ممرضين موثوقين قريباً.',
+    nursing_empty_title: 'لا يوجد ممرضون مسجّلون حالياً', nursing_empty_subtitle: 'سيُضاف ممرضون موثوقون قريباً.',
     nurse_available_full: '🟢 متاح للعمل', nurse_unavailable_full: '🔴 غير متاح حالياً',
-    general_nurse_label: 'ممرض عام', rating_summary_suffix: 'من {count} تقييم',
+    general_nurse_label: 'ممرض عام', rating_summary_suffix: 'من تقييم واحد|من تقييمين|من {n} تقييمات|من {n} تقييماً|من {n} تقييم',
     no_ratings_yet_short: 'لا توجد تقييمات بعد', view_profile_btn: 'لمحة عنه',
     grad_year_label: 'تخرج', patient_reviews_title: 'آراء المرضى ({count})',
     no_published_reviews: 'لا توجد آراء منشورة بعد.', rate_this_nurse_title: 'قيّم هذا الممرض',
@@ -302,8 +302,8 @@ const translations = {
     admin_duty_title: '🕐 جدول المناوبة',
     admin_duty_desc: 'يمكنك من هنا ضبط مناوبة أي صيدلية دون الحاجة إلى تسجيل الدخول بحسابها، كما يستطيع الصيدلي تعديل مناوبته بنفسه.',
     admin_duty_clear_all: 'إيقاف كل المناوبات',
-    admin_duty_clear_confirm: 'هل ترغب في إيقاف مناوبة جميع الصيدليات ({n} صيدلية مناوبة حالياً)؟ يُستخدم هذا الإجراء عادةً عند بدء أسبوع جديد.',
-    admin_duty_cleared: 'تم إيقاف {n} مناوبة',
+    admin_duty_clear_confirm: 'هل ترغب في إيقاف مناوبة جميع الصيدليات؟ عدد الصيدليات المناوبة حالياً: {n}. يُستخدم هذا الإجراء عادةً عند بدء أسبوع جديد.',
+    admin_duty_cleared: 'أُوقفت المناوبات. عدد الصيدليات التي أُوقفت مناوبتها: {n}',
     admin_duty_none_active: 'لا توجد صيدليات مناوبة حالياً',
     admin_duty_on: 'مناوبة',
     admin_duty_off: 'غير مناوبة',
@@ -412,7 +412,9 @@ const translations = {
     main_phone_save: 'حفظ الرقم',
     main_phone_saved: 'حُفظ رقم الهاتف',
     phone_required_error: 'رقم الهاتف مطلوب',
-    phone_invalid_error: 'رقم الهاتف غير صالح. اكتب أرقاماً فقط، من ٦ إلى ١٥ رقماً',
+    phone_invalid_error: 'رقم الهاتف غير صالح. اكتب أرقاماً فقط، من 6 إلى 15 رقماً.',
+    phone_too_short_error: 'رقم الهاتف قصير. اكتب الرقم كاملاً (7 أرقام على الأقل).',
+    meters_count: 'متر واحد|مترين|{n} أمتار|{n} متراً|{n} متر',
     exp_years_invalid: 'سنوات الخبرة يجب أن تكون رقماً بين 0 و60.',
     nurse_experience_label: 'سنوات الخبرة',
     nurse_services_label: 'الخدمات',
@@ -558,9 +560,9 @@ const translations = {
     demand_title: '📊 تحليل الطلب',
     demand_desc: 'ما يبحث عنه المرضى فعلاً، مجمَّعاً ومجهَّلاً. لا يحوي أي بيانات تكشف هوية أحد.',
     demand_period: 'الفترة:',
-    demand_days_7: 'آخر ٧ أيام',
-    demand_days_30: 'آخر ٣٠ يوماً',
-    demand_days_90: 'آخر ٩٠ يوماً',
+    demand_days_7: 'آخر 7 أيام',
+    demand_days_30: 'آخر 30 يوماً',
+    demand_days_90: 'آخر 90 يوماً',
     demand_total: 'عمليات بحث مسجَّلة',
     demand_top: 'الأكثر طلباً',
     demand_not_found: 'بحث بلا نتيجة',
@@ -570,7 +572,7 @@ const translations = {
     demand_by_city: 'حسب المدينة',
     demand_all_cities: 'كل المدن',
     demand_empty: 'لا توجد بيانات بعد',
-    demand_times: 'مرة',
+    demand_times: 'مرة واحدة|مرتان|{n} مرات|{n} مرة|{n} مرة',
     demand_export: 'تنزيل التقرير (Excel)',
     demand_load_error: 'تعذّر تحميل تقرير الطلب',
     demand_col_section: 'القسم',
@@ -628,8 +630,8 @@ const translations = {
     geo_denied: 'رُفض إذن الوصول إلى الموقع. يمكنك تفعيله من إعدادات المتصفح، أو إدخال الإحداثيات يدوياً.',
     geo_unavailable: 'تعذّر تحديد الموقع. يُرجى التأكد من تفعيل خدمة تحديد المواقع (GPS) والمحاولة في مكان مكشوف.',
     geo_timeout: 'انقضت مهلة تحديد الموقع. يُرجى إعادة المحاولة.',
-    geo_low_accuracy: 'دقة التحديد منخفضة (نحو {n} متر). يُنصح بإعادة المحاولة في مكان مكشوف، أو بالحفظ إن كان الموقع صحيحاً.',
-    location_confirm_detected: 'حُدِّد موقعك بدقة تبلغ نحو {n} متر. هل تعتمده موقعاً للصيدلية؟',
+    geo_low_accuracy: 'دقة التحديد منخفضة (في حدود {n}). يُنصح بإعادة المحاولة في مكان مكشوف، أو بالحفظ إن كان الموقع صحيحاً.',
+    location_confirm_detected: 'حُدِّد موقعك بدقة في حدود {n}. هل تعتمده موقعاً للصيدلية؟',
     location_outside_syria: 'تقع هذه الإحداثيات خارج سوريا. يُرجى التأكد من عدم عكس الرقمين. هل ترغب في حفظها رغم ذلك؟',
     location_swap_suggest: 'يبدو أن الرقمين معكوسان. الموقع الصحيح على الأرجح: {coords}\n\nهل ترغب في اعتماده بهذه الصيغة؟',
     location_admin_label: 'موقع',
@@ -646,7 +648,7 @@ const translations = {
     wa_disclaimer: 'المنصة وسيط معلوماتي فحسب، والمحادثة تجري مباشرة بينك وبين الصيدلية، وهي لا تُغني عن استشارة الطبيب.',
     wa_result_btn: 'واتساب',
     wa_msg_consult: 'مرحباً، أود استشارتكم بخصوص دواء. وجدتكم عبر موقع دوائي جاهز.',
-    wa_msg_medicine: 'مرحباً، أريد شراء دواء "{medicine}" من لديكم عبر الموقع.',
+    wa_msg_medicine: 'مرحباً، أودّ شراء دواء "{medicine}" من صيدليتكم. وجدتكم عبر موقع دوائي جاهز.',
     wa_onduty_now: 'مناوبة الآن',
     whatsapp_phone_section_title: '💬 رقم واتساب الصيدلية',
     whatsapp_phone_input_placeholder: 'رقم واتساب (مثال: 0932985852)',
@@ -713,7 +715,7 @@ const translations = {
     invalid_credentials: 'بيانات الدخول غير صحيحة',
     expiry_before_manufacture_error: 'تاريخ الانتهاء لا يمكن أن يكون قبل تاريخ الصنع', invalid_date_format_error: 'صيغة التاريخ غير صالحة',
     order_submit_error: 'حدث خطأ أثناء إرسال الطلب. حاول مرة أخرى، أو تواصل مع الصيدلية مباشرة إذا استمرت المشكلة.',
-    phone_digits_only_error: 'رقم الهاتف يجب أن يتكون من أرقام فقط',
+    phone_digits_only_error: 'رقم الهاتف غير صالح. اكتب أرقاماً فقط، من 7 إلى 15 رقماً.',
     order_missing_fields_error: 'الاسم ورقم الهاتف والأدوية مطلوبة لإتمام الطلب',
     medicine_already_exists_error: 'هذا الدواء موجود مسبقاً في القائمة العامة',
     bulk_import_title: '📥 استيراد أدوية من ملف',
@@ -723,18 +725,18 @@ const translations = {
     choose_file_btn: 'اختيار ملف CSV',
     no_file_chosen: 'لم يُختر أي ملف',
     bulk_import_preview_title: 'معاينة قبل الاستيراد',
-    bulk_import_valid_count: '{count} دواء جاهز للاستيراد',
+    bulk_import_valid_count: 'عدد الأصناف الجاهزة للاستيراد: {count}',
     bulk_import_invalid_count: 'عدد الصفوف التي فيها مشكلة: {count} (ستُتجاهل)',
     bulk_import_confirm_btn: 'تأكيد الاستيراد',
     bulk_import_cancel_btn: 'إلغاء',
     bulk_import_empty_name_issue: 'اسم الدواء مفقود',
     bulk_import_invalid_category_issue: 'تصنيف غير معروف (استخدم دواء أو مستحضر تجميل)',
     bulk_import_parse_error: 'تعذّرت قراءة الملف. تأكد أنه بصيغة CSV وبتنسيق النموذج نفسه.',
-    bulk_import_too_many: 'في الملف {count} صنفاً، والحد 500 في المرة الواحدة. قسّمه إلى ملفات أصغر واستوردها واحداً بعد آخر.',
+    bulk_import_too_many: 'عدد الأصناف في الملف: {count}، والحد 500 في المرة الواحدة. قسّمه إلى ملفات أصغر واستوردها واحداً بعد آخر.',
     bulk_import_errors_title: 'لم تُستورد هذه الأسطر:',
     orders_sync_paused: 'تعذّر تحديث الطلبات، ونعيد المحاولة تلقائياً…',
     bulk_import_no_valid_rows: 'لا يوجد في الملف أي صف صالح للاستيراد.',
-    bulk_import_success: 'تم الاستيراد: {added} دواء جديد، {linked} مربوط بمخزونك، {skipped} تم تجاهله.',
+    bulk_import_success: 'تم الاستيراد، وأُضيف كل ما استُورد إلى مخزونك متوفراً.\nأصناف جديدة على المنصة: {added}\nأصناف كانت مسجّلة على المنصة: {linked}\nلم تُستورد: {skipped}',
     bulk_import_col_name: 'الاسم',
     bulk_import_col_category: 'التصنيف'
   },
@@ -850,7 +852,7 @@ const translations = {
     stat_orders_7d: 'orders in last 7 days', stat_orders_30d: 'orders in last 30 days',
     stats_top_medicines: 'Most requested medicines', stats_top_pharmacies: 'Most active pharmacies',
     stats_by_city: 'Pharmacies by city',
-    stats_orders_count_unit: 'orders', stats_times_unit: 'times', stats_pharmacy_unit: 'pharmacies',
+    stats_orders_count_unit: '1 order|{n} orders', stats_times_unit: '1 time|{n} times', stats_pharmacy_unit: '1 pharmacy|{n} pharmacies',
     stats_no_orders_yet: 'No orders yet, they will appear here as soon as the first one arrives.',
     stats_refresh_btn: 'Refresh',
     page_title: 'Dawaai Jahez | Find medicine availability in Syrian pharmacies',
@@ -859,7 +861,7 @@ const translations = {
     verified_badge: 'Verified', verified_badge_title: 'A pharmacy registered by the platform admin after verifying its details',
     stock_updated_prefix: 'Stock last updated:',
     time_just_now: 'just now', time_minutes: '{n} min ago', time_hours: '{n} h ago',
-    time_days: '{n} days ago', time_weeks: '{n} weeks ago', time_long_ago: 'over a month ago',
+    time_days: 'a day ago|{n} days ago', time_weeks: 'a week ago|{n} weeks ago', time_long_ago: 'over a month ago',
     stock_never_updated: 'not updated yet',
     stock_stale_warning: 'This may not be current, so calling the pharmacy to confirm is recommended',
     city_placeholder: 'City', city_label: 'City', all_cities: 'All cities',
@@ -885,7 +887,7 @@ const translations = {
     delete_rating_final_confirm: 'Are you sure you want to permanently delete this rating? This action cannot be undone.',
     nursing_empty_title: 'No nurses registered right now', nursing_empty_subtitle: 'Trusted nurses will be added soon.',
     nurse_available_full: '🟢 Available for work', nurse_unavailable_full: '🔴 Currently unavailable',
-    general_nurse_label: 'General nurse', rating_summary_suffix: 'from {count} reviews',
+    general_nurse_label: 'General nurse', rating_summary_suffix: 'from 1 review|from {n} reviews',
     no_ratings_yet_short: 'No ratings yet', view_profile_btn: 'View profile',
     grad_year_label: 'graduated', patient_reviews_title: 'Patient reviews ({count})',
     no_published_reviews: 'No published reviews yet.', rate_this_nurse_title: 'Rate this nurse',
@@ -901,8 +903,8 @@ const translations = {
     admin_duty_title: '🕐 On-duty schedule',
     admin_duty_desc: 'Set any pharmacy\'s duty from here without logging into its account. Pharmacists can also set their own.',
     admin_duty_clear_all: 'Clear all duties',
-    admin_duty_clear_confirm: 'Clear duty for every pharmacy ({n} currently on duty)? Normally used to start a new week.',
-    admin_duty_cleared: '{n} duties cleared',
+    admin_duty_clear_confirm: 'Clear duty for every pharmacy? Pharmacies on duty now: {n}. Normally used to start a new week.',
+    admin_duty_cleared: 'Duty cleared. Pharmacies affected: {n}',
     admin_duty_none_active: 'No pharmacies are on duty right now',
     admin_duty_on: 'On duty',
     admin_duty_off: 'Off duty',
@@ -1011,7 +1013,9 @@ const translations = {
     main_phone_save: 'Save number',
     main_phone_saved: 'Phone number saved',
     phone_required_error: 'A phone number is required',
-    phone_invalid_error: 'Invalid phone number. Use digits only, 6 to 15 digits',
+    phone_invalid_error: 'Invalid phone number. Use digits only, 6 to 15 digits.',
+    phone_too_short_error: 'The phone number is too short. Enter the full number (at least 7 digits).',
+    meters_count: '1 m|{n} m',
     exp_years_invalid: 'Years of experience must be a number from 0 to 60.',
     nurse_experience_label: 'Years of experience',
     nurse_services_label: 'Services',
@@ -1169,7 +1173,7 @@ const translations = {
     demand_by_city: 'By city',
     demand_all_cities: 'All cities',
     demand_empty: 'No data yet',
-    demand_times: 'times',
+    demand_times: '1 time|{n} times',
     demand_export: 'Download report (Excel)',
     demand_load_error: 'Could not load the demand report',
     demand_col_section: 'Section',
@@ -1227,8 +1231,8 @@ const translations = {
     geo_denied: 'Location permission denied. Enable it in your browser settings, or use manual paste.',
     geo_unavailable: 'Could not determine your location. Make sure GPS is on and try in an open area.',
     geo_timeout: 'Location request timed out. Please try again.',
-    geo_low_accuracy: 'Accuracy is low (about {n} m). Try in an open area, or save if the location looks right.',
-    location_confirm_detected: 'Your location was detected with about {n} m accuracy. Save it as the pharmacy location?',
+    geo_low_accuracy: 'Accuracy is low (within {n}). Try in an open area, or save if the location looks right.',
+    location_confirm_detected: 'Your location was detected within {n}. Save it as the pharmacy location?',
     location_outside_syria: 'These coordinates are outside Syria. Make sure you did not swap the two numbers. Save anyway?',
     location_swap_suggest: 'The two numbers look swapped. The correct location is most likely: {coords}\n\nSave it that way?',
     location_admin_label: 'location',
@@ -1245,7 +1249,7 @@ const translations = {
     wa_disclaimer: 'This platform is an information service only. The conversation is directly between you and the pharmacy, and does not replace a doctor consultation.',
     wa_result_btn: 'WhatsApp',
     wa_msg_consult: 'Hello, I would like to ask you about a medicine. I found you on Dawaai Jahez.',
-    wa_msg_medicine: 'Hello, I would like to buy "{medicine}" from your pharmacy. I found it on Dawaai Jahez.',
+    wa_msg_medicine: 'Hello, I would like to buy "{medicine}" from your pharmacy. I found you on Dawaai Jahez.',
     wa_onduty_now: 'On duty now',
     whatsapp_phone_section_title: '💬 Pharmacy WhatsApp number',
     whatsapp_phone_input_placeholder: 'WhatsApp number (e.g. 0932985852)',
@@ -1312,7 +1316,7 @@ const translations = {
     invalid_credentials: 'Invalid login credentials',
     expiry_before_manufacture_error: 'Expiry date cannot be before manufacture date', invalid_date_format_error: 'Invalid date format',
     order_submit_error: 'An error occurred while sending the order. Please try again, or contact the pharmacy directly if the issue persists.',
-    phone_digits_only_error: 'Phone number must contain digits only',
+    phone_digits_only_error: 'Invalid phone number. Use digits only, 7 to 15 digits.',
     order_missing_fields_error: 'Name, phone number, and medicines are required to complete the order',
     medicine_already_exists_error: 'This medicine already exists in the general list',
     bulk_import_title: '📥 Import medicines from file',
@@ -1322,8 +1326,8 @@ const translations = {
     choose_file_btn: 'Choose CSV file',
     no_file_chosen: 'No file chosen',
     bulk_import_preview_title: 'Preview before import',
-    bulk_import_valid_count: '{count} medicines ready to import',
-    bulk_import_invalid_count: '{count} row(s) have an issue (will be skipped)',
+    bulk_import_valid_count: 'Ready to import: {count}',
+    bulk_import_invalid_count: 'Rows with an issue (will be skipped): {count}',
     bulk_import_confirm_btn: 'Confirm import',
     bulk_import_cancel_btn: 'Cancel',
     bulk_import_empty_name_issue: 'Medicine name is missing',
@@ -1333,7 +1337,7 @@ const translations = {
     bulk_import_errors_title: 'These rows were not imported:',
     orders_sync_paused: 'Could not refresh orders. Retrying automatically…',
     bulk_import_no_valid_rows: 'No valid rows found in the file.',
-    bulk_import_success: 'Import complete: {added} new medicines, {linked} linked to your stock, {skipped} skipped.',
+    bulk_import_success: 'Import complete. Everything imported was added to your stock as available.\nNew to the platform: {added}\nAlready on the platform: {linked}\nNot imported: {skipped}',
     bulk_import_col_name: 'Name',
     bulk_import_col_category: 'Category'
   }
@@ -1348,6 +1352,29 @@ function tFormat(key, values) {
   let str = t(key);
   for (const [k, v] of Object.entries(values)) str = str.replace(`{${k}}`, v);
   return str;
+}
+
+// م14: العدد مع المعدود. كان النص ثابتاً فظهر «قبل 1 ساعة» و«من 3 تقييم».
+// قيمة الترجمة صيغ يفصل بينها |، و{n} فيها يُستبدل بالعدد:
+//   العربية: واحد | اثنان | من 3 إلى 10 | من 11 إلى 99 | 100 فما فوق وصفر | صفر (اختيارية: «لا طلبات»)
+//   (يُحسب ما بعد المئة بباقيها: 103 كـ3، و115 كـ15، و101 و102 كالمئة)
+//   الإنكليزية: مفرد | جمع
+// numText اختياري: نص العدد كما يُعرض (مثلاً داخل <bdi> كي لا ينقلب اتجاهه).
+function pluralIndex(n, lang) {
+  if (lang !== 'ar') return n === 1 ? 0 : 1;
+  if (n === 1) return 0;
+  if (n === 2) return 1;
+  const r = n % 100;
+  if (r >= 3 && r <= 10) return 2;
+  if (r >= 11 && r <= 99) return 3;
+  return 4;
+}
+function tPlural(key, n, numText) {
+  const count = Number(n) || 0;
+  const forms = t(key).split('|');
+  const form = (count === 0 && currentLang === 'ar' && forms.length > 5) ? forms[5]
+    : forms[Math.min(pluralIndex(count, currentLang), forms.length - 1)];
+  return form.split('{n}').join(numText === undefined ? String(count) : numText);
 }
 
 // بعض رسائل الخطأ جاية جاهزة عربي من الباك إند (ملفات routes) — نترجم عرضها هون بدون لمس الباك إند نفسه
@@ -1401,11 +1428,123 @@ const BACKEND_ERROR_MAP = {
   'اسم الدواء طويل جداً (الحد 120 حرفاً)': 'med_name_too_long_error',
   'غير مصرح بالوصول لهذه البيانات': 'forbidden_error'
 };
+
+// م11: رسائل الخادم التي ليس لها مفتاح ترجمة خاص. كانت تظهر بالعربية في الواجهة
+// الإنكليزية. العربية تُعرض كما أرسلها الخادم، والإنكليزية من هنا. أي رسالة جديدة
+// تُضاف إلى الخادم ولا تُضاف هنا تظهر في الواجهة الإنكليزية برسالة عامة مفهومة.
+const BACKEND_ERROR_EN = {
+  'بيانات الدخول غير صالحة': 'Invalid login details.',
+  'حدث خطأ في الخادم': 'A server error occurred. Please try again shortly.',
+  'معرّف غير صالح': 'Invalid identifier.',
+  'حدث خطأ أثناء جلب الإعلانات': 'An error occurred while loading the ads. Please try again shortly.',
+  'حجم الصورة كبير جداً': 'The image is too large.',
+  'تعذّرت قراءة الصورة': 'The image could not be read.',
+  'الصورة غير مقبولة': 'This image type is not accepted.',
+  'حدث خطأ أثناء حفظ الإعلان': 'An error occurred while saving the ad. Please try again shortly.',
+  'حدث خطأ أثناء تحديث الإعلان': 'An error occurred while updating the ad. Please try again shortly.',
+  'حدث خطأ أثناء حذف الإعلان': 'An error occurred while deleting the ad. Please try again shortly.',
+  'تصنيف غير صالح. القيم المسموحة: دواء أو مستحضر تجميل فقط': 'Invalid category. Allowed values: medicine or cosmetic only.',
+  'حدث خطأ أثناء البحث': 'An error occurred while searching. Please try again shortly.',
+  'حدث خطأ أثناء جلب الاقتراحات': 'An error occurred while loading suggestions. Please try again shortly.',
+  'حدث خطأ أثناء جلب الأدوية': 'An error occurred while loading the medicines. Please try again shortly.',
+  'الاسم مطلوب': 'The name is required.',
+  'حدث خطأ أثناء الإضافة': 'An error occurred while adding. Please try again shortly.',
+  'تعذّرت الإضافة': 'Could not be added.',
+  'بيانات الدخول مطلوبة': 'Login details are required.',
+  'لا توجد أدوية للاستيراد': 'There are no medicines to import.',
+  'الحد الأقصى 500 دواء بالمرة الواحدة': 'The maximum is 500 items at a time.',
+  'حدث خطأ أثناء الاستيراد': 'An error occurred while importing. Please try again shortly.',
+  'حدث خطأ أثناء حذف الدواء': 'An error occurred while deleting the medicine. Please try again shortly.',
+  'الخدمات غير صالحة': 'Invalid services.',
+  'نص الخدمات طويل جداً': 'The services text is too long.',
+  'حدث خطأ أثناء جلب قائمة الممرضين': 'An error occurred while loading the nurses. Please try again shortly.',
+  'حدث خطأ أثناء جلب التقييمات': 'An error occurred while loading the reviews. Please try again shortly.',
+  'الاسم ورقم الهاتف مطلوبان': 'Name and phone number are required.',
+  'التقييم يجب أن يكون عدد نجوم صحيح من 1 إلى 5': 'The rating must be a whole number of stars from 1 to 5.',
+  'الممرض غير موجود': 'Nurse not found.',
+  'حدث خطأ أثناء إرسال التقييم': 'An error occurred while sending your review. Please try again shortly.',
+  'اسم الممرض مطلوب': 'The nurse name is required.',
+  'حدث خطأ أثناء إضافة الممرض': 'An error occurred while adding the nurse. Please try again shortly.',
+  'حدث خطأ أثناء جلب التقييمات قيد المراجعة': 'An error occurred while loading reviews awaiting approval. Please try again shortly.',
+  'حدث خطأ أثناء جلب التقييمات المنشورة': 'An error occurred while loading published reviews. Please try again shortly.',
+  'حدث خطأ أثناء الموافقة على التقييم': 'An error occurred while approving the review. Please try again shortly.',
+  'حدث خطأ أثناء رفض التقييم': 'An error occurred while rejecting the review. Please try again shortly.',
+  'حدث خطأ أثناء تحديث حالة التوفر': 'An error occurred while updating availability. Please try again shortly.',
+  'حدث خطأ أثناء حذف الممرض': 'An error occurred while deleting the nurse. Please try again shortly.',
+  'حدث خطأ أثناء جلب الممرضين': 'An error occurred while loading the nurses. Please try again shortly.',
+  'حدث خطأ أثناء حفظ بيانات الخبرة': 'An error occurred while saving the experience details. Please try again shortly.',
+  'حجم الملف أكبر من 3 ميغابايت': 'The file is larger than 3 MB.',
+  'تعذّرت قراءة الملف': 'The file could not be read.',
+  'نوع الملف غير مقبول': 'This file type is not accepted.',
+  'تعذّر رفع الشهادة إلى التخزين': 'The certificate could not be uploaded to storage.',
+  'التخزين غير متاح': 'Storage is not available.',
+  'حدث خطأ أثناء رفع الشهادة': 'An error occurred while uploading the certificate. Please try again shortly.',
+  'لا توجد شهادة لهذا الممرض': 'This nurse has no certificate.',
+  'تعذّر إنشاء رابط العرض': 'Could not create the viewing link.',
+  'حدث خطأ أثناء إنشاء رابط العرض': 'An error occurred while creating the viewing link. Please try again shortly.',
+  'حدث خطأ أثناء حذف الشهادة': 'An error occurred while deleting the certificate. Please try again shortly.',
+  'حدث خطأ أثناء تحديث التوثيق': 'An error occurred while updating verification. Please try again shortly.',
+  'الطلب غير موجود': 'Order not found.',
+  'حدث خطأ أثناء التحقق من الصلاحية': 'An error occurred while checking permissions. Please try again shortly.',
+  'الصيدلية غير موجودة': 'Pharmacy not found.',
+  'حدث خطأ أثناء جلب حالة الطلبات': 'An error occurred while loading order status. Please try again shortly.',
+  'حدث خطأ أثناء جلب الطلبات': 'An error occurred while loading the orders. Please try again shortly.',
+  'حدث خطأ أثناء تحديث الطلب': 'An error occurred while updating the order. Please try again shortly.',
+  'حدث خطأ أثناء تأكيد الطلب': 'An error occurred while confirming the order. Please try again shortly.',
+  'حدث خطأ أثناء حذف الطلب': 'An error occurred while deleting the order. Please try again shortly.',
+  'حدث خطأ أثناء جلب الصيدليات المناوبة': 'An error occurred while loading on-duty pharmacies. Please try again shortly.',
+  'حدث خطأ أثناء جلب الصيدليات': 'An error occurred while loading the pharmacies. Please try again shortly.',
+  'الاسم واسم المستخدم وكلمة المرور مطلوبة': 'Name, username and password are required.',
+  'حدث خطأ أثناء التسجيل': 'An error occurred during registration. Please try again shortly.',
+  'اسم المستخدم وكلمة المرور مطلوبان': 'Username and password are required.',
+  'حدث خطأ أثناء تسجيل الدخول': 'An error occurred while logging in. Please try again shortly.',
+  'بيانات الدخول مطلوبة لتأكيد الحذف': 'Login details are required to confirm deletion.',
+  'حدث خطأ أثناء حذف الحساب': 'An error occurred while deleting the account. Please try again shortly.',
+  'حدث خطأ أثناء تحديث حالة المناوبة': 'An error occurred while updating duty status. Please try again shortly.',
+  'حدث خطأ أثناء تحديث رقم الهاتف': 'An error occurred while updating the phone number. Please try again shortly.',
+  'حدث خطأ أثناء تحديث الرقم المساعد': 'An error occurred while updating the assistant number. Please try again shortly.',
+  'حدث خطأ أثناء تغيير كلمة المرور': 'An error occurred while changing the password. Please try again shortly.',
+  'حدث خطأ أثناء إعادة تعيين كلمة المرور': 'An error occurred while resetting the password. Please try again shortly.',
+  'حدث خطأ أثناء تحديث رقم واتساب': 'An error occurred while updating the WhatsApp number. Please try again shortly.',
+  'حدث خطأ أثناء تحديث الموقع': 'An error occurred while updating the location. Please try again shortly.',
+  'حدث خطأ أثناء تحديث العنوان': 'An error occurred while updating the address. Please try again shortly.',
+  'حدث خطأ أثناء إيقاف المناوبات': 'An error occurred while clearing duty. Please try again shortly.',
+  'حدث خطأ أثناء تحديث حالة الصيدلية': 'An error occurred while updating the pharmacy status. Please try again shortly.',
+  'حدث خطأ أثناء حفظ ساعات الدوام': 'An error occurred while saving opening hours. Please try again shortly.',
+  'حدث خطأ أثناء تحديث حالة الإغلاق': 'An error occurred while updating the closure status. Please try again shortly.',
+  'حدث خطأ أثناء تعديل اسم المستخدم': 'An error occurred while changing the username. Please try again shortly.',
+  'اسم الصيدلية مطلوب': 'The pharmacy name is required.',
+  'حدث خطأ أثناء تعديل اسم الصيدلية': 'An error occurred while renaming the pharmacy. Please try again shortly.',
+  'حدث خطأ أثناء حذف الصيدلية': 'An error occurred while deleting the pharmacy. Please try again shortly.',
+  'حدث خطأ أثناء جلب الزيارات': 'An error occurred while loading visits. Please try again shortly.',
+  'حدث خطأ أثناء جلب الإحصاءات': 'An error occurred while loading statistics. Please try again shortly.',
+  'حدث خطأ أثناء إنشاء النسخة الاحتياطية': 'An error occurred while creating the backup. Please try again shortly.',
+  'حدث خطأ أثناء إعداد تقرير الطلب': 'An error occurred while preparing the demand report. Please try again shortly.',
+  'بدأ الإطلاق الرسمي مسبقاً': 'The official launch has already started.',
+  'حدث خطأ أثناء بدء الإطلاق، ولم يُحذف شيء': 'An error occurred while starting the launch. Nothing was deleted.',
+  'حدث خطأ أثناء جلب المخزون': 'An error occurred while loading the stock. Please try again shortly.',
+  'الدواء أو الصيدلية غير موجودة': 'Medicine or pharmacy not found.',
+  'حدث خطأ أثناء تحديث المخزون': 'An error occurred while updating the stock. Please try again shortly.'
+};
+
 function translateApiError(rawError) {
-  // رد بلا رسالة (صفحة خطأ من الخادم الوسيط مثلاً): رسالة عامة مفهومة بدل نافذة فارغة
-  if (!rawError || typeof rawError !== 'string') return t('server_error_title');
+  // رد بلا رسالة (صفحة خطأ من الخادم الوسيط أثناء إعادة النشر مثلاً): وصل الطلب إلى
+  // الخادم فلا يصح القول «تعذّر الاتصال»، والأصدق «حدث خلل في الخادم، أعد المحاولة»
+  if (!rawError || typeof rawError !== 'string') return t('err_server');
   const key = BACKEND_ERROR_MAP[rawError];
-  return key ? t(key) : rawError;
+  if (key) return t(key);
+  // أسطر الاستيراد المرفوضة تصل بصيغة «اسم الصنف: السبب»، فنترجم السبب وحده
+  const sep = rawError.lastIndexOf(': ');
+  if (sep > 0) {
+    const reason = rawError.slice(sep + 2);
+    if (BACKEND_ERROR_MAP[reason] || BACKEND_ERROR_EN[reason]) return rawError.slice(0, sep) + ': ' + translateApiError(reason);
+  }
+  if (currentLang !== 'ar') return BACKEND_ERROR_EN[rawError] || t('err_server');
+  // نص غير عربي في الواجهة العربية ليس من رسائلنا (رد تقني من وسيط): رسالة عامة
+  if (!/[\u0600-\u06FF]/.test(rawError)) return t('err_server');
+  // أعطال الخادم الداخلية: نضيف ما يفعله المستخدم بعدها
+  if (/^حدث خطأ أثناء/.test(rawError) && !/[.،]/.test(rawError)) return rawError + '. أعد المحاولة بعد قليل.';
+  return rawError;
 }
 
 // يحدد أي نص Hero فعّال حالياً (دواء/تجميل/تمريض) ويعيد تطبيقه باللغة الجديدة
@@ -2026,6 +2165,8 @@ async function submitOrder() {
     customAlert(t('checkout_missing_fields'), 'warning');
     return;
   }
+  // م11: الخادم يرفض الرقم الأقصر من 7 أرقام، وكانت رسالته «أرقام فقط» تحيّر من كتب أرقاماً فعلاً
+  if (phone.length < 7) { customAlert(t('phone_too_short_error'), 'warning'); return; }
   const btn = document.querySelector('.checkout-btn');
   const originalLabel = btn ? btn.textContent : '';
   orderSubmitInProgress = true;
@@ -2787,7 +2928,7 @@ function renderNursesList(nurses) {
       ${n.services ? `<div class="result-row">🩺 ${t('nurse_services_label')}: ${escapeHtml(n.services)}</div>` : ''}
       <div class="result-row">
         ${n.rating_count > 0
-          ? `${renderStars(n.avg_rating)} ${Number(n.avg_rating).toFixed(1)} ${tFormat('rating_summary_suffix', { count: n.rating_count })}`
+          ? `${renderStars(n.avg_rating)} ${Number(n.avg_rating).toFixed(1)} ${tPlural('rating_summary_suffix', n.rating_count)}`
           : `<span class="muted">${t('no_ratings_yet_short')}</span>`}
       </div>
       <button class="btn-outline blue small" onclick="toggleNurseDetail(${n.id})">${t('view_profile_btn')}</button>
@@ -2907,7 +3048,7 @@ async function renderNurseDetail(nurseId) {
           </div>
           <textarea id="rating-comment-${nurseId}" placeholder="${t('comment_placeholder')}" rows="2" style="width:100%; padding:10px 14px; border:1px solid #cfe0ef; border-radius:14px; font-family:inherit; font-size:15px; resize:vertical; margin-bottom:10px;"></textarea>
           <input id="rating-name-${nurseId}" placeholder="${t('your_name_placeholder')}" aria-label="${t('your_name_placeholder')}">
-          <input id="rating-phone-${nurseId}" placeholder="${t('your_phone_placeholder')}" aria-label="${t('your_phone_placeholder')}" type="tel" inputmode="numeric" oninput="digitsOnly(this)">
+          <input id="rating-phone-${nurseId}" maxlength="15" placeholder="${t('your_phone_placeholder')}" aria-label="${t('your_phone_placeholder')}" type="tel" inputmode="numeric" oninput="digitsOnly(this)">
           <button class="primary" onclick="submitNurseRating(${nurseId})">${t('submit_rating_btn')}</button>
         `}
     </div>
@@ -2943,6 +3084,7 @@ async function submitNurseRating(nurseId) {
   const phone = document.getElementById(`rating-phone-${nurseId}`).value.trim();
   const comment = document.getElementById(`rating-comment-${nurseId}`).value.trim();
   if (!name || !phone) { customAlert(t('name_phone_required'), 'warning'); return; }
+  if (phone.length < 7) { customAlert(t('phone_too_short_error'), 'warning'); return; }
   try {
     const res = await fetch(`${API}/nurses/${nurseId}/ratings`, {
       method: 'POST',
@@ -3686,10 +3828,10 @@ function detectMyLocation() {
       const acc = Math.round(pos.coords.accuracy || 0);
 
       // تأكيد قبل الحفظ: الصيدلي قد يضغط الزر وهو في بيته لا صيدليته
-      const proceed = await customConfirm(tFormat('location_confirm_detected', { n: acc }), 'warning');
+      const proceed = await customConfirm(tFormat('location_confirm_detected', { n: tPlural('meters_count', acc) }), 'warning');
       if (!proceed) return;
       if (acc > LOCATION_ACCURACY_WARN_METERS) {
-        const anyway = await customConfirm(tFormat('geo_low_accuracy', { n: acc }), 'warning');
+        const anyway = await customConfirm(tFormat('geo_low_accuracy', { n: tPlural('meters_count', acc) }), 'warning');
         if (!anyway) return;
       }
       document.getElementById('location-paste-input').value = `${lat}, ${lng}`;
@@ -4641,26 +4783,27 @@ function renderStatsSection(stats) {
   const s = stats.totals;
 
   // صف واحد من جدول ترتيب: اسم على جهة، رقم على الأخرى
-  const rankRow = (label, value, unit) => `
+  // unitKey: مفتاح صيغ العدد والمعدود (طلب واحد، طلبان، 3 طلبات...)
+  const rankRow = (label, value, unitKey) => `
     <div class="row">
       <span>${escapeHtml(label)}</span>
-      <span class="muted">${value} ${escapeHtml(unit)}</span>
+      <span class="muted">${escapeHtml(tPlural(unitKey, value))}</span>
     </div>`;
 
   const emptyNote = `<p class="muted" style="padding:8px 0; margin:0;">${t('stats_no_orders_yet')}</p>`;
 
   const topMeds = (stats.topMedicines || []).length
-    ? stats.topMedicines.map(m => rankRow(m.name, m.count, t('stats_times_unit'))).join('')
+    ? stats.topMedicines.map(m => rankRow(m.name, m.count, 'stats_times_unit')).join('')
     : emptyNote;
 
   const topPhs = (stats.topPharmacies || []).length
     ? stats.topPharmacies.map(p =>
-        rankRow(p.city ? `${p.name} - ${cityName(p.city)}` : p.name, p.orders_count, t('stats_orders_count_unit'))
+        rankRow(p.city ? `${p.name} - ${cityName(p.city)}` : p.name, p.orders_count, 'stats_orders_count_unit')
       ).join('')
     : emptyNote;
 
   const byCity = (stats.byCity || []).length
-    ? stats.byCity.map(c => rankRow(cityName(c.city), c.count, t('stats_pharmacy_unit'))).join('')
+    ? stats.byCity.map(c => rankRow(cityName(c.city), c.count, 'stats_pharmacy_unit')).join('')
     : '';
 
   return `
@@ -5399,7 +5542,7 @@ function demandListHtml(rows, labelKey, emptyText) {
   return rows.map(r => `
     <div class="demand-row">
       <span class="demand-name"><bdi>${escapeHtml(r[labelKey] || '')}</bdi></span>
-      <span class="demand-count"><bdi>${Number(r.count) || 0}</bdi> ${t('demand_times')}</span>
+      <span class="demand-count">${tPlural('demand_times', r.count, `<bdi>${Number(r.count) || 0}</bdi>`)}</span>
     </div>`).join('');
 }
 
@@ -6274,7 +6417,7 @@ function renderAdminAddressList() {
 async function adminPut(path, body) {
   const res = await fetchWithTimeout(`${API}/pharmacies/${path}`, { method: 'PUT', headers: adminHeaders(), body: JSON.stringify(body) }, 20000);
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(translateApiError(data.error));
+  if (!res.ok) { const e = new Error('admin put failed'); e.userMessage = translateApiError(data.error); throw e; }
   return data;
 }
 
@@ -6319,7 +6462,7 @@ async function saveAdminAddress(id) {
     await customAlert(t('admin_address_saved'), 'success');
   } catch (err) {
     renderAdminAddressList();
-    await customAlert(err.message || t('server_error_title'), 'error');
+    await customAlert(err.userMessage || t('server_error_title'), 'error');
   } finally {
     const b = document.getElementById(`addr-save-${id}`);
     if (b) b.disabled = false;
@@ -6336,7 +6479,7 @@ async function clearAdminLocation(id) {
     renderAdminAddressList();
     await customAlert(t('admin_location_cleared'), 'success');
   } catch (err) {
-    await customAlert(err.message || t('server_error_title'), 'error');
+    await customAlert(err.userMessage || t('server_error_title'), 'error');
   }
 }
 
