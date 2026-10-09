@@ -371,6 +371,11 @@ const translations = {
     offline_banner: 'لا يوجد اتصال بالإنترنت',
     sending_order: 'جارٍ إرسال الطلب...',
     rate_limited_error: 'محاولات كثيرة جداً. حاول بعد قليل.',
+    duty_day_invalid_error: 'يوم المناوبة غير صالح.',
+    duty_shift_invalid_error: 'فترة المناوبة غير صالحة.',
+    duty_time_invalid_error: 'وقت المناوبة غير صالح. اختر الساعة من القائمة.',
+    med_name_too_long_error: 'اسم الدواء طويل جداً، والحد 120 حرفاً.',
+    forbidden_error: 'غير مصرح لك بالوصول إلى هذه البيانات.',
     orders_load_error: 'تعذّر تحميل الطلبات. تحقق من اتصالك بالإنترنت، وستُحدَّث القائمة تلقائياً.',
     session_expired_error: 'تغيّرت بيانات الدخول لهذا الحساب، فتوقف تحديث الطلبات. يرجى تسجيل الخروج ثم الدخول من جديد.',
     ip_protection_label: 'حماية المحاولات:',
@@ -957,6 +962,11 @@ const translations = {
     offline_banner: 'No internet connection',
     sending_order: 'Sending order...',
     rate_limited_error: 'Too many attempts. Please try again shortly.',
+    duty_day_invalid_error: 'Invalid duty day.',
+    duty_shift_invalid_error: 'Invalid duty shift.',
+    duty_time_invalid_error: 'Invalid duty time. Pick the time from the list.',
+    med_name_too_long_error: 'The medicine name is too long (120 characters max).',
+    forbidden_error: 'You are not allowed to access this data.',
     orders_load_error: 'Could not load orders. Check your internet connection; the list will refresh automatically.',
     session_expired_error: 'The login details for this account have changed, so order updates stopped. Please log out and log in again.',
     ip_protection_label: 'Attempt protection:',
@@ -1368,7 +1378,12 @@ const BACKEND_ERROR_MAP = {
   'رقم الهاتف غير صالح': 'phone_invalid_error',
   'العنوان طويل جداً': 'address_too_long_error',
   'العنوان غير صالح': 'invalid_address_error',
-  'محاولات كثيرة جداً. حاول بعد قليل.': 'rate_limited_error'
+  'محاولات كثيرة جداً. حاول بعد قليل.': 'rate_limited_error',
+  'يوم المناوبة غير صالح': 'duty_day_invalid_error',
+  'فترة المناوبة غير صالحة': 'duty_shift_invalid_error',
+  'وقت المناوبة غير صالح': 'duty_time_invalid_error',
+  'اسم الدواء طويل جداً (الحد 120 حرفاً)': 'med_name_too_long_error',
+  'غير مصرح بالوصول لهذه البيانات': 'forbidden_error'
 };
 function translateApiError(rawError) {
   const key = BACKEND_ERROR_MAP[rawError];
@@ -3982,7 +3997,8 @@ async function refreshStock() {
   }
   try {
     // no-store: وقت التحديث يتغيّر بالثانية، وأي تخزين مؤقت بالمتصفح يعرض وقتاً بائتاً
-    const res = await fetch(`${API}/stock/${currentPharmacy.id}`, { cache: 'no-store' });
+    // المخزون (مع تواريخ الصلاحية) للصيدلي صاحبه فقط، فيُرسل بيانات دخوله مع الطلب
+    const res = await fetchWithTimeout(`${API}/stock/${currentPharmacy.id}`, { cache: 'no-store', headers: pharmacyHeaders() }, 20000);
     const data = await readJsonOk(res);
     pharmacistStockCache = data;
     renderStockUI();
@@ -4695,7 +4711,7 @@ function renderAdminPanelUI() {
 
     <div class="box" style="margin-bottom:20px;">
       <h3 style="margin-top:0;">${t('add_medicine_title_admin')}</h3>
-      <input id="med-name" placeholder="${t('med_name_placeholder')}">
+      <input id="med-name" maxlength="120" placeholder="${t('med_name_placeholder')}">
       <input id="med-generic" placeholder="${t('generic_name_placeholder')}">
       <input id="med-alt" placeholder="${t('alt_names_placeholder')}">
       <select id="med-category" onchange="updateMedNamePlaceholder('med-category', 'med-name')">
