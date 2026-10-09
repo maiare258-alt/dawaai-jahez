@@ -947,6 +947,38 @@ async function getOnDutyPharmacies(city) {
 
 // city اختياري: لو مُرِّر، تُعاد صيدليات تلك المدينة فقط. لو كان null أو غير مُمرَّر،
 // يبقى السلوك كما كان تماماً (كل الصيدليات) — صفر تأثير على أي استدعاء قديم.
+// م12: توفر عدة أدوية باستعلام واحد (بدل استعلام لكل دواء). الأعمدة والترتيب داخل كل دواء
+// مطابقان تماماً لـ getAvailability أدناه، والنتيجة خريطة: معرّف الدواء ← قائمة صيدلياته.
+async function getAvailabilityForMedicines(medicineIds, city) {
+  const out = new Map();
+  if (!medicineIds.length) return out;
+  const { rows } = await pool.query(
+    `SELECT m.id AS medicine_id,
+            p.id AS pharmacy_id, p.name AS pharmacy_name, p.address, p.phone, p.assistant_phone, p.city,
+            COALESCE(p.verified, false) AS verified, p.whatsapp_phone,
+            p.latitude, p.longitude,
+            COALESCE(p.manages_stock, false) AS manages_stock,
+            p.opens_at, p.closes_at, p.closed_override_date,
+            COALESCE(p.on_duty, false) AS on_duty,
+            COALESCE(s.available, false) AS available,
+            s.updated_at AS stock_updated_at
+     FROM unnest($1::int[]) WITH ORDINALITY AS m(id, ord)
+     CROSS JOIN pharmacies p
+     LEFT JOIN stock s ON s.pharmacy_id = p.id AND s.medicine_id = m.id
+     WHERE ($2::text IS NULL OR p.city = $2)
+     ORDER BY m.ord,
+              COALESCE(s.available, false) DESC,
+              COALESCE(p.manages_stock, false) DESC,
+              p.name`,
+    [medicineIds, city || null]
+  );
+  for (const { medicine_id, ...row } of rows) {
+    if (!out.has(medicine_id)) out.set(medicine_id, []);
+    out.get(medicine_id).push(row);
+  }
+  return out;
+}
+
 async function getAvailability(medicineId, city) {
   const { rows } = await pool.query(
     `SELECT p.id AS pharmacy_id, p.name AS pharmacy_name, p.address, p.phone, p.assistant_phone, p.city,
@@ -1008,16 +1040,16 @@ async function setStock(pharmacyId, medicineId, available, manufactureDate, expi
 // ON CONFLICT ... DO NOTHING لا يرجّع صفاً عند التصادم، فنقرأ الموجود بعدها.
 // والضمان هنا في القاعدة لا في التطبيق: طلبان متزامنان بالمفتاح نفسه ينتجان
 // طلباً واحداً، ويرجع كلاهما المعرّف نفسه.
-async function createOrder(pharmacyId, patientName, patientPhone, items, notes, requestKey) {
+async function createOrder(pharmacyId, patientName, patientPhone, items, notes, requestKey, q = pool) {
   if (!requestKey) {
-    const { rows } = await pool.query(
+    const { rows } = await q.query(
       `INSERT INTO orders (pharmacy_id, patient_name, patient_phone, items, notes)
        VALUES ($1, $2, $3, $4, $5) RETURNING *`,
       [pharmacyId, patientName, patientPhone, JSON.stringify(items), notes || null]
     );
     return rows[0];
   }
-  const inserted = await pool.query(
+  const inserted = await q.query(
     `INSERT INTO orders (pharmacy_id, patient_name, patient_phone, items, notes, request_key)
      VALUES ($1, $2, $3, $4, $5, $6)
      ON CONFLICT (request_key, pharmacy_id) WHERE request_key IS NOT NULL DO NOTHING
@@ -1025,11 +1057,32 @@ async function createOrder(pharmacyId, patientName, patientPhone, items, notes, 
     [pharmacyId, patientName, patientPhone, JSON.stringify(items), notes || null, requestKey]
   );
   if (inserted.rows.length) return inserted.rows[0];
-  const existing = await pool.query(
+  const existing = await q.query(
     `SELECT * FROM orders WHERE request_key = $1 AND pharmacy_id = $2`,
     [requestKey, pharmacyId]
   );
   return existing.rows[0];
+}
+
+// م13: سلة فيها أكثر من صيدلية تُحفظ دفعة واحدة: كل طلباتها أو لا شيء منها. كان كل طلب يُحفظ
+// وحده، فإن فشل الثاني (صيدلية حُذفت مثلاً) يرى المريض "فشل" بينما الأول وصل فعلاً.
+// groups: [{ pharmacyId, items }]
+async function createOrdersAtomic(groups, patientName, patientPhone, notes, requestKey) {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const orders = [];
+    for (const g of groups) {
+      orders.push(await createOrder(g.pharmacyId, patientName, patientPhone, g.items, notes, requestKey, client));
+    }
+    await client.query('COMMIT');
+    return orders;
+  } catch (err) {
+    await client.query('ROLLBACK').catch(() => {});
+    throw err;
+  } finally {
+    client.release();
+  }
 }
 
 async function getOrdersForPharmacy(pharmacyId) {
@@ -1363,6 +1416,8 @@ module.exports = {
   getStockForPharmacy,
   setStock,
   createOrder,
+  createOrdersAtomic,
+  getAvailabilityForMedicines,
   getOrdersForPharmacy,
   getOrderOwner,
   markOrderSeen,
