@@ -11,6 +11,10 @@ router.param('id', validIdParam);
 router.param('pharmacyId', validIdParam);
 
 const bcrypt = require('bcryptjs');
+
+// ن8: حين لا يوجد اسم المستخدم نقارن كلمة المرور بتجزئة وهمية بالكلفة نفسها (10) بدل الرد
+// فوراً. كان الرد السريع (3 ملّي ثانية مقابل 70) يكشف أي أسماء المستخدمين موجودة.
+const DUMMY_PASSWORD_HASH = bcrypt.hashSync('dawaai-jahez-no-such-user', 10);
 const db = require('../db');
 const rateLimit = require('../middleware/rateLimit');
 
@@ -37,7 +41,7 @@ async function pharmacyOwnsOrder(req, res, next) {
 
   try {
     const pharmacy = await db.findPharmacyByUsername(username);
-    if (!pharmacy) return res.status(401).json({ error: 'بيانات الدخول غير صحيحة' });
+    if (!pharmacy) { await bcrypt.compare(String(password || ''), DUMMY_PASSWORD_HASH); return res.status(401).json({ error: 'بيانات الدخول غير صحيحة' }); }
 
     const valid = await bcrypt.compare(password, pharmacy.owner_password_hash);
     if (!valid) return res.status(401).json({ error: 'بيانات الدخول غير صحيحة' });
@@ -122,11 +126,8 @@ router.post('/', rateLimit(20, 15 * 60 * 1000), async (req, res) => {
       });
     }
 
-    const orders = [];
-    for (const pharmacyId of Object.keys(byPharmacy)) {
-      const order = await db.createOrder(Number(pharmacyId), patient_name, patient_phone, byPharmacy[pharmacyId], notes, requestKey);
-      orders.push(order);
-    }
+    const groups = Object.keys(byPharmacy).map(pid => ({ pharmacyId: Number(pid), items: byPharmacy[pid] }));
+    const orders = await db.createOrdersAtomic(groups, patient_name, patient_phone, notes, requestKey);
     res.status(201).json({ success: true, orders });
   } catch (err) {
     // مفتاح أجنبي لعنصر غير موجود (23503): رفض واضح بدل خطأ خادم
@@ -143,7 +144,9 @@ router.get('/status', async (req, res) => {
     const ids = String(req.query.ids || '')
       .split(',')
       .map(s => Number(s.trim()))
-      .filter(n => Number.isInteger(n) && n > 0);
+      // ن6: ضمن نطاق أعداد PostgreSQL، وإلا رمى الاستعلام خطأً يعود 500. والحد 100 معرّف للطلب الواحد.
+      .filter(n => Number.isInteger(n) && n > 0 && n <= 2147483647)
+      .slice(0, 100);
     if (ids.length === 0) return res.json([]);
     const rows = await db.getOrdersStatus(ids);
     res.json(rows);
@@ -178,7 +181,7 @@ router.get('/:pharmacyId', rateLimit(240, 15 * 60 * 1000), async (req, res) => {
 
   try {
     const pharmacy = await db.findPharmacyByUsername(username);
-    if (!pharmacy) return res.status(401).json({ error: 'بيانات الدخول غير صحيحة' });
+    if (!pharmacy) { await bcrypt.compare(String(password || ''), DUMMY_PASSWORD_HASH); return res.status(401).json({ error: 'بيانات الدخول غير صحيحة' }); }
 
     const valid = await bcrypt.compare(password, pharmacy.owner_password_hash);
     if (!valid) return res.status(401).json({ error: 'بيانات الدخول غير صحيحة' });
