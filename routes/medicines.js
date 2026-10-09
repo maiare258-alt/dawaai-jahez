@@ -10,6 +10,10 @@ function validIdParam(req, res, next, value) {
 router.param('id', validIdParam);
 
 const bcrypt = require('bcryptjs');
+
+// ن8: حين لا يوجد اسم المستخدم نقارن كلمة المرور بتجزئة وهمية بالكلفة نفسها (10) بدل الرد
+// فوراً. كان الرد السريع (3 ملّي ثانية مقابل 70) يكشف أي أسماء المستخدمين موجودة.
+const DUMMY_PASSWORD_HASH = bcrypt.hashSync('dawaai-jahez-no-such-user', 10);
 const db = require('../db');
 const adminAuth = require('../middleware/adminAuth');
 const rateLimit = require('../middleware/rateLimit');
@@ -20,6 +24,11 @@ const ALLOWED_CATEGORIES = ['medicine', 'cosmetic'];
 // رسالة موحّدة لحالة "الدواء موجود مسبقاً" — مطابقة تماماً لمفتاح الترجمة بالواجهة
 // (BACKEND_ERROR_MAP بملف app.js)، فأي تعديل هون لازم يتزامن معه هناك.
 const DUPLICATE_MEDICINE_ERROR = 'هذا الدواء موجود مسبقاً في القائمة العامة';
+
+// ن7: الحد نفسه الذي يقبله مسار الطلبات لاسم الدواء. كان يُقبل اسم أطول عند الإضافة، ثم
+// يُرفض كل طلب يحويه، فيبقى الدواء ظاهراً في البحث ولا يمكن طلبه أبداً.
+const MAX_MEDICINE_NAME = 120;
+const NAME_TOO_LONG_ERROR = 'اسم الدواء طويل جداً (الحد 120 حرفاً)';
 
 // تتحقق من صحة category: غير موجودة إطلاقاً → القيمة الافتراضية (توافق مع السلوك القديم)
 // موجودة بس غير صحيحة → خطأ صريح، بدون أي تحويل تلقائي
@@ -57,18 +66,24 @@ router.post('/search-log', rateLimit(30, 15 * 60 * 1000), async (req, res) => {
   res.status(204).end();
 });
 
-router.get('/search', async (req, res) => {
-  const q = req.query.q || '';
+// م12: البحث عام ومفتوح، فله حدود تحمي الخادم المجاني دون أن تمس المريض:
+//  - حرفان على الأقل (الواجهة لا تبحث حياً بأقل من ذلك أصلاً)، و100 حرف على الأكثر.
+//  - 600 بحث كل 15 دقيقة لكل عنوان: سخي عمداً، لأن مشتركي شبكة الهاتف قد يتشاركون عنواناً واحداً،
+//    ويكفي لإيقاف إغراق آلي.
+//  - التوفر لكل الأدوية المطابقة يُجلب باستعلام واحد بدل استعلام لكل دواء.
+const SEARCH_RATE = rateLimit(600, 15 * 60 * 1000);
+
+router.get('/search', SEARCH_RATE, async (req, res) => {
+  const q = typeof req.query.q === 'string' ? req.query.q.trim() : '';
   const category = req.query.category || 'medicine';
   // فلتر مدينة اختياري. أي قيمة غير معروفة تُعامل كـ"كل المدن" بدل رمي خطأ —
   // البحث واجهة مريض عامة، وتعطيلها بسبب معامل تالف سلوك سيئ.
-  const city = req.query.city || null;
+  const city = typeof req.query.city === 'string' && /^[a-z_]{2,30}$/.test(req.query.city) ? req.query.city : null;
+  if (q.length < 2 || q.length > 100) return res.json([]);
   try {
     const medicines = await db.searchMedicines(q, category);
-    let results = await Promise.all(medicines.map(async medicine => ({
-      medicine,
-      availability: await db.getAvailability(medicine.id, city)
-    })));
+    const byMedicine = await db.getAvailabilityForMedicines(medicines.map(m => m.id), city);
+    let results = medicines.map(medicine => ({ medicine, availability: byMedicine.get(medicine.id) || [] }));
     // عند الفلترة بمدينة، نستبعد الأدوية التي لا توجد لها أي صيدلية بتلك المدينة،
     // وإلا ظهرت بطاقة دواء فارغة بلا أي صيدلية تحتها.
     if (city) results = results.filter(r => r.availability.length > 0);
@@ -81,8 +96,8 @@ router.get('/search', async (req, res) => {
 
 // اقتراح نتائج متشابهة إملائياً (متاح للجميع - واجهة المريض)
 // GET /api/medicines/suggest?q=بندول&category=medicine
-router.get('/suggest', async (req, res) => {
-  const q = req.query.q || '';
+router.get('/suggest', SEARCH_RATE, async (req, res) => {
+  const q = typeof req.query.q === 'string' ? req.query.q.slice(0, 100) : '';
   const category = req.query.category || 'medicine';
   try {
     const suggestions = await db.suggestMedicines(q, category);
@@ -111,6 +126,7 @@ router.post('/', adminAuth, async (req, res) => {
   // تنظيف المسافات الزائدة: بدونه "بنادول " و"بنادول" بيُعتبروا دواءين مختلفين تماماً
   const name = typeof req.body.name === 'string' ? req.body.name.trim() : '';
   if (!name) return res.status(400).json({ error: 'الاسم مطلوب' });
+  if (name.length > MAX_MEDICINE_NAME) return res.status(400).json({ error: NAME_TOO_LONG_ERROR });
   const { value: validCategory, error: categoryError } = validateCategory(category);
   if (categoryError) return res.status(400).json({ error: categoryError });
   try {
@@ -135,11 +151,12 @@ router.post('/self', async (req, res) => {
     return res.status(400).json({ error: 'بيانات الدخول مطلوبة' });
   }
   if (!name) return res.status(400).json({ error: 'الاسم مطلوب' });
+  if (name.length > MAX_MEDICINE_NAME) return res.status(400).json({ error: NAME_TOO_LONG_ERROR });
   const { value: validCategory, error: categoryError } = validateCategory(category);
   if (categoryError) return res.status(400).json({ error: categoryError });
   try {
     const pharmacy = await db.findPharmacyByUsername(username);
-    if (!pharmacy) return res.status(401).json({ error: 'بيانات الدخول غير صحيحة' });
+    if (!pharmacy) { await bcrypt.compare(String(password || ''), DUMMY_PASSWORD_HASH); return res.status(401).json({ error: 'بيانات الدخول غير صحيحة' }); }
 
     const valid = await bcrypt.compare(password, pharmacy.owner_password_hash);
     if (!valid) return res.status(401).json({ error: 'بيانات الدخول غير صحيحة' });
@@ -173,15 +190,16 @@ router.post('/bulk-import', async (req, res) => {
   }
   try {
     const pharmacy = await db.findPharmacyByUsername(username);
-    if (!pharmacy) return res.status(401).json({ error: 'بيانات الدخول غير صحيحة' });
+    if (!pharmacy) { await bcrypt.compare(String(password || ''), DUMMY_PASSWORD_HASH); return res.status(401).json({ error: 'بيانات الدخول غير صحيحة' }); }
     const valid = await bcrypt.compare(password, pharmacy.owner_password_hash);
     if (!valid) return res.status(401).json({ error: 'بيانات الدخول غير صحيحة' });
 
     let added = 0, linked = 0, skipped = 0;
     const errors = [];
     for (const item of items) {
-      const name = (item.name || '').trim();
+      const name = typeof (item && item.name) === 'string' ? item.name.trim() : '';
       if (!name) { skipped++; continue; }
+      if (name.length > MAX_MEDICINE_NAME) { skipped++; errors.push(`${name.slice(0, 40)}…: ${NAME_TOO_LONG_ERROR}`); continue; }
       const { value: validCategory, error: categoryError } = validateCategory(item.category);
       if (categoryError) { skipped++; errors.push(`${name}: ${categoryError}`); continue; }
       try {
