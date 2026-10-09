@@ -724,7 +724,10 @@ const translations = {
     bulk_import_cancel_btn: 'إلغاء',
     bulk_import_empty_name_issue: 'اسم الدواء مفقود',
     bulk_import_invalid_category_issue: 'تصنيف غير معروف (استخدم دواء أو مستحضر تجميل)',
-    bulk_import_parse_error: 'تعذّر قراءة الملف. تأكد إنه بصيغة CSV وبنفس تنسيق النموذج.',
+    bulk_import_parse_error: 'تعذّرت قراءة الملف. تأكد أنه بصيغة CSV وبتنسيق النموذج نفسه.',
+    bulk_import_too_many: 'في الملف {count} صنفاً، والحد 500 في المرة الواحدة. قسّمه إلى ملفات أصغر واستوردها واحداً بعد آخر.',
+    bulk_import_errors_title: 'لم تُستورد هذه الأسطر:',
+    orders_sync_paused: 'تعذّر تحديث الطلبات، ونعيد المحاولة تلقائياً…',
     bulk_import_no_valid_rows: 'لا يوجد في الملف أي صف صالح للاستيراد.',
     bulk_import_success: 'تم الاستيراد: {added} دواء جديد، {linked} مربوط بمخزونك، {skipped} تم تجاهله.',
     bulk_import_col_name: 'الاسم',
@@ -1316,6 +1319,9 @@ const translations = {
     bulk_import_empty_name_issue: 'Medicine name is missing',
     bulk_import_invalid_category_issue: 'Unknown category (use "دواء" or "مستحضر تجميل")',
     bulk_import_parse_error: "Couldn't read the file. Make sure it's a CSV matching the template format.",
+    bulk_import_too_many: 'The file has {count} items; the limit is 500 at a time. Split it into smaller files and import them one by one.',
+    bulk_import_errors_title: 'These rows were not imported:',
+    orders_sync_paused: 'Could not refresh orders. Retrying automatically…',
     bulk_import_no_valid_rows: 'No valid rows found in the file.',
     bulk_import_success: 'Import complete: {added} new medicines, {linked} linked to your stock, {skipped} skipped.',
     bulk_import_col_name: 'Name',
@@ -1386,6 +1392,8 @@ const BACKEND_ERROR_MAP = {
   'غير مصرح بالوصول لهذه البيانات': 'forbidden_error'
 };
 function translateApiError(rawError) {
+  // رد بلا رسالة (صفحة خطأ من الخادم الوسيط مثلاً): رسالة عامة مفهومة بدل نافذة فارغة
+  if (!rawError || typeof rawError !== 'string') return t('server_error_title');
   const key = BACKEND_ERROR_MAP[rawError];
   return key ? t(key) : rawError;
 }
@@ -1494,6 +1502,8 @@ function applyLanguage() {
   // ---------- لوحة الصيدلي ----------
   document.getElementById('pharm-dash-title').textContent = t('pharm_dashboard_title');
   document.getElementById('new-orders-title').textContent = t('new_orders_title');
+  const syncNote = document.getElementById('orders-sync-note');
+  if (syncNote && syncNote.style.display !== 'none') syncNote.textContent = t('orders_sync_paused');
   document.getElementById('duty-status-title').textContent = t('duty_status_title');
   document.getElementById('duty-checkbox-label').textContent = t('duty_checkbox_label');
   document.getElementById('save-duty-btn').textContent = t('save_duty_btn');
@@ -3245,7 +3255,7 @@ function renderPharmacyAuthForm() {
         <input id="login-password" type="password" placeholder="${t('password_placeholder')}" onkeydown="if(event.key==='Enter') login()">
         <button type="button" class="toggle-password" onclick="togglePassword('login-password', this)" aria-label="${t('show_password_aria')}">👁</button>
       </div>
-      <button class="primary" onclick="login()">${t('login_btn')}</button>
+      <button class="primary" id="login-btn" onclick="login()">${t('login_btn')}</button>
     </div>
     ${joinBoxHtml()}
   `;
@@ -3374,15 +3384,16 @@ function toggleJoinedList() {
   refreshJoinBox();
 }
 
-async function login() {
+function login() { return runGuarded('login', 'login-btn', loginNow); }
+async function loginNow() {
   const username = document.getElementById('login-username').value;
   const password = document.getElementById('login-password').value;
   try {
-    const res = await fetch(`${API}/pharmacies/login`, {
+    const res = await fetchWithTimeout(`${API}/pharmacies/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username, password })
-    });
+    }, 20000);
     const data = await res.json();
     if (!res.ok) { customAlert(translateApiError(data.error), 'error'); return; }
     currentPharmacy = { ...data, username, password };
@@ -3436,14 +3447,15 @@ function onDutyToggle() {
   document.getElementById('duty-end-time').disabled = !enabled;
 }
 
-async function saveDuty() {
+function saveDuty() { return runGuarded('saveDuty', 'save-duty-btn', saveDutyNow); }
+async function saveDutyNow() {
   const on_duty = document.getElementById('duty-checkbox').checked;
   const on_duty_day = document.getElementById('duty-day').value;
   const on_duty_shift = document.getElementById('duty-shift').value;
   const on_duty_start_time = document.getElementById('duty-start-time').value;
   const on_duty_end_time = document.getElementById('duty-end-time').value;
   try {
-    const res = await fetch(`${API}/pharmacies/self/duty`, {
+    const res = await fetchWithTimeout(`${API}/pharmacies/self/duty`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -3455,7 +3467,7 @@ async function saveDuty() {
         on_duty_start_time,
         on_duty_end_time
       })
-    });
+    }, 20000);
     const data = await res.json();
     if (!res.ok) { customAlert(translateApiError(data.error), 'error'); return; }
     currentPharmacy.on_duty = data.on_duty;
@@ -3515,7 +3527,7 @@ async function submitPharmacyHours(opens, closes) {
   const btn = document.getElementById('save-hours-btn');
   if (btn) btn.disabled = true;
   try {
-    const res = await fetch(`${API}/pharmacies/self/hours`, {
+    const res = await fetchWithTimeout(`${API}/pharmacies/self/hours`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -3524,7 +3536,7 @@ async function submitPharmacyHours(opens, closes) {
         opens_at: opens,
         closes_at: closes
       })
-    });
+    }, 20000);
     const data = await res.json();
     if (!res.ok) { await customAlert(translateApiError(data.error), 'error'); return; }
 
@@ -3547,7 +3559,7 @@ async function toggleClosedToday() {
   const btn = document.getElementById('closed-today-btn');
   if (btn) btn.disabled = true;
   try {
-    const res = await fetch(`${API}/pharmacies/self/closed-today`, {
+    const res = await fetchWithTimeout(`${API}/pharmacies/self/closed-today`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -3555,7 +3567,7 @@ async function toggleClosedToday() {
         password: currentPharmacy.password,
         closed: !closedNow
       })
-    });
+    }, 20000);
     const data = await res.json();
     if (!res.ok) { await customAlert(translateApiError(data.error), 'error'); return; }
 
@@ -3717,7 +3729,7 @@ async function savePharmacyLocation(lat, lng) {
   const saveBtn = document.getElementById('save-location-btn');
   if (saveBtn) saveBtn.disabled = true;
   try {
-    const res = await fetch(`${API}/pharmacies/self/location`, {
+    const res = await fetchWithTimeout(`${API}/pharmacies/self/location`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -3726,7 +3738,7 @@ async function savePharmacyLocation(lat, lng) {
         latitude: lat,
         longitude: lng
       })
-    });
+    }, 20000);
     const data = await res.json();
     if (!res.ok) { await customAlert(translateApiError(data.error), 'error'); return; }
 
@@ -3748,7 +3760,7 @@ async function saveWhatsappPhone() {
   const btn = document.getElementById('save-whatsapp-btn');
   if (btn) btn.disabled = true;
   try {
-    const res = await fetch(`${API}/pharmacies/self/whatsapp`, {
+    const res = await fetchWithTimeout(`${API}/pharmacies/self/whatsapp`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -3756,7 +3768,7 @@ async function saveWhatsappPhone() {
         password: currentPharmacy.password,
         whatsapp_phone: raw
       })
-    });
+    }, 20000);
     const data = await res.json();
     if (!res.ok) { await customAlert(translateApiError(data.error), 'error'); return; }
 
@@ -3772,10 +3784,11 @@ async function saveWhatsappPhone() {
   }
 }
 
-async function saveAssistantPhone() {
+function saveAssistantPhone() { return runGuarded('saveAssistantPhone', 'save-assistant-phone-btn', saveAssistantPhoneNow); }
+async function saveAssistantPhoneNow() {
   const assistant_phone = document.getElementById('assistant-phone-input').value.trim();
   try {
-    const res = await fetch(`${API}/pharmacies/self/assistant-phone`, {
+    const res = await fetchWithTimeout(`${API}/pharmacies/self/assistant-phone`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -3783,7 +3796,7 @@ async function saveAssistantPhone() {
         password: currentPharmacy.password,
         assistant_phone
       })
-    });
+    }, 20000);
     const data = await res.json();
     if (!res.ok) { customAlert(translateApiError(data.error), 'error'); return; }
     currentPharmacy.assistant_phone = data.assistant_phone;
@@ -3799,6 +3812,29 @@ function logout() {
   pharmacistStockCache = [];
   pharmacistOrdersCache = [];
   ordersLoadedOnce = false;
+  ordersSyncFailures = 0;
+  // م8: جهاز الصيدلية قد يتشاركه أكثر من شخص. لا يبقى شيء من الجلسة السابقة: معاينة استيراد
+  // كان يمكن للصيدلي التالي إرسالها إلى حسابه هو، وكلمات مرور ربما ظاهرة، ونماذج نصف معبأة،
+  // وقوائم الطلبات والمخزون بأسماء المرضى وهواتفهم.
+  cancelBulkImport();
+  ['current-password-input', 'new-password-input', 'confirm-password-input'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) { el.value = ''; el.type = 'password'; }
+  });
+  document.querySelectorAll('#pharmacist-dashboard .toggle-password').forEach(b => { b.textContent = '👁'; });
+  ['pharm-med-name', 'pharm-med-generic', 'pharm-med-alt', 'assistant-phone-input', 'whatsapp-phone-input',
+   'main-phone-input', 'location-paste-input', 'hours-opens-input', 'hours-closes-input',
+   'duty-start-time', 'duty-end-time'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+  const dutyBox = document.getElementById('duty-checkbox');
+  if (dutyBox) { dutyBox.checked = false; onDutyToggle(); }
+  const list = document.getElementById('orders-list');
+  if (list) list.innerHTML = '';
+  const stockList = document.getElementById('stock-list');
+  if (stockList) stockList.innerHTML = '';
+  setOrdersSyncNote(false);
   document.getElementById('pharmacist-dashboard').style.display = 'none';
   renderPharmacyAuthForm();
 }
@@ -3808,14 +3844,15 @@ function updateMedNamePlaceholder(selectId, inputId) {
   document.getElementById(inputId).placeholder = category === 'cosmetic' ? t('med_name_placeholder_cosmetic') : t('med_name_placeholder');
 }
 
-async function addMedicineSelf() {
+function addMedicineSelf() { return runGuarded('addMedicineSelf', 'add-med-btn', addMedicineSelfNow); }
+async function addMedicineSelfNow() {
   const name = document.getElementById('pharm-med-name').value.trim();
   const generic_name = document.getElementById('pharm-med-generic').value.trim();
   const alt_names = document.getElementById('pharm-med-alt').value.split(',').map(s => s.trim()).filter(Boolean);
   const category = document.getElementById('pharm-med-category').value;
   if (!name) { customAlert(t('med_name_required'), 'warning'); return; }
   try {
-    const res = await fetch(`${API}/medicines/self`, {
+    const res = await fetchWithTimeout(`${API}/medicines/self`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -3823,7 +3860,7 @@ async function addMedicineSelf() {
         password: currentPharmacy.password,
         name, generic_name, alt_names, category
       })
-    });
+    }, 20000);
     const data = await res.json();
     if (!res.ok) { customAlert(translateApiError(data.error), 'error'); return; }
     document.getElementById('pharm-med-name').value = '';
@@ -3868,10 +3905,36 @@ function parseCategoryLabel(raw) {
   return { value: null, invalid: true };
 }
 
-// تقسيم بسيط لسطر بفاصل معيّن (فاصلة أو تاب، حسب صيغة الملف المكتشفة)
-function parseCsvLine(line, delimiter) {
-  return line.split(delimiter).map(s => s.trim());
+// قراءة CSV بقواعده الكاملة: إكسل وGoogle Sheets يضعان الخلية بين علامتي تنصيص إن احتوت
+// الفاصل نفسه أو سطراً جديداً، ويكرران علامة التنصيص داخلها (""). كان التقسيم البسيط عند كل
+// فاصلة يزيح الأعمدة في هذه الحالات (اسم بديل فيه فاصلة مثلاً).
+function parseCsv(text, delimiter) {
+  const rows = [];
+  let row = [], field = '', inQuotes = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (inQuotes) {
+      if (c === '"') {
+        if (text[i + 1] === '"') { field += '"'; i++; } else inQuotes = false;
+      } else field += c;
+    } else if (c === '"' && field.trim() === '') {
+      inQuotes = true; field = '';
+    } else if (c === delimiter) {
+      row.push(field.trim()); field = '';
+    } else if (c === '\n' || c === '\r') {
+      if (c === '\r' && text[i + 1] === '\n') i++;
+      row.push(field.trim()); field = '';
+      if (row.some(v => v !== '')) rows.push(row);
+      row = [];
+    } else field += c;
+  }
+  row.push(field.trim());
+  if (row.some(v => v !== '')) rows.push(row);
+  return rows;
 }
+
+// الحد الأقصى لدفعة واحدة، مطابق لحد الخادم (routes/medicines.js)
+const BULK_IMPORT_MAX = 500;
 
 function handleBulkImportFile(event) {
   const file = event.target.files[0];
@@ -3891,18 +3954,30 @@ function handleBulkImportFile(event) {
       } else if (bytes.length >= 2 && bytes[0] === 0xFE && bytes[1] === 0xFF) {
         encoding = 'utf-16be'; offset = 2;
       } else {
-        encoding = 'windows-1256'; offset = 0;
+        // بلا علامة: نجرّب UTF-8 أولاً (Google Sheets وLibreOffice وأغلب الهواتف تحفظ به دون
+        // علامة)، فإن لم يكن نصاً صالحاً به فهو ترميز الجهاز العربي القديم. كان كل ملف بلا
+        // علامة يُقرأ بالترميز القديم، فتتحول أسماء ملف Google Sheets العربية إلى رموز مشوّهة.
+        offset = 0;
+        try { new TextDecoder('utf-8', { fatal: true }).decode(bytes); encoding = 'utf-8'; }
+        catch (e) { encoding = 'windows-1256'; }
       }
       const decoder = new TextDecoder(encoding);
       const text = decoder.decode(bytes.slice(offset));
 
-      const lines = text.split(/\r\n|\n|\r/).filter(l => l.trim() !== '');
-      if (lines.length === 0) { customAlert(t('bulk_import_parse_error'), 'error'); return; }
-      // صيغة "Unicode Text" بإكسل بتفصل الأعمدة بـ Tab بدل الفاصلة — نكتشف هيك أوتوماتيكياً
-      const delimiter = lines[0].includes('\t') ? '\t' : ',';
-      const dataLines = lines.slice(1); // أول سطر عناوين الأعمدة، نتجاوزه
-      bulkImportParsedRows = dataLines.map(line => {
-        const [name, generic_name, altRaw, categoryRaw] = parseCsvLine(line, delimiter);
+      const firstLine = (text.split(/\r\n|\n|\r/).find(l => l.trim() !== '') || '');
+      if (!firstLine) { customAlert(t('bulk_import_parse_error'), 'error'); return; }
+      // الفاصل من سطر العناوين: Tab (صيغة "Unicode Text" بإكسل)، أو فاصلة منقوطة (إكسل في
+      // بعض إعدادات المنطقة)، أو فاصلة (الأغلب)
+      const counts = { '\t': firstLine.split('\t').length, ';': firstLine.split(';').length, ',': firstLine.split(',').length };
+      const delimiter = counts['\t'] > 1 ? '\t' : (counts[';'] > counts[','] ? ';' : ',');
+      const dataRows = parseCsv(text, delimiter).slice(1); // أول سطر عناوين الأعمدة، نتجاوزه
+      if (dataRows.length > BULK_IMPORT_MAX) {
+        customAlert(tFormat('bulk_import_too_many', { count: dataRows.length }), 'warning');
+        cancelBulkImport();
+        return;
+      }
+      bulkImportParsedRows = dataRows.map(cols => {
+        const [name, generic_name, altRaw, categoryRaw] = cols;
         const alt_names = (altRaw || '').split(';').map(s => s.trim()).filter(Boolean);
         const { value: category, invalid: invalidCategory } = parseCategoryLabel(categoryRaw);
         const issues = [];
@@ -3955,25 +4030,30 @@ function renderBulkImportPreview() {
       </div>
     </div>
     <div style="display:flex; gap:10px;">
-      <button class="primary" onclick="confirmBulkImport()" ${validRows.length === 0 ? 'disabled' : ''}>${t('bulk_import_confirm_btn')}</button>
+      <button class="primary" id="bulk-import-confirm-btn" onclick="confirmBulkImport()" ${validRows.length === 0 ? 'disabled' : ''}>${t('bulk_import_confirm_btn')}</button>
       <button type="button" class="btn-outline blue small" onclick="cancelBulkImport()">${t('bulk_import_cancel_btn')}</button>
     </div>
   `;
 }
 
-async function confirmBulkImport() {
+function confirmBulkImport() { return runGuarded('confirmBulkImport', 'bulk-import-confirm-btn', confirmBulkImportNow); }
+async function confirmBulkImportNow() {
   const validRows = bulkImportParsedRows.filter(r => r.issues.length === 0)
     .map(({ name, generic_name, alt_names, category }) => ({ name, generic_name, alt_names, category }));
   if (validRows.length === 0) return;
   try {
-    const res = await fetch(`${API}/medicines/bulk-import`, {
+    const res = await fetchWithTimeout(`${API}/medicines/bulk-import`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username: currentPharmacy.username, password: currentPharmacy.password, items: validRows })
-    });
+    }, 60000);
     const data = await res.json();
     if (!res.ok) { customAlert(translateApiError(data.error), 'error'); return; }
-    await customAlert(tFormat('bulk_import_success', { added: data.added, linked: data.linked, skipped: data.skipped }), 'success');
+    // الأسطر التي رفضها الخادم (اسم طويل جداً مثلاً) كانت تُهمل بصمت: نعرض أولها مع السبب
+    const errs = Array.isArray(data.errors) ? data.errors.slice(0, 5) : [];
+    const more = Array.isArray(data.errors) && data.errors.length > 5 ? `\n… (+${data.errors.length - 5})` : '';
+    await customAlert(tFormat('bulk_import_success', { added: data.added, linked: data.linked, skipped: data.skipped })
+      + (errs.length ? `\n\n${t('bulk_import_errors_title')}\n` + errs.map(e => '• ' + translateApiError(e)).join('\n') + more : ''), errs.length ? 'warning' : 'success');
     cancelBulkImport();
     refreshStock();
   } catch (err) {
@@ -3995,14 +4075,17 @@ async function refreshStock() {
   if (isFirstLoad) {
     document.getElementById('stock-list').innerHTML = skeletonHtml(4);
   }
+  const owner = currentPharmacy;
   try {
     // no-store: وقت التحديث يتغيّر بالثانية، وأي تخزين مؤقت بالمتصفح يعرض وقتاً بائتاً
     // المخزون (مع تواريخ الصلاحية) للصيدلي صاحبه فقط، فيُرسل بيانات دخوله مع الطلب
     const res = await fetchWithTimeout(`${API}/stock/${currentPharmacy.id}`, { cache: 'no-store', headers: pharmacyHeaders() }, 20000);
     const data = await readJsonOk(res);
+    if (currentPharmacy !== owner) return;   // خرج الصيدلي (أو دخل غيره) أثناء الانتظار
     pharmacistStockCache = data;
     renderStockUI();
   } catch (err) {
+    if (currentPharmacy !== owner) return;
     // فشل أول تحميل بس — لازم نستبدل "جاري التحميل" برسالة خطأ واضحة، عشان ما تضل عالقة للأبد
     if (isFirstLoad) {
       document.getElementById('stock-list').innerHTML = `<p class="muted">${t('server_error_title')}</p>`;
@@ -4075,24 +4158,30 @@ function toggleStockDates(medicineId) {
   }
 }
 
-async function saveStockDates(medicineId) {
+function saveStockDates(medicineId) { return runGuarded('saveStockDates:' + medicineId, null, () => saveStockDatesNow(medicineId)); }
+async function saveStockDatesNow(medicineId) {
   const m = pharmacistStockCache.find(x => x.medicine_id === medicineId);
   if (!m) return;
   const manufactureDate = document.getElementById(`mfg-date-${medicineId}`).value || null;
   const expiryDate = document.getElementById(`exp-date-${medicineId}`).value || null;
-  const res = await fetch(`${API}/stock/${currentPharmacy.id}/${medicineId}`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      available: m.available,
-      username: currentPharmacy.username,
-      password: currentPharmacy.password,
-      manufactureDate, expiryDate
-    })
-  });
-  if (!res.ok) {
-    const data = await res.json().catch(() => ({}));
-    customAlert(translateApiError(data.error) || t('server_error_title'), 'error');
+  try {
+    const res = await fetchWithTimeout(`${API}/stock/${currentPharmacy.id}/${medicineId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        available: m.available,
+        username: currentPharmacy.username,
+        password: currentPharmacy.password,
+        manufactureDate, expiryDate
+      })
+    }, 20000);
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      await customAlert(translateApiError(data.error), 'error');
+      return;
+    }
+  } catch (err) {
+    await customAlert(t('server_error_title'), 'error');
     return;
   }
   refreshStock();
@@ -4148,8 +4237,21 @@ function stopOrdersPolling() {
 // نتتبّع أول تحميل لكل جلسة دخول فقط، عشان مؤشر "جاري التحميل" ما يتكرر مع كل polling (تفادياً للوميض)
 let ordersLoadedOnce = false;
 
+// تنبيه توقف تحديث الطلبات. كان الفشل في التحديث الدوري يُخفى تماماً (تبقى آخر قائمة
+// ظاهرة)، فيظن الصيدلي أن لا طلبات جديدة بينما الاتصال منقطع أو الخادم يرفض مؤقتاً.
+// يظهر بعد فشلين متتاليين (نحو 24 ثانية، فلا يومض لانقطاع لحظي)، ويختفي مع أول نجاح.
+let ordersSyncFailures = 0;
+function setOrdersSyncNote(show) {
+  const note = document.getElementById('orders-sync-note');
+  if (!note) return;
+  note.textContent = t('orders_sync_paused');
+  note.style.display = show ? 'block' : 'none';
+}
+
 async function loadOrders() {
   const wasFirstLoad = !ordersLoadedOnce;
+  const owner = currentPharmacy;
+  if (!owner) return;
   if (wasFirstLoad) {
     document.getElementById('orders-wrap').style.display = 'block';
     document.getElementById('orders-list').innerHTML = skeletonHtml(2);
@@ -4176,13 +4278,19 @@ async function loadOrders() {
       throw new Error(`HTTP ${res.status} — ${bodyText}`);
     }
     const orders = await res.json();
+    if (currentPharmacy !== owner) return;   // خرج الصيدلي أثناء الانتظار: لا نعرض طلبات حساب سابق
     pharmacistOrdersCache = orders;
     renderOrdersUI();
+    ordersSyncFailures = 0;
+    setOrdersSyncNote(false);
   } catch (err) {
-    // عند أول تحميل فقط نعرض الرسالة. في الاستطلاع اللاحق نُبقي آخر قائمة ناجحة ظاهرة،
-    // فانقطاع لحظي لا يمسح طلبات يراها الصيدلي أمامه.
+    if (currentPharmacy !== owner) return;
+    // عند أول تحميل نعرض الرسالة. في الاستطلاع اللاحق نُبقي آخر قائمة ناجحة ظاهرة،
+    // فانقطاع لحظي لا يمسح طلبات يراها الصيدلي أمامه، وننبّه إن تكرر الفشل.
     if (wasFirstLoad) {
       document.getElementById('orders-list').innerHTML = `<p class="muted">${t('orders_load_error')}</p>`;
+    } else if (++ordersSyncFailures >= 2) {
+      setOrdersSyncNote(true);
     }
   }
   ordersLoadedOnce = true;
@@ -4218,6 +4326,25 @@ function renderOrdersUI() {
       </div>
     </div>
   `).join('');
+}
+
+// زر واحد = طلب واحد. على الإنترنت الضعيف لا يرى الصيدلي أثراً فورياً فيضغط مرة ثانية،
+// فكان الطلب يُرسل مرتين (دواء أو ممرض أو حساب مكرر). أثناء الإرسال يُعطَّل الزر، وأي
+// ضغطة أخرى على العملية نفسها تُتجاهل حتى يعود الرد. الزر يُجلب بمعرّفه من جديد في النهاية
+// لأن بعض العمليات تعيد رسم اللوحة فيتبدل العنصر.
+const staffBusy = new Set();
+async function runGuarded(key, btnId, fn) {
+  if (staffBusy.has(key)) return;
+  staffBusy.add(key);
+  const btn = btnId ? document.getElementById(btnId) : null;
+  if (btn) btn.disabled = true;
+  try {
+    return await fn();
+  } finally {
+    staffBusy.delete(key);
+    const b = btnId ? document.getElementById(btnId) : null;
+    if (b) b.disabled = false;
+  }
 }
 
 // ترويسات مصادقة الصيدلي. تُشفَّر لأن الترويسات لا تقبل أحرفاً غير لاتينية،
@@ -4260,11 +4387,11 @@ async function toggleStock(medicineId, newValue) {
   }
 
   try {
-    const res = await fetch(`${API}/stock/${currentPharmacy.id}/${medicineId}`, {
+    const res = await fetchWithTimeout(`${API}/stock/${currentPharmacy.id}/${medicineId}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ available: newValue, username: currentPharmacy.username, password: currentPharmacy.password })
-    });
+    }, 20000);
     if (!res.ok) throw new Error('save failed');
   } catch (err) {
     // فشل الحفظ: نرجّع الحالة السابقة بدل ترك الصيدلي يظن أن التغيير حُفظ وهو لم يُحفظ
@@ -4279,16 +4406,24 @@ async function toggleStock(medicineId, newValue) {
   refreshStock();
 }
 
-async function deleteMyAccount() {
+function deleteMyAccount() { return runGuarded('deleteMyAccount', 'delete-account-btn', deleteMyAccountNow); }
+async function deleteMyAccountNow() {
   const confirmed = await customConfirm(t('delete_account_confirm'), 'warning');
   if (!confirmed) return;
-  const res = await fetch(`${API}/pharmacies/self`, {
-    method: 'DELETE',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ username: currentPharmacy.username, password: currentPharmacy.password })
-  });
-  const data = await res.json();
-  if (!res.ok) { customAlert(translateApiError(data.error), 'error'); return; }
+  // كانت بلا معالجة أخطاء: انقطاع الشبكة بعد التأكيد لا يُظهر أي شيء، فلا يعرف الصيدلي
+  // هل حُذف حسابه أم لا
+  try {
+    const res = await fetchWithTimeout(`${API}/pharmacies/self`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: currentPharmacy.username, password: currentPharmacy.password })
+    }, 20000);
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) { await customAlert(translateApiError(data.error), 'error'); return; }
+  } catch (err) {
+    await customAlert(t('server_error_title'), 'error');
+    return;
+  }
   await customAlert(t('account_deleted_success'), 'success');
   logout();
 }
@@ -4847,7 +4982,8 @@ async function addPharmacy() {
 // ---------- كلمة المرور ----------
 
 // تغيير الصيدلي كلمته بنفسه
-async function changeMyPassword() {
+function changeMyPassword() { return runGuarded('changeMyPassword', 'change-password-btn', changeMyPasswordNow); }
+async function changeMyPasswordNow() {
   const current = document.getElementById('current-password-input').value;
   const next = document.getElementById('new-password-input').value;
   const confirm = document.getElementById('confirm-password-input').value;
@@ -4857,7 +4993,7 @@ async function changeMyPassword() {
   if (next !== confirm) { await customAlert(t('passwords_not_matching'), 'warning'); return; }
 
   try {
-    const res = await fetch(`${API}/pharmacies/self/password`, {
+    const res = await fetchWithTimeout(`${API}/pharmacies/self/password`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -4867,7 +5003,7 @@ async function changeMyPassword() {
         password: current,
         new_password: next
       })
-    });
+    }, 20000);
     const data = await res.json();
     if (!res.ok) { await customAlert(translateApiError(data.error), 'error'); return; }
 
@@ -6072,11 +6208,11 @@ async function saveMainPhone() {
   const btn = document.getElementById('save-main-phone-btn');
   if (btn) btn.disabled = true;
   try {
-    const res = await fetch(`${API}/pharmacies/self/phone`, {
+    const res = await fetchWithTimeout(`${API}/pharmacies/self/phone`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username: currentPharmacy.username, password: currentPharmacy.password, phone: input.value })
-    });
+    }, 20000);
     const data = await res.json().catch(() => ({}));
     if (!res.ok) { await customAlert(translateApiError(data.error), 'error'); return; }
     currentPharmacy.phone = data.phone;
