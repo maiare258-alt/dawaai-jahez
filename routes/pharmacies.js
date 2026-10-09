@@ -10,6 +10,10 @@ function validIdParam(req, res, next, value) {
 router.param('id', validIdParam);
 
 const bcrypt = require('bcryptjs');
+
+// ن8: حين لا يوجد اسم المستخدم نقارن كلمة المرور بتجزئة وهمية بالكلفة نفسها (10) بدل الرد
+// فوراً. كان الرد السريع (3 ملّي ثانية مقابل 70) يكشف أي أسماء المستخدمين موجودة.
+const DUMMY_PASSWORD_HASH = bcrypt.hashSync('dawaai-jahez-no-such-user', 10);
 const crypto = require('crypto');
 const db = require('../db');
 const adminAuth = require('../middleware/adminAuth');
@@ -152,6 +156,23 @@ function parseTimeOfDay(raw) {
   return { value: String(h).padStart(2, '0') + ':' + m[2], error: null };
 }
 
+// ع1: حقول المناوبة تُعرض لكل زائر في قائمة المناوبة، فلا يُقبل فيها إلا ما تعرضه نماذج
+// الواجهة: أيام الأسبوع السبعة، والفترات الثلاث، وساعات بصيغة HH:MM. كان أي نص يُحفظ كما هو،
+// ومنه شيفرة تعمل في متصفح كل زائر. (القوائم مطابقة لـ DUTY_DAYS وDUTY_SHIFTS في app.js)
+const DUTY_DAYS = ['السبت', 'الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة'];
+const DUTY_SHIFTS = ['طوال اليوم', 'صباحاً', 'مساءً'];
+const DUTY_TIME_RE = /^([01]\d|2[0-3]):[0-5]\d(:[0-5]\d)?$/;
+const blank = v => v === undefined || v === null || v === '';
+// يعيد رسالة خطأ، أو null إن كانت الحقول صالحة
+function dutyFieldsError({ on_duty_day, on_duty_shift, on_duty_start_time, on_duty_end_time }) {
+  if (!blank(on_duty_day) && !DUTY_DAYS.includes(on_duty_day)) return 'يوم المناوبة غير صالح';
+  if (!blank(on_duty_shift) && !DUTY_SHIFTS.includes(on_duty_shift)) return 'فترة المناوبة غير صالحة';
+  for (const t of [on_duty_start_time, on_duty_end_time]) {
+    if (!blank(t) && (typeof t !== 'string' || !DUTY_TIME_RE.test(t))) return 'وقت المناوبة غير صالح';
+  }
+  return null;
+}
+
 const ALLOWED_CITIES = [
   'damascus', 'rif_dimashq', 'aleppo', 'homs', 'hama', 'salamiyah',
   'latakia', 'tartus', 'idlib', 'deir_ez_zor', 'hasakah', 'raqqa',
@@ -252,7 +273,7 @@ router.post('/login', rateLimit(10, 15 * 60 * 1000), async (req, res) => {
   }
   try {
     const pharmacy = await db.findPharmacyByUsername(username);
-    if (!pharmacy) return res.status(401).json({ error: 'بيانات الدخول غير صحيحة' });
+    if (!pharmacy) { await bcrypt.compare(String(password || ''), DUMMY_PASSWORD_HASH); return res.status(401).json({ error: 'بيانات الدخول غير صحيحة' }); }
 
     const valid = await bcrypt.compare(password, pharmacy.owner_password_hash);
     if (!valid) return res.status(401).json({ error: 'بيانات الدخول غير صحيحة' });
@@ -293,7 +314,7 @@ router.delete('/self', async (req, res) => {
   }
   try {
     const pharmacy = await db.findPharmacyByUsername(username);
-    if (!pharmacy) return res.status(401).json({ error: 'بيانات الدخول غير صحيحة' });
+    if (!pharmacy) { await bcrypt.compare(String(password || ''), DUMMY_PASSWORD_HASH); return res.status(401).json({ error: 'بيانات الدخول غير صحيحة' }); }
 
     const valid = await bcrypt.compare(password, pharmacy.owner_password_hash);
     if (!valid) return res.status(401).json({ error: 'بيانات الدخول غير صحيحة' });
@@ -313,9 +334,11 @@ router.put('/self/duty', async (req, res) => {
   if (!username || !password) {
     return res.status(400).json({ error: 'بيانات الدخول مطلوبة' });
   }
+  const dutyError = dutyFieldsError(req.body);
+  if (dutyError) return res.status(400).json({ error: dutyError });
   try {
     const pharmacy = await db.findPharmacyByUsername(username);
-    if (!pharmacy) return res.status(401).json({ error: 'بيانات الدخول غير صحيحة' });
+    if (!pharmacy) { await bcrypt.compare(String(password || ''), DUMMY_PASSWORD_HASH); return res.status(401).json({ error: 'بيانات الدخول غير صحيحة' }); }
 
     const valid = await bcrypt.compare(password, pharmacy.owner_password_hash);
     if (!valid) return res.status(401).json({ error: 'بيانات الدخول غير صحيحة' });
@@ -357,7 +380,7 @@ router.put('/self/phone', async (req, res) => {
   if (norm.error) return res.status(400).json({ error: norm.error });
   try {
     const pharmacy = await db.findPharmacyByUsername(username);
-    if (!pharmacy) return res.status(401).json({ error: 'بيانات الدخول غير صحيحة' });
+    if (!pharmacy) { await bcrypt.compare(String(password || ''), DUMMY_PASSWORD_HASH); return res.status(401).json({ error: 'بيانات الدخول غير صحيحة' }); }
     const valid = await bcrypt.compare(password, pharmacy.owner_password_hash);
     if (!valid) return res.status(401).json({ error: 'بيانات الدخول غير صحيحة' });
     const updated = await db.setPharmacyPhone(pharmacy.id, norm.value);
@@ -375,7 +398,7 @@ router.put('/self/assistant-phone', async (req, res) => {
   }
   try {
     const pharmacy = await db.findPharmacyByUsername(username);
-    if (!pharmacy) return res.status(401).json({ error: 'بيانات الدخول غير صحيحة' });
+    if (!pharmacy) { await bcrypt.compare(String(password || ''), DUMMY_PASSWORD_HASH); return res.status(401).json({ error: 'بيانات الدخول غير صحيحة' }); }
 
     const valid = await bcrypt.compare(password, pharmacy.owner_password_hash);
     if (!valid) return res.status(401).json({ error: 'بيانات الدخول غير صحيحة' });
@@ -410,7 +433,7 @@ router.put('/self/password', rateLimit(10, 15 * 60 * 1000), async (req, res) => 
   }
   try {
     const pharmacy = await db.findPharmacyByUsername(username);
-    if (!pharmacy) return res.status(401).json({ error: 'بيانات الدخول غير صحيحة' });
+    if (!pharmacy) { await bcrypt.compare(String(password || ''), DUMMY_PASSWORD_HASH); return res.status(401).json({ error: 'بيانات الدخول غير صحيحة' }); }
 
     const valid = await bcrypt.compare(password, pharmacy.owner_password_hash);
     if (!valid) return res.status(401).json({ error: 'بيانات الدخول غير صحيحة' });
@@ -467,7 +490,7 @@ router.put('/self/whatsapp', async (req, res) => {
   if (waError) return res.status(400).json({ error: waError });
   try {
     const pharmacy = await db.findPharmacyByUsername(username);
-    if (!pharmacy) return res.status(401).json({ error: 'بيانات الدخول غير صحيحة' });
+    if (!pharmacy) { await bcrypt.compare(String(password || ''), DUMMY_PASSWORD_HASH); return res.status(401).json({ error: 'بيانات الدخول غير صحيحة' }); }
 
     const valid = await bcrypt.compare(password, pharmacy.owner_password_hash);
     if (!valid) return res.status(401).json({ error: 'بيانات الدخول غير صحيحة' });
@@ -495,7 +518,7 @@ router.put('/self/location', async (req, res) => {
   if (loc.error) return res.status(400).json({ error: loc.error });
   try {
     const pharmacy = await db.findPharmacyByUsername(username);
-    if (!pharmacy) return res.status(401).json({ error: 'بيانات الدخول غير صحيحة' });
+    if (!pharmacy) { await bcrypt.compare(String(password || ''), DUMMY_PASSWORD_HASH); return res.status(401).json({ error: 'بيانات الدخول غير صحيحة' }); }
 
     const valid = await bcrypt.compare(password, pharmacy.owner_password_hash);
     if (!valid) return res.status(401).json({ error: 'بيانات الدخول غير صحيحة' });
@@ -561,6 +584,8 @@ router.put('/:id/duty', adminAuth, async (req, res) => {
     return res.status(400).json({ error: 'قيمة غير صالحة' });
   }
   const value = on_duty === true || on_duty === 'true';
+  const dutyError = dutyFieldsError(req.body);
+  if (dutyError) return res.status(400).json({ error: dutyError });
   try {
     const existing = await db.getPharmacyById(req.params.id);
     if (!existing) return res.status(404).json({ error: 'الصيدلية غير موجودة' });
@@ -654,7 +679,7 @@ router.put('/self/hours', async (req, res) => {
   }
   try {
     const pharmacy = await db.findPharmacyByUsername(username);
-    if (!pharmacy) return res.status(401).json({ error: 'بيانات الدخول غير صحيحة' });
+    if (!pharmacy) { await bcrypt.compare(String(password || ''), DUMMY_PASSWORD_HASH); return res.status(401).json({ error: 'بيانات الدخول غير صحيحة' }); }
     const valid = await bcrypt.compare(password, pharmacy.owner_password_hash);
     if (!valid) return res.status(401).json({ error: 'بيانات الدخول غير صحيحة' });
 
@@ -682,7 +707,7 @@ router.put('/self/closed-today', async (req, res) => {
   const value = closed === true || closed === 'true';
   try {
     const pharmacy = await db.findPharmacyByUsername(username);
-    if (!pharmacy) return res.status(401).json({ error: 'بيانات الدخول غير صحيحة' });
+    if (!pharmacy) { await bcrypt.compare(String(password || ''), DUMMY_PASSWORD_HASH); return res.status(401).json({ error: 'بيانات الدخول غير صحيحة' }); }
     const valid = await bcrypt.compare(password, pharmacy.owner_password_hash);
     if (!valid) return res.status(401).json({ error: 'بيانات الدخول غير صحيحة' });
 
