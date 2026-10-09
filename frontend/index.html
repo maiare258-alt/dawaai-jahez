@@ -2260,7 +2260,7 @@
       <div class="box" style="margin-bottom:20px;">
         <h3 style="margin-top:0;" id="add-med-title">💊 إضافة دواء غير موجود بالقائمة</h3>
         <p class="muted" style="margin-top:-8px;" id="add-med-desc">إن كان لديك دواء في مخزون صيدليتك ولا يظهر ضمن القائمة، فيمكنك إضافته عبر الحقول أدناه.</p>
-        <input id="pharm-med-name" placeholder="اسم الدواء">
+        <input id="pharm-med-name" maxlength="120" placeholder="اسم الدواء">
         <input id="pharm-med-generic" placeholder="المادة الفعالة (اختياري)">
         <input id="pharm-med-alt" placeholder="أسماء بديلة، افصل بينها بفاصلة (اختياري)">
         <select id="pharm-med-category" onchange="updateMedNamePlaceholder('pharm-med-category', 'pharm-med-name')">
