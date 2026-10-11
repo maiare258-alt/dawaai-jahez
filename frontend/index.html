@@ -433,7 +433,7 @@
   .footer-copy { font-size: 14px; font-weight: 500; color: #616e7a; text-align: left; white-space: nowrap; justify-self: start; }
   @media (max-width: 700px) {
     .footer-inner { grid-template-columns: 1fr; gap: 10px; padding: 6px 0; min-height: 0; }
-    .footer-links { justify-content: center; justify-self: stretch; gap: 4px 14px; }
+    .footer-links { justify-content: center; justify-self: stretch; gap: 10px 14px; }
     .footer-links a { font-size: 14px; padding: 6px 2px; }
     .footer-center { justify-self: stretch; }
     .footer-copy { justify-self: stretch; white-space: normal; }
@@ -510,9 +510,11 @@
   .badge { font-size: 14px; padding: 5px 12px; border-radius: 999px; }
   .badge.yes { background: #eaf3de; color: #27500a; }
   .badge.no { background: #fcebeb; color: #7a1f1f; }
-  .star-picker { display: flex; gap: 6px; font-size: 28px; margin: 10px 0; }
+  /* ن2: كل نجمة منطقة لمس 44×44 (كانت 28×28 متلاصقة، فتُختار النجمة المجاورة بالخطأ).
+     حجم النجمة نفسه لم يتغير، والهامش السالب يُبقي أول نجمة على محاذاة النص فوقها */
+  .star-picker { display: flex; gap: 0; font-size: 28px; margin: 2px -8px; }
   .star-picker button {
-    background: none; border: none; padding: 0; margin: 0; font: inherit;
+    background: none; border: none; padding: 8px; margin: 0; font: inherit; min-width: 44px; min-height: 44px;
     color: #929292; cursor: pointer; transition: color .15s ease; line-height: 1;
   }
   .star-picker button.filled { color: #ca8109; }
@@ -655,7 +657,7 @@
   }
 
   /* ---- تقرير الطلب ---- */
-  .demand-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 12px 0 16px; }
+  .demand-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 14px 8px; margin: 12px 0 16px; }
   .demand-period-btn, .visits-period-btn {
     background: #f4f8fc; color: #163a5c; border: 1px solid #d6e2ee; border-radius: 999px;
     padding: 7px 16px; font-size: 13.5px; font-weight: 600; cursor: pointer;
@@ -1660,7 +1662,7 @@
   .ad-text { min-width: 0; display: flex; flex-wrap: wrap; align-items: baseline; column-gap: 6px; row-gap: 2px; line-height: 1.5; }
   .ad-name { font-size: 14px; font-weight: 700; color: #33475b; overflow-wrap: anywhere; }
   .ad-sep { color: #9aa8b5; font-weight: 700; }
-  .ad-desc { font-size: 13px; color: #6b7a89; overflow-wrap: anywhere; }
+  .ad-desc { font-size: 13px; color: #56636f; overflow-wrap: anywhere; }
   @media (max-width: 600px) {
     .ad-text { flex-direction: column; align-items: flex-start; }
     .ad-sep { display: none; }
@@ -1835,18 +1837,39 @@
   .nurse-cert-state.pending { color: #906400; }
   .nurse-cert-actions { display: flex; flex-wrap: wrap; gap: 8px; }
   .nurse-cert-actions > button { margin: 0; }
+
+  /* ===== ن2: منطقة لمس لا تقل عن 44×44 بكسل =====
+     أزرار كثيرة كانت أصغر من ذلك (زر اللغة 74×33، زر القائمة 36×34، أزرار الكمية 32×32،
+     روابط التذييل بارتفاع 34)، فيخطئها الإصبع. نضيف حول كل منها طبقة شفافة تستجيب للمس،
+     فيبقى شكل الزر كما هو تماماً. الطبقة تمتد بقدر النقص فقط: زر ارتفاعه 36 تمتد 4 بكسل
+     من أعلاه وأسفله، وزر ارتفاعه 44 فأكثر لا تمتد إطلاقاً. */
+  .lang-toggle-btn, .nav-toggle, .qty-btn, .cart-remove-btn, .btn-outline, .toggle-btn,
+  .refresh-results-btn, .visits-period-btn, .demand-period-btn, .password-field .toggle-password,
+  .footer-links a, .location-preview-link, .admin-address-maplink, .info-modal-close, .duty-check-label, .launch-btn {
+    position: relative;
+  }
+  .lang-toggle-btn::after, .nav-toggle::after, .qty-btn::after, .cart-remove-btn::after, .btn-outline::after,
+  .toggle-btn::after, .refresh-results-btn::after, .visits-period-btn::after, .demand-period-btn::after,
+  .password-field .toggle-password::after, .footer-links a::after, .location-preview-link::after,
+  .admin-address-maplink::after, .info-modal-close::after, .duty-check-label::after, .launch-btn::after {
+    content: ''; position: absolute;
+    top: min(0px, calc((100% - 44px) / 2)); bottom: min(0px, calc((100% - 44px) / 2));
+    left: min(0px, calc((100% - 44px) / 2)); right: min(0px, calc((100% - 44px) / 2));
+  }
+  /* خيارات متعددة متجاورة: طبقة شفافة لكل منها كانت ستتداخل، فنكبّر الصف نفسه */
+  .ad-placement label, .admin-duty-toggle { min-height: 44px; }
 </style>
 </head>
 <body class="has-hero">
 <header class="site-header">
   <div class="site-header-inner">
     <nav class="site-nav" id="site-nav">
-      <a class="nav-link active" onclick="headerGoHome(this)" id="nav-home">الرئيسية</a>
-      <a class="nav-link" onclick="headerGoOnDuty(this)" id="nav-onduty">الصيدليات المناوبة</a>
-      <a class="nav-link nav-role-portal" onclick="headerGoPharmacist(this)" id="nav-pharmacist">لوحة الصيدلي</a>
-      <a class="nav-link" onclick="headerGoCosmetics(this)" id="nav-cosmetics">مستحضرات تجميل</a>
-      <a class="nav-link" onclick="headerGoNursing(this)" id="nav-nursing">خدمات تمريض</a>
-      <a class="nav-link nav-role-portal" onclick="headerGoAdmin(this)" id="nav-admin">الإدارة</a>
+      <a class="nav-link active" onclick="headerGoHome(this)" id="nav-home" role="link" tabindex="0">الرئيسية</a>
+      <a class="nav-link" onclick="headerGoOnDuty(this)" id="nav-onduty" role="link" tabindex="0">الصيدليات المناوبة</a>
+      <a class="nav-link nav-role-portal" onclick="headerGoPharmacist(this)" id="nav-pharmacist" role="link" tabindex="0">لوحة الصيدلي</a>
+      <a class="nav-link" onclick="headerGoCosmetics(this)" id="nav-cosmetics" role="link" tabindex="0">مستحضرات تجميل</a>
+      <a class="nav-link" onclick="headerGoNursing(this)" id="nav-nursing" role="link" tabindex="0">خدمات تمريض</a>
+      <a class="nav-link nav-role-portal" onclick="headerGoAdmin(this)" id="nav-admin" role="link" tabindex="0">الإدارة</a>
     </nav>
     <div class="site-header-right">
       <div class="site-logo">
@@ -1854,7 +1877,7 @@
       </div>
       <div class="header-icons">
         <button id="lang-toggle-btn" class="lang-toggle-btn" onclick="toggleLanguage()">English</button>
-        <button class="nav-toggle" onclick="toggleNav()" aria-label="القائمة">☰</button>
+        <button class="nav-toggle" id="nav-toggle-btn" onclick="toggleNav()" aria-label="القائمة" aria-controls="site-nav" aria-expanded="false">☰</button>
       </div>
     </div>
   </div>
@@ -2100,7 +2123,7 @@
     <p id="staff-banner-sub"></p>
   </div>
 </div>
-<div class="page-panel">
+<div class="page-panel" role="main">
 <div class="container">
   <div class="cart-section-wrap">
     <div id="cart-section" style="display:none; margin-bottom:16px;"></div>
@@ -2141,15 +2164,15 @@
     <footer class="site-footer">
       <div class="footer-inner">
         <div class="footer-links">
-          <a onclick="headerGoHome()" id="footer-home">الرئيسية</a>
+          <a onclick="headerGoHome()" id="footer-home" role="link" tabindex="0">الرئيسية</a>
           <span class="footer-sep">|</span>
-          <a onclick="headerGoOnDuty()" id="footer-onduty">الصيدليات المناوبة</a>
+          <a onclick="headerGoOnDuty()" id="footer-onduty" role="link" tabindex="0">الصيدليات المناوبة</a>
           <span class="footer-sep">|</span>
-          <a onclick="showContactUs()" id="footer-contact">تواصل معنا</a>
+          <a onclick="showContactUs()" id="footer-contact" role="link" tabindex="0">تواصل معنا</a>
           <span class="footer-sep">|</span>
-          <a onclick="showFaq()" id="footer-faq">الأسئلة الشائعة</a>
+          <a onclick="showFaq()" id="footer-faq" role="link" tabindex="0">الأسئلة الشائعة</a>
           <span class="footer-sep">|</span>
-          <a onclick="showAboutUs()" id="footer-about">حول الموقع</a>
+          <a onclick="showAboutUs()" id="footer-about" role="link" tabindex="0">حول الموقع</a>
         </div>
         <div class="footer-center" id="footer-center">منصة سورية للبحث عن توفر الأدوية في الصيدليات.</div>
         <div class="footer-copy" id="footer-copy">دوائي جاهز، جميع الحقوق محفوظة © 2026</div>
@@ -2170,7 +2193,7 @@
       </div>
       <div class="box" style="margin-bottom:20px;">
         <h3 style="margin-top:0;" id="duty-status-title">🕐 حالة المناوبة</h3>
-        <label style="display:flex; align-items:center; gap:8px; font-size:16px; margin-bottom:12px;">
+        <label class="duty-check-label" style="display:flex; align-items:center; gap:8px; font-size:16px; margin-bottom:12px;">
           <input type="checkbox" id="duty-checkbox" onchange="onDutyToggle()"> <span id="duty-checkbox-label">صيدليتي مناوبة اليوم</span>
         </label>
         <select id="duty-day" disabled>
@@ -2340,8 +2363,8 @@
 </div>
 
 <div id="custom-modal-overlay" class="modal-overlay" style="display:none;">
-  <div class="modal-box">
-    <div class="modal-icon" id="modal-icon">✅</div>
+  <div class="modal-box" role="alertdialog" aria-modal="true" aria-labelledby="modal-message">
+    <div class="modal-icon" id="modal-icon" aria-hidden="true">✅</div>
     <p class="modal-message" id="modal-message"></p>
     <div class="modal-actions">
       <button class="modal-btn-cancel" id="modal-btn-cancel" style="display:none;">إلغاء</button>
@@ -2351,10 +2374,10 @@
 </div>
 
 <div id="info-modal-overlay" class="modal-overlay" style="display:none;">
-  <div class="info-modal-box">
+  <div class="info-modal-box" role="dialog" aria-modal="true" aria-labelledby="info-modal-title">
     <div class="info-modal-header">
       <h2 id="info-modal-title"></h2>
-      <button type="button" class="info-modal-close" onclick="closeInfoModal()" aria-label="إغلاق">✕</button>
+      <button type="button" class="info-modal-close" id="info-modal-close" onclick="closeInfoModal()" aria-label="إغلاق">✕</button>
     </div>
     <div class="info-modal-body" id="info-modal-body"></div>
   </div>
