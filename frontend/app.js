@@ -152,7 +152,7 @@ const translations = {
     search_hint_cosmetic: 'اكتب اسم المستحضر للبحث عن توفره في صيدليات سلمية.',
     hero_title_nursing: 'دوائي جاهز خدمات تمريض<br><span class="hero-highlight">في أي وقت</span>، من أي مكان',
     hero_desc_nursing: 'منصة سورية تساعدك على معرفة توفر الدواء وخدمات التمريض في مدينة سلمية.',
-    search_hint_nursing: 'ابحث عن الممرض لمعرفة توافره في مدينة سلمية.',
+    search_hint_nursing: 'تصفّح الممرضين أدناه، واطّلع على خبرة كل منهم وتقييمات المرضى قبل التواصل معه.',
     search_btn: 'بحث', cart_btn: 'عربة المشتريات',
     feature1_title: 'البحث عن الدواء', feature1_desc: 'اعرف الصيدليات التي توفر الدواء.',
     feature2_title: 'الصيدليات المناوبة', feature2_desc: 'اعرض الصيدليات المناوبة اليوم.',
@@ -361,6 +361,11 @@ const translations = {
     a11y_duty_day: 'يوم المناوبة',
     a11y_duty_shift: 'وردية المناوبة',
     a11y_med_category: 'تصنيف المنتج',
+    nav_menu_aria: 'القائمة',
+    search_aria_medicine: 'البحث عن دواء أو مادة فعالة',
+    search_aria_cosmetic: 'البحث عن مستحضر تجميل',
+    suggestions_aria: 'اقتراحات البحث',
+    close_aria: 'إغلاق',
     err_offline: 'لا يوجد اتصال بالإنترنت. تحقق من الشبكة ثم أعد المحاولة.',
     retry_btn: 'إعادة المحاولة',
     err_timeout_search: 'استغرق الخادم وقتاً أطول من المعتاد. أعد المحاولة بعد قليل.',
@@ -753,7 +758,7 @@ const translations = {
     search_hint_cosmetic: 'Type the product name to check its availability in Salamiyah pharmacies.',
     hero_title_nursing: 'Dawaai Jahez Nursing Services<br><span class="hero-highlight">Anytime</span>, Anywhere',
     hero_desc_nursing: 'A Syrian platform that helps you find medicine and nursing service availability in Salamiyah city.',
-    search_hint_nursing: 'Search for a nurse to check their availability in Salamiyah city.',
+    search_hint_nursing: 'Browse the nurses below and check each one\'s experience and patient reviews before contacting them.',
     search_btn: 'Search', cart_btn: 'Cart',
     feature1_title: 'Medicine Search', feature1_desc: 'Find pharmacies that have your medicine.',
     feature2_title: 'On-Duty Pharmacies', feature2_desc: "See today's on-duty pharmacies.",
@@ -962,6 +967,11 @@ const translations = {
     a11y_duty_day: 'Duty day',
     a11y_duty_shift: 'Duty shift',
     a11y_med_category: 'Product category',
+    nav_menu_aria: 'Menu',
+    search_aria_medicine: 'Search for a medicine or active ingredient',
+    search_aria_cosmetic: 'Search for a cosmetic product',
+    suggestions_aria: 'Search suggestions',
+    close_aria: 'Close',
     err_offline: 'No internet connection. Check your network and try again.',
     retry_btn: 'Try again',
     err_timeout_search: 'The server took longer than usual. Please try again shortly.',
@@ -1643,6 +1653,15 @@ function applyLanguage() {
 
   const bellBtnEl = document.getElementById('bell-btn');
   if (bellBtnEl) bellBtnEl.setAttribute('aria-label', t('bell_aria_label'));
+  // ن1: أسماء مقروءة كانت مكتوبة بالعربية في index.html فتبقى عربية في الواجهة الإنكليزية
+  const ariaSet = (id, key) => { const el = document.getElementById(id); if (el) el.setAttribute('aria-label', t(key)); };
+  ariaSet('nav-toggle-btn', 'nav_menu_aria');
+  ariaSet('suggestions', 'suggestions_aria');
+  ariaSet('info-modal-close', 'close_aria');
+  document.querySelectorAll('.toggle-password').forEach(btn => {
+    const input = btn.parentElement && btn.parentElement.querySelector('input');
+    btn.setAttribute('aria-label', t(input && input.type === 'text' ? 'hide_password_aria' : 'show_password_aria'));
+  });
   const bellPanelEl = document.getElementById('bell-panel');
   if (bellPanelEl && bellPanelEl.style.display !== 'none') renderBellPanel();
   lastOnDutySnapshot = null; // نجبر إعادة رسم الصيدليات المناوبة حتى لو البيانات نفسها ما تغيّرت
@@ -1759,6 +1778,38 @@ function toggleLanguage() {
   applyLanguage();
 }
 
+// ---------- التركيز في النوافذ المنبثقة (ن1) ----------
+// كانت النافذة تظهر والتركيز باقٍ خلفها: قارئ الشاشة لا يعلن الرسالة، ومن يستعمل لوحة
+// المفاتيح يتنقل بين عناصر الصفحة المغطاة. الآن ينتقل التركيز إلى النافذة عند فتحها، ويبقى
+// Tab داخلها، ويعود عند إغلاقها إلى العنصر الذي كان عليه.
+const dialogFocusStack = [];
+function dialogOpened(container, focusEl) {
+  if (!dialogFocusStack.some(d => d.container === container)) {
+    dialogFocusStack.push({ container, returnTo: document.activeElement });
+  }
+  if (focusEl) focusEl.focus({ preventScroll: true });
+}
+function dialogClosed(container) {
+  const i = dialogFocusStack.findIndex(d => d.container === container);
+  if (i === -1) return;
+  const { returnTo } = dialogFocusStack.splice(i, 1)[0];
+  if (dialogFocusStack.length) return;   // ما زالت نافذة أخرى مفتوحة تحتها
+  if (returnTo && returnTo !== document.body && document.contains(returnTo) && typeof returnTo.focus === 'function') {
+    returnTo.focus({ preventScroll: true });
+  }
+}
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Tab' || !dialogFocusStack.length) return;
+  const { container } = dialogFocusStack[dialogFocusStack.length - 1];
+  const items = [...container.querySelectorAll('button, [href], input, select, textarea, summary, [tabindex]:not([tabindex="-1"])')]
+    .filter(el => !el.disabled && el.offsetParent !== null);
+  if (!items.length) return;
+  const first = items[0], last = items[items.length - 1];
+  if (!container.contains(document.activeElement)) { e.preventDefault(); first.focus(); }
+  else if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+  else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+});
+
 // ---------- نافذة تنبيه مخصصة (بديل alert وconfirm الافتراضيين) ----------
 
 function showModal({ message, type = 'info', showCancel = false, okText, cancelText }) {
@@ -1776,6 +1827,8 @@ function showModal({ message, type = 'info', showCancel = false, okText, cancelT
     const overlay = document.getElementById('custom-modal-overlay');
     overlay.style.display = 'flex';
     document.body.classList.add('modal-open');
+    // سؤال تحذيري (حذف، إطلاق...): التركيز على «إلغاء» كي لا يؤكده Enter بالخطأ
+    dialogOpened(overlay.querySelector('.modal-box'), showCancel && type === 'warning' ? cancelBtn : okBtn);
 
     // Escape بينفّذ نفس سلوك زر الإلغاء بالضبط — نضيف المستمع وقت الفتح، ونشيله جوا cleanup عشان ما يتراكم أبداً
     const escHandler = (e) => { if (e.key === 'Escape') cleanup(false); };
@@ -1787,6 +1840,7 @@ function showModal({ message, type = 'info', showCancel = false, okText, cancelT
       okBtn.onclick = null;
       cancelBtn.onclick = null;
       document.removeEventListener('keydown', escHandler);
+      dialogClosed(overlay.querySelector('.modal-box'));
       resolve(result);
     };
     okBtn.onclick = () => cleanup(true);
@@ -1856,17 +1910,30 @@ function setActiveNav(link) {
 }
 
 function toggleNav() {
-  document.getElementById('site-nav').classList.toggle('open');
+  const open = document.getElementById('site-nav').classList.toggle('open');
+  const btn = document.getElementById('nav-toggle-btn');
+  if (btn) btn.setAttribute('aria-expanded', open ? 'true' : 'false');
 }
 
 function closeNav() {
   document.getElementById('site-nav').classList.remove('open');
+  const btn = document.getElementById('nav-toggle-btn');
+  if (btn) btn.setAttribute('aria-expanded', 'false');
 }
+
+// ن1: روابط القائمة والتذييل تعمل بالنقر فقط (بلا href)، فكانت لوحة المفاتيح تتخطاها.
+// صارت قابلة للتركيز (tabindex في index.html)، وEnter أو المسافة عليها تعمل كالنقر.
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Enter' && e.key !== ' ') return;
+  const el = e.target;
+  if (el && el.matches && el.matches('a[role="link"][onclick]:not([href])')) { e.preventDefault(); el.click(); }
+});
 
 function applyMedicineHeroText() {
   document.getElementById('hero-title').innerHTML = t('hero_title_medicine');
   document.getElementById('hero-description').textContent = t('hero_desc_medicine');
   document.getElementById('search').placeholder = t('search_placeholder_medicine');
+  document.getElementById('search').setAttribute('aria-label', t('search_aria_medicine'));
   document.getElementById('hero-search-hint').textContent = t('search_hint_medicine');
 }
 
@@ -1874,7 +1941,16 @@ function applyCosmeticHeroText() {
   document.getElementById('hero-title').innerHTML = t('hero_title_cosmetic');
   document.getElementById('hero-description').textContent = t('hero_desc_cosmetic');
   document.getElementById('search').placeholder = t('search_placeholder_cosmetic');
+  document.getElementById('search').setAttribute('aria-label', t('search_aria_cosmetic'));
   document.getElementById('hero-search-hint').textContent = t('search_hint_cosmetic');
+}
+
+// مربع البحث واختيار المدينة يظهران معاً ويختفيان معاً. ن3: في صفحة التمريض كان مربع البحث
+// يختفي ويبقى اختيار المدينة، مع أن قائمة الممرضين لا تُصفّى بالمدينة أصلاً، فيظن الزائر أنه معطّل
+function setHeroSearchVisible(visible) {
+  document.getElementById('hero-search-wrap').style.display = visible ? '' : 'none';
+  const cityRow = document.querySelector('.hero-city-row');
+  if (cityRow) cityRow.style.display = visible ? '' : 'none';
 }
 
 function applyNursingHeroText() {
@@ -1892,7 +1968,7 @@ function headerGoHome(link) {
     // كل مسح للنتائج يُخفي زر "تحديث النتائج" معه: بلا نتائج لا معنى له
     setResultsToolbar(false);
   }
-  document.getElementById('hero-search-wrap').style.display = '';
+  setHeroSearchVisible(true);
   showView('patient');
   // صفحة التمريض تغيّر نصوص القسم العلوي دون أن تغيّر نوع البحث (يبقى "دواء")، فكان
   // الشرط أعلاه يظن أن لا شيء تغيّر ويترك عنوان التمريض ووصفه وتلميحه ظاهرة. بعد
@@ -1912,7 +1988,7 @@ function headerGoCosmetics(link) {
   document.getElementById('results').innerHTML = '';
   // كل مسح للنتائج يُخفي زر "تحديث النتائج" معه: بلا نتائج لا معنى له
   setResultsToolbar(false);
-  document.getElementById('hero-search-wrap').style.display = '';
+  setHeroSearchVisible(true);
   showView('patient');
   document.getElementById('on-duty-section').style.display = 'none';
   updateCartVisibility();
@@ -1932,7 +2008,7 @@ function heroGoOnDuty() {
 function headerGoOnDuty(link) {
   showView('patient');
   // القدوم من صفحة التمريض: كانت نصوص التمريض تبقى، ومربع البحث مخفياً لأنها تخفيه
-  document.getElementById('hero-search-wrap').style.display = '';
+  setHeroSearchVisible(true);
   refreshCurrentHeroText();
   const section = document.getElementById('on-duty-section');
   section.style.display = 'block';
@@ -2606,8 +2682,7 @@ function openWhatsappPanel() {
   document.body.classList.add('wa-panel-lock');   // منع تمرير الصفحة خلف اللوحة
   loadWhatsappPharmacies();
   // نقل التركيز للوحة: ضروري لمستخدمي لوحة المفاتيح وقارئات الشاشة
-  const closeBtn = document.getElementById('wa-panel-close');
-  if (closeBtn) closeBtn.focus();
+  dialogOpened(panel, document.getElementById('wa-panel-close'));
 }
 
 function closeWhatsappPanel() {
@@ -2616,6 +2691,7 @@ function closeWhatsappPanel() {
   waPanelOpen = false;
   panel.style.display = 'none';
   document.body.classList.remove('wa-panel-lock');
+  dialogClosed(panel);
 }
 
 // إغلاق بالنقر على الخلفية فقط، لا على محتوى اللوحة نفسه
@@ -2679,7 +2755,7 @@ function whatsappComingSoon() {
 
 function headerGoNursing(link) {
   applyNursingHeroText();
-  document.getElementById('hero-search-wrap').style.display = 'none';
+  setHeroSearchVisible(false);
   showView('nursing');
   document.getElementById('on-duty-section').style.display = 'none';
   updateCartVisibility();
@@ -2692,10 +2768,13 @@ function headerGoNursing(link) {
 let infoModalEscHandler = null;
 
 function openInfoModal() {
-  document.getElementById('info-modal-overlay').style.display = 'flex';
+  const overlay = document.getElementById('info-modal-overlay');
+  overlay.style.display = 'flex';
   document.body.classList.add('modal-open');
+  if (infoModalEscHandler) document.removeEventListener('keydown', infoModalEscHandler);
   infoModalEscHandler = (e) => { if (e.key === 'Escape') closeInfoModal(); };
   document.addEventListener('keydown', infoModalEscHandler);
+  dialogOpened(overlay.querySelector('.info-modal-box'), document.getElementById('info-modal-close'));
 }
 
 function closeInfoModal() {
@@ -2705,6 +2784,7 @@ function closeInfoModal() {
     document.removeEventListener('keydown', infoModalEscHandler);
     infoModalEscHandler = null;
   }
+  dialogClosed(document.querySelector('#info-modal-overlay .info-modal-box'));
 }
 
 // أزواج مفاتيح (سؤال، جواب) — مقسّمة لقسمين (مريض/زائر، ثم صيدلي) — النصوص كلها ثابتة من قاموس الترجمة، مش بيانات مستخدم
@@ -5104,7 +5184,7 @@ function renderAdminPanelUI() {
       <input id="med-name" maxlength="120" placeholder="${t('med_name_placeholder')}">
       <input id="med-generic" placeholder="${t('generic_name_placeholder')}">
       <input id="med-alt" placeholder="${t('alt_names_placeholder')}">
-      <select id="med-category" onchange="updateMedNamePlaceholder('med-category', 'med-name')">
+      <select id="med-category" aria-label="${t('a11y_med_category')}" onchange="updateMedNamePlaceholder('med-category', 'med-name')">
         <option value="medicine">${t('cat_medicine')}</option>
         <option value="cosmetic">${t('cat_cosmetic')}</option>
       </select>
@@ -5151,7 +5231,7 @@ function renderAdminPanelUI() {
              ${nurses.map(n => `
                <div class="row">
                  <span><bdi>${escapeHtml(n.name)}</bdi> <span class="muted" style="font-size:12px;">${escapeHtml(n.specialty || '')}</span></span>
-                 <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap; justify-content:flex-end;">
+                 <div style="display:flex; gap:8px 6px; align-items:center; flex-wrap:wrap; justify-content:flex-end;">
                    <button class="btn-outline blue small table-action-btn" onclick="toggleNurseEditor(${n.id})">${n.cert_verified ? '✓ ' : ''}${t('nurse_profile_btn')}</button>
                    <button class="toggle-btn ${n.available ? 'yes' : 'no'}" onclick="toggleNurseAvailabilityAdmin(${n.id}, ${!n.available})">${n.available ? t('nurse_available_short') : t('nurse_unavailable_short')}</button>
                    <button class="btn-outline red small table-action-btn" onclick="deleteNurseAdmin(${n.id})">${t('delete_btn')}</button>
@@ -6843,10 +6923,10 @@ function renderAdminDutyList() {
           <input type="checkbox" id="duty-on-${p.id}" ${p.on_duty ? 'checked' : ''} onchange="onAdminDutyToggle(${p.id}, this)">
           <span>${p.on_duty ? t('admin_duty_on') : t('admin_duty_off')}</span>
         </label>
-        <select id="duty-day-${p.id}" ${p.on_duty ? '' : 'disabled'}>
+        <select id="duty-day-${p.id}" aria-label="${t('a11y_duty_day')}: ${escapeHtml(p.name)}" ${p.on_duty ? '' : 'disabled'}>
           ${DUTY_DAYS.map(d => `<option value="${d}" ${p.on_duty_day === d ? 'selected' : ''}>${translateDutyDay(d)}</option>`).join('')}
         </select>
-        <select id="duty-shift-${p.id}" ${p.on_duty ? '' : 'disabled'}>
+        <select id="duty-shift-${p.id}" aria-label="${t('a11y_duty_shift')}: ${escapeHtml(p.name)}" ${p.on_duty ? '' : 'disabled'}>
           ${DUTY_SHIFTS.map(sh => `<option value="${sh}" ${p.on_duty_shift === sh ? 'selected' : ''}>${translateDutyShift(sh)}</option>`).join('')}
         </select>
         <button class="btn-outline blue" onclick="saveAdminDuty(${p.id})" id="duty-save-${p.id}">${t('admin_duty_save')}</button>
