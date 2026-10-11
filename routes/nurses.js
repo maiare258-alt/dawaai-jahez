@@ -1,12 +1,7 @@
 const express = require('express');
 const router = express.Router();
 
-// المعرّفات في الرابط أرقام صحيحة موجبة ضمن نطاق PostgreSQL. أي قيمة أخرى ("abc"،
-// "1.5"، رقم من عشرين خانة) كانت تصل إلى القاعدة فترمي خطأً يعود 500 بدل رفض واضح.
-function validIdParam(req, res, next, value) {
-  if (/^[1-9]\d{0,9}$/.test(value) && Number(value) <= 2147483647) return next();
-  return res.status(400).json({ error: 'معرّف غير صالح' });
-}
+const { validIdParam } = require('../middleware/shared');
 router.param('id', validIdParam);
 
 // ===================== شهادات الممرضين (Supabase Storage) =====================
