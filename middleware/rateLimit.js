@@ -44,7 +44,11 @@ function clientIp(req) {
 function rateLimit(max = 10, windowMs = 15 * 60 * 1000) {
   return function (req, res, next) {
     const ip = clientIp(req).ip || 'unknown';
-    const key = `${req.baseUrl}${req.path}:${ip}`;
+    // خاد4: Express يطابق المسارات دون تمييز حالة الأحرف، فكان /api/Orders و/api/ORDERS يصلان
+    // إلى المعالج نفسه بعدّادين منفصلين، فيُتجاوز كل حد بتغيير حرف. المفتاح الآن نمط المسار
+    // المعرَّف (لا الرابط كما كُتب) بأحرف صغيرة، فكل الصيغ عدّاد واحد.
+    const path = req.route && typeof req.route.path === 'string' ? req.route.path : req.path;
+    const key = `${(req.baseUrl + path).toLowerCase()}:${ip}`;
     const now = Date.now();
 
     let entry = attempts.get(key);
