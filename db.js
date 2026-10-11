@@ -1145,11 +1145,6 @@ async function getOrdersStatus(ids) {
 
 // ---------- خدمات التمريض ----------
 
-async function getAllNurses() {
-  const { rows } = await pool.query('SELECT * FROM nurses ORDER BY id');
-  return rows;
-}
-
 async function getNursesWithRatings() {
   const { rows } = await pool.query(`
     SELECT n.*,
@@ -1424,7 +1419,6 @@ module.exports = {
   deleteOrder,
   confirmOrder,
   getOrdersStatus,
-  getAllNurses,
   getNursesWithRatings,
   addNurse,
   getNurseById,
