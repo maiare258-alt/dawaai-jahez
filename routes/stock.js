@@ -56,6 +56,11 @@ router.put('/:pharmacyId/:medicineId', async (req, res) => {
   if (!username || !password) {
     return res.status(400).json({ error: 'بيانات الدخول مطلوبة' });
   }
+  // خاد7: نعم/لا صريحة فقط؛ كان النص "false" يُحفظ «متوفر»
+  if (available !== true && available !== false && available !== 'true' && available !== 'false') {
+    return res.status(400).json({ error: 'قيمة غير صالحة' });
+  }
+  const availableValue = available === true || available === 'true';
   // ن6: كل تاريخ مُرسل بقيمة يجب أن يكون يوماً حقيقياً بصيغة YYYY-MM-DD. كان تاريخ مثل
   // 2027-02-31 يصل إلى القاعدة فيرمي خطأً يعود 500 بدل رسالة واضحة.
   for (const d of [manufactureDate, expiryDate]) {
@@ -77,7 +82,7 @@ router.put('/:pharmacyId/:medicineId', async (req, res) => {
     const valid = await bcrypt.compare(password, pharmacy.owner_password_hash);
     if (!valid) return res.status(401).json({ error: 'بيانات الدخول غير صحيحة' });
 
-    await db.setStock(pharmacy.id, medicineId, available, manufactureDate, expiryDate);
+    await db.setStock(pharmacy.id, medicineId, availableValue, manufactureDate, expiryDate);
     res.json({ success: true });
   } catch (err) {
     // مفتاح أجنبي لعنصر غير موجود (23503): رفض واضح بدل خطأ خادم
