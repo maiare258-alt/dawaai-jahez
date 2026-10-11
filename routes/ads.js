@@ -16,11 +16,7 @@ const NON_HUMAN_UA = /bot|crawl|spider|slurp|uptimerobot|monitor|preview|faceboo
 // - الرابط: موقع آمن https، أو رقم هاتف tel:، فقط. فلا يمر رابط javascript: أو http مكشوف.
 // - المكان: الرئيسية أو التجميل فقط. ولا إعلانات في نتائج البحث ولا المناوبة أبداً.
 
-// المعرّفات في الرابط أرقام صحيحة موجبة ضمن نطاق PostgreSQL (النمط نفسه في بقية المسارات)
-function validIdParam(req, res, next, value) {
-  if (/^[1-9]\d{0,9}$/.test(value) && Number(value) <= 2147483647) return next();
-  return res.status(400).json({ error: 'معرّف غير صالح' });
-}
+const { validIdParam } = require('../middleware/shared');
 router.param('id', validIdParam);
 
 const AD_MAX_BYTES = 600 * 1024;   // الصورة تُضغط في المتصفح إلى نحو 100 كيلوبايت، والحد هامش أمان
