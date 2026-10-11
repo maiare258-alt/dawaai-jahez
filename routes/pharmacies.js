@@ -1,19 +1,11 @@
 const express = require('express');
 const router = express.Router();
 
-// المعرّفات في الرابط أرقام صحيحة موجبة ضمن نطاق PostgreSQL. أي قيمة أخرى ("abc"،
-// "1.5"، رقم من عشرين خانة) كانت تصل إلى القاعدة فترمي خطأً يعود 500 بدل رفض واضح.
-function validIdParam(req, res, next, value) {
-  if (/^[1-9]\d{0,9}$/.test(value) && Number(value) <= 2147483647) return next();
-  return res.status(400).json({ error: 'معرّف غير صالح' });
-}
+const { validIdParam, DUMMY_PASSWORD_HASH } = require('../middleware/shared');
 router.param('id', validIdParam);
 
 const bcrypt = require('bcryptjs');
 
-// ن8: حين لا يوجد اسم المستخدم نقارن كلمة المرور بتجزئة وهمية بالكلفة نفسها (10) بدل الرد
-// فوراً. كان الرد السريع (3 ملّي ثانية مقابل 70) يكشف أي أسماء المستخدمين موجودة.
-const DUMMY_PASSWORD_HASH = bcrypt.hashSync('dawaai-jahez-no-such-user', 10);
 const crypto = require('crypto');
 const db = require('../db');
 const adminAuth = require('../middleware/adminAuth');
