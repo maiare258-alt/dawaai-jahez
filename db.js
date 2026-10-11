@@ -7,7 +7,16 @@ const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: process.env.DATABASE_URL && process.env.DATABASE_URL.includes('localhost')
     ? false
-    : { rejectUnauthorized: false }
+    : { rejectUnauthorized: false },
+  // إن تعذّر الوصول إلى Supabase يفشل الطلب بعد 10 ثوانٍ برسالة، بدل أن يبقى معلّقاً بلا نهاية
+  connectionTimeoutMillis: 10000
+});
+
+// خاد1: اتصال خامل في المجمّع قد ينقطع (صيانة Supabase، أو انقطاع شبكة). المكتبة تُطلق حينها
+// حدث خطأ على المجمّع نفسه، وبلا مستمع له كانت Node تُنهي الخادم كله فيتوقف الموقع حتى يعيد
+// Render تشغيله. الآن نسجّل الخطأ فقط، والمكتبة تستبدل الاتصال المقطوع تلقائياً عند الطلب التالي.
+pool.on('error', (err) => {
+  console.error('[قاعدة البيانات] انقطع اتصال خامل (تُستبدل تلقائياً):', err && err.message);
 });
 
 // ينشئ الجداول تلقائياً إذا لم تكن موجودة، ويضيف الأدوية الافتراضية أول مرة فقط
@@ -379,16 +388,33 @@ function levenshtein(a, b) {
 
 // ---------- الأدوية ----------
 
+// خاد2: الرمزان % و_ لهما معنى خاص في LIKE (أي نص / أي حرف)، فكان البحث بـ"%%" يطابق كل
+// الأدوية ويعيدها مع توفرها في كل الصيدليات دفعة واحدة. نعاملهما الآن حرفين عاديين.
+function escapeLike(s) {
+  return s.replace(/[\\%_]/g, '\\$&');
+}
+
+const SEARCH_RESULTS_LIMIT = 30;
+
 async function searchMedicines(query, category = 'medicine') {
   const q = query.trim().toLowerCase();
   if (!q) return [];
+  const e = escapeLike(q);
+  // النتائج محدودة بـ30، فنرتّبها كي لا يخرج المطلوب من الحد: المطابق تماماً، ثم ما يبدأ
+  // بالكلمة، ثم ما يحتويها، ثم المطابق بالمادة الفعالة أو اسم بديل
   const { rows } = await pool.query(
     `SELECT * FROM medicines
      WHERE category = $2
        AND (LOWER(name) LIKE $1
         OR LOWER(COALESCE(generic_name, '')) LIKE $1
-        OR EXISTS (SELECT 1 FROM unnest(alt_names) a WHERE LOWER(a) LIKE $1))`,
-    [`%${q}%`, category]
+        OR EXISTS (SELECT 1 FROM unnest(alt_names) a WHERE LOWER(a) LIKE $1))
+     ORDER BY CASE WHEN LOWER(name) = $3 THEN 0
+                   WHEN LOWER(name) LIKE $4 THEN 1
+                   WHEN LOWER(name) LIKE $1 THEN 2
+                   ELSE 3 END,
+              name
+     LIMIT ${SEARCH_RESULTS_LIMIT}`,
+    [`%${e}%`, category, q, `${e}%`]
   );
   return rows;
 }
@@ -397,12 +423,38 @@ async function searchMedicines(query, category = 'medicine') {
 // لو كان الاسم + التصنيف موجودين أصلاً، ما بينضاف صف جديد إطلاقاً، وبترجع الدالة الدواء
 // الموجود بهدوء بدل ما ترمي خطأ — هيك المستخدم ما بيشوف رسالة خطأ سيرفر قبيحة، والنتيجة
 // النهائية صحيحة بكل الحالات (نسخة واحدة فقط بالقائمة العامة).
-async function addMedicine({ name: rawName, generic_name: rawGeneric, alt_names, category }) {
+// خاد5: المادة الفعالة والأسماء البديلة تصل من الصيدلي والإدارة وملفات الاستيراد. كانت
+// تُحفظ كما هي: قيمة فارغة (null) بين الأسماء البديلة عطّلت «هل تقصد» لكل الزوار، ونص
+// من 30 ألف حرف ظهر في نتائج البحث. الآن: نص فقط، حتى 120 حرفاً، وحتى 20 اسماً بديلاً.
+const MAX_MEDICINE_TEXT = 120;
+const MAX_ALT_NAMES = 20;
+
+function sanitizeGenericName(v) {
+  if (typeof v !== 'string') return null;
+  const t = cleanText(v);
+  return t ? t.slice(0, MAX_MEDICINE_TEXT) : null;
+}
+
+function sanitizeAltNames(v) {
+  if (!Array.isArray(v)) return [];
+  const out = [];
+  for (const item of v) {
+    if (typeof item !== 'string') continue;
+    const t = cleanText(item);
+    if (!t || t.length > MAX_MEDICINE_TEXT || out.includes(t)) continue;
+    out.push(t);
+    if (out.length >= MAX_ALT_NAMES) break;
+  }
+  return out;
+}
+
+async function addMedicine({ name: rawName, generic_name: rawGeneric, alt_names: rawAlt, category }) {
   const finalCategory = category || 'medicine';
   // تنظيف الاسم يمنع أيضاً تكراراً خفياً: "بنادول " كان سيُحفظ دواءً مستقلاً عن
   // "بنادول" لأن الفهرس الفريد يقارن النص حرفياً. بعد التنظيف يلتقطه ON CONFLICT.
   const name = cleanText(rawName);
-  const generic_name = cleanText(rawGeneric);
+  const generic_name = sanitizeGenericName(rawGeneric);
+  const alt_names = sanitizeAltNames(rawAlt);
   try {
     const { rows } = await pool.query(
       `INSERT INTO medicines (name, generic_name, alt_names, category)
@@ -451,7 +503,8 @@ async function suggestMedicines(query, category = 'medicine') {
 
   const scored = [];
   for (const m of medicines) {
-    const candidates = [m.name, ...(m.alt_names || [])];
+    // نتجاهل أي اسم بديل تالف حُفظ قبل خاد5، كي لا يتعطل الاقتراح لكل الزوار بسببه
+    const candidates = [m.name, ...(m.alt_names || [])].filter(c => typeof c === 'string' && c);
     let bestDistance = Infinity;
     for (const candidate of candidates) {
       const c = candidate.toLowerCase();
