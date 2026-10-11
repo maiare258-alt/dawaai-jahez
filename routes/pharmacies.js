@@ -328,6 +328,12 @@ router.put('/self/duty', async (req, res) => {
   }
   const dutyError = dutyFieldsError(req.body);
   if (dutyError) return res.status(400).json({ error: dutyError });
+  // خاد7: النص "false" كان يُفهم «نعم» فتُفعَّل المناوبة. نقبل نعم/لا صريحة فقط
+  // (القاعدة نفسها المطبّقة في مسار المدير وفي الإغلاق الاستثنائي)
+  if (on_duty !== true && on_duty !== false && on_duty !== 'true' && on_duty !== 'false') {
+    return res.status(400).json({ error: 'قيمة غير صالحة' });
+  }
+  const onDutyValue = on_duty === true || on_duty === 'true';
   try {
     const pharmacy = await db.findPharmacyByUsername(username);
     if (!pharmacy) { await bcrypt.compare(String(password || ''), DUMMY_PASSWORD_HASH); return res.status(401).json({ error: 'بيانات الدخول غير صحيحة' }); }
@@ -335,7 +341,7 @@ router.put('/self/duty', async (req, res) => {
     const valid = await bcrypt.compare(password, pharmacy.owner_password_hash);
     if (!valid) return res.status(401).json({ error: 'بيانات الدخول غير صحيحة' });
 
-    const updated = await db.setDutyStatus(pharmacy.id, on_duty, on_duty_day, on_duty_shift, on_duty_start_time, on_duty_end_time, 'pharmacy');
+    const updated = await db.setDutyStatus(pharmacy.id, onDutyValue, on_duty_day, on_duty_shift, on_duty_start_time, on_duty_end_time, 'pharmacy');
     res.json({
       on_duty: updated.on_duty,
       on_duty_day: updated.on_duty_day,
@@ -388,6 +394,14 @@ router.put('/self/assistant-phone', async (req, res) => {
   if (!username || !password) {
     return res.status(400).json({ error: 'بيانات الدخول مطلوبة' });
   }
+  // خاد6: كان يُقبل أي شيء (نص طويل، كائن...) ويظهر للمرضى مكان الرقم. الآن القاعدة نفسها
+  // المطبّقة على الرقم الأساسي، مع السماح بتركه فارغاً لمسح الرقم المساعد
+  let assistantValue = null;
+  if (assistant_phone !== undefined && assistant_phone !== null && !(typeof assistant_phone === 'string' && assistant_phone.trim() === '')) {
+    const norm = normalizeMainPhone(assistant_phone);
+    if (norm.error) return res.status(400).json({ error: norm.error });
+    assistantValue = norm.value;
+  }
   try {
     const pharmacy = await db.findPharmacyByUsername(username);
     if (!pharmacy) { await bcrypt.compare(String(password || ''), DUMMY_PASSWORD_HASH); return res.status(401).json({ error: 'بيانات الدخول غير صحيحة' }); }
@@ -395,7 +409,7 @@ router.put('/self/assistant-phone', async (req, res) => {
     const valid = await bcrypt.compare(password, pharmacy.owner_password_hash);
     if (!valid) return res.status(401).json({ error: 'بيانات الدخول غير صحيحة' });
 
-    const updated = await db.setAssistantPhone(pharmacy.id, assistant_phone);
+    const updated = await db.setAssistantPhone(pharmacy.id, assistantValue);
     res.json({ assistant_phone: updated.assistant_phone });
   } catch (err) {
     console.error(err);
