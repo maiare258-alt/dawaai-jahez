@@ -117,6 +117,16 @@ app.use('/api', (req, res, next) => {
 // بلا حد أيضاً فتلتف على حماية الدخول. نحتسب هنا كل رد 401 (بيانات دخول خاطئة) لكل
 // زائر، وبعد 20 محاولة خاطئة في ربع ساعة نوقفه مؤقتاً. الطلبات الناجحة لا تُحتسب،
 // فالمدير والصيادلة لا يتأثرون، والمرضى لا يُدخلون كلمات مرور أصلاً.
+//
+// خاد3: الحساب والحجب يخصّان الطلبات التي تحمل كلمة مرور فقط. كان أي رد 401 يُحتسب (حتى
+// طلب بلا أي بيانات دخول)، ثم يُحجب كل /api عن العنوان: البحث والمناوبة والطلبات. وشركات
+// الهاتف تضع كثيراً من المشتركين خلف عنوان واحد، فشخص واحد كان يستطيع حجب الموقع عنهم.
+function carriesCredentials(req) {
+  if (req.headers['x-admin-password'] || req.headers['x-pharmacy-password']) return true;
+  const b = req.body;
+  return !!(b && typeof b === 'object' && !Array.isArray(b) && b.password);
+}
+
 const AUTH_FAIL_MAX = 20;
 const AUTH_FAIL_WINDOW_MS = 15 * 60 * 1000;
 const authFailures = new Map();
@@ -126,6 +136,7 @@ setInterval(() => {
 }, 10 * 60 * 1000).unref();
 
 app.use('/api', (req, res, next) => {
+  if (!carriesCredentials(req)) return next();
   const ip = clientIp(req).ip;
   const now = Date.now();
   const entry = authFailures.get(ip);
