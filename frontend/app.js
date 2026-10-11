@@ -509,7 +509,6 @@ const translations = {
     ads_from: 'من',
     ads_to: 'إلى',
     ads_submit: 'إضافة الإعلان',
-    ads_preparing: 'جارٍ تجهيز الصورة...',
     ads_uploading: 'جارٍ الرفع...',
     ads_added: 'أُضيف الإعلان.',
     ads_need_advertiser: 'اكتب اسم المعلن (حتى 80 حرفاً).',
@@ -663,7 +662,6 @@ const translations = {
     invalid_whatsapp_error: 'رقم واتساب غير صالح. يُرجى إدخال رقم هاتف محمول سوري، مثل 0932985852',
     whatsapp_phone_hint: 'لن يظهر زر المراسلة للمرضى إلا إذا أدخلت رقماً. اترك الحقل فارغاً لإخفائه.',
     whatsapp_admin_label: 'واتساب',
-    whatsapp_coming_soon: 'البحث عبر واتساب قيد التجهيز 💬 يجري حالياً إعداد رقم رسمي للمنصة.',
     contact_title: 'تواصل معنا',
     contact_intro: 'يسعدنا تواصلكم بأي استفسار أو اقتراح، ولتسجيل صيدلية أو ممرض على المنصة.',
     contact_email_btn: '✉️ راسلنا بالبريد',
@@ -1115,7 +1113,6 @@ const translations = {
     ads_from: 'From',
     ads_to: 'To',
     ads_submit: 'Add ad',
-    ads_preparing: 'Preparing the image...',
     ads_uploading: 'Uploading...',
     ads_added: 'Ad added.',
     ads_need_advertiser: 'Enter the advertiser name (up to 80 characters).',
@@ -1269,7 +1266,6 @@ const translations = {
     invalid_whatsapp_error: 'Invalid WhatsApp number. Enter a Syrian mobile number such as 0932985852',
     whatsapp_phone_hint: 'The message button appears to patients only if you enter a number. Leave it empty to hide it.',
     whatsapp_admin_label: 'WhatsApp',
-    whatsapp_coming_soon: "Search via WhatsApp coming soon 💬 We're setting up an official number for the project.",
     contact_title: 'Contact us',
     contact_intro: 'We are happy to hear from you with any question or suggestion, or to register a pharmacy or a nurse on the platform.',
     contact_email_btn: '✉️ Email us',
@@ -1445,6 +1441,8 @@ const BACKEND_ERROR_MAP = {
 const BACKEND_ERROR_EN = {
   'بيانات الدخول غير صالحة': 'Invalid login details.',
   'حدث خطأ في الخادم': 'A server error occurred. Please try again shortly.',
+  'كلمة مرور الإدارة غير صحيحة': 'Incorrect admin password.',
+  'خطأ في إعداد الخادم': 'Server configuration error.',
   'معرّف غير صالح': 'Invalid identifier.',
   'حدث خطأ أثناء جلب الإعلانات': 'An error occurred while loading the ads. Please try again shortly.',
   'حجم الصورة كبير جداً': 'The image is too large.',
@@ -2748,10 +2746,6 @@ document.addEventListener('keydown', function (e) {
     closeWhatsappPanel();
   }
 });
-
-function whatsappComingSoon() {
-  customAlert(t('whatsapp_coming_soon'), 'info');
-}
 
 function headerGoNursing(link) {
   applyNursingHeroText();
@@ -4121,13 +4115,7 @@ function downloadBulkImportTemplate() {
     ? ['Panadol', 'Paracetamol', 'Panadol Extra;Acetaminophen', 'Medicine']
     : ['بنادول', 'باراسيتامول', 'بندول;panadol', 'دواء'];
   const csv = '\uFEFF' + headers.join(',') + '\n' + example.join(',') + '\n';
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = 'dawaai-jahez-medicines-template.csv';
-  a.click();
-  URL.revokeObjectURL(url);
+  saveBlobAs(new Blob([csv], { type: 'text/csv;charset=utf-8;' }), 'dawaai-jahez-medicines-template.csv');
 }
 
 // نص خانة التصنيف بالملف ممكن يجي عربي أو إنكليزي (حسب لغة النموذج يلي استخدمها الصيدلي) — نتحقق من الاثنين
@@ -4854,7 +4842,6 @@ async function renderAdminPanel() {
   }
 }
 
-// إعادة رسم اللوحة من آخر بيانات محفوظة بدون أي طلب شبكة جديد — تُستخدم عند تبديل اللغة بس
 // ---------- قسم الإحصاءات بلوحة الإدارة ----------
 // يُبنى من كائن stats القادم من GET /api/stats. لو كان null (فشل الطلب) يُخفى القسم
 // بالكامل بدل عرض أصفار مضلّلة — رقم خاطئ أسوأ من غياب الرقم.
@@ -4942,6 +4929,7 @@ function renderStatsSection(stats) {
   `;
 }
 
+// إعادة رسم اللوحة من آخر بيانات محفوظة بدون أي طلب شبكة جديد (تبديل اللغة، أو بعد أي إجراء إداري)
 function renderAdminPanelUI() {
   const adminDraft = readAdminDraft();
   const { pharmacies, medicines, nurses, pendingRatings, stats } = adminDataCache;
@@ -5485,8 +5473,20 @@ async function fetchWithTimeout(url, options = {}, timeoutMs = 20000) {
   }
 }
 
-// تصنيف سبب الفشل، ليعرف المستخدم ماذا يفعل بدل رسالة واحدة لكل الأسباب.
-// نفحص الاتصال أولاً: الطلب الفاشل أثناء الانقطاع قد يظهر كمهلة أو كخطأ شبكة.
+// حفظ ملف من المتصفح إلى جهاز المستخدم. كانت هذه الخطوات مكررة في أربعة أماكن، واثنان منها
+// يحرّران الرابط فور النقر، وبعض متصفحات الهاتف تلغي التنزيل حينها فلا يُحفظ شيء. والرابط
+// يجب أن يكون داخل الصفحة لحظة النقر كي يعمل في Firefox. الآن مكان واحد يفعل ذلك صحيحاً.
+function saveBlobAs(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 60000);
+}
+
 // هيكل تحميل: بطاقات رمادية بشكل المحتوى القادم. وقارئ الشاشة يسمع "جارٍ التحميل".
 function skeletonHtml(count = 3) {
   const card = '<div class="skeleton-card"><div class="skeleton-line title"></div><div class="skeleton-line w-80"></div><div class="skeleton-line w-40"></div></div>';
@@ -5554,6 +5554,8 @@ async function runAction(url, options) {
   return false;
 }
 
+// تصنيف سبب الفشل، ليعرف المستخدم ماذا يفعل بدل رسالة واحدة لكل الأسباب.
+// نفحص الاتصال أولاً: الطلب الفاشل أثناء الانقطاع قد يظهر كمهلة أو كخطأ شبكة.
 function classifyFetchError(err) {
   if (typeof navigator !== 'undefined' && navigator.onLine === false) return 'offline';
   if (err && err.name === 'AbortError') return 'timeout';
@@ -6237,13 +6239,8 @@ function exportDemandCsv() {
   add(t('demand_shortages'), r.shortages, 'name');
   add(t('demand_not_found'), r.notFound, 'query');
   add(t('demand_by_city'), (r.byCity || []).map(c => ({ name: c.city ? cityName(c.city) : t('demand_all_cities'), count: c.count })), 'name');
-  const blob = new Blob(['\ufeff' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `dawaai-jahez-demand-${r.days}d-${new Date().toISOString().slice(0, 10)}.csv`;
-  document.body.appendChild(a); a.click(); document.body.removeChild(a);
-  URL.revokeObjectURL(url);
+  saveBlobAs(new Blob(['\ufeff' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' }),
+    `dawaai-jahez-demand-${r.days}d-${new Date().toISOString().slice(0, 10)}.csv`);
 }
 
 // ================= بدء الإطلاق الرسمي =================
@@ -6311,14 +6308,7 @@ async function startOfficialLaunch() {
     await customAlert(t('launch_backup_failed'), 'error');
     return;
   }
-  const saveBackupFile = () => {
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `dawaai-jahez-before-launch-${new Date().toISOString().slice(0, 10)}.json`;
-    document.body.appendChild(a); a.click(); document.body.removeChild(a);
-    setTimeout(() => URL.revokeObjectURL(url), 60000);
-  };
+  const saveBackupFile = () => saveBlobAs(blob, `dawaai-jahez-before-launch-${new Date().toISOString().slice(0, 10)}.json`);
   let saved = false;
   for (let attempt = 0; attempt < 3 && !saved; attempt++) {
     saveBackupFile();
@@ -6396,17 +6386,8 @@ async function downloadBackup() {
     const res = await fetchWithTimeout(`${API}/stats/backup`, { headers: adminHeaders(), cache: 'no-store' }, 60000);
     if (!res.ok) { await customAlert(t('backup_failed'), 'error'); return; }
 
-    // نحوّل الاستجابة إلى ملف ينزّله المتصفح. الرابط المؤقت يُحرَّر بعده
-    // لتفادي تسريب ذاكرة عند تكرار التنزيل.
-    const blob = await res.blob();
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `dawaai-jahez-backup-${new Date().toISOString().slice(0, 10)}.json`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    // نحوّل الاستجابة إلى ملف ينزّله المتصفح
+    saveBlobAs(await res.blob(), `dawaai-jahez-backup-${new Date().toISOString().slice(0, 10)}.json`);
 
     writeLastBackup(new Date().toISOString());
     renderBackupInfo();
