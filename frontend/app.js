@@ -1356,7 +1356,9 @@ function t(key) {
 // تعبئة قالب ترجمة فيه عناصر نائبة {مثل هذه}
 function tFormat(key, values) {
   let str = t(key);
-  for (const [k, v] of Object.entries(values)) str = str.replace(`{${k}}`, v);
+  // و10: split/join بدل replace: كان replace يفسّر $& و$' في القيمة (اسم صيدلية فيه $ يظهر
+  // مشوّهاً)، ويستبدل أول موضع للمتغير فقط
+  for (const [k, v] of Object.entries(values)) str = str.split(`{${k}}`).join(String(v));
   return str;
 }
 
@@ -2283,16 +2285,18 @@ async function submitOrder() {
     // نربط كل طلب باسم صيدليته (من العربة) ونحفظه محلياً لمتابعة رد الصيدلية عليه
     data.orders.forEach(o => {
       const item = cart.find(it => it.pharmacyId === o.pharmacy_id);
-      myOrders.push({ id: o.id, pharmacyName: item ? item.pharmacyName : '', status: 'pending' });
+      myOrders.push({ id: o.id, pharmacyName: item ? item.pharmacyName : '', status: 'pending', at: Date.now() });
     });
     saveMyOrders();
     updateBellBadge();
     startMyOrdersPolling();
 
-    await customAlert(t('order_success_msg'), 'success');
+    // و2: العربة تُفرَّغ قبل رسالة النجاح لا بعدها. كان إغلاق التطبيق والرسالة ظاهرة يُبقي
+    // العربة ممتلئة، فيرسلها المريض ثانية ظاناً أنها لم تُرسل، فيصل الطلب مرتين
     cart = [];
     saveCart();
     renderCart();
+    await customAlert(t('order_success_msg'), 'success');
   } catch (err) {
     // لا نمسح المفتاح هنا عن قصد: الفشل قد يكون ملتبساً (وصل الطلب وضاع الرد)،
     // فإعادة المحاولة بالمفتاح نفسه تعيد الطلب الموجود بدل تكراره.
@@ -2316,7 +2320,15 @@ async function submitOrder() {
 
 // ---------- تتبع حالة طلبات المريض (هل استجابت الصيدلية؟) — عبر أيقونة الجرس ----------
 
+// و1: الطلبات المُجابة تتراكم في الجرس إن لم يمسحها المريض. نُبقي آخر 50 منها فقط (مع
+// كل طلب لم يُجب بعد)، فلا تكبر الذاكرة بلا حد
+const MAX_ANSWERED_ORDERS_KEPT = 50;
 function saveMyOrders() {
+  const answered = myOrders.filter(isOrderAnswered);
+  if (answered.length > MAX_ANSWERED_ORDERS_KEPT) {
+    const drop = new Set(answered.slice(0, answered.length - MAX_ANSWERED_ORDERS_KEPT));
+    myOrders = myOrders.filter(o => !drop.has(o));
+  }
   storageSet('myOrders', JSON.stringify(myOrders));
 }
 
@@ -2448,11 +2460,16 @@ function stopMyOrdersPolling() {
 async function checkMyOrdersStatus() {
   if (!myOrders || myOrders.length === 0) { stopMyOrdersPolling(); return; }
   try {
-    const ids = myOrders.map(o => o.id).join(',');
-    const res = await fetch(`${API}/orders/status?ids=${ids}`);
+    // و1: نسأل عن الطلبات التي لم يُجب عليها فقط، وأحدث 100 منها (حد الخادم). كانت كل
+    // الطلبات تُرسل، فيقص الخادم الزائد عن 100، فيُحكم على الطلب الجديد الغائب من الرد
+    // بأنه «تعذّر تجهيزه» وهو ما زال قيد المراجعة
+    const asked = myOrders.filter(o => !isOrderAnswered(o)).slice(-100);
+    if (asked.length === 0) { stopMyOrdersPolling(); return; }
+    const ids = asked.map(o => o.id).join(',');
+    const res = await fetchWithTimeout(`${API}/orders/status?ids=${ids}`, {}, 15000);
     const rows = await readJsonOk(res);
     let newlyConfirmed = false;
-    myOrders.forEach(local => {
+    asked.forEach(local => {
       if (isOrderAnswered(local)) return;   // حالة نهائية: لا تتغير بعد ذلك
       const found = rows.find(r => r.id === local.id);
       // الخادم يعيد الطلب المحذوف بحالته الحقيقية (مؤكد، أو "تعذّر التجهيز" إن حُذف دون تأكيد).
@@ -2704,7 +2721,7 @@ async function loadWhatsappPharmacies() {
   try {
     // نحترم فلتر المدينة المختار بالصفحة الرئيسية: المريض يريد صيدلية يمكنه زيارتها
     const cityParam = currentCity ? `?city=${encodeURIComponent(currentCity)}` : '';
-    const res = await fetch(`${API}/pharmacies/whatsapp${cityParam}`, { cache: 'no-store' });
+    const res = await fetchWithTimeout(`${API}/pharmacies/whatsapp${cityParam}`, { cache: 'no-store' }, 15000);
     if (!res.ok) throw new Error('fetch failed');
     const data = await res.json();
     // اللوحة قد تُغلق بينما الطلب جارٍ — نتجاهل النتيجة حينها بدل الكتابة فوق DOM مخفي
@@ -2838,13 +2855,18 @@ function translateDutyShift(shift) { return currentLang === 'en' ? (DUTY_SHIFT_E
 // ---------- واجهة المريض ----------
 
 let lastOnDutySnapshot = null;
+// و5: رقم آخر طلب للمناوبة. رد متأخر لمدينة سابقة (تحديث دوري بدأ قبل تغيير المدينة)
+// كان يُعرض فوق قائمة المدينة الجديدة؛ الآن يُهمل كل رد ليس لآخر طلب
+let onDutySeq = 0;
 
 async function loadOnDuty() {
   const container = document.getElementById('on-duty-section');
+  const seq = ++onDutySeq;
   try {
     const cityParam = currentCity ? `?city=${encodeURIComponent(currentCity)}` : '';
     const res = await fetchWithTimeout(`${API}/pharmacies/on-duty${cityParam}`, {}, 15000);
     const data = await readJsonOk(res);
+    if (seq !== onDutySeq) return;
 
     // ما تغيّر شي بالبيانات؟ خلص، ما في داعي نعيد رسم الشاشة ونسبب وميض
     const snapshot = JSON.stringify(data);
@@ -2895,6 +2917,7 @@ async function loadOnDuty() {
     // كان الفشل يُفرغ القائمة ويُبقي اللقطة القديمة، فيرى الرد التالي البيانات نفسها
     // ولا يعيد الرسم: تختفي القائمة حتى تتغير المناوبة. الآن: آخر قائمة سليمة تبقى ظاهرة،
     // واللقطة تُمسح كي يرسم أول رد ناجح من جديد. وإن لم تُعرض قائمة قط، تظهر رسالة واضحة.
+    if (seq !== onDutySeq) return;
     lastOnDutySnapshot = null;
     if (!container.querySelector('.duty-card, .empty-state')) {
       const kind = classifyFetchError(err);
@@ -3016,7 +3039,7 @@ async function loadNurses() {
   container.innerHTML = skeletonHtml(3);
   openNurseDetailIds.clear();
   try {
-    const res = await fetch(`${API}/nurses`);
+    const res = await fetchWithTimeout(`${API}/nurses`, {}, 15000);
     const nurses = await readJsonOk(res);
     nursesCache = nurses;
     lastNursesSnapshot = JSON.stringify(nurses);
@@ -3050,7 +3073,7 @@ function stopNursingPolling() {
 
 async function pollNurses() {
   try {
-    const res = await fetch(`${API}/nurses`);
+    const res = await fetchWithTimeout(`${API}/nurses`, {}, 15000);
     const nurses = await readJsonOk(res);
     const snapshot = JSON.stringify(nurses);
     if (snapshot === lastNursesSnapshot) return; // ما تغيّر شي، صفر إعادة رسم
@@ -3059,6 +3082,8 @@ async function pollNurses() {
 
     const container = document.getElementById('nurses-list');
     if (!container) { stopNursingPolling(); return; }
+    const drafts = {};
+    for (const id of openNurseDetailIds) drafts[id] = readRatingDraft(id);
     container.innerHTML = renderNursesList(nurses);
 
     // نعيد فتح أي "لمحة عنه" كانت مفتوحة عند المستخدم، بمحتواها المحدّث
@@ -3066,7 +3091,7 @@ async function pollNurses() {
       const panel = document.getElementById(`nurse-detail-${id}`);
       if (panel) {
         panel.style.display = 'block';
-        renderNurseDetail(id);
+        renderNurseDetail(id, drafts[id]);
       }
     }
   } catch (err) { /* تجاهل بصمت، رح يعيد المحاولة بالجولة الجاية */ }
@@ -3084,16 +3109,26 @@ async function toggleNurseDetail(nurseId) {
   }
 }
 
-async function renderNurseDetail(nurseId) {
+function readRatingDraft(nurseId) {
+  const v = (id) => { const el = document.getElementById(id); return el ? el.value : ''; };
+  return { comment: v(`rating-comment-${nurseId}`), name: v(`rating-name-${nurseId}`), phone: v(`rating-phone-${nurseId}`) };
+}
+
+async function renderNurseDetail(nurseId, draft) {
   const panel = document.getElementById(`nurse-detail-${nurseId}`);
   const nurse = nursesCache.find(n => n.id === nurseId);
+  // و4: التحديث الدوري لصفحة التمريض يعيد رسم هذه اللوحة، فكان يمحو تقييماً يكتبه المريض.
+  // نحفظ ما في الحقول قبل إعادة الرسم ونعيده بعدها، ومعه النجوم المختارة. (التحديث الدوري
+  // يعيد بناء القائمة كلها قبل هذه الدالة، فيمرّر المسودة التي قرأها قبل ذلك)
+  const ratingDraft = draft || readRatingDraft(nurseId);
   panel.innerHTML = `<p class="muted">${t('loading_text')}</p>`;
 
   let ratings = [];
+  let ratingsFailed = false;
   try {
-    const res = await fetch(`${API}/nurses/${nurseId}/ratings`);
+    const res = await fetchWithTimeout(`${API}/nurses/${nurseId}/ratings`, {}, 15000);
     ratings = await readJsonOk(res);
-  } catch (err) { /* بنكمل بعرض الملخص حتى لو فشل جلب التعليقات */ }
+  } catch (err) { ratingsFailed = true; /* بنكمل بعرض الملخص حتى لو فشل جلب التعليقات */ }
 
   const alreadyRated = hasRatedNurse(nurseId);
 
@@ -3102,8 +3137,10 @@ async function renderNurseDetail(nurseId) {
       ${nurse && nurse.university ? `<div class="result-row">🎓 ${escapeHtml(nurse.university)}${nurse.graduation_year ? ` - ${t('grad_year_label')} ${escapeHtml(nurse.graduation_year)}` : ''}</div>` : ''}
       ${nurse && nurse.phone ? `<div class="result-row">📞 ${escapeHtml(nurse.phone)}</div>` : ''}
       <hr style="border:none; border-top:1px solid #eef2f6; margin:14px 0;">
-      <p style="font-weight:700; margin:0 0 8px;">${tFormat('patient_reviews_title', { count: ratings.length })}</p>
-      ${ratings.length === 0
+      <p style="font-weight:700; margin:0 0 8px;">${tFormat('patient_reviews_title', { count: ratingsFailed && nurse ? (nurse.rating_count || 0) : ratings.length })}</p>
+      ${ratingsFailed
+        ? `<p class="muted" style="margin:0 0 12px;">${t('failed_load_ratings')}</p>`
+        : ratings.length === 0
         ? `<p class="muted" style="margin:0 0 12px;">${t('no_published_reviews')}</p>`
         : ratings.map(r => `
           <div style="padding:8px 0; border-bottom:1px solid #f2f5f8;">
@@ -3123,10 +3160,18 @@ async function renderNurseDetail(nurseId) {
           <textarea id="rating-comment-${nurseId}" placeholder="${t('comment_placeholder')}" rows="2" style="width:100%; padding:10px 14px; border:1px solid #cfe0ef; border-radius:14px; font-family:inherit; font-size:15px; resize:vertical; margin-bottom:10px;"></textarea>
           <input id="rating-name-${nurseId}" placeholder="${t('your_name_placeholder')}" aria-label="${t('your_name_placeholder')}">
           <input id="rating-phone-${nurseId}" maxlength="15" placeholder="${t('your_phone_placeholder')}" aria-label="${t('your_phone_placeholder')}" type="tel" inputmode="numeric" oninput="digitsOnly(this)">
-          <button class="primary" onclick="submitNurseRating(${nurseId})">${t('submit_rating_btn')}</button>
+          <button class="primary" id="rating-submit-${nurseId}" onclick="submitNurseRating(${nurseId})">${t('submit_rating_btn')}</button>
         `}
     </div>
   `;
+  // و4: إعادة ما كان المريض يكتبه، والنجوم التي اختارها (كانت محفوظة داخلياً وتظهر فارغة)
+  if (!alreadyRated) {
+    const put = (id, v) => { const el = document.getElementById(id); if (el && v) el.value = v; };
+    put(`rating-comment-${nurseId}`, ratingDraft.comment);
+    put(`rating-name-${nurseId}`, ratingDraft.name);
+    put(`rating-phone-${nurseId}`, ratingDraft.phone);
+    if (selectedNurseStars[nurseId]) setRatingStars(nurseId, selectedNurseStars[nurseId]);
+  }
 }
 
 const selectedNurseStars = {};
@@ -3151,7 +3196,9 @@ function setRatingStars(nurseId, stars) {
   });
 }
 
-async function submitNurseRating(nurseId) {
+// و3: نقرتان سريعتان كانتا ترسلان تقييمين؛ الزر يتعطّل الآن أثناء الإرسال
+function submitNurseRating(nurseId) { return runGuarded('submitNurseRating:' + nurseId, `rating-submit-${nurseId}`, () => submitNurseRatingNow(nurseId)); }
+async function submitNurseRatingNow(nurseId) {
   const stars = selectedNurseStars[nurseId];
   if (!stars) { customAlert(t('select_stars_first'), 'warning'); return; }
   const name = document.getElementById(`rating-name-${nurseId}`).value.trim();
@@ -3160,12 +3207,12 @@ async function submitNurseRating(nurseId) {
   if (!name || !phone) { customAlert(t('name_phone_required'), 'warning'); return; }
   if (phone.length < 7) { customAlert(t('phone_too_short_error'), 'warning'); return; }
   try {
-    const res = await fetch(`${API}/nurses/${nurseId}/ratings`, {
+    const res = await fetchWithTimeout(`${API}/nurses/${nurseId}/ratings`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ patient_name: name, patient_phone: phone, stars, comment })
-    });
-    const data = await res.json();
+    }, 20000);
+    const data = await res.json().catch(() => ({}));
     if (!res.ok) { customAlert(translateApiError(data.error), 'error'); return; }
     markNurseAsRated(nurseId);
     await customAlert(t('rating_submitted_success'), 'success');
@@ -3457,14 +3504,17 @@ async function runSearch() {
     // رسالة تذكر السبب وما يفعله المريض، مع زر إعادة محاولة مباشر بدل أن
     // يضطر لمسح كلمة البحث وإعادة كتابتها.
     const kind = classifyFetchError(err);
-    const subtitle = kind === 'offline' ? t('err_offline')
+    // و7: بلوغ حد البحث ليس انقطاعاً في الاتصال، فلا نطلب من المريض فحص شبكته
+    const subtitle = err && err.status === 429 ? t('rate_limited_error')
+                   : kind === 'offline' ? t('err_offline')
                    : kind === 'timeout' ? t('err_timeout_search')
                    : t('err_network');
+    const limited = err && err.status === 429;
     container.innerHTML = `
       <div class="empty-state">
-        <div class="empty-icon">${kind === 'offline' ? '📡' : '⚠️'}</div>
-        <p class="empty-title">${t('server_error_title')}</p>
-        <p class="empty-subtitle">${subtitle}</p>
+        <div class="empty-icon">${kind === 'offline' ? '📡' : limited ? '⏳' : '⚠️'}</div>
+        <p class="empty-title">${limited ? subtitle : t('server_error_title')}</p>
+        ${limited ? '' : `<p class="empty-subtitle">${subtitle}</p>`}
         <button type="button" class="refresh-results-btn" style="margin-top:12px;" onclick="runSearch()">${t('refresh_results_btn')}</button>
       </div>`;
   }
@@ -5525,7 +5575,7 @@ function setupScrollReveal() {
 // تُخزَّن في ذاكرة البحث أو المخزون أو الممرضين، فتنكسر الشاشة وما يُبنى عليها بعدها.
 async function readJsonOk(res, shape = 'array') {
   const data = await res.json().catch(() => null);
-  if (!res.ok || data === null) throw new Error('bad response ' + res.status);
+  if (!res.ok || data === null) { const e = new Error('bad response ' + res.status); e.status = res.status; throw e; }
   if (shape === 'array' && !Array.isArray(data)) throw new Error('unexpected response shape');
   if (shape === 'object' && (typeof data !== 'object' || Array.isArray(data))) throw new Error('unexpected response shape');
   return data;
@@ -5598,6 +5648,9 @@ let lastLoggedSearchKey = null;
 function scheduleSearchLog(q, category, city) {
   clearTimeout(searchLogTimer);
   if (!q || q.trim().length < 2) return;
+  // عمليات بحث المدير والصيادلة (تجارب، اختبار الموقع) لا تمثّل طلب المرضى، فلا تدخل التقرير
+  // المعروض على الشركات — بالقاعدة نفسها المطبّقة في عدّاد الزيارات والإعلانات
+  if (storageGet('dj_staff_device')) return;
   searchLogTimer = setTimeout(() => {
     // البحث تغيّر أثناء الانتظار: ليس هو ما استقر عليه المستخدم
     const box = document.getElementById('search');
