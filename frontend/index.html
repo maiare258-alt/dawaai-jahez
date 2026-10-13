@@ -162,12 +162,12 @@
     line-height: 1.6;
   }
   .container { max-width: 680px; margin: 0 auto; }
+  /* أبيض صلب لا زجاج مموّه: كان عنوان الصفحة يظهر باهتاً من خلفه، والتمويه يثقّل التمرير على الهواتف */
   .site-header {
     position: sticky; top: 12px; z-index: 100;
     max-width: 1080px; margin: 0 auto 16px;
-    background: rgba(255,255,255,0.82);
-    backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
-    border: 1px solid rgba(255,255,255,0.9);
+    background: #ffffff;
+    border: 1px solid #dbe8f4;
     border-radius: 18px;
     box-shadow: 0 6px 24px rgba(24,95,165,0.1);
   }
@@ -178,12 +178,13 @@
   }
   .site-header-right { display: flex; align-items: center; gap: 16px; }
   .site-logo { display: flex; align-items: center; gap: 8px; font-size: 17px; font-weight: 700; color: #163a5c; white-space: nowrap; }
+  /* الشعار رسم SVG ثابت (الكبسولة نفسها في أيقونة الموقع)، لا رمز 💊 يرسمه كل هاتف بشكل مختلف */
   .site-logo .logo-dot {
-    width: 32px; height: 32px; border-radius: 50%; flex-shrink: 0;
-    box-shadow: 0 4px 10px rgba(24,95,165,0.28);
-    background: linear-gradient(135deg, #2e77bf, #185fa5);
-    display: flex; align-items: center; justify-content: center; font-size: 15px;
+    width: 34px; height: 34px; border-radius: 50%; flex-shrink: 0;
+    box-shadow: 0 4px 10px rgba(24,95,165,0.22);
+    display: flex;
   }
+  .site-logo .logo-dot svg { width: 100%; height: 100%; display: block; }
   .site-nav { display: flex; align-items: center; gap: 2px; flex-wrap: wrap; }
   .site-nav a {
     font-size: 14px; color: #3a4a58; text-decoration: none; padding: 8px 12px; border-radius: 10px;
@@ -193,8 +194,18 @@
   .site-nav a.active { color: #185fa5; font-weight: 700; background: rgba(24,95,165,0.1); }
   /* روابط بوابات الأدوار (لوحة الصيدلي / الإدارة) — نفس مكانها بالترتيب، بس بتمييز بصري خفيف
      (حد رفيع + شفافية طفيفة) يوحي إنها بوابة دخول لنظام مختلف، مش تنقل رئيسي للمريض */
-  .site-nav a.nav-role-portal { border: 1px solid rgba(58,74,88,0.16); opacity: 0.8; margin-inline-start: 10px; }
-  .site-nav a.nav-role-portal:hover, .site-nav a.nav-role-portal.active { opacity: 1; }
+  /* رابطا العاملين (لوحة الصيدلي والإدارة) في آخر القائمة تحت عنوان «للعاملين في المنصة»،
+     فيعرف المريض أنهما ليسا له. كان حولهما إطار يشبه خانة كتابة فأُزيل. على الحاسوب يحل
+     خط فاصل رفيع محل العنوان، لأن الشريط الأفقي لا يتسع له. */
+  .site-nav a.nav-role-portal { color: #4f5f6d; }
+  .nav-staff-label {
+    display: flex; align-items: center; align-self: stretch;
+    width: 1px; margin: 8px 8px; background: #d5e2ee;
+    font-size: 0; color: transparent; overflow: hidden;
+  }
+  .nav-staff-label .lbl-en { display: none; }
+  html[lang="en"] .nav-staff-label .lbl-ar { display: none; }
+  html[lang="en"] .nav-staff-label .lbl-en { display: inline; }
   .nav-toggle {
     display: none; background: none; border: none; font-size: 22px; cursor: pointer; color: #185fa5; padding: 4px 8px;
   }
@@ -240,8 +251,13 @@
   @media (max-width: 860px) {
     .site-nav {
       display: none; position: absolute; top: 100%; right: 0; left: 0; flex-direction: column; align-items: stretch;
-      background: rgba(255,255,255,0.97); backdrop-filter: blur(14px); border-radius: 14px; padding: 10px;
+      background: #ffffff; border: 1px solid #dbe8f4; border-radius: 14px; padding: 10px;
       margin-top: 8px; box-shadow: 0 12px 24px rgba(24,95,165,0.15);
+    }
+    .nav-staff-label {
+      width: auto; margin: 6px 0 0; background: none; overflow: visible;
+      padding: 14px 14px 4px; border-top: 1px solid #e3ecf4;
+      font-size: 12.5px; font-weight: 600; color: #6b7a88;
     }
     .site-nav.open { display: flex; }
     .site-nav a { padding: 12px 14px; }
@@ -1579,6 +1595,28 @@
     .staff-art-bottle { width: 42px; top: calc(var(--hdr, 0px) + 18px); opacity: 0.9; }
   }
 
+  /* ---- الشريط بعد الدخول إلى اللوحة ---- */
+  /* في صفحة الدخول يبقى الشريط كاملاً بوصفه ورسومه. بعد الدخول (خانة نموذج الدخول فارغة)
+     يصير رفيعاً يحمل العنوان وحده، فتظهر الطلبات في الشاشة الأولى بدل أن يأخذ نصفها.
+     ويُخفى العنوان المكرر داخل اللوحة لأن الشريط يحمله. المتصفحات التي لا تعرف :has
+     تُبقي الشريط كما كان، بلا أي خلل. */
+  body.staff-view[data-view="pharmacist"]:has(#pharmacist-auth-section:empty) .staff-banner,
+  body.staff-view[data-view="admin"]:has(#admin-auth-section:empty) .staff-banner {
+    padding: calc(var(--hdr, 0px) + 46px) 18px 96px;
+  }
+  body.staff-view[data-view="pharmacist"]:has(#pharmacist-auth-section:empty) :is(.staff-banner-content p, .staff-banner-art),
+  body.staff-view[data-view="admin"]:has(#admin-auth-section:empty) :is(.staff-banner-content p, .staff-banner-art) { display: none; }
+  body.staff-view[data-view="pharmacist"]:has(#pharmacist-auth-section:empty) .staff-banner-content h2,
+  body.staff-view[data-view="admin"]:has(#admin-auth-section:empty) .staff-banner-content h2 { margin: 0; font-size: clamp(24px, 2.6vw, 34px); }
+  @media (max-width: 700px) {
+    body.staff-view[data-view="pharmacist"]:has(#pharmacist-auth-section:empty) .staff-banner,
+    body.staff-view[data-view="admin"]:has(#admin-auth-section:empty) .staff-banner {
+      padding: calc(var(--hdr, 0px) + 34px) 18px 70px;
+    }
+  }
+  #pharm-dash-title, #admin-panel > div:first-child > .dash-title { display: none; }
+  #pharmacy-label > span:first-child { font-size: 19px !important; font-weight: 800 !important; color: #163a5c; }
+
   /* ---- تخفيف البياض أسفل الصفحة ---- */
   /* قسم "حول الموقع" والتذييل كانا أبيضين ناصعين بعرض الشاشة، تحت لوحة زرقاء فاتحة،
      فيظهر بينهما حد حاد. القسم الآن بلون اللوحة نفسه فتبرز بطاقاته البيضاء عليه،
@@ -1866,14 +1904,15 @@
     <nav class="site-nav" id="site-nav">
       <a class="nav-link active" onclick="headerGoHome(this)" id="nav-home" role="link" tabindex="0">الرئيسية</a>
       <a class="nav-link" onclick="headerGoOnDuty(this)" id="nav-onduty" role="link" tabindex="0">الصيدليات المناوبة</a>
-      <a class="nav-link nav-role-portal" onclick="headerGoPharmacist(this)" id="nav-pharmacist" role="link" tabindex="0">لوحة الصيدلي</a>
       <a class="nav-link" onclick="headerGoCosmetics(this)" id="nav-cosmetics" role="link" tabindex="0">مستحضرات تجميل</a>
       <a class="nav-link" onclick="headerGoNursing(this)" id="nav-nursing" role="link" tabindex="0">خدمات تمريض</a>
+      <div class="nav-staff-label"><span class="lbl-ar">للعاملين في المنصة</span><span class="lbl-en">For platform staff</span></div>
+      <a class="nav-link nav-role-portal" onclick="headerGoPharmacist(this)" id="nav-pharmacist" role="link" tabindex="0">لوحة الصيدلي</a>
       <a class="nav-link nav-role-portal" onclick="headerGoAdmin(this)" id="nav-admin" role="link" tabindex="0">الإدارة</a>
     </nav>
     <div class="site-header-right">
       <div class="site-logo">
-        <span class="logo-dot">💊</span> <span id="brand-name">دوائي جاهز</span>
+        <span class="logo-dot"><svg viewBox="0 0 64 64" aria-hidden="true" focusable="false"><defs><linearGradient id="brand-logo-grad" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#5c9bd8"/><stop offset="100%" stop-color="#185fa5"/></linearGradient></defs><circle cx="32" cy="32" r="32" fill="url(#brand-logo-grad)"/><g transform="translate(32,32) rotate(-45) translate(-17,-8.5)"><rect x="0" y="0" width="34" height="17" rx="8.5" fill="#eaf5fc"/><path d="M17 0 h9 a8.5 8.5 0 0 1 0 17 h-9 z" fill="#ffffff"/><line x1="17" y1="1.5" x2="17" y2="15.5" stroke="#a9cdea" stroke-width="1.2"/></g></svg></span> <span id="brand-name">دوائي جاهز</span>
       </div>
       <div class="header-icons">
         <button id="lang-toggle-btn" class="lang-toggle-btn" onclick="toggleLanguage()">English</button>
