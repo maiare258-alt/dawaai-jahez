@@ -1812,9 +1812,16 @@ document.addEventListener('keydown', e => {
 
 // ---------- نافذة تنبيه مخصصة (بديل alert وconfirm الافتراضيين) ----------
 
+// و12: للنافذة عنصر واحد في الصفحة. إن فُتحت نافذة وأخرى ما زالت مفتوحة (انتهت جلسة الإدارة
+// وسؤال «هل تريد الحذف؟» ظاهر مثلاً) كانت الثانية تحل محل الأولى ويبقى سؤال الأولى بلا جواب إلى
+// الأبد، فيبقى زرها معطّلاً حتى إعادة تحميل الصفحة. الآن تُغلق الأولى أولاً كأن المستخدم ضغط
+// «إلغاء»، وهو الجواب الآمن دائماً: لا حذف ولا تنفيذ.
+let closeActiveModal = null;
+
 function showModal({ message, type = 'info', showCancel = false, okText, cancelText }) {
   okText = okText || t('modal_ok');
   cancelText = cancelText || t('modal_cancel');
+  if (closeActiveModal) closeActiveModal(false);
   return new Promise(resolve => {
     const icons = { success: '✅', error: '❌', warning: '⚠️', question: '❓', info: 'ℹ️' };
     document.getElementById('modal-icon').textContent = icons[type] || icons.info;
@@ -1835,6 +1842,7 @@ function showModal({ message, type = 'info', showCancel = false, okText, cancelT
     document.addEventListener('keydown', escHandler);
 
     const cleanup = (result) => {
+      if (closeActiveModal === cleanup) closeActiveModal = null;
       overlay.style.display = 'none';
       document.body.classList.remove('modal-open');
       okBtn.onclick = null;
@@ -1845,6 +1853,7 @@ function showModal({ message, type = 'info', showCancel = false, okText, cancelT
     };
     okBtn.onclick = () => cleanup(true);
     cancelBtn.onclick = () => cleanup(false);
+    closeActiveModal = cleanup;
   });
 }
 
@@ -3704,12 +3713,15 @@ function loadDashboard() {
   document.getElementById('duty-shift').disabled = !currentPharmacy.on_duty;
   document.getElementById('duty-start-time').disabled = !currentPharmacy.on_duty;
   document.getElementById('duty-end-time').disabled = !currentPharmacy.on_duty;
-  if (currentPharmacy.on_duty_day) {
-    document.getElementById('duty-day').value = currentPharmacy.on_duty_day;
-  }
-  if (currentPharmacy.on_duty_shift) {
-    document.getElementById('duty-shift').value = currentPharmacy.on_duty_shift;
-  }
+  // و11: صيدلية بلا يوم أو نوبة محفوظين تبدأ من الخيار الأول، لا مما اختاره صيدلي سابق على الجهاز نفسه
+  const dutyDay = document.getElementById('duty-day');
+  const dutyShift = document.getElementById('duty-shift');
+  dutyDay.selectedIndex = 0;
+  dutyShift.selectedIndex = 0;
+  if (currentPharmacy.on_duty_day) dutyDay.value = currentPharmacy.on_duty_day;
+  if (currentPharmacy.on_duty_shift) dutyShift.value = currentPharmacy.on_duty_shift;
+  if (dutyDay.selectedIndex < 0) dutyDay.selectedIndex = 0;     // قيمة قديمة لم تعد بين الخيارات
+  if (dutyShift.selectedIndex < 0) dutyShift.selectedIndex = 0;
   document.getElementById('duty-start-time').value = currentPharmacy.on_duty_start_time || '';
   document.getElementById('duty-end-time').value = currentPharmacy.on_duty_end_time || '';
   refreshStock();
@@ -4106,6 +4118,12 @@ function logout() {
     const el = document.getElementById(id);
     if (el) el.value = '';
   });
+  // و11: القوائم المنسدلة تعود إلى خيارها الأول، فلا يرى الصيدلي التالي يوم مناوبة من قبله
+  ['duty-day', 'duty-shift', 'pharm-med-category'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.selectedIndex = 0;
+  });
+  updateMedNamePlaceholder('pharm-med-category', 'pharm-med-name');
   const dutyBox = document.getElementById('duty-checkbox');
   if (dutyBox) { dutyBox.checked = false; onDutyToggle(); }
   const list = document.getElementById('orders-list');
@@ -4341,7 +4359,15 @@ function cancelBulkImport() {
   document.getElementById('bulk-import-filename').textContent = t('no_file_chosen');
 }
 
+// و6: طلبان للقائمة نفسها قد يعودان بغير ترتيب إرسالهما على شبكة بطيئة (تحديث تلقائي أُرسل قبل
+// تأكيد طلب، ورده وصل بعد رد ما بعد التأكيد)، فيُرسم الأقدم فوق الأحدث ويعود الطلب «غير مؤكد».
+// لكل طلب رقم متسلسل، ولا يُرسم رد أقدم من آخر رد رُسم. لا نُهمل الرد لمجرد أن طلباً أحدث
+// أُرسل بعده: على شبكة بطيئة جداً قد يسبق كل تحديث تلقائي رد سابقه، فلا يُرسم شيء أبداً.
+let stockSeq = 0, stockShownSeq = 0;
+let ordersSeq = 0, ordersShownSeq = 0;
+
 async function refreshStock() {
+  const seq = ++stockSeq;
   // نعرض "جاري التحميل" بس لو أول مرة (الكاش لسا فاضية) — تفادياً لأي وميض بالتحديثات اللاحقة (بعد تبديل توفر دواء مثلاً)
   const isFirstLoad = pharmacistStockCache.length === 0;
   if (isFirstLoad) {
@@ -4354,10 +4380,12 @@ async function refreshStock() {
     const res = await fetchWithTimeout(`${API}/stock/${currentPharmacy.id}`, { cache: 'no-store', headers: pharmacyHeaders() }, 20000);
     const data = await readJsonOk(res);
     if (currentPharmacy !== owner) return;   // خرج الصيدلي (أو دخل غيره) أثناء الانتظار
+    if (seq < stockShownSeq) return;          // رد قديم وصل بعد رد أحدث منه
+    stockShownSeq = seq;
     pharmacistStockCache = data;
     renderStockUI();
   } catch (err) {
-    if (currentPharmacy !== owner) return;
+    if (currentPharmacy !== owner || seq < stockShownSeq) return;
     // فشل أول تحميل بس — لازم نستبدل "جاري التحميل" برسالة خطأ واضحة، عشان ما تضل عالقة للأبد
     if (isFirstLoad) {
       document.getElementById('stock-list').innerHTML = `<p class="muted">${t('server_error_title')}</p>`;
@@ -4524,6 +4552,7 @@ async function loadOrders() {
   const wasFirstLoad = !ordersLoadedOnce;
   const owner = currentPharmacy;
   if (!owner) return;
+  const seq = ++ordersSeq;   // و6: انظر stockSeq أعلاه
   if (wasFirstLoad) {
     document.getElementById('orders-wrap').style.display = 'block';
     document.getElementById('orders-list').innerHTML = skeletonHtml(2);
@@ -4551,12 +4580,14 @@ async function loadOrders() {
     }
     const orders = await res.json();
     if (currentPharmacy !== owner) return;   // خرج الصيدلي أثناء الانتظار: لا نعرض طلبات حساب سابق
+    if (seq < ordersShownSeq) return;         // رد قديم وصل بعد رد أحدث منه
+    ordersShownSeq = seq;
     pharmacistOrdersCache = orders;
     renderOrdersUI();
     ordersSyncFailures = 0;
     setOrdersSyncNote(false);
   } catch (err) {
-    if (currentPharmacy !== owner) return;
+    if (currentPharmacy !== owner || seq < ordersShownSeq) return;
     // عند أول تحميل نعرض الرسالة. في الاستطلاع اللاحق نُبقي آخر قائمة ناجحة ظاهرة،
     // فانقطاع لحظي لا يمسح طلبات يراها الصيدلي أمامه، وننبّه إن تكرر الفشل.
     if (wasFirstLoad) {
@@ -4725,6 +4756,7 @@ async function checkAdminPasswordNow() {
     if (res.status === 429) { await customAlert(t('rate_limited_error'), 'warning'); return; }
     if (!res.ok) { await customAlert(t('server_error_title'), 'error'); return; }
     adminPassword = password;
+    adminSessionId++;
     markStaffDevice();
     document.getElementById('admin-auth-section').innerHTML = '';
     document.getElementById('admin-panel').style.display = 'block';
@@ -4738,6 +4770,8 @@ async function checkAdminPasswordNow() {
 
 function logoutAdmin() {
   adminPassword = null;
+  adminSessionId++;          // و8: أي رد يصل بعد الخروج يُهمل
+  adminRowDrafts = {};       // و9: لا تبقى مسودات صفوف الجلسة السابقة
   stopAdminRatingsPolling();
   adminPanelLoadedOnce = false;
   // ن10: لا يبقى شيء من جلسة الإدارة في الذاكرة بعد الخروج
@@ -4756,6 +4790,12 @@ function logoutAdmin() {
 function adminHeaders() {
   return { 'Content-Type': 'application/json', 'x-admin-password': adminPassword };
 }
+
+// و8: رقم لكل جلسة دخول إلى الإدارة، يزيد عند الدخول وعند الخروج. كان الرد الذي يصل بعد
+// الخروج (المدير ضغط «خروج» واللوحة ما زالت تُحمَّل) يملأ اللوحة المخفية من جديد بأسماء
+// الصيدليات وأرقامها، فتبقى في الصفحة. كل تحميل يحفظ رقم جلسته، ويُهمل رده إن تغيّر الرقم.
+let adminSessionId = 0;
+const adminSessionGone = (session) => session !== adminSessionId || !adminPassword;
 
 // ذاكرة مؤقتة لآخر بيانات جُلبت من السيرفر — عشان تبديل اللغة يعيد الرسم بس، بدون طلبات شبكة جديدة
 let adminDataCache = { pharmacies: [], medicines: [], nurses: [], pendingRatings: [], stats: null };
@@ -4781,6 +4821,61 @@ const ADMIN_DRAFT_FIELDS = ['ph-name', 'ph-address', 'ph-city', 'ph-phone', 'ph-
   'ad-advertiser', 'ad-advertiser-en', 'ad-desc', 'ad-desc-en', 'ad-link', 'ad-starts', 'ad-ends'];
 const ADMIN_DRAFT_RADIOS = ['ph-listing-type', 'ad-placement'];
 
+// و9: حقول داخل صفوف القوائم: عنوان الصيدلية وإحداثياتها، واسم المستخدم الجديد، وخبرة الممرض
+// وخدماته، ومناوبة كل صيدلية. كانت تُمحى مع أي إعادة رسم (موافقة على تقييم، تبديل اللغة، حفظ
+// صف آخر، كتابة في مربع البحث فوق القائمة). نحفظ ما غيّره المدير ولم يحفظه بعد، أي ما يختلف
+// عن القيمة التي رُسم بها الحقل، في ذاكرة باسم الحقل، ونعيده بعد كل رسم. والذاكرة لا تُمحى
+// إن أخفى البحث الصف، فيعود ما كُتب فيه عند ظهوره. بعد الحفظ الناجح تُنسى مسودة الصف
+// (forgetRowDrafts)، فيظهر الحقل بقيمته الجديدة من الخادم.
+const ADMIN_ROW_FIELD_RE = /^(addr-input|coords-input|uname-input|nurse-exp|nurse-svc|duty-on|duty-day|duty-shift)-\d+$/;
+let adminRowDrafts = {};
+
+function rowFieldChanged(el) {
+  if (el.type === 'checkbox') return el.checked !== el.defaultChecked;
+  if (el.tagName === 'SELECT') {
+    const def = [...el.options].findIndex(o => o.defaultSelected);
+    return el.selectedIndex !== Math.max(0, def);
+  }
+  return el.value !== el.defaultValue;
+}
+
+// يُستدعى قبل استبدال محتوى root: يحدّث الذاكرة من الحقول الظاهرة فيه
+function captureRowDrafts(root) {
+  if (!root) return;
+  root.querySelectorAll('input[id], select[id]').forEach(el => {
+    if (!ADMIN_ROW_FIELD_RE.test(el.id)) return;
+    if (rowFieldChanged(el)) adminRowDrafts[el.id] = el.type === 'checkbox' ? el.checked : el.value;
+    else delete adminRowDrafts[el.id];
+  });
+}
+
+// يُستدعى بعد الرسم: يعيد المسودات إلى الحقول الموجودة الآن
+function applyRowDrafts() {
+  for (const [id, v] of Object.entries(adminRowDrafts)) {
+    const el = document.getElementById(id);
+    if (!el || !document.getElementById('admin-panel').contains(el)) continue;
+    if (el.type === 'checkbox') {
+      el.checked = v;
+      if (id.startsWith('duty-on-')) onAdminDutyToggle(Number(id.slice('duty-on-'.length)), el);
+    } else {
+      el.value = v;
+      if (el.tagName === 'SELECT' && el.selectedIndex < 0) el.selectedIndex = 0;
+    }
+  }
+}
+
+// بعد الحفظ الناجح: تُنسى المسودة ويعود الحقل إلى قيمته المرسومة، فلا يعيد الرسم التالي ما حُفظ
+function forgetRowDrafts(ids) {
+  for (const id of ids) {
+    delete adminRowDrafts[id];
+    const el = document.getElementById(id);
+    if (!el) continue;
+    if (el.type === 'checkbox') el.checked = el.defaultChecked;
+    else if (el.tagName === 'SELECT') el.selectedIndex = Math.max(0, [...el.options].findIndex(o => o.defaultSelected));
+    else el.value = el.defaultValue;
+  }
+}
+
 function readAdminDraft() {
   const draft = { values: {}, radios: {}, focus: null };
   for (const id of ADMIN_DRAFT_FIELDS) {
@@ -4797,6 +4892,13 @@ function readAdminDraft() {
     const checked = document.querySelector(`input[name="${name}"]:checked`);
     if (checked) draft.radios[name] = checked.value;
   }
+  captureRowDrafts(document.getElementById('admin-panel'));
+  const active = document.activeElement;
+  if (!draft.focus && active && ADMIN_ROW_FIELD_RE.test(active.id || '')) {
+    let start = null, end = null;
+    try { start = active.selectionStart; end = active.selectionEnd; } catch (e) { /* حقول بلا تحديد */ }
+    draft.focus = { id: active.id, start, end };
+  }
   return draft;
 }
 
@@ -4812,6 +4914,7 @@ function restoreAdminDraft(draft) {
     const el = document.querySelector(`input[name="${name}"][value="${v}"]`);
     if (el) el.checked = true;
   }
+  applyRowDrafts();
   if (draft.focus) {
     const el = document.getElementById(draft.focus.id);
     if (el) {
@@ -4855,7 +4958,11 @@ async function adminSessionExpired() {
   adminSessionEnding = false;
 }
 
+// و6 في الإدارة: كل إجراء يعيد تحميل اللوحة، فقد يعود طلبان بغير ترتيبهما. لا يُرسم رد أقدم من آخر رد رُسم.
+let adminPanelSeq = 0, adminPanelShownSeq = 0;
 async function renderAdminPanel() {
+  const session = adminSessionId;
+  const seq = ++adminPanelSeq;
   const wasFirstLoad = !adminPanelLoadedOnce;
   if (wasFirstLoad) {
     document.getElementById('admin-panel').innerHTML = skeletonHtml(3);
@@ -4879,10 +4986,13 @@ async function renderAdminPanel() {
       // فشل الإحصاءات وحدها يجب ألا يُسقط اللوحة كلها — تُعاد null فيُخفى القسم فقط
       fetchWithTimeout(`${API}/stats`, { headers: adminHeaders() }, 20000).then(r => r.ok ? r.json() : null).catch(() => null)
     ]);
+    if (adminSessionGone(session) || seq < adminPanelShownSeq) return;
+    adminPanelShownSeq = seq;
     adminDataCache = { pharmacies, medicines, nurses, pendingRatings, stats };
     renderAdminPanelUI();
     adminPanelLoadedOnce = true;
   } catch (err) {
+    if (adminSessionGone(session) || seq < adminPanelShownSeq) return;
     if (err && err.sessionExpired) { adminSessionExpired(); return; }
     // فشل أول تحميل بس — نستبدل "جاري التحميل" برسالة خطأ واضحة، بدل ما تضل عالقة للأبد.
     // فشل بعد إجراء إداري عادي (مش أول مرة) بيتجاهل بصمت — اللوحة بمحتواها القديم تضل ظاهرة بدل ما تُمحى
@@ -6166,11 +6276,15 @@ async function loadAdsAdmin() {
   const box = document.getElementById('ads-list');
   if (!box) return;
   box.innerHTML = skeletonHtml(1);
+  const session = adminSessionId;
   try {
     const res = await fetchWithTimeout(`${API}/ads/admin`, { headers: adminHeaders(), cache: 'no-store' }, 20000);
-    adsAdminCache = await readJsonOk(res);
+    const ads = await readJsonOk(res);
+    if (adminSessionGone(session)) return;
+    adsAdminCache = ads;
     renderAdsAdmin();
   } catch (err) {
+    if (adminSessionGone(session)) return;
     box.innerHTML = `<p class="muted">${t('ads_load_error')}</p>`;
   }
 }
@@ -6243,11 +6357,15 @@ async function loadVisitsReport(days) {
     b.classList.toggle('active', Number(b.getAttribute('data-days')) === visitsDays));
   lastVisitsReport = null;
   renderVisitsReport();
+  const session = adminSessionId;
   try {
     const res = await fetchWithTimeout(`${API}/stats/visits?days=${visitsDays}`, { headers: adminHeaders(), cache: 'no-store' }, 20000);
-    lastVisitsReport = await readJsonOk(res, 'object');
+    const report = await readJsonOk(res, 'object');
+    if (adminSessionGone(session)) return;
+    lastVisitsReport = report;
     renderVisitsReport();
   } catch (err) {
+    if (adminSessionGone(session)) return;
     const box = document.getElementById('visits-report');
     if (box) box.innerHTML = `<p class="muted">${t('visits_load_error')}</p>`;
   }
@@ -6259,13 +6377,17 @@ async function loadDemandReport(days) {
     b.classList.toggle('active', Number(b.getAttribute('data-days')) === demandDays));
   lastDemandReport = null;
   renderDemandReport();
+  const session = adminSessionId;
   try {
     const res = await fetchWithTimeout(`${API}/stats/demand?days=${demandDays}`, { headers: adminHeaders(), cache: 'no-store' }, 20000);
     if (!res.ok) throw new Error('status ' + res.status);
-    lastDemandReport = await res.json();
+    const report = await res.json();
+    if (adminSessionGone(session)) return;
+    lastDemandReport = report;
     renderDemandReport();
     renderLaunchZone(lastDemandReport.launchedAt || null);
   } catch (err) {
+    if (adminSessionGone(session)) return;
     const box = document.getElementById('demand-report');
     if (box) box.innerHTML = `<p class="muted">${t('demand_load_error')}</p>`;
   }
@@ -6493,6 +6615,7 @@ function normalizeAddressForCompare(v) {
 function renderAdminAddressList() {
   const box = document.getElementById('admin-address-list');
   if (!box) return;
+  captureRowDrafts(box);
   const all = adminDataCache.pharmacies || [];
   const list = all.filter(p => !adminAddressFilter
     || String(p.name || '').toLowerCase().includes(adminAddressFilter)
@@ -6526,6 +6649,7 @@ function renderAdminAddressList() {
       </div>
     </div>`;
   }).join('');
+  applyRowDrafts();
 }
 
 async function adminPut(path, body) {
@@ -6567,10 +6691,12 @@ async function saveAdminAddress(id) {
     if (addressChanged) {
       const d = await adminPut(`${id}/address`, { address: newAddress });
       p.address = d.address;
+      forgetRowDrafts([`addr-input-${id}`]);
     }
     if (coords) {
       const d = await adminPut(`${id}/location`, { latitude: coords.lat, longitude: coords.lng });
       p.latitude = d.latitude; p.longitude = d.longitude;
+      forgetRowDrafts([`coords-input-${id}`]);
     }
     renderAdminAddressList();
     await customAlert(t('admin_address_saved'), 'success');
@@ -6671,7 +6797,10 @@ function nurseFromCache(id) { return (adminDataCache.nurses || []).find(x => x.i
 
 function refreshNurseEditor(id) {
   const n = nurseFromCache(id); const box = document.getElementById(`nurse-editor-${id}`);
-  if (n && box) box.innerHTML = nurseEditorHtml(n);
+  if (!n || !box) return;
+  captureRowDrafts(box);   // و9: رفع شهادة أو توثيقها لا يمحو الخبرة والخدمات المكتوبة
+  box.innerHTML = nurseEditorHtml(n);
+  applyRowDrafts();
 }
 
 function toggleNurseEditor(id) {
@@ -6690,6 +6819,7 @@ async function saveNurseProfile(id) {
     const data = await res.json().catch(() => ({}));
     if (!res.ok) { await customAlert(translateApiError(data.error), 'error'); return; }
     n.experience_years = data.experience_years; n.services = data.services;
+    forgetRowDrafts([`nurse-exp-${id}`, `nurse-svc-${id}`]);
     refreshNurseEditor(id);
     await customAlert(t('nurse_profile_saved'), 'success');
   } catch (err) { await customAlert(t('server_error_title'), 'error'); }
@@ -6822,6 +6952,7 @@ function onAdminUsernameSearch(el) {
 function renderAdminUsernameList() {
   const box = document.getElementById('admin-username-list');
   if (!box) return;
+  captureRowDrafts(box);
   const all = adminDataCache.pharmacies || [];
   const list = all.filter(p => {
     if (!adminUsernameFilter) return true;
@@ -6847,6 +6978,7 @@ function renderAdminUsernameList() {
         <button class="btn-outline blue" id="uname-save-${p.id}" onclick="saveAdminUsername(${p.id})">${t('admin_username_save')}</button>
       </div>
     </div>`).join('');
+  applyRowDrafts();
 }
 
 function saveAdminUsername(id) { return runGuarded('saveAdminUsername:' + id, null, () => saveAdminUsernameNow(id)); }
@@ -6862,7 +6994,7 @@ async function saveAdminUsernameNow(id) {
   if (!next) { await customAlert(t('admin_username_required'), 'warning'); return; }
   if (/\s/.test(next)) { await customAlert(t('admin_username_no_spaces'), 'warning'); return; }
   if (next.length < 3) { await customAlert(t('admin_username_too_short'), 'warning'); return; }
-  if (next === pharmacy.owner_username) { input.value = ''; return; }
+  if (next === pharmacy.owner_username) { forgetRowDrafts([`uname-input-${id}`]); return; }
 
   const confirmed = await customConfirm(
     tFormat('admin_username_confirm', { name: pharmacy.name, old: pharmacy.owner_username || '', new: next }),
@@ -6882,6 +7014,7 @@ async function saveAdminUsernameNow(id) {
 
     // تحديث الكاش محلياً بدل إعادة تحميل اللوحة: يحافظ على نص البحث وموضع التمرير
     pharmacy.owner_username = data.owner_username;
+    forgetRowDrafts([`uname-input-${id}`]);
     renderAdminUsernameList();
     await customAlert(t('admin_username_saved'), 'success');
   } catch (err) {
@@ -6931,6 +7064,7 @@ function dutyAuditHtml(p) {
 function renderAdminDutyList() {
   const box = document.getElementById('admin-duty-list');
   if (!box) return;
+  captureRowDrafts(box);
   const all = adminDataCache.pharmacies || [];
   // المناوبة أولاً ثم بالاسم: المدير يريد رؤية من هو مناوب الآن في نظرة واحدة
   const list = all
@@ -6966,6 +7100,7 @@ function renderAdminDutyList() {
         <button class="btn-outline blue" onclick="saveAdminDuty(${p.id})" id="duty-save-${p.id}">${t('admin_duty_save')}</button>
       </div>
     </div>`).join('');
+  applyRowDrafts();
 
   const counter = document.getElementById('admin-duty-count');
   if (counter) counter.textContent = tFormat('admin_duty_active_count', { n: all.filter(p => p.on_duty).length });
@@ -7008,6 +7143,7 @@ async function saveAdminDutyNow(id) {
       cached.duty_updated_by = data.duty_updated_by;
       cached.duty_updated_at = data.duty_updated_at;
     }
+    forgetRowDrafts([`duty-on-${id}`, `duty-day-${id}`, `duty-shift-${id}`]);
     renderAdminDutyList();
     await customAlert(t('admin_duty_saved'), 'success');
   } catch (err) {
@@ -7028,6 +7164,8 @@ async function clearAllDutyNow() {
     const res = await fetchWithTimeout(`${API}/pharmacies/duty/clear-all`, { method: 'POST', headers: adminHeaders() }, 20000);
     const data = await res.json();
     if (!res.ok) { await customAlert(translateApiError(data.error), 'error'); return; }
+    // و9: «إلغاء كل المناوبات» يعلو على أي تعديل مناوبة لم يُحفظ بعد
+    forgetRowDrafts(Object.keys(adminRowDrafts).filter(k => /^duty-(on|day|shift)-/.test(k)));
     await customAlert(tFormat('admin_duty_cleared', { n: data.cleared }), 'success');
     renderAdminPanel();
   } catch (err) {
@@ -7253,10 +7391,13 @@ function stopAdminRatingsPolling() {
 
 async function loadPendingRatingsForAdmin() {
   if (!adminPassword) { stopAdminRatingsPolling(); return; }
+  const session = adminSessionId;
   try {
     const res = await fetchWithTimeout(`${API}/nurses/ratings/pending`, { headers: adminHeaders() }, 20000);
+    if (adminSessionGone(session)) return;
     if (res.status === 401) { adminSessionExpired(); return; }
     const ratings = await readJsonOk(res);
+    if (adminSessionGone(session)) return;
     const snapshot = JSON.stringify(ratings);
     if (snapshot === lastPendingRatingsSnapshot) return; // ما تغيّر شي، صفر إعادة رسم
     lastPendingRatingsSnapshot = snapshot;
@@ -7291,9 +7432,11 @@ async function toggleApprovedRatingsAdmin() {
 async function loadApprovedRatingsAdmin() {
   const container = document.getElementById('approved-ratings-list');
   container.innerHTML = skeletonHtml(3);
+  const session = adminSessionId;
   try {
     const res = await fetchWithTimeout(`${API}/nurses/ratings/approved`, { headers: adminHeaders() }, 20000);
     const ratings = await readJsonOk(res);
+    if (adminSessionGone(session)) return;
     approvedRatingsLoaded = true;
     if (ratings.length === 0) {
       container.innerHTML = `<p class="muted" style="margin:0;">${t('no_published_ratings')}</p>`;
@@ -7312,6 +7455,7 @@ async function loadApprovedRatingsAdmin() {
       </div>
     `).join('');
   } catch (err) {
+    if (adminSessionGone(session)) return;
     container.innerHTML = `<p class="muted" style="margin:0;">${t('failed_load_ratings')}</p>`;
   }
 }
