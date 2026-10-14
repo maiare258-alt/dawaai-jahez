@@ -149,16 +149,16 @@ const translations = {
   ar: {
     nav_home: 'الرئيسية', nav_onduty: 'الصيدليات المناوبة', nav_pharmacist: 'لوحة الصيدلي',
     nav_cosmetics: 'مستحضرات تجميل', nav_nursing: 'خدمات تمريض', nav_admin: 'الإدارة',
-    hero_title_medicine: 'اعرف أين يتوفر دواؤك قبل أن تخرج',
+    hero_title_medicine: 'اعرف أين يتوفر دواؤك قبل أن تخرج من المنزل',
     hero_desc_medicine: 'ابحث باسم الدواء أو مادته الفعالة، فتعرف أي صيدلية يتوفر فيها وتتواصل معها مباشرة.',
     search_placeholder_medicine: 'اسم الدواء أو مادته الفعالة',
     search_hint_medicine: 'اكتب اسم الدواء للبحث عن توفره في صيدليات سلمية.',
-    hero_title_cosmetic: 'اعرف أين يتوفر مستحضرك قبل أن تخرج',
+    hero_title_cosmetic: 'اعرف أين يتوفر مستحضرك قبل أن تخرج من المنزل',
     hero_desc_cosmetic: 'ابحث باسم مستحضر التجميل، فتعرف أي صيدلية يتوفر فيها وتتواصل معها مباشرة.',
     search_placeholder_cosmetic: 'اسم مستحضر التجميل',
     search_hint_cosmetic: 'اكتب اسم المستحضر للبحث عن توفره في صيدليات سلمية.',
-    hero_title_nursing: 'رعاية تمريضية في بيتك، من ممرضين تعرف خبرتهم مسبقاً',
-    hero_desc_nursing: 'ممرضون من سلمية يأتونك إلى البيت. تتواصل معهم مباشرة.',
+    hero_title_nursing: 'رعاية تمريضية في بيتك، من ممرضين تُعرف خبرتهم مسبقاً',
+    hero_desc_nursing: 'ممرضون يأتونك إلى البيت، وتتواصل معهم مباشرة.',
     search_hint_nursing: 'تصفّح الممرضين أدناه، واطّلع على خبرة كل منهم وتقييمات المرضى قبل التواصل معه.',
     search_btn: 'بحث', cart_btn: 'عربة المشتريات',
     feature1_title: 'البحث عن الدواء', feature1_desc: 'اعرف الصيدليات التي توفر الدواء.',
@@ -782,8 +782,8 @@ const translations = {
     hero_desc_cosmetic: 'Search by product name to see which pharmacy has it, and contact them directly.',
     search_placeholder_cosmetic: 'Cosmetic product name',
     search_hint_cosmetic: 'Type the product name to check its availability in Salamiyah pharmacies.',
-    hero_title_nursing: 'Nursing care at home, from nurses whose experience you can see first',
-    hero_desc_nursing: 'Nurses from Salamiyah who come to your home. Contact them directly.',
+    hero_title_nursing: 'Nursing care at home, from nurses whose experience is known in advance',
+    hero_desc_nursing: 'Nurses who come to your home, and you contact them directly.',
     search_hint_nursing: 'Browse the nurses below and check each one\'s experience and patient reviews before contacting them.',
     search_btn: 'Search', cart_btn: 'Cart',
     feature1_title: 'Medicine Search', feature1_desc: 'Find pharmacies that have your medicine.',
@@ -3483,7 +3483,10 @@ function resultSummaryHtml(item) {
 function callBtnHtml(phone) {
   const digits = String(phone || '').replace(/[^\d+]/g, '');
   if (!digits) return '';
-  return `<a class="call-btn" href="tel:${digits}">${t('call_btn')}</a>`;
+  // onclick يزيل التحديد بعد اللمس: كان الهاتف يرسم مربعاً أزرق حول الزر عند الضغط وبعد
+  // العودة من شاشة الاتصال. ووجود onclick يطبّق عليه أيضاً قاعدة إخفاء وميض اللمس العامة
+  // ([onclick] في index.html) كباقي أزرار الموقع. لوحة المفاتيح تُبقي مؤشر تركيزها.
+  return `<a class="call-btn" href="tel:${digits}" onclick="this.blur()" style="-webkit-tap-highlight-color: transparent;">${t('call_btn')}</a>`;
 }
 
 function resultCardHtml(item, a) {
