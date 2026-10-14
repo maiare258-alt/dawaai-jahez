@@ -149,16 +149,16 @@ const translations = {
   ar: {
     nav_home: 'الرئيسية', nav_onduty: 'الصيدليات المناوبة', nav_pharmacist: 'لوحة الصيدلي',
     nav_cosmetics: 'مستحضرات تجميل', nav_nursing: 'خدمات تمريض', nav_admin: 'الإدارة',
-    hero_title_medicine: 'دوائي جاهز<br>في <span class="hero-highlight">أي وقت</span>، من أي مكان',
-    hero_desc_medicine: 'منصة سورية تساعدك على معرفة توفر الدواء في الصيدليات القريبة وطلبه بسهولة.',
-    search_placeholder_medicine: 'ابحث عن دواء أو مادة فعالة...',
+    hero_title_medicine: 'اعرف أين يتوفر دواؤك قبل أن تخرج',
+    hero_desc_medicine: 'ابحث باسم الدواء أو مادته الفعالة، فتعرف أي صيدلية يتوفر فيها وتتواصل معها مباشرة.',
+    search_placeholder_medicine: 'اسم الدواء أو مادته الفعالة',
     search_hint_medicine: 'اكتب اسم الدواء للبحث عن توفره في صيدليات سلمية.',
-    hero_title_cosmetic: 'دوائي جاهز<br>مستحضرات <span class="hero-highlight">تجميلك</span>، في أي وقت',
-    hero_desc_cosmetic: 'منصة سورية تساعدك على معرفة توفر مستحضرات التجميل في الصيدليات القريبة.',
-    search_placeholder_cosmetic: 'ابحث عن مستحضر تجميل...',
+    hero_title_cosmetic: 'اعرف أين يتوفر مستحضرك قبل أن تخرج',
+    hero_desc_cosmetic: 'ابحث باسم مستحضر التجميل، فتعرف أي صيدلية يتوفر فيها وتتواصل معها مباشرة.',
+    search_placeholder_cosmetic: 'اسم مستحضر التجميل',
     search_hint_cosmetic: 'اكتب اسم المستحضر للبحث عن توفره في صيدليات سلمية.',
-    hero_title_nursing: 'دوائي جاهز خدمات تمريض<br><span class="hero-highlight">في أي وقت</span>، من أي مكان',
-    hero_desc_nursing: 'منصة سورية تساعدك على معرفة توفر الدواء وخدمات التمريض في مدينة سلمية.',
+    hero_title_nursing: 'رعاية تمريضية في بيتك، من ممرضين تعرف خبرتهم مسبقاً',
+    hero_desc_nursing: 'ممرضون من سلمية يأتونك إلى البيت. تتواصل معهم مباشرة.',
     search_hint_nursing: 'تصفّح الممرضين أدناه، واطّلع على خبرة كل منهم وتقييمات المرضى قبل التواصل معه.',
     search_btn: 'بحث', cart_btn: 'عربة المشتريات',
     feature1_title: 'البحث عن الدواء', feature1_desc: 'اعرف الصيدليات التي توفر الدواء.',
@@ -175,7 +175,7 @@ const translations = {
     did_you_mean_results: 'هل تقصد أحد هذه النتائج؟',
     suggest_did_you_mean: 'هل تقصد', q_mark: '؟',
     available_badge: '🟢 متوفر', unavailable_badge: '🔴 غير متوفر',
-    active_ingredient_label: 'المادة الفعالة:', add_to_cart_btn: 'إضافة إلى السلة', added_feedback: '✓ تمت الإضافة',
+    active_ingredient_label: 'المادة الفعالة:', add_to_cart_btn: '🛒 أضف إلى العربة', added_feedback: '✓ تمت الإضافة',
     alt_unavailable_but: 'غير متوفر حالياً، غير أنّ هناك بديلاً بالمادة الفعالة نفسها', alt_view_btn: 'عرض',
     server_error_title: 'تعذّر الاتصال بالخادم', server_error_subtitle: 'تحقق من اتصالك بالإنترنت وحاول مرة أخرى.',
     cart_panel_title: 'عربة المشتريات', cart_panel_subtitle: 'راجع الأدوية قبل إتمام الطلب.',
@@ -654,8 +654,21 @@ const translations = {
     location_outside_syria: 'تقع هذه الإحداثيات خارج سوريا. يُرجى التأكد من عدم عكس الرقمين. هل ترغب في حفظها رغم ذلك؟',
     location_swap_suggest: 'يبدو أن الرقمين معكوسان. الموقع الصحيح على الأرجح: {coords}\n\nهل ترغب في اعتماده بهذه الصيغة؟',
     location_admin_label: 'موقع',
-    duty_now_btn_label: 'المناوبة الآن',
-    wa_consult_btn_label: 'استشر صيدلياً',
+    duty_now_btn_label: 'الصيدليات المناوبة الآن',
+    wa_consult_btn_label: 'استشر صيدلياً عبر واتساب',
+    duty_row_default: 'اعرف الصيدلية المناوبة الآن',
+    duty_row_count: 'صيدلية مناوبة واحدة الآن|صيدليتان مناوبتان الآن|{n} صيدليات مناوبة الآن|{n} صيدلية مناوبة الآن|{n} صيدلية مناوبة الآن|لا صيدليات مناوبة مسجّلة الآن',
+    duty_row_in_city: '{count} في {city}',
+    wa_row_sub: 'عن جرعة أو بديل أو وصفة غير واضحة',
+    cart_row_sub: 'احجز الأدوية من نتائج البحث',
+    hero_trust: 'كل صيدلية تظهر هنا أضافها فريق دوائي جاهز بنفسه.',
+    pharmacy_count_gen: 'صيدلية واحدة|صيدليتين|{n} صيدليات|{n} صيدلية|{n} صيدلية',
+    res_summary_yes: 'متوفر في {a} من {m}',
+    res_summary_yes_all: 'متوفر في {a}',
+    res_summary_no: 'غير متوفر حسب آخر تحديث من الصيدليات التي تسجّل مخزونها',
+    res_summary_wait: 'مخزون {w} غير مسجّل هنا: اتصل لتسأل.',
+    res_status_yes: 'متوفر', res_status_wait: 'اتصل للتأكد من توفره', res_status_no: 'غير متوفر حسب آخر تحديث',
+    call_btn: '📞 اتصال', directions_btn_short: '🗺️ الخريطة',
     wa_consult_title: '💬 استشر صيدلياً عبر واتساب',
     wa_consult_desc: 'وصفة طبية غير واضحة، أو استفسار عن جرعة أو بديل دوائي؟ تواصل مباشرة مع أحد الصيادلة.',
     wa_consult_empty: 'لا توجد حتى الآن صيدليات مفعّلة على واتساب.',
@@ -761,16 +774,16 @@ const translations = {
   en: {
     nav_home: 'Home', nav_onduty: 'On-Duty Pharmacies', nav_pharmacist: 'Pharmacist Panel',
     nav_cosmetics: 'Cosmetics', nav_nursing: 'Nursing Services', nav_admin: 'Admin',
-    hero_title_medicine: 'Dawaai Jahez<br><span class="hero-highlight">Anytime</span>, Anywhere',
-    hero_desc_medicine: 'A Syrian platform that helps you find medicine availability at nearby pharmacies and order it easily.',
-    search_placeholder_medicine: 'Search for a medicine or active ingredient...',
+    hero_title_medicine: 'Know where your medicine is before you leave home',
+    hero_desc_medicine: 'Search by medicine name or active ingredient to see which pharmacy has it, and contact them directly.',
+    search_placeholder_medicine: 'Medicine or ingredient',
     search_hint_medicine: 'Type the medicine name to check its availability in Salamiyah pharmacies.',
-    hero_title_cosmetic: 'Dawaai Jahez<br>Your <span class="hero-highlight">Cosmetics</span>, Anytime',
-    hero_desc_cosmetic: 'A Syrian platform that helps you find cosmetic products availability at nearby pharmacies.',
-    search_placeholder_cosmetic: 'Search for a cosmetic product...',
+    hero_title_cosmetic: 'Know where your cosmetic product is before you leave home',
+    hero_desc_cosmetic: 'Search by product name to see which pharmacy has it, and contact them directly.',
+    search_placeholder_cosmetic: 'Cosmetic product name',
     search_hint_cosmetic: 'Type the product name to check its availability in Salamiyah pharmacies.',
-    hero_title_nursing: 'Dawaai Jahez Nursing Services<br><span class="hero-highlight">Anytime</span>, Anywhere',
-    hero_desc_nursing: 'A Syrian platform that helps you find medicine and nursing service availability in Salamiyah city.',
+    hero_title_nursing: 'Nursing care at home, from nurses whose experience you can see first',
+    hero_desc_nursing: 'Nurses from Salamiyah who come to your home. Contact them directly.',
     search_hint_nursing: 'Browse the nurses below and check each one\'s experience and patient reviews before contacting them.',
     search_btn: 'Search', cart_btn: 'Cart',
     feature1_title: 'Medicine Search', feature1_desc: 'Find pharmacies that have your medicine.',
@@ -787,7 +800,7 @@ const translations = {
     did_you_mean_results: 'Did you mean one of these?',
     suggest_did_you_mean: 'Did you mean', q_mark: '?',
     available_badge: '🟢 Available', unavailable_badge: '🔴 Unavailable',
-    active_ingredient_label: 'Active ingredient:', add_to_cart_btn: 'Add to Cart', added_feedback: '✓ Added',
+    active_ingredient_label: 'Active ingredient:', add_to_cart_btn: '🛒 Add to cart', added_feedback: '✓ Added',
     alt_unavailable_but: 'is currently unavailable, but there is an alternative with the same active ingredient', alt_view_btn: 'View',
     server_error_title: 'Could not connect to the server', server_error_subtitle: 'Check your internet connection and try again.',
     cart_panel_title: 'Shopping Cart', cart_panel_subtitle: 'Review the items before checkout.',
@@ -1266,8 +1279,21 @@ const translations = {
     location_outside_syria: 'These coordinates are outside Syria. Make sure you did not swap the two numbers. Save anyway?',
     location_swap_suggest: 'The two numbers look swapped. The correct location is most likely: {coords}\n\nSave it that way?',
     location_admin_label: 'location',
-    duty_now_btn_label: 'On duty now',
-    wa_consult_btn_label: 'Ask a pharmacist',
+    duty_now_btn_label: 'Pharmacies on duty now',
+    wa_consult_btn_label: 'Ask a pharmacist on WhatsApp',
+    duty_row_default: 'Find the pharmacy on duty now',
+    duty_row_count: '1 pharmacy on duty now|{n} pharmacies on duty now',
+    duty_row_in_city: '{count} in {city}',
+    wa_row_sub: 'About a dose, an alternative or an unclear prescription',
+    cart_row_sub: 'Reserve medicines from the search results',
+    hero_trust: 'Every pharmacy shown here was added by the Dawaai Jahez team itself.',
+    pharmacy_count_gen: '1 pharmacy|{n} pharmacies',
+    res_summary_yes: 'Available at {a} of {m}',
+    res_summary_yes_all: 'Available at {a}',
+    res_summary_no: 'Not available, according to the latest update from pharmacies that list their stock',
+    res_summary_wait: 'Stock is not listed here for {w}: call to ask.',
+    res_status_yes: 'Available', res_status_wait: 'Call to check availability', res_status_no: 'Not available as of the last update',
+    call_btn: '📞 Call', directions_btn_short: '🗺️ Map',
     wa_consult_title: '💬 Ask a pharmacist on WhatsApp',
     wa_consult_desc: 'Unclear prescription? A question about a dose or an alternative? Message a pharmacist directly.',
     wa_consult_empty: 'No pharmacies have WhatsApp enabled yet.',
@@ -1605,6 +1631,7 @@ function applyLanguage() {
   document.getElementById('cart-btn-label').textContent = t('cart_btn');
   document.getElementById('whatsapp-btn-label').textContent = t('wa_consult_btn_label');
   document.getElementById('duty-now-btn-label').textContent = t('duty_now_btn_label');
+  renderHeroRowSubs();
   // ---------- لوحة استشارة واتساب ----------
   document.getElementById('wa-panel-title').textContent = t('wa_consult_title');
   document.getElementById('wa-panel-desc').textContent = t('wa_consult_desc');
@@ -2670,12 +2697,13 @@ function onDirectionsClick(btn) {
 }
 
 // زر الاتجاهات ببطاقة النتيجة وبطاقة المناوبة
-function directionsBtnHtml(lat, lng) {
+// short: في بطاقة النتائج الأزرار الثلاثة متساوية العرض، فيكفي «الخريطة»
+function directionsBtnHtml(lat, lng, short = false) {
   if (!hasLocation(lat, lng)) return '';
   return `<button type="button" class="directions-btn" data-lat="${escapeHtml(String(lat))}"
             data-lng="${escapeHtml(String(lng))}" title="${t('directions_btn_title')}"
             onclick="onDirectionsClick(this)">
-            <span class="directions-icon">🗺️</span> ${t('directions_btn')}
+            ${short ? t('directions_btn_short') : `<span class="directions-icon">🗺️</span> ${t('directions_btn')}`}
           </button>`;
 }
 
@@ -2892,6 +2920,26 @@ function translateDutyShift(shift) { return currentLang === 'en' ? (DUTY_SHIFT_E
 
 // ---------- واجهة المريض ----------
 
+// سطور الشرح تحت صفوف الواجهة الأولى، وسطر الثقة. عدد المناوبات حقيقي من آخر قائمة
+// مناوبة جُلبت (تُجلب أصلاً عند فتح الموقع وعند تغيير المدينة)، وقبل وصولها نص عام.
+let heroDutyCount = null;
+function renderHeroRowSubs() {
+  const duty = document.getElementById('duty-now-btn-sub');
+  if (duty) {
+    if (heroDutyCount === null) duty.textContent = t('duty_row_default');
+    else {
+      const count = tPlural('duty_row_count', heroDutyCount);
+      duty.textContent = currentCity && heroDutyCount > 0 ? tFormat('duty_row_in_city', { count, city: cityName(currentCity) }) : count;
+    }
+  }
+  const wa = document.getElementById('whatsapp-btn-sub');
+  if (wa) wa.textContent = t('wa_row_sub');
+  const cartSub = document.getElementById('cart-btn-sub');
+  if (cartSub) cartSub.textContent = t('cart_row_sub');
+  const trust = document.getElementById('hero-trust-text');
+  if (trust) trust.textContent = t('hero_trust');
+}
+
 let lastOnDutySnapshot = null;
 // و5: رقم آخر طلب للمناوبة. رد متأخر لمدينة سابقة (تحديث دوري بدأ قبل تغيير المدينة)
 // كان يُعرض فوق قائمة المدينة الجديدة؛ الآن يُهمل كل رد ليس لآخر طلب
@@ -2905,6 +2953,8 @@ async function loadOnDuty() {
     const res = await fetchWithTimeout(`${API}/pharmacies/on-duty${cityParam}`, {}, 15000);
     const data = await readJsonOk(res);
     if (seq !== onDutySeq) return;
+    heroDutyCount = data.length;
+    renderHeroRowSubs();
 
     // ما تغيّر شي بالبيانات؟ خلص، ما في داعي نعيد رسم الشاشة ونسبب وميض
     const snapshot = JSON.stringify(data);
@@ -3393,6 +3443,84 @@ async function refreshResults(btn) {
   }
 }
 
+// ---------- نتائج البحث (الجولة 5ب) ----------
+// لكل دواء: سطر ملخّص يعدّ ولا يرتّب («متوفر في صيدليتين من ثلاث»)، ثم بطاقة لكل صيدلية
+// عنوانها اسم الصيدلية. حالة التوفر بالكلمة واللون والخط الجانبي لا بمكان البطاقة.
+
+// ترتيب الصيدليات يتبدّل كل يوم: كان الخادم يضع المتوفر أولاً، فتُدفع الصيدلية التي لم
+// تحدّث مخزونها إلى الأسفل وإن كان الدواء عندها فعلاً، ويبدو الموقع كأنه يفضّل صيدلية على
+// أخرى. الآن تُرتَّب بأرقامها ثم تدور القائمة موضعاً واحداً كل يوم: مع n صيدليات تأخذ كل
+// منها المكان الأول مرة واحدة تماماً كل n أيام. الترتيب ثابت طوال اليوم فلا يرتبك من يعيد
+// البحث. اليوم بتوقيت دمشق لا بساعة الهاتف.
+function rotateDaily(list) {
+  const sorted = list.slice().sort((a, b) => a.pharmacy_id - b.pharmacy_id);
+  const n = sorted.length;
+  if (n < 2) return sorted;
+  const day = Math.floor(Date.parse(damascusTodayDate() + 'T00:00:00Z') / 86400000);
+  const shift = ((day % n) + n) % n;
+  return sorted.slice(shift).concat(sorted.slice(0, shift));
+}
+
+function resultSummaryHtml(item) {
+  const av = item.availability;
+  const yes = av.filter(a => a.manages_stock && a.available).length;
+  const managed = av.filter(a => a.manages_stock).length;
+  const wait = av.length - managed;
+  let lines = '';
+  if (yes > 0) {
+    lines += `<p class="s-ok">${yes === managed
+      ? tFormat('res_summary_yes_all', { a: tPlural('pharmacy_count_gen', yes) })
+      : tFormat('res_summary_yes', { a: tPlural('pharmacy_count_gen', yes), m: tPlural('pharmacy_count_gen', managed) })}</p>`;
+  } else if (managed > 0) {
+    lines += `<p class="s-no">${t('res_summary_no')}</p>`;
+  }
+  if (wait > 0) lines += `<p class="s-note">${tFormat('res_summary_wait', { w: tPlural('pharmacy_count_gen', wait) })}</p>`;
+  const generic = item.medicine.generic_name ? ` <small>(<bdi>${escapeHtml(item.medicine.generic_name)}</bdi>)</small>` : '';
+  return `<div class="res-summary"><h2><bdi>${escapeHtml(item.medicine.name)}</bdi>${generic}</h2>${lines}</div>`;
+}
+
+// زر «اتصال»: رابط tel: يفتح الاتصال مباشرة بدل نسخ الرقم. أرقام فقط، فلا يدخل الرابطَ نصٌّ آخر.
+function callBtnHtml(phone) {
+  const digits = String(phone || '').replace(/[^\d+]/g, '');
+  if (!digits) return '';
+  return `<a class="call-btn" href="tel:${digits}">${t('call_btn')}</a>`;
+}
+
+function resultCardHtml(item, a) {
+  const kind = a.manages_stock ? (a.available ? 'yes' : 'no') : 'wait';
+  const place = [a.city ? escapeHtml(cityName(a.city)) : '', a.address ? escapeHtml(a.address) : ''].filter(Boolean)
+    .map(x => `<bdi>${x}</bdi>`).join(currentLang === 'en' ? ', ' : '، ');
+  const phones = [a.phone ? `📞 <bdi>${escapeHtml(a.phone)}</bdi>` : '',
+    a.assistant_phone ? `📱 <bdi>${escapeHtml(a.assistant_phone)}</bdi> <span class="muted">(${t('assistant_phone_label')})</span>` : '']
+    .filter(Boolean).join('&nbsp;&nbsp;');
+  let cta = '';
+  if (kind === 'yes') {
+    const st = pharmacyOpenState(a);
+    const closed = st && !st.open;
+    cta = `<button class="result-add-btn-full${closed ? ' closed' : ''}"
+              onclick="addToCart(${item.medicine.id}, ${a.pharmacy_id}, this)"
+              ${closed ? `data-closed-notice="${escapeHtml(st.reason === 'today' ? t('cart_closed_notice_today') : tFormat('cart_closed_notice', { time: formatTime(st.opensAt) }))}"` : ''}>
+              ${closed ? t('cart_closed_btn') : t('add_to_cart_btn')}
+            </button>`;
+  }
+  // اتصال في كل بطاقة، حتى «غير متوفر»: المريض يتأكد بنفسه، فقد يكون المخزون لم يُحدَّث
+  const acts = [waResultBtnHtml(a.whatsapp_phone, item.medicine.name), callBtnHtml(a.phone || a.assistant_phone),
+    directionsBtnHtml(a.latitude, a.longitude, true)].filter(Boolean).join('');
+  const openBadge = openStateBadgeHtml(a);
+  return `
+    <div class="result-card res-card is-${kind}">
+      <div class="res-status">${t('res_status_' + kind)}</div>
+      <h3 class="res-name"><span class="result-pharmacy-name"><bdi>${escapeHtml(a.pharmacy_name)}</bdi></span>${verifiedBadgeHtml(a.verified)}</h3>
+      ${place ? `<p class="res-addr">${place}</p>` : ''}
+      ${openBadge ? `<p class="res-open">${openBadge}</p>` : ''}
+      ${phones ? `<p class="res-phone">${phones}</p>` : ''}
+      ${kind === 'wait' ? `<p class="res-note">${t('stock_unmanaged_note')}</p>` : ''}
+      ${cta}
+      ${acts ? `<div class="res-acts">${acts}</div>` : ''}
+      ${kind !== 'wait' && a.stock_updated_at ? `<div class="res-foot">${stockFreshnessHtml(a.stock_updated_at)}</div>` : '<div class="res-gap"></div>'}
+    </div>`;
+}
+
 async function runSearch() {
   const q = document.getElementById('search').value.trim();
   const container = document.getElementById('results');
@@ -3465,51 +3593,8 @@ async function runSearch() {
     let cardsHtml = '';
     for (const item of data) {
       const anyAvailable = item.availability.some(a => a.available);
-      item.availability.forEach(a => {
-        cardsHtml += `
-          <div class="result-card">
-            <div class="result-card-top">
-              <span class="result-med-name"><span class="result-icon">${currentCategory === 'cosmetic' ? '💄' : '💊'}</span> ${escapeHtml(item.medicine.name)}</span>
-              ${a.manages_stock
-                ? `<span class="badge ${a.available ? 'yes' : 'no'}">${a.available ? t('available_badge') : t('unavailable_badge')}</span>`
-                : `<span class="badge neutral">${t('stock_unmanaged_badge')}</span>`}
-              ${openStateBadgeHtml(a)}
-            </div>
-            <div class="result-row">${t('active_ingredient_label')} ${escapeHtml(item.medicine.generic_name) || '-'}</div>
-            <div class="result-pharmacy">
-              <span class="result-icon">📍</span>
-              <span class="result-pharmacy-info">
-                <span class="result-pharmacy-name"><bdi>${escapeHtml(a.pharmacy_name)}</bdi>${verifiedBadgeHtml(a.verified)}</span>
-                ${(a.city || a.address) ? `<span class="result-pharmacy-meta">
-                  ${a.city ? `<bdi>${escapeHtml(cityName(a.city))}</bdi>` : ''}
-                  ${(a.city && a.address) ? '<span class="admin-ph-sep">•</span>' : ''}
-                  ${a.address ? `<bdi>${escapeHtml(a.address)}</bdi>` : ''}
-                </span>` : ''}
-              </span>
-            </div>
-            ${a.phone ? `<div class="result-row"><span class="result-icon">📞</span> ${escapeHtml(a.phone)}</div>` : ''}
-            ${a.assistant_phone ? `<div class="result-row"><span class="result-icon">📱</span> ${escapeHtml(a.assistant_phone)} <span class="muted" style="font-size:12px;">(${t('assistant_phone_label')})</span></div>` : ''}
-            ${a.manages_stock
-              ? stockFreshnessHtml(a.stock_updated_at)
-              : `<div class="stock-unmanaged-note">${t('stock_unmanaged_note')}</div>`}
-            <div class="result-actions">
-              ${(a.manages_stock && a.available) ? (() => {
-                const st = pharmacyOpenState(a);
-                const closed = st && !st.open;
-                return `<button class="result-add-btn-full${closed ? ' closed' : ''}"
-                          onclick="addToCart(${item.medicine.id}, ${a.pharmacy_id}, this)"
-                          ${closed ? `data-closed-notice="${escapeHtml(st.reason === 'today' ? t('cart_closed_notice_today') : tFormat('cart_closed_notice', { time: formatTime(st.opensAt) }))}"` : ''}>
-                          ${closed ? t('cart_closed_btn') : t('add_to_cart_btn')}
-                        </button>`;
-              })() : ''}
-              ${(a.whatsapp_phone || hasLocation(a.latitude, a.longitude)) ? `<div class="result-actions-secondary">
-                ${waResultBtnHtml(a.whatsapp_phone, item.medicine.name)}
-                ${directionsBtnHtml(a.latitude, a.longitude)}
-              </div>` : ''}
-            </div>
-          </div>
-        `;
-      });
+      cardsHtml += resultSummaryHtml(item);
+      rotateDaily(item.availability).forEach(a => { cardsHtml += resultCardHtml(item, a); });
 
       if (!anyAvailable && item.medicine.generic_name) {
         try {
