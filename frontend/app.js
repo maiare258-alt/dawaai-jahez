@@ -124,6 +124,13 @@ function verifiedBadgeHtml(isVerified) {
   return `<span class="verified-badge" title="${t('verified_badge_title')}">✓ ${t('verified_badge')}</span>`;
 }
 
+// الأرقام في الموقع كله لاتينية (0-9)، بالعربية كما بالإنجليزية: أرقام الهواتف وما يكتبه
+// الناس على لوحات المفاتيح لاتيني، فكان التاريخ ٢٠٢٦/١٠/١١ يظهر بجانب الهاتف 0933… بشكلين.
+// الوسم u-nu-latn يُبقي أسماء الأشهر والصيغة عربية ويجعل الأرقام وحدها لاتينية.
+function dateLocale() {
+  return currentLang === 'ar' ? 'ar-SY-u-nu-latn' : 'en-GB';
+}
+
 function cityName(key) {
   if (!key) return '';
   return (CITIES[key] && CITIES[key][currentLang]) || key;
@@ -186,6 +193,14 @@ const translations = {
     bell_declined_prefix: 'تعذّر على الصيدلية', bell_declined_suffix: 'تجهيز طلبك. يمكنك الاتصال بها أو البحث في صيدلية أخرى.',
     excess_quantity_confirm: 'أضفت {qty} من {name} من {pharmacy} إلى عربتك. هل ترغب في إضافة المزيد؟',
     pharm_login_title: 'دخول الصيدلي',
+    staff_note_pharmacist: 'هذه الصفحة للصيادلة المسجّلين في المنصة. إن كنت تبحث عن دواء فابدأ من الصفحة الرئيسية.',
+    staff_note_admin: 'هذه الصفحة لإدارة المنصة فقط. إن كنت تبحث عن دواء فابدأ من الصفحة الرئيسية.',
+    staff_note_search_btn: '🔍 ابحث عن دواء',
+    danger_delete_order: 'احذف الطلب', danger_delete_account: 'احذف حسابي', danger_reset_password: 'أعد تعيين كلمة المرور',
+    danger_delete_ad: 'احذف الإعلان', danger_start_launch: 'ابدأ الإطلاق', danger_clear_location: 'امسح الموقع',
+    danger_delete_cert: 'احذف الشهادة', danger_clear_duty: 'ألغِ كل المناوبات', danger_delete_pharmacy: 'احذف الصيدلية',
+    danger_delete_medicine: 'احذف الدواء', danger_delete_nurse: 'احذف الممرض', danger_reject_rating: 'ارفض التقييم',
+    danger_delete_rating: 'احذف التقييم',
     pharm_login_no_account: 'إن لم يكن لديك حساب بعد، فتواصل مع فريق دوائي جاهز لتسجيل صيدليتك من البطاقة أدناه.',
     username_placeholder: 'اسم المستخدم', password_placeholder: 'كلمة المرور', login_btn: 'دخول',
     pharm_dashboard_title: 'لوحة الصيدلي', pharmacy_label_prefix: 'صيدلية:', logout_btn: '🚪 تسجيل الخروج',
@@ -790,6 +805,14 @@ const translations = {
     bell_declined_prefix: 'The pharmacy', bell_declined_suffix: 'could not prepare your order. You can call it or search another pharmacy.',
     excess_quantity_confirm: "You've added {qty} of {name} from {pharmacy} to your cart. Add more?",
     pharm_login_title: 'Pharmacist Login',
+    staff_note_pharmacist: 'This page is for pharmacists registered on the platform. Looking for a medicine? Start from the home page.',
+    staff_note_admin: 'This page is for platform administration only. Looking for a medicine? Start from the home page.',
+    staff_note_search_btn: '🔍 Search for a medicine',
+    danger_delete_order: 'Delete order', danger_delete_account: 'Delete my account', danger_reset_password: 'Reset password',
+    danger_delete_ad: 'Delete ad', danger_start_launch: 'Start launch', danger_clear_location: 'Clear location',
+    danger_delete_cert: 'Delete certificate', danger_clear_duty: 'Clear all duty', danger_delete_pharmacy: 'Delete pharmacy',
+    danger_delete_medicine: 'Delete medicine', danger_delete_nurse: 'Delete nurse', danger_reject_rating: 'Reject review',
+    danger_delete_rating: 'Delete review',
     pharm_login_no_account: "If you don't have an account yet, contact the Dawaai Jahez team to register your pharmacy using the card below.",
     username_placeholder: 'Username', password_placeholder: 'Password', login_btn: 'Login',
     pharm_dashboard_title: 'Pharmacist Panel', pharmacy_label_prefix: 'Pharmacy:', logout_btn: '🚪 Logout',
@@ -1818,7 +1841,7 @@ document.addEventListener('keydown', e => {
 // «إلغاء»، وهو الجواب الآمن دائماً: لا حذف ولا تنفيذ.
 let closeActiveModal = null;
 
-function showModal({ message, type = 'info', showCancel = false, okText, cancelText }) {
+function showModal({ message, type = 'info', showCancel = false, okText, cancelText, danger = false }) {
   okText = okText || t('modal_ok');
   cancelText = cancelText || t('modal_cancel');
   if (closeActiveModal) closeActiveModal(false);
@@ -1830,6 +1853,10 @@ function showModal({ message, type = 'info', showCancel = false, okText, cancelT
     const cancelBtn = document.getElementById('modal-btn-cancel');
     okBtn.textContent = okText;
     cancelBtn.textContent = cancelText;
+    // زر الإجراء الخطِر (حذف، مسح، إطلاق) أحمر، فلا يُضغط بالعادة كأي «نعم» زرقاء.
+    // اللون يُضبط هنا مباشرة ويُمحى لكل نافذة عادية، فلا يبقى أحمر في النافذة التالية.
+    okBtn.style.background = danger ? '#c62f2f' : '';
+    okBtn.style.boxShadow = danger ? '0 6px 16px rgba(198,47,47,0.28)' : '';
     cancelBtn.style.display = showCancel ? 'inline-block' : 'none';
     const overlay = document.getElementById('custom-modal-overlay');
     overlay.style.display = 'flex';
@@ -1861,8 +1888,10 @@ function customAlert(message, type = 'info') {
   return showModal({ message, type, showCancel: false });
 }
 
-function customConfirm(message, type = 'question') {
-  return showModal({ message, type, showCancel: true, okText: t('modal_yes'), cancelText: t('modal_cancel') });
+// danger: مفتاح ترجمة لفعل الإجراء الخطِر («احذف الطلب»...). يحل محل «نعم» ويصير الزر أحمر،
+// فيقرأ المستخدم ما سيحدث على الزر نفسه. «إلغاء» يبقى الزر المركَّز عليه كما كان.
+function customConfirm(message, type = 'question', danger = null) {
+  return showModal({ message, type, showCancel: true, okText: danger ? t(danger) : t('modal_yes'), cancelText: t('modal_cancel'), danger: !!danger });
 }
 
 // نص شريط اللوحة حسب الصفحة المعروضة. يُستدعى أيضاً عند تبديل اللغة.
@@ -3531,9 +3560,26 @@ async function runSearch() {
 
 // ---------- لوحة الصيدلي ----------
 
+// تنبيه أعلى صفحتي دخول الصيدلي والإدارة: المريض الذي وصل إليهما من القائمة يعرف فوراً
+// أنهما ليستا له، ويعود إلى البحث بضغطة. الخانة تُفرَّغ عند الدخول فيختفي التنبيه معها.
+function staffNoteHtml(key) {
+  return `
+    <div class="staff-note" role="note" style="display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; background:#fff; border:1px solid #cfe0ef; border-inline-start:4px solid #185fa5; border-radius:14px; padding:12px 14px; margin:0 0 16px; font-size:15px; line-height:1.6; color:#2c3e50;">
+      <span>ℹ️ ${t(key)}</span>
+      <button type="button" class="btn-outline blue" style="min-height:44px; font-weight:700;" onclick="staffNoteGoSearch()">${t('staff_note_search_btn')}</button>
+    </div>`;
+}
+
+function staffNoteGoSearch() {
+  headerGoHome(document.getElementById('nav-home'));
+  const box = document.getElementById('search');
+  if (box) setTimeout(() => box.focus({ preventScroll: true }), 350);
+}
+
 function renderPharmacyAuthForm() {
   document.getElementById('pharmacist-dashboard').style.display = 'none';
   document.getElementById('pharmacist-auth-section').innerHTML = `
+    ${staffNoteHtml('staff_note_pharmacist')}
     <div class="auth-box">
       <h3 style="margin-top:0;">${t('pharm_login_title')}</h3>
       <p class="muted" style="margin-top:-8px;">${t('pharm_login_no_account')}</p>
@@ -4599,6 +4645,12 @@ async function loadOrders() {
   ordersLoadedOnce = true;
 }
 
+// وقت الطلب بلا ثوانٍ: «2026/10/13، 2:19 م». الثواني لا تفيد الصيدلي وتزحم السطر.
+function formatOrderTime(iso) {
+  return new Date(iso).toLocaleString(currentLang === 'en' ? 'en-US' : dateLocale(),
+    { year: 'numeric', month: 'numeric', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+}
+
 // إعادة رسم قائمة الطلبات من آخر بيانات محفوظة، بدون أي طلب شبكة — تُستخدم عند تبديل اللغة
 function renderOrdersUI() {
   const orders = pharmacistOrdersCache;
@@ -4617,7 +4669,7 @@ function renderOrdersUI() {
         ${o.status === 'confirmed' ? `<span class="order-confirmed-badge">${t('order_confirmed_badge')}</span>` : ''}
       </div>
       <div class="order-row"><span>📞</span> ${escapeHtml(o.patient_phone)}</div>
-      <div class="order-row"><span>🕐</span> ${new Date(o.created_at).toLocaleString(currentLang === 'en' ? 'en-US' : 'ar-SY')}</div>
+      <div class="order-row"><span>🕐</span> <bdi>${formatOrderTime(o.created_at)}</bdi></div>
       <div class="order-items-list">
         ${o.items.map(it => `<div class="order-item-line">💊 ${escapeHtml(it.medicineName)}${it.genericName ? ' - ' + escapeHtml(it.genericName) : ''} × ${it.quantity}</div>`).join('')}
       </div>
@@ -4670,7 +4722,7 @@ async function confirmOrderAction(id) {
 }
 
 async function removeOrder(id) {
-  const confirmed = await customConfirm(t('order_delete_confirm'), 'warning');
+  const confirmed = await customConfirm(t('order_delete_confirm'), 'warning', 'danger_delete_order');
   if (!confirmed) return;
   if (!(await runAction(`${API}/orders/${id}`, { method: 'DELETE', headers: pharmacyHeaders() }))) return;
   loadOrders();
@@ -4711,7 +4763,7 @@ async function toggleStock(medicineId, newValue) {
 
 function deleteMyAccount() { return runGuarded('deleteMyAccount', 'delete-account-btn', deleteMyAccountNow); }
 async function deleteMyAccountNow() {
-  const confirmed = await customConfirm(t('delete_account_confirm'), 'warning');
+  const confirmed = await customConfirm(t('delete_account_confirm'), 'warning', 'danger_delete_account');
   if (!confirmed) return;
   // كانت بلا معالجة أخطاء: انقطاع الشبكة بعد التأكيد لا يُظهر أي شيء، فلا يعرف الصيدلي
   // هل حُذف حسابه أم لا
@@ -4736,6 +4788,7 @@ async function deleteMyAccountNow() {
 function renderAdminAuthForm() {
   document.getElementById('admin-panel').style.display = 'none';
   document.getElementById('admin-auth-section').innerHTML = `
+    ${staffNoteHtml('staff_note_admin')}
     <div class="auth-box">
       <div class="password-field">
         <input id="admin-password-input" type="password" placeholder="${t('admin_password_placeholder')}" onkeydown="if(event.key==='Enter') checkAdminPassword()">
@@ -5520,7 +5573,7 @@ async function resetPharmacyPasswordNow(id) {
   const pharmacy = adminDataCache.pharmacies.find(p => p.id === id);
   const name = pharmacy ? pharmacy.name : '';
 
-  const proceed = await customConfirm(tFormat('reset_password_confirm', { name }), 'warning');
+  const proceed = await customConfirm(tFormat('reset_password_confirm', { name }), 'warning', 'danger_reset_password');
   if (!proceed) return;
 
   try {
@@ -6298,7 +6351,7 @@ async function setAdActiveAdmin(id, active) {
 async function deleteAdAdmin(id) {
   const ad = adsAdminCache.find(x => x.id === id);
   if (!ad) return;
-  if (!(await customConfirm(tFormat('ads_delete_confirm', { name: ad.advertiser }), 'warning'))) return;
+  if (!(await customConfirm(tFormat('ads_delete_confirm', { name: ad.advertiser }), 'warning', 'danger_delete_ad'))) return;
   if (!(await runAction(`${API}/ads/${id}`, { method: 'DELETE', headers: adminHeaders() }))) return;
   await loadAdsAdmin();
   refreshAdSlotNow();
@@ -6327,7 +6380,7 @@ let visitsDays = 30;
 let lastVisitsReport = null;
 
 function formatShortDay(day) {
-  return new Date(day + 'T00:00:00Z').toLocaleDateString(currentLang === 'ar' ? 'ar-SY' : 'en-GB', { day: 'numeric', month: 'short', timeZone: 'UTC' });
+  return new Date(day + 'T00:00:00Z').toLocaleDateString(dateLocale(), { day: 'numeric', month: 'short', timeZone: 'UTC' });
 }
 
 function renderVisitsReport() {
@@ -6431,7 +6484,7 @@ let launchZoneState = undefined;   // undefined: لم يُعرف بعد، null: 
 
 function formatLaunchDate(iso) {
   try {
-    return new Date(iso).toLocaleDateString(currentLang === 'ar' ? 'ar-SY' : 'en-GB',
+    return new Date(iso).toLocaleDateString(dateLocale(),
       { timeZone: 'Asia/Damascus', year: 'numeric', month: 'long', day: 'numeric' });
   } catch (e) { return String(iso).slice(0, 10); }
 }
@@ -6464,7 +6517,7 @@ async function startOfficialLaunch() {
   const input = document.getElementById('launch-confirm-input');
   const btn = document.getElementById('launch-reset-btn');
   if (!input || input.value.trim() !== 'حذف') return;
-  if (!(await customConfirm(t('launch_final_confirm'), 'warning'))) return;
+  if (!(await customConfirm(t('launch_final_confirm'), 'warning', 'danger_start_launch'))) return;
 
   const setBtn = (label, disabled) => { if (btn) { btn.textContent = label; btn.disabled = disabled; } };
   setBtn(t('launch_backing_up'), true);
@@ -6712,7 +6765,7 @@ async function saveAdminAddress(id) {
 async function clearAdminLocation(id) {
   const p = (adminDataCache.pharmacies || []).find(x => x.id === id);
   if (!p) return;
-  if (!(await customConfirm(tFormat('admin_location_clear_confirm', { name: p.name }), 'warning'))) return;
+  if (!(await customConfirm(tFormat('admin_location_clear_confirm', { name: p.name }), 'warning', 'danger_clear_location'))) return;
   try {
     const d = await adminPut(`${id}/location`, { latitude: '', longitude: '' });
     p.latitude = d.latitude; p.longitude = d.longitude;
@@ -6763,7 +6816,7 @@ function formatBytes(n) {
 
 function nurseEditorHtml(n) {
   const has = n.has_certificate;
-  const date = n.cert_uploaded_at ? new Date(n.cert_uploaded_at).toLocaleDateString(currentLang === 'ar' ? 'ar-SY' : 'en-GB',
+  const date = n.cert_uploaded_at ? new Date(n.cert_uploaded_at).toLocaleDateString(dateLocale(),
     { timeZone: 'Asia/Damascus', year: 'numeric', month: 'long', day: 'numeric' }) : '';
   const info = has ? tFormat('cert_uploaded_info', {
     type: n.cert_mime === 'application/pdf' ? t('cert_type_pdf') : t('cert_type_image'),
@@ -6902,7 +6955,7 @@ async function setNurseCertVerified(id, verified) {
 
 async function deleteNurseCertificate(id) {
   const n = nurseFromCache(id); if (!n) return;
-  if (!(await customConfirm(tFormat('cert_delete_confirm', { name: n.name }), 'warning'))) return;
+  if (!(await customConfirm(tFormat('cert_delete_confirm', { name: n.name }), 'warning', 'danger_delete_cert'))) return;
   try {
     const res = await fetchWithTimeout(`${API}/nurses/${id}/certificate`, { method: 'DELETE', headers: adminHeaders() }, 20000);
     if (!res.ok) { const d = await res.json().catch(() => ({})); await customAlert(translateApiError(d.error), 'error'); return; }
@@ -7158,7 +7211,7 @@ function clearAllDuty() { return runGuarded('clearAllDuty', null, clearAllDutyNo
 async function clearAllDutyNow() {
   const active = (adminDataCache.pharmacies || []).filter(p => p.on_duty).length;
   if (active === 0) { await customAlert(t('admin_duty_none_active'), 'info'); return; }
-  const confirmed = await customConfirm(tFormat('admin_duty_clear_confirm', { n: active }), 'warning');
+  const confirmed = await customConfirm(tFormat('admin_duty_clear_confirm', { n: active }), 'warning', 'danger_clear_duty');
   if (!confirmed) return;
   try {
     const res = await fetchWithTimeout(`${API}/pharmacies/duty/clear-all`, { method: 'POST', headers: adminHeaders() }, 20000);
@@ -7240,7 +7293,7 @@ function deletePharmacyAdmin(id) { return runGuarded('deletePharmacyAdmin:' + id
 async function deletePharmacyAdminNow(id) {
   const pharmacy = adminDataCache.pharmacies.find(p => p.id === id);
   const name = pharmacy ? pharmacy.name : '';
-  const confirmed = await customConfirm(tFormat('delete_pharmacy_confirm', { name }), 'warning');
+  const confirmed = await customConfirm(tFormat('delete_pharmacy_confirm', { name }), 'warning', 'danger_delete_pharmacy');
   if (!confirmed) return;
   if (!(await runAction(`${API}/pharmacies/${id}`, { method: 'DELETE', headers: adminHeaders() }))) return;
   renderAdminPanel();
@@ -7275,7 +7328,7 @@ function deleteMedicineAdmin(id) { return runGuarded('deleteMedicineAdmin:' + id
 async function deleteMedicineAdminNow(id) {
   const medicine = adminDataCache.medicines.find(m => m.id === id);
   const name = medicine ? medicine.name : '';
-  const confirmed = await customConfirm(tFormat('delete_medicine_confirm', { name }), 'warning');
+  const confirmed = await customConfirm(tFormat('delete_medicine_confirm', { name }), 'warning', 'danger_delete_medicine');
   if (!confirmed) return;
   if (!(await runAction(`${API}/medicines/${id}`, { method: 'DELETE', headers: adminHeaders() }))) return;
   renderAdminPanel();
@@ -7327,7 +7380,7 @@ function deleteNurseAdmin(id) { return runGuarded('deleteNurseAdmin:' + id, null
 async function deleteNurseAdminNow(id) {
   const nurse = adminDataCache.nurses.find(n => n.id === id);
   const name = nurse ? nurse.name : '';
-  const confirmed = await customConfirm(tFormat('delete_nurse_confirm', { name }), 'warning');
+  const confirmed = await customConfirm(tFormat('delete_nurse_confirm', { name }), 'warning', 'danger_delete_nurse');
   if (!confirmed) return;
   if (!(await runAction(`${API}/nurses/${id}`, { method: 'DELETE', headers: adminHeaders() }))) return;
   renderAdminPanel();
@@ -7349,7 +7402,7 @@ async function approveRatingAdminNow(id) {
 
 function rejectRatingAdmin(id) { return runGuarded('rejectRatingAdmin:' + id, null, () => rejectRatingAdminNow(id)); }
 async function rejectRatingAdminNow(id) {
-  const confirmed = await customConfirm(t('reject_rating_confirm'), 'warning');
+  const confirmed = await customConfirm(t('reject_rating_confirm'), 'warning', 'danger_reject_rating');
   if (!confirmed) return;
   if (!(await runAction(`${API}/nurses/ratings/${id}`, { method: 'DELETE', headers: adminHeaders() }))) return;
   renderAdminPanel();
@@ -7461,7 +7514,7 @@ async function loadApprovedRatingsAdmin() {
 }
 
 async function deleteApprovedRatingAdmin(id) {
-  const confirmed = await customConfirm(t('delete_rating_final_confirm'), 'warning');
+  const confirmed = await customConfirm(t('delete_rating_final_confirm'), 'warning', 'danger_delete_rating');
   if (!confirmed) return;
   if (!(await runAction(`${API}/nurses/ratings/${id}`, { method: 'DELETE', headers: adminHeaders() }))) return;
   approvedRatingsLoaded = false;
