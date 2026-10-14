@@ -3,6 +3,54 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script>
+  // ===== نصوص الشاشة الأولى لمن اختار الإنجليزية =====
+  // النصوص كلها في app.js، وهو آخر ما يُحمَّل في الصفحة، فكان من اختار الإنجليزية يرى
+  // الصفحة بالعربية لحظة ثم تتحوّل. هنا، قبل أن يُرسم أي شيء، يُضبط اتجاه الصفحة، ثم تُكتب
+  // نصوص الشريط العلوي والواجهة الأولى بالإنجليزية فور قراءتها (djEarlyText بعد الشريط وبعد
+  // الواجهة). بقية الصفحة تحت الشاشة الأولى يترجمها app.js قبل أن يصل إليها الزائر.
+  // ⚠️ هذه النصوص نسخة من ترجمات app.js: إن تغيّر نص منها هناك يجب تغييره هنا أيضاً.
+  // (اختبار آلي يقارن الاثنين ويفشل إن اختلفا.)
+  (function () {
+    var en = false;
+    try { en = localStorage.getItem('lang') === 'en'; } catch (e) { /* تخزين ممنوع: تبقى العربية */ }
+    if (!en) { window.djEarlyText = function () {}; return; }
+    document.documentElement.lang = 'en';
+    document.documentElement.dir = 'ltr';
+    document.title = "Dawaai Jahez | Find medicine availability in Syrian pharmacies";
+    var T = {
+      "brand-name": "Dawaai Jahez",
+      "lang-toggle-btn": "عربي",
+      "nav-home": "Home",
+      "nav-onduty": "On-Duty Pharmacies",
+      "nav-cosmetics": "Cosmetics",
+      "nav-nursing": "Nursing Services",
+      "nav-pharmacist": "Pharmacist Panel",
+      "nav-admin": "Admin",
+      "hero-title": "Know where your medicine is before you leave home",
+      "hero-description": "Search by medicine name or active ingredient to see which pharmacy has it, and contact them directly.",
+      "search-btn": "Search",
+      "city-filter-label": "📍 City",
+      "duty-now-btn-label": "Pharmacies on duty now",
+      "duty-now-btn-sub": "Find the pharmacy on duty now",
+      "whatsapp-btn-label": "Ask a pharmacist on WhatsApp",
+      "whatsapp-btn-sub": "About a dose, an alternative or an unclear prescription",
+      "cart-btn-label": "Cart",
+      "cart-btn-sub": "Reserve medicines from the search results",
+      "hero-trust-text": "Every pharmacy shown here was added by the Dawaai Jahez team itself.",
+      "hero-search-hint": "Type the medicine name to check its availability in Salamiyah pharmacies."
+    };
+    window.djEarlyText = function () {
+      for (var id in T) { var el = document.getElementById(id); if (el) el.textContent = T[id]; }
+      var s = document.getElementById('search');
+      if (s) { s.placeholder = "Medicine or ingredient"; s.setAttribute('aria-label', "Search for a medicine or active ingredient"); }
+      var c = document.getElementById('city-filter');
+      if (c) { c.setAttribute('aria-label', "Filter results by city"); if (c.options[0]) c.options[0].textContent = "All cities"; }
+      var n = document.getElementById('nav-toggle-btn');
+      if (n) n.setAttribute('aria-label', "Menu");
+    };
+  })();
+</script>
 <title>دوائي جاهز | ابحث عن توفر الدواء في صيدليات سلمية وسوريا</title>
 
 <!-- ===== وسوم محركات البحث =====
@@ -2060,6 +2108,7 @@
     </div>
   </div>
 </header>
+<script>djEarlyText();</script>
 <script>
   // ارتفاع الشريط العلوي العائم، ليمتد القسم الداكن تحته حتى أعلى الصفحة (--hdr في CSS).
   // يُقاس هنا فوراً قبل تحميل app.js، فلا يقفز التصميم أثناء التحميل.
@@ -2187,12 +2236,12 @@
       </svg>
     </div>
     <div class="hero-content">
-      <h1 class="hero-title" id="hero-title">دوائي جاهز<br>في <span class="hero-highlight">أي وقت</span>، من أي مكان</h1>
-      <p class="hero-description" id="hero-description">منصة سورية تساعدك على معرفة توفر الدواء في الصيدليات القريبة وطلبه بسهولة.</p>
+      <h1 class="hero-title" id="hero-title">اعرف أين يتوفر دواؤك قبل أن تخرج من المنزل</h1>
+      <p class="hero-description" id="hero-description">ابحث باسم الدواء أو مادته الفعالة، فتعرف أي صيدلية يتوفر فيها وتتواصل معها مباشرة.</p>
       <div class="search-card" id="search-card">
       <div class="hero-search-wrap" id="hero-search-wrap">
         <span class="search-icon" aria-hidden="true">🔍</span>
-        <input id="search" type="text" placeholder="ابحث عن دواء أو مادة فعالة..." aria-label="البحث عن دواء أو مادة فعالة" oninput="onSearch()" onkeydown="onSearchKeydown(event)" autocomplete="off">
+        <input id="search" type="text" placeholder="اسم الدواء أو مادته الفعالة" aria-label="البحث عن دواء أو مادة فعالة" oninput="onSearch()" onkeydown="onSearchKeydown(event)" autocomplete="off">
         <button type="button" class="search-btn" id="search-btn" onclick="submitSearch()">بحث</button>
         <div id="suggestions" role="listbox" aria-label="اقتراحات البحث"></div>
       </div>
@@ -2207,23 +2256,25 @@
       <div class="hero-actions-row">
         <button type="button" class="duty-now-btn" onclick="heroGoOnDuty()">
           <span class="duty-now-icon row-ico" aria-hidden="true">🟢</span>
-          <span class="row-txt"><span class="row-main" id="duty-now-btn-label">المناوبة الآن</span><span class="row-sub" id="duty-now-btn-sub"></span></span>
+          <span class="row-txt"><span class="row-main" id="duty-now-btn-label">الصيدليات المناوبة الآن</span><span class="row-sub" id="duty-now-btn-sub">اعرف الصيدلية المناوبة الآن</span></span>
         </button>
         <button type="button" class="whatsapp-btn" onclick="openWhatsappPanel()">
           <span class="whatsapp-icon row-ico" aria-hidden="true">💬</span>
-          <span class="row-txt"><span class="row-main" id="whatsapp-btn-label">استشر صيدلياً</span><span class="row-sub" id="whatsapp-btn-sub"></span></span>
+          <span class="row-txt"><span class="row-main" id="whatsapp-btn-label">استشر صيدلياً عبر واتساب</span><span class="row-sub" id="whatsapp-btn-sub">عن جرعة أو بديل أو وصفة غير واضحة</span></span>
         </button>
         <button id="cart-toggle-btn" class="hero-cart-btn" onclick="toggleCart()">
           <span class="hero-cart-icon row-ico" aria-hidden="true">🛒</span>
-          <span class="row-txt"><span class="row-main" id="cart-btn-label">عربة المشتريات</span><span class="row-sub" id="cart-btn-sub"></span></span>
+          <span class="row-txt"><span class="row-main" id="cart-btn-label">عربة المشتريات</span><span class="row-sub" id="cart-btn-sub">احجز الأدوية من نتائج البحث</span></span>
           <span class="hero-cart-count" id="cart-count">0</span>
           <span class="cart-notify-badge" id="cart-notify-badge" style="display:none">0</span>
         </button>
       </div>
-      <p class="hero-trust" id="hero-trust"><span aria-hidden="true">🛡️</span> <span id="hero-trust-text"></span></p>
+      <p class="hero-trust" id="hero-trust"><span aria-hidden="true">🛡️</span> <span id="hero-trust-text">كل صيدلية تظهر هنا أضافها فريق دوائي جاهز بنفسه.</span></p>
     </div>
   </div>
 </div>
+
+<script>djEarlyText();</script>
 
 <!-- شريط لوحتي الصيدلي والإدارة: بالتدرّج الداكن نفسه للصفحة الرئيسية لكنه أقصر بكثير،
      فيصل الصيدلي والمدير إلى عملهما فوراً. الرسوم نسخ بمعرّفات تدرّج جديدة (-s): لو
