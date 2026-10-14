@@ -1896,6 +1896,145 @@
   }
   /* خيارات متعددة متجاورة: طبقة شفافة لكل منها كانت ستتداخل، فنكبّر الصف نفسه */
   .ad-placement label, .admin-duty-toggle { min-height: 44px; }
+
+  /* ======================= الجولة 5: منظومة التصميم ======================= */
+  /* كل لون هنا لمعنى واحد في الموقع كله، وأي عنصر جديد يأخذ ألوانه ومسافاته من هنا:
+     الأزرق للإجراء الرئيسي، والأخضر لـ«متوفر» و«مفتوحة الآن» فقط، والكهرماني لـ«اتصل
+     للتأكد»، والأحمر لـ«غير متوفر» والحذف. ستة أحجام للنص، وثلاثة ظلال، وأربع استدارات. */
+  :root {
+    --c-ink: #0f2a47;        /* العناوين */
+    --c-text: #2c3e50;       /* النص العادي */
+    --c-muted: #5b6b79;      /* النص الثانوي */
+    --c-blue: #185fa5;       /* الإجراء الرئيسي */
+    --c-sky: #eaf5fc;        /* خلفية الصفحة */
+    --c-line: #dbe8f4;       /* الإطارات */
+    --c-ok: #1e7b4a;   --c-ok-bg: #e8f5ee;     /* متوفر، مفتوحة الآن */
+    --c-wait: #7a5a00; --c-wait-bg: #fdf5e1;   /* اتصل للتأكد */
+    --c-no: #b3261e;   --c-no-bg: #fcecec;     /* غير متوفر */
+    --fs-xs: 13.5px; --fs-s: 15px; --fs-m: 17px; --fs-l: 21px; --fs-xl: 24px; --fs-hero: clamp(28px, 3.6vw, 44px);
+    --r-s: 10px; --r-m: 14px; --r-l: 20px; --r-pill: 999px;
+    --sh-1: 0 1px 2px rgba(15,42,71,0.06), 0 2px 8px rgba(15,42,71,0.06);
+    --sh-2: 0 8px 24px rgba(15,42,71,0.12);
+    --sh-3: 0 18px 44px rgba(3,18,35,0.32);
+  }
+
+  /* ---- الواجهة الأولى ---- */
+  /* المهمة قبل الشعار: عنوان يقول ما يفعله الموقع، ثم البحث والمدينة في بطاقة واحدة،
+     ثم ثلاثة صفوف (المناوبة، واتساب، العربة) بعنوان وسطر شرح لكل منها. كل ذلك يظهر على
+     هاتف بحجم Galaxy A56 دون تمرير. النص يبدأ من طرف السطر لا من وسطه، فيُقرأ أسرع. */
+  body.has-hero .hero {
+    min-height: auto; text-align: start; align-items: flex-start;
+    padding: calc(var(--hdr, 0px) + 56px) 24px 150px;
+  }
+  body.has-hero .hero-content { max-width: 640px; }
+  body.has-hero .hero-title {
+    font-size: var(--fs-hero); font-weight: 700; line-height: 1.4; margin: 0 0 8px; text-wrap: balance;
+  }
+  body.has-hero .hero-description {
+    font-size: var(--fs-m); line-height: 1.7; color: #cfe0ef; margin: 0 0 20px; max-width: 34em;
+  }
+  .search-card { background: #ffffff; border-radius: var(--r-l); padding: 10px; box-shadow: var(--sh-3); }
+  /* في صفحة التمريض يختفي البحث والمدينة معاً، فتختفي البطاقة كلها لا تبقى فارغة */
+  .search-card:has(#hero-search-wrap[style*="none"]) { display: none; }
+  body.has-hero .search-card .hero-search-wrap,
+  body.has-hero .search-card .hero-city-row { max-width: none; }
+  body.has-hero .search-card #search { box-shadow: none; border: 1.5px solid var(--c-line); background-color: #f7fafd; }
+  body.has-hero .search-card .hero-city-row { margin: 10px 2px 2px; }
+  body.has-hero .search-card .hero-city-label { color: var(--c-ink); font-size: var(--fs-s); }
+  body.has-hero .search-card .hero-city-select { border-color: var(--c-line); box-shadow: none; }
+  /* التلميح يكرر الوصف حين يظهر البحث، فلا يظهر إلا في صفحة التمريض حيث لا بحث */
+  body.has-hero .hero-search-hint { display: none; text-align: start; font-size: var(--fs-s); margin: 0; }
+  body.has-hero .hero-content:has(#hero-search-wrap[style*="none"]) .hero-search-hint { display: block; }
+
+  body.has-hero .hero-actions-row { flex-direction: column; align-items: stretch; gap: 10px; margin-top: 14px; }
+  body.has-hero .hero-actions-row > button {
+    width: 100%; display: flex; align-items: center; justify-content: flex-start; gap: 12px;
+    background: #ffffff; color: var(--c-ink); border: 0; border-radius: var(--r-m);
+    padding: 12px 14px; min-height: 70px; box-shadow: var(--sh-1);
+    font-size: var(--fs-m); font-weight: 700; text-align: start; line-height: 1.35;
+  }
+  /* زر العربة يُظهره ويخفيه app.js بأسلوب inline-flex، وعرضه الكامل يبقى صحيحاً به */
+  body.has-hero .hero-actions-row > button:hover { transform: none; box-shadow: var(--sh-2); }
+  body.has-hero .hero-actions-row > button:focus-visible { outline: 3px solid #9fcbf2; outline-offset: 2px; }
+  /* سهم «ادخل» في آخر الصف، ينقلب مع الإنجليزية */
+  body.has-hero .hero-actions-row > .duty-now-btn::after,
+  body.has-hero .hero-actions-row > .whatsapp-btn::after {
+    content: '‹'; margin-inline-start: auto; font-size: 26px; font-weight: 400; color: #9db3c7; line-height: 1;
+  }
+  html[dir="ltr"] body.has-hero .hero-actions-row > .duty-now-btn::after,
+  html[dir="ltr"] body.has-hero .hero-actions-row > .whatsapp-btn::after { content: '›'; }
+  .row-ico {
+    width: 44px; height: 44px; border-radius: 12px; flex-shrink: 0;
+    display: inline-flex; align-items: center; justify-content: center; font-size: 21px; background: #eef4fa;
+  }
+  .duty-now-btn .row-ico { background: var(--c-ok-bg); }
+  .whatsapp-btn .row-ico { background: #e9f7ef; }
+  .row-txt { display: flex; flex-direction: column; min-width: 0; }
+  .row-sub { font-size: var(--fs-xs); font-weight: 400; color: var(--c-muted); margin-top: 3px; }
+  .row-sub:empty { display: none; }
+  body.has-hero .duty-now-btn .row-main { color: var(--c-ok); }
+  body.has-hero .whatsapp-btn .row-main { color: #17663c; }
+  body.has-hero #cart-toggle-btn .hero-cart-count { margin-inline-start: auto; min-width: 26px; height: 26px; font-size: 13px; }
+  .hero-trust {
+    display: flex; gap: 8px; align-items: flex-start; margin: 16px 4px 0;
+    color: #cfe0ef; font-size: var(--fs-xs); line-height: 1.6; text-align: start;
+  }
+  .hero-trust:has(#hero-trust-text:empty) { display: none; }
+  @media (max-width: 1099px) {
+    /* الكبسولة تعود في الجولة السادسة بمظهرها ثلاثي الأبعاد؛ على الهاتف تأخذ الآن مكان البحث */
+    body.has-hero .hero-capsule { display: none; }
+  }
+  @media (max-width: 700px) {
+    body.has-hero .hero { padding: calc(var(--hdr, 0px) + 30px) 18px 104px; }
+    body.has-hero .hero-description { font-size: 16px; margin-bottom: 18px; }
+  }
+
+  /* ---- بطاقات نتائج البحث ---- */
+  /* تبنيها app.js (الجولة 5ب). لكل دواء سطر ملخّص يعدّ ولا يرتّب، ثم بطاقة لكل صيدلية
+     عنوانها اسم الصيدلية. حالة التوفر بالكلمة واللون والخط الجانبي، لا بمكان البطاقة:
+     الترتيب يتبدّل يومياً فلا تُفضَّل صيدلية على أخرى. */
+  .res-summary { margin: 4px 2px 14px; }
+  .res-summary h2 { margin: 0; font-size: var(--fs-xl); color: var(--c-ink); font-weight: 700; line-height: 1.4; }
+  .res-summary h2 small { font-size: var(--fs-s); font-weight: 400; color: var(--c-muted); }
+  .res-summary p { margin: 4px 0 0; font-size: var(--fs-s); line-height: 1.6; }
+  .res-summary .s-ok { color: var(--c-ok); font-weight: 700; font-size: var(--fs-m); }
+  .res-summary .s-no { color: var(--c-no); font-weight: 700; font-size: var(--fs-m); }
+  .res-summary .s-note { color: var(--c-muted); }
+  .res-card {
+    background: #ffffff; border: 1px solid var(--c-line); border-inline-start: 5px solid var(--c-line);
+    border-radius: var(--r-m); padding: 14px 16px 0; margin: 0 0 12px; box-shadow: var(--sh-1);
+  }
+  .res-card.is-yes { border-inline-start-color: var(--c-ok); }
+  .res-card.is-wait { border-inline-start-color: #d9a400; }
+  .res-card.is-no { border-inline-start-color: #e3a3a0; }
+  .res-status { display: flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 700; }
+  .res-status::before { content: ''; width: 9px; height: 9px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
+  .res-card.is-yes .res-status { color: var(--c-ok); }
+  .res-card.is-wait .res-status { color: var(--c-wait); }
+  .res-card.is-no .res-status { color: var(--c-no); }
+  .res-name { margin: 4px 0 2px; font-size: var(--fs-l); color: var(--c-ink); font-weight: 700; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; line-height: 1.4; }
+  .res-addr { margin: 0; color: var(--c-muted); font-size: var(--fs-s); }
+  .res-open { margin: 4px 0 0; }
+  .res-open .open-badge { font-size: 14px; }
+  .res-phone { margin: 4px 0 0; color: var(--c-muted); font-size: 14px; }
+  .res-note {
+    margin: 10px 0 0; padding: 8px 10px; border-radius: var(--r-s);
+    background: var(--c-wait-bg); color: var(--c-wait); font-size: 14px; line-height: 1.6;
+  }
+  .res-card .result-add-btn-full { margin-top: 12px; min-height: 52px; font-size: var(--fs-m); border-radius: var(--r-m); }
+  .res-acts { display: grid; grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); gap: 8px; margin: 10px 0 0; }
+  .res-acts > button, .res-acts > a {
+    min-height: 48px; margin: 0; width: 100%; border-radius: var(--r-m); font-size: var(--fs-s); font-weight: 700;
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 8px 6px;
+    font-family: inherit; text-decoration: none; cursor: pointer; white-space: nowrap;
+  }
+  .res-acts .call-btn { background: #ffffff; border: 1.5px solid var(--c-line); color: var(--c-blue); }
+  .res-acts .call-btn:hover { background: #f3f8fc; }
+  .res-foot { margin: 12px -16px 0; padding: 9px 16px; border-top: 1px solid #edf2f7; font-size: var(--fs-xs); color: var(--c-muted); }
+  .res-foot .stock-freshness { margin: 0; }
+  .res-card.is-no { background: #fbfcfd; box-shadow: none; }
+  .res-card.is-no .res-name { font-size: 19px; }
+  .res-gap { height: 14px; }
 </style>
 </head>
 <body class="has-hero">
@@ -2050,6 +2189,7 @@
     <div class="hero-content">
       <h1 class="hero-title" id="hero-title">دوائي جاهز<br>في <span class="hero-highlight">أي وقت</span>، من أي مكان</h1>
       <p class="hero-description" id="hero-description">منصة سورية تساعدك على معرفة توفر الدواء في الصيدليات القريبة وطلبه بسهولة.</p>
+      <div class="search-card" id="search-card">
       <div class="hero-search-wrap" id="hero-search-wrap">
         <span class="search-icon" aria-hidden="true">🔍</span>
         <input id="search" type="text" placeholder="ابحث عن دواء أو مادة فعالة..." aria-label="البحث عن دواء أو مادة فعالة" oninput="onSearch()" onkeydown="onSearchKeydown(event)" autocomplete="off">
@@ -2062,19 +2202,25 @@
           <option value="">كل المدن</option>
         </select>
       </div>
+      </div>
       <p class="hero-search-hint" id="hero-search-hint">اكتب اسم الدواء للبحث عن توفره في صيدليات سلمية.</p>
       <div class="hero-actions-row">
-        <button id="cart-toggle-btn" class="hero-cart-btn" onclick="toggleCart()">
-          <span class="hero-cart-icon">🛒</span> <span id="cart-btn-label">عربة المشتريات</span> <span class="hero-cart-count" id="cart-count">0</span>
-          <span class="cart-notify-badge" id="cart-notify-badge" style="display:none">0</span>
+        <button type="button" class="duty-now-btn" onclick="heroGoOnDuty()">
+          <span class="duty-now-icon row-ico" aria-hidden="true">🟢</span>
+          <span class="row-txt"><span class="row-main" id="duty-now-btn-label">المناوبة الآن</span><span class="row-sub" id="duty-now-btn-sub"></span></span>
         </button>
         <button type="button" class="whatsapp-btn" onclick="openWhatsappPanel()">
-          <span class="whatsapp-icon">💬</span> <span id="whatsapp-btn-label">استشر صيدلياً</span>
+          <span class="whatsapp-icon row-ico" aria-hidden="true">💬</span>
+          <span class="row-txt"><span class="row-main" id="whatsapp-btn-label">استشر صيدلياً</span><span class="row-sub" id="whatsapp-btn-sub"></span></span>
         </button>
-        <button type="button" class="duty-now-btn" onclick="heroGoOnDuty()">
-          <span class="duty-now-icon" aria-hidden="true">🟢</span> <span id="duty-now-btn-label">المناوبة الآن</span>
+        <button id="cart-toggle-btn" class="hero-cart-btn" onclick="toggleCart()">
+          <span class="hero-cart-icon row-ico" aria-hidden="true">🛒</span>
+          <span class="row-txt"><span class="row-main" id="cart-btn-label">عربة المشتريات</span><span class="row-sub" id="cart-btn-sub"></span></span>
+          <span class="hero-cart-count" id="cart-count">0</span>
+          <span class="cart-notify-badge" id="cart-notify-badge" style="display:none">0</span>
         </button>
       </div>
+      <p class="hero-trust" id="hero-trust"><span aria-hidden="true">🛡️</span> <span id="hero-trust-text"></span></p>
     </div>
   </div>
 </div>
