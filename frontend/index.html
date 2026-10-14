@@ -2083,6 +2083,100 @@
   .res-card.is-no { background: #fbfcfd; box-shadow: none; }
   .res-card.is-no .res-name { font-size: 19px; }
   .res-gap { height: 14px; }
+
+  /* ======================= الجولة 6: الكبسولة ثلاثية الأبعاد ======================= */
+  /* العنصر المميّز الوحيد في الموقع، وكل ما حوله هادئ. كبسولة وقرص دواء بعمق حقيقي
+     (perspective وطبقات على محور Z)، بألوان الموقع نفسها. حركة واحدة عند فتح الصفحة:
+     تلتفّ قليلاً في مكانها 6 ثوانٍ ثم تقف. لا حركة مستمرة، ولا حركة مع التمرير أو الهاتف.
+     من فعّل «تقليل الحركة» في هاتفه يراها ثابتة. على الهاتف بجانب العنوان والعنوان يلتفّ
+     حولها، وعلى الحاسوب كبيرة في الجهة المقابلة للمحتوى. */
+  .hero-3d {
+    float: left; width: 84px; height: 84px; margin: -2px 0 0 6px;
+    perspective: 520px; pointer-events: none;
+  }
+  html[dir="ltr"] .hero-3d { float: right; margin: -2px 6px 0 0; }
+  .hero-3d .rig {
+    position: relative; width: 100px; height: 100px; transform-origin: 0 0;
+    transform-style: preserve-3d;
+    transform: scale3d(0.84, 0.84, 0.84) rotateX(14deg) rotateY(-16deg);
+    animation: capsuleSway 6s ease-in-out 0.3s 1 both;
+  }
+  @keyframes capsuleSway {
+    0%   { transform: scale3d(var(--cap-scale, 0.84), var(--cap-scale, 0.84), var(--cap-scale, 0.84)) rotateX(14deg) rotateY(-16deg) translateY(0); }
+    35%  { transform: scale3d(var(--cap-scale, 0.84), var(--cap-scale, 0.84), var(--cap-scale, 0.84)) rotateX(4deg)  rotateY(18deg)  translateY(-6px); }
+    70%  { transform: scale3d(var(--cap-scale, 0.84), var(--cap-scale, 0.84), var(--cap-scale, 0.84)) rotateX(10deg) rotateY(-6deg)  translateY(-2px); }
+    100% { transform: scale3d(var(--cap-scale, 0.84), var(--cap-scale, 0.84), var(--cap-scale, 0.84)) rotateX(14deg) rotateY(-16deg) translateY(0); }
+  }
+  .hero-3d .glow {
+    position: absolute; inset: 4px; border-radius: 50%;
+    background: radial-gradient(circle, rgba(127,182,234,0.32), rgba(127,182,234,0) 68%);
+    transform: translateZ(-50px);
+  }
+  .hero-3d .shadow {
+    position: absolute; left: 16px; right: 16px; bottom: 6px; height: 16px; border-radius: 50%;
+    background: radial-gradient(ellipse at center, rgba(2,14,30,0.55), rgba(2,14,30,0) 70%);
+    transform: translateZ(-30px) rotateX(70deg);
+  }
+  .hero-3d .capsule {
+    position: absolute; left: 4px; top: 30px; width: 92px; height: 38px; border-radius: 19px;
+    display: flex; overflow: hidden; transform: rotate(-36deg);
+    box-shadow: inset 0 -3px 6px rgba(0,0,0,0.18);
+  }
+  .hero-3d .half { flex: 1; position: relative; }
+  .hero-3d .b { background: linear-gradient(180deg, #ffffff 0%, #f1f5fa 38%, #c9d6e3 100%); }
+  .hero-3d .a { background: linear-gradient(180deg, #a9d2f7 0%, #3b86d0 40%, #164f8c 100%); }
+  .hero-3d .a::before { content: ""; position: absolute; top: 0; bottom: 0; left: 0; width: 3px; background: rgba(9,40,74,0.35); }
+  .hero-3d .capsule::after {
+    content: ""; position: absolute; left: 11px; right: 11px; top: 6px; height: 6px; border-radius: 3px;
+    background: linear-gradient(90deg, rgba(255,255,255,0), rgba(255,255,255,0.85) 30%, rgba(255,255,255,0.85) 70%, rgba(255,255,255,0));
+  }
+  .hero-3d .tablet {
+    position: absolute; width: 28px; height: 28px; border-radius: 50%; right: 2px; top: 66px;
+    background: radial-gradient(circle at 38% 32%, #ffffff 0%, #e9f0f7 45%, #b8c8d8 100%);
+    box-shadow: 0 2px 0 #9fb3c7; transform: translateZ(42px);
+  }
+  .hero-3d .tablet::after { content: ""; position: absolute; left: 6px; right: 6px; top: 13px; height: 2px; border-radius: 1px; background: rgba(90,115,140,0.45); }
+  /* البطاقة تبدأ تحت الكبسولة دائماً، مهما قصر الوصف */
+  .search-card { clear: both; }
+  /* العنوان على الهاتف 25 بكسل ليبقى سطرين بجانب الكبسولة (كان 28 فيصير ثلاثة أسطر) */
+  @media (max-width: 700px) {
+    body.has-hero .hero-title { font-size: 25px; }
+    /* العنوان الإنجليزي أطول بكلمتين، فيصغر قليلاً ليبقى ضمن الشاشة الأولى على الهواتف الصغيرة */
+    html[lang="en"] body.has-hero .hero-title { font-size: 23px; }
+  }
+  /* اللوحي: الكبسولة بحجمها الكامل بجانب العنوان */
+  @media (min-width: 701px) and (max-width: 1099px) {
+    .hero-3d { width: 100px; height: 100px; --cap-scale: 1; }
+    .hero-3d .rig { transform: scale3d(1, 1, 1) rotateX(14deg) rotateY(-16deg); }
+  }
+  /* الحاسوب: كبيرة خارج عمود المحتوى، مكان الكبسولة المسطّحة القديمة: يساره بالعربية
+     ويمينه بالإنجليزية (inset-inline-start يعني «قبل بداية السطر»، فينقلب مع الاتجاه) */
+  @media (min-width: 1100px) {
+    /* zoom على الطبقة الداخلية يكبّر الكبسولة بعمقها ثلاث مرات، والمنظور يكبر بالنسبة نفسها
+       (520 × 3)، فتبقى بنسب الهاتف تماماً. الإطار الخارجي يحدد المكان فقط. */
+    /* شاشات 1100–1359: المسافة بجانب المحتوى أضيق، فتصغر الكبسولة كي لا تخرج من حافة الشاشة */
+    .hero-3d {
+      position: absolute; float: none; margin: 0; width: 180px; height: 180px;
+      top: 210px; inset-inline-start: calc(100% + 16px); perspective: 936px; --cap-scale: 1;
+    }
+    html[dir="ltr"] .hero-3d { float: none; margin: 0; }
+    .hero-3d .rig { zoom: 1.8; transform: scale3d(1, 1, 1) rotateX(14deg) rotateY(-16deg); }
+    /* بالإنجليزية تنقلب الرسوم كلها: الكبسولة يميناً، فتنتقل العلبة يميناً والعربة يساراً */
+    html[dir="ltr"] body.has-hero .hero-bottle-illustration { left: auto; right: 8%; }
+    html[dir="ltr"] body.has-hero .hero-cart-illustration { right: auto; left: 7%; }
+  }
+  @media (min-width: 1360px) {
+    .hero-3d { width: 300px; height: 300px; top: 190px; inset-inline-start: calc(100% + 30px); perspective: 1560px; }
+    .hero-3d .rig { zoom: 3; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .hero-3d .rig { animation: none; }
+  }
+
+  /* لا حركة لا تنتهي: رسوم العلبة والعربة والدوائر الصغيرة، ورسوم شريط اللوحتين، كانت تطفو
+     بلا توقف. الآن تتحرك دورة واحدة عند فتح الصفحة ثم تقف، فلا تستهلك البطارية ولا تشتّت. */
+  .hero-particles span, .hero-cart-illustration, .hero-bottle-illustration,
+  .art-dots i, .staff-art-capsule, .staff-art-bottle { animation-iteration-count: 1; }
 </style>
 </head>
 <body class="has-hero">
@@ -2187,55 +2281,11 @@
       </svg>
       <span class="art-dots" aria-hidden="true"><i></i><i></i><i></i></span>
     </div>
-    <div class="hero-capsule" aria-hidden="true">
-      <svg viewBox="0 0 300 220" xmlns="http://www.w3.org/2000/svg">
-        <defs>
-          <linearGradient id="lightHalf" x1="20%" y1="0%" x2="80%" y2="100%">
-            <stop offset="0%" stop-color="#ffffff"/>
-            <stop offset="55%" stop-color="#fbfdff"/>
-            <stop offset="100%" stop-color="#d9e8f5"/>
-          </linearGradient>
-          <linearGradient id="darkHalf" x1="20%" y1="0%" x2="80%" y2="100%">
-            <stop offset="0%" stop-color="#a8d4f2"/>
-            <stop offset="45%" stop-color="#74b6e8"/>
-            <stop offset="100%" stop-color="#4a94cf"/>
-          </linearGradient>
-          <linearGradient id="trail" x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%" stop-color="#bcdcf3" stop-opacity="0"/>
-            <stop offset="100%" stop-color="#bcdcf3" stop-opacity="0.75"/>
-          </linearGradient>
-          <radialGradient id="shineGrad" cx="50%" cy="50%" r="50%">
-            <stop offset="0%" stop-color="#ffffff" stop-opacity="0.95"/>
-            <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
-          </radialGradient>
-          <clipPath id="capsuleClip">
-            <rect x="90" y="80" width="160" height="60" rx="30"/>
-          </clipPath>
-        </defs>
-        <g transform="rotate(-30 170 110)">
-          <!-- خطوط حركة خفيفة خلف الكبسولة -->
-          <rect x="8" y="104" width="74" height="7" rx="3.5" fill="url(#trail)"/>
-          <rect x="24" y="119" width="58" height="5" rx="2.5" fill="url(#trail)" opacity="0.75"/>
-          <rect x="34" y="91" width="48" height="4" rx="2" fill="url(#trail)" opacity="0.65"/>
-
-          <!-- جسم الكبسولة -->
-          <g clip-path="url(#capsuleClip)">
-            <rect x="90" y="80" width="82" height="60" fill="url(#lightHalf)"/>
-            <rect x="172" y="80" width="78" height="60" fill="url(#darkHalf)"/>
-            <!-- ظل داخلي سفلي لإحساس الحجم -->
-            <ellipse cx="170" cy="152" rx="90" ry="22" fill="#7ba9cc" opacity="0.22"/>
-            <!-- لمعة علوية ممتدة على طول الكبسولة -->
-            <ellipse cx="160" cy="93" rx="62" ry="9" fill="#ffffff" opacity="0.5"/>
-          </g>
-          <rect x="90" y="80" width="160" height="60" rx="30" fill="none" stroke="#ffffff" stroke-opacity="0.55" stroke-width="1.5"/>
-          <!-- بقعة ضوء ناعمة على النصف الأبيض -->
-          <ellipse cx="120" cy="98" rx="22" ry="12" fill="url(#shineGrad)"/>
-          <!-- بقعة ضوء على النصف الأزرق -->
-          <ellipse cx="208" cy="97" rx="17" ry="7" fill="#ffffff" opacity="0.45" transform="rotate(-14 208 97)"/>
-        </g>
-      </svg>
-    </div>
     <div class="hero-content">
+      <!-- الكبسولة ثلاثية الأبعاد (الجولة 6): CSS فقط، بلا صورة ولا مكتبة -->
+      <div class="hero-3d" aria-hidden="true">
+        <div class="rig"><div class="glow"></div><div class="shadow"></div><div class="capsule"><span class="half b"></span><span class="half a"></span></div><div class="tablet"></div></div>
+      </div>
       <h1 class="hero-title" id="hero-title">اعرف أين يتوفر دواؤك قبل أن تخرج من المنزل</h1>
       <p class="hero-description" id="hero-description">ابحث باسم الدواء أو مادته الفعالة، فتعرف أي صيدلية يتوفر فيها وتتواصل معها مباشرة.</p>
       <div class="search-card" id="search-card">
