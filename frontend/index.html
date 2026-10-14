@@ -2125,7 +2125,9 @@
   .hero-3d .half { flex: 1; position: relative; }
   .hero-3d .b { background: linear-gradient(180deg, #ffffff 0%, #f1f5fa 38%, #c9d6e3 100%); }
   .hero-3d .a { background: linear-gradient(180deg, #a9d2f7 0%, #3b86d0 40%, #164f8c 100%); }
-  .hero-3d .a::before { content: ""; position: absolute; top: 0; bottom: 0; left: 0; width: 3px; background: rgba(9,40,74,0.35); }
+  /* خط الوصلة بين النصفين: على الحافة الملاصقة للنصف الأبيض (بداية السطر، فينقلب مع الاتجاه).
+     كان على الطرف الخارجي للنصف الأزرق، فظهر خطاً أسود عند رأس الكبسولة. */
+  .hero-3d .a::before { content: ""; position: absolute; top: 0; bottom: 0; inset-inline-start: 0; width: 2px; background: rgba(9,40,74,0.28); }
   .hero-3d .capsule::after {
     content: ""; position: absolute; left: 11px; right: 11px; top: 6px; height: 6px; border-radius: 3px;
     background: linear-gradient(90deg, rgba(255,255,255,0), rgba(255,255,255,0.85) 30%, rgba(255,255,255,0.85) 70%, rgba(255,255,255,0));
