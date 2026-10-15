@@ -16,4 +16,12 @@ function validIdParam(req, res, next, value) {
 // تُحسب مرة واحدة عند تشغيل الخادم (كانت تُحسب أربع مرات، مرة في كل ملف).
 const DUMMY_PASSWORD_HASH = bcrypt.hashSync('dawaai-jahez-no-such-user', 10);
 
-module.exports = { validIdParam, DUMMY_PASSWORD_HASH };
+// المدن المدعومة. المفاتيح هي ما يُحفظ في القاعدة للصيدليات والممرضين معاً، فهي في مكان
+// واحد هنا. ⚠️ يجب أن تبقى مطابقة لقائمة CITIES في frontend/app.js
+const ALLOWED_CITIES = [
+  'damascus', 'rif_dimashq', 'aleppo', 'homs', 'hama', 'salamiyah',
+  'latakia', 'tartus', 'idlib', 'deir_ez_zor', 'hasakah', 'raqqa',
+  'daraa', 'suwayda', 'quneitra'
+];
+
+module.exports = { validIdParam, DUMMY_PASSWORD_HASH, ALLOWED_CITIES };
