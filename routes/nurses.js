@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 
-const { validIdParam } = require('../middleware/shared');
+const { validIdParam, ALLOWED_CITIES } = require('../middleware/shared');
 router.param('id', validIdParam);
 
 // ===================== شهادات الممرضين (Supabase Storage) =====================
@@ -66,8 +66,10 @@ async function deleteCertObject(path) {
 
 // ما يراه المريض فقط. تحديد صريح للحقول: الاستعلام يجلب كل الأعمدة (n.*)، فلولا هذا
 // لوصل مسار الشهادة الخاصة إلى كل زائر.
-const PUBLIC_NURSE_FIELDS = ['id', 'name', 'specialty', 'university', 'graduation_year', 'phone',
-  'available', 'avg_rating', 'rating_count', 'experience_years', 'services'];
+// رقم الممرض والشارع لا يُرسلان أبداً (أكتوبر 2026): المريض يطلب الزيارة عبر مدير التمريض،
+// والشارع قد يكون عنوان بيت الممرض أو الممرضة. يرى المريض المدينة والحي فقط.
+const PUBLIC_NURSE_FIELDS = ['id', 'name', 'specialty', 'university', 'graduation_year',
+  'available', 'avg_rating', 'rating_count', 'experience_years', 'services', 'city', 'area'];
 function publicNurse(n) {
   const o = {};
   for (const k of PUBLIC_NURSE_FIELDS) o[k] = n[k];
@@ -76,12 +78,42 @@ function publicNurse(n) {
 }
 function adminNurse(n) {
   const o = publicNurse(n);
+  o.phone = n.phone || null;
+  o.street = n.street || null;
   o.has_certificate = Boolean(n.cert_path);
   o.cert_mime = n.cert_mime || null;
   o.cert_size = n.cert_size || null;
   o.cert_uploaded_at = n.cert_uploaded_at || null;
   o.cert_verified = Boolean(n.cert_verified);
   return o;
+}
+
+// مكان عمل الممرض: المدينة من القائمة المعروفة، والحي والشارع نص قصير. الحقل الغائب
+// عن الطلب يبقى undefined (لا تغيير)، والفارغ يُمسح.
+const MAX_AREA = 80;
+const MAX_STREET = 120;
+function parseLocation(body) {
+  const out = {};
+  if (body.city !== undefined) {
+    if (body.city === null || body.city === '') out.city = null;
+    else if (typeof body.city !== 'string' || !ALLOWED_CITIES.includes(body.city)) return { error: 'مدينة غير صالحة' };
+    else out.city = body.city;
+  }
+  for (const [key, max, msg] of [['area', MAX_AREA, 'اسم الحي طويل جداً'], ['street', MAX_STREET, 'الشارع أو العلامة طويلة جداً']]) {
+    if (body[key] === undefined) continue;
+    if (body[key] === null) { out[key] = null; continue; }
+    if (typeof body[key] !== 'string') return { error: 'قيمة غير صالحة' };
+    if (body[key].trim().length > max) return { error: msg };
+    out[key] = body[key];
+  }
+  return { value: out };
+}
+
+// true/false فقط: كانت القيمة النصية "false" تُفهم «نعم» فيصير الممرض متاحاً بالخطأ
+function parseStrictBool(v) {
+  if (v === true || v === 'true') return true;
+  if (v === false || v === 'false') return false;
+  return null;
 }
 
 function parseExperience(v) {
@@ -99,6 +131,8 @@ function parseServices(v) {
 
 const db = require('../db');
 const adminAuth = require('../middleware/adminAuth');
+const nursingAuth = require('../middleware/nursingAuth');
+const bcrypt = require('bcryptjs');
 const rateLimit = require('../middleware/rateLimit');
 
 // ========== مسارات عامة (واجهة المريض) ==========
@@ -170,16 +204,19 @@ router.post('/:id/ratings', rateLimit(5, 15 * 60 * 1000), async (req, res) => {
 
 // إضافة ممرض جديد
 // POST /api/nurses  { name, specialty, university, graduation_year, phone }
-router.post('/', adminAuth, async (req, res) => {
+// يضيفه المدير أو مدير التمريض
+router.post('/', nursingAuth, async (req, res) => {
   const { name, specialty, university, graduation_year, phone } = req.body;
   if (!name) return res.status(400).json({ error: 'اسم الممرض مطلوب' });
   const exp = parseExperience(req.body.experience_years);
   if (exp.error) return res.status(400).json({ error: exp.error });
   const svc = parseServices(req.body.services);
   if (svc.error) return res.status(400).json({ error: svc.error });
+  const loc = parseLocation(req.body);
+  if (loc.error) return res.status(400).json({ error: loc.error });
   try {
     const nurse = await db.addNurse({ name, specialty, university, graduation_year, phone,
-      experience_years: exp.value, services: svc.value });
+      experience_years: exp.value, services: svc.value, ...loc.value });
     res.status(201).json(nurse);
   } catch (err) {
     console.error(err);
@@ -189,7 +226,7 @@ router.post('/', adminAuth, async (req, res) => {
 
 // قائمة التقييمات قيد المراجعة (لازم يجي قبل حذف الممرض بالترتيب عشان :id ما تلخبط عليه)
 // GET /api/nurses/ratings/pending
-router.get('/ratings/pending', adminAuth, async (req, res) => {
+router.get('/ratings/pending', nursingAuth, async (req, res) => {
   try {
     const ratings = await db.getPendingRatings();
     res.json(ratings);
@@ -201,7 +238,7 @@ router.get('/ratings/pending', adminAuth, async (req, res) => {
 
 // كل التقييمات المنشورة - لمراجعة الإدارة وحذف أي تعليق مسيء حتى بعد نشره
 // GET /api/nurses/ratings/approved
-router.get('/ratings/approved', adminAuth, async (req, res) => {
+router.get('/ratings/approved', nursingAuth, async (req, res) => {
   try {
     const ratings = await db.getApprovedRatings();
     res.json(ratings);
@@ -213,7 +250,7 @@ router.get('/ratings/approved', adminAuth, async (req, res) => {
 
 // الموافقة على تقييم (يصير ظاهر للعموم)
 // PUT /api/nurses/ratings/:id/approve
-router.put('/ratings/:id/approve', adminAuth, async (req, res) => {
+router.put('/ratings/:id/approve', nursingAuth, async (req, res) => {
   try {
     await db.approveRating(req.params.id);
     res.json({ success: true });
@@ -225,7 +262,7 @@ router.put('/ratings/:id/approve', adminAuth, async (req, res) => {
 
 // رفض تقييم (حذف نهائي، ما بيظهر لأي أحد)
 // DELETE /api/nurses/ratings/:id
-router.delete('/ratings/:id', adminAuth, async (req, res) => {
+router.delete('/ratings/:id', nursingAuth, async (req, res) => {
   try {
     await db.rejectRating(req.params.id);
     res.json({ success: true });
@@ -237,10 +274,14 @@ router.delete('/ratings/:id', adminAuth, async (req, res) => {
 
 // تبديل حالة توفر الممرض للعمل
 // PUT /api/nurses/:id/availability  { available: true/false }
-router.put('/:id/availability', adminAuth, async (req, res) => {
+// مدير التمريض «يخفي» الممرض بجعله غير متاح؛ الحذف النهائي للإدارة وحدها (أدناه)
+router.put('/:id/availability', nursingAuth, async (req, res) => {
+  const available = parseStrictBool(req.body.available);
+  if (available === null) return res.status(400).json({ error: 'قيمة غير صالحة' });
   try {
-    const nurse = await db.setNurseAvailability(req.params.id, req.body.available);
-    res.json(nurse);
+    const nurse = await db.setNurseAvailability(req.params.id, available);
+    if (!nurse) return res.status(404).json({ error: 'الممرض غير موجود' });
+    res.json(adminNurse(nurse));
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'حدث خطأ أثناء تحديث حالة التوفر' });
@@ -266,7 +307,7 @@ router.delete('/:id', adminAuth, async (req, res) => {
 // ---------- مسارات الإدارة: الخبرة والشهادات ----------
 
 // قائمة الممرضين كاملة للإدارة (مع حالة الشهادة، دون مسارها)
-router.get('/admin/all', adminAuth, async (req, res) => {
+router.get('/admin/all', nursingAuth, async (req, res) => {
   try {
     res.set('Cache-Control', 'no-store');
     res.json((await db.getNursesWithRatings()).map(adminNurse));
@@ -298,16 +339,25 @@ router.get('/storage/check', adminAuth, async (req, res) => {
   }
 });
 
-// تعديل بطاقة الخبرة
-router.put('/:id/profile', adminAuth, async (req, res) => {
+// تعديل بطاقة الخبرة، ومعها مكان العمل إن أُرسل (المدينة والحي والشارع)
+router.put('/:id/profile', nursingAuth, async (req, res) => {
   const exp = parseExperience(req.body.experience_years);
   if (exp.error) return res.status(400).json({ error: exp.error });
   const svc = parseServices(req.body.services);
   if (svc.error) return res.status(400).json({ error: svc.error });
+  const loc = parseLocation(req.body);
+  if (loc.error) return res.status(400).json({ error: loc.error });
   try {
-    const updated = await db.setNurseProfile(req.params.id, exp.value, svc.value);
+    // تعديل المكان وحده لا يمسح الخبرة والخدمات: لا تُلمسان إلا إن أُرسلتا
+    const body = req.body || {};
+    const touchesProfile = 'experience_years' in body || 'services' in body;
+    const updated = touchesProfile
+      ? await db.setNurseProfile(req.params.id, exp.value, svc.value)
+      : await db.getNurseById(req.params.id);
     if (!updated) return res.status(404).json({ error: 'الممرض غير موجود' });
-    res.json(updated);
+    const out = { id: updated.id, experience_years: updated.experience_years, services: updated.services };
+    if (Object.keys(loc.value).length) Object.assign(out, await db.setNurseLocation(req.params.id, loc.value));
+    res.json(out);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'حدث خطأ أثناء حفظ بيانات الخبرة' });
@@ -404,6 +454,158 @@ router.put('/:id/certificate/verified', adminAuth, async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'حدث خطأ أثناء تحديث التوثيق' });
+  }
+});
+
+// ===================== طلبات الزيارات التمريضية =====================
+// المريض يطلب زيارة من ممرض بعينه، فيصل الطلب إلى مدير التمريض فيتصل بالمريض والممرض.
+// رقم الممرض لا يُنشر، فهذا هو الطريق الوحيد إليه. مسار عام (المريض بلا حساب)، فهو
+// محدود بخمسة طلبات كل 15 دقيقة لكل عنوان كي لا تُغرق اللوحة بطلبات وهمية.
+
+const MAX_REQ_NAME = 60;
+const MAX_REQ_AREA = 120;
+const MAX_REQ_NOTES = 300;
+
+// الأرقام العربية تُحوَّل، والمسافات والشرطات تُزال، ثم أرقام فقط بين 7 و15 خانة
+function normalizePatientPhone(raw) {
+  if (typeof raw !== 'string') return null;
+  const digits = raw.replace(/[٠-٩]/g, d => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d))).replace(/[\s\-()]/g, '');
+  return /^[0-9]{7,15}$/.test(digits) ? digits : null;
+}
+
+// POST /api/nurses/:id/requests  { patient_name, patient_phone, patient_area, notes }
+router.post('/:id/requests', rateLimit(5, 15 * 60 * 1000), async (req, res) => {
+  const { patient_name, patient_area, notes } = req.body || {};
+  if (typeof patient_name !== 'string' || !patient_name.trim()) return res.status(400).json({ error: 'الاسم مطلوب' });
+  if (patient_name.trim().length > MAX_REQ_NAME) return res.status(400).json({ error: 'الاسم طويل جداً' });
+  const phone = normalizePatientPhone(req.body && req.body.patient_phone);
+  if (!phone) return res.status(400).json({ error: 'رقم الهاتف يجب أن يتكون من أرقام فقط' });
+  if (typeof patient_area !== 'string' || !patient_area.trim()) return res.status(400).json({ error: 'المنطقة أو الحي مطلوب' });
+  if (patient_area.trim().length > MAX_REQ_AREA) return res.status(400).json({ error: 'اسم المنطقة طويل جداً' });
+  if (notes !== undefined && notes !== null && (typeof notes !== 'string' || notes.length > MAX_REQ_NOTES)) {
+    return res.status(400).json({ error: 'الملاحظة طويلة جداً' });
+  }
+  try {
+    const nurse = await db.getNurseById(req.params.id);
+    if (!nurse) return res.status(404).json({ error: 'الممرض غير موجود' });
+    if (!nurse.available) return res.status(409).json({ error: 'الممرض غير متاح حالياً' });
+    const created = await db.createNurseRequest({
+      nurse_id: nurse.id, nurse_name: nurse.name, patient_name, patient_phone: phone, patient_area, notes: notes || null
+    });
+    res.status(201).json({ success: true, id: created.id });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'حدث خطأ أثناء إرسال الطلب' });
+  }
+});
+
+// قائمة الطلبات لمدير التمريض والإدارة، الأحدث أولاً (والأقدم من 30 يوماً يُحذف قبلها)
+router.get('/requests', nursingAuth, async (req, res) => {
+  try {
+    res.set('Cache-Control', 'no-store');
+    res.json(await db.getNurseRequests());
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'حدث خطأ أثناء جلب الطلبات' });
+  }
+});
+
+router.put('/requests/:id/contacted', nursingAuth, async (req, res) => {
+  try {
+    const r = await db.markNurseRequestContacted(req.params.id);
+    if (!r) return res.status(404).json({ error: 'الطلب غير موجود' });
+    res.json(r);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'حدث خطأ أثناء تحديث الطلب' });
+  }
+});
+
+router.delete('/requests/:id', nursingAuth, async (req, res) => {
+  try {
+    if (!(await db.deleteNurseRequest(req.params.id))) return res.status(404).json({ error: 'الطلب غير موجود' });
+    res.json({ success: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'حدث خطأ أثناء حذف الطلب' });
+  }
+});
+
+// ===================== مدير التمريض: الإعدادات =====================
+
+// رقم مدير التمريض للعامة: بطاقة «هل أنت ممرض أو ممرضة؟» في صفحة التمريض.
+// GET /api/nurses/contact → { phone } (null إن لم يُضبط، فلا تظهر البطاقة)
+router.get('/contact', async (req, res) => {
+  try {
+    res.json({ phone: await db.getSetting('nursing_contact_phone') });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'حدث خطأ في الخادم' });
+  }
+});
+
+// ما بعده للإدارة وحدها: مدير التمريض لا يغيّر كلمة مروره ولا رقمه العام.
+router.get('/manager/settings', adminAuth, async (req, res) => {
+  try {
+    res.set('Cache-Control', 'no-store');
+    const [hash, phone, updated] = await Promise.all([
+      db.getSetting('nursing_manager_hash'), db.getSetting('nursing_contact_phone'), db.getSetting('nursing_manager_set_at')
+    ]);
+    res.json({ enabled: !!hash, phone: phone || null, password_set_at: hash ? updated : null });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'حدث خطأ في الخادم' });
+  }
+});
+
+// كلمة مرور مدير التمريض: 8 أحرف على الأقل، ولا تساوي كلمة مرور الإدارة (وإلا صار
+// مدير التمريض قادراً على الدخول إلى الإدارة كلها). تُحفظ تجزئتها فقط.
+router.put('/manager/password', adminAuth, async (req, res) => {
+  const { password } = req.body || {};
+  if (typeof password !== 'string' || password.length < 8) {
+    return res.status(400).json({ error: 'كلمة المرور يجب أن تكون 8 أحرف على الأقل' });
+  }
+  if (password.length > 100) return res.status(400).json({ error: 'كلمة المرور طويلة جداً' });
+  if (password === process.env.ADMIN_PASSWORD) {
+    return res.status(400).json({ error: 'لا تستعمل كلمة مرور الإدارة لمدير التمريض' });
+  }
+  try {
+    await db.setSetting('nursing_manager_hash', await bcrypt.hash(password, 10));
+    await db.setSetting('nursing_manager_set_at', new Date().toISOString());
+    res.json({ success: true, enabled: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'حدث خطأ أثناء حفظ كلمة المرور' });
+  }
+});
+
+// إيقاف دخول مدير التمريض فوراً: تُحذف التجزئة، فيُرفض أي طلب بكلمة المرور القديمة
+router.delete('/manager/password', adminAuth, async (req, res) => {
+  try {
+    await db.setSetting('nursing_manager_hash', null);
+    res.json({ success: true, enabled: false });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'حدث خطأ أثناء إيقاف الدخول' });
+  }
+});
+
+// رقم مدير التمريض الذي يظهر للممرضين الراغبين بالانضمام. الفراغ يحذفه فتختفي البطاقة.
+router.put('/manager/contact', adminAuth, async (req, res) => {
+  const raw = req.body ? req.body.phone : undefined;
+  if (raw === '' || raw === null) {
+    try { await db.setSetting('nursing_contact_phone', null); return res.json({ phone: null }); }
+    catch (err) { console.error(err); return res.status(500).json({ error: 'حدث خطأ في الخادم' }); }
+  }
+  if (typeof raw !== 'string') return res.status(400).json({ error: 'رقم الهاتف غير صالح' });
+  const digits = raw.replace(/[٠-٩]/g, d => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d))).replace(/[\s\-()]/g, '');
+  if (!/^\+?\d{7,15}$/.test(digits)) return res.status(400).json({ error: 'رقم الهاتف غير صالح' });
+  try {
+    await db.setSetting('nursing_contact_phone', digits);
+    res.json({ phone: digits });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'حدث خطأ في الخادم' });
   }
 });
 
