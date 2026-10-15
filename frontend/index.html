@@ -2180,6 +2180,186 @@
      وحدها تتحرك مرة ثم تقف. رسوم شريط لوحتي الصيدلي والإدارة تتحرك مرة واحدة ثم تقف، لأنها
      تظهر على الهاتف أيضاً والصيدلي يبقى في لوحته طويلاً. من فعّل «تقليل الحركة» لا يرى أي حركة. */
   .staff-art-capsule, .staff-art-bottle, .staff-banner-art .art-dots i { animation-iteration-count: 1; }
+
+  /* ======================= التمريض: مدير التمريض وطلبات الزيارات (أكتوبر 2026) ======================= */
+  /* مدير التمريض يدخل من صفحة الإدارة نفسها، من بطاقة ثانية تحت بطاقة دخول الإدارة (قرار ميار):
+     لا رابط جديد في الشريط العلوي. زرّها بإطار أزرق لا أزرق ممتلئ، فيبقى دخول الإدارة الأبرز. */
+  .mgr-login { margin-top: 18px; }
+  .mgr-login h3 { margin: 0 0 4px; font-size: var(--fs-m); color: var(--c-ink); }
+  .mgr-login .muted { margin: 0 0 14px; font-size: var(--fs-xs); line-height: 1.6; }
+  .btn-secondary-wide {
+    width: 100%; min-height: 48px; margin-top: 6px; padding: 10px 14px; border-radius: var(--r-pill);
+    border: 1.5px solid var(--c-blue); background: #fff; color: var(--c-blue);
+    font-family: inherit; font-size: 16px; font-weight: 700; cursor: pointer;
+    -webkit-tap-highlight-color: transparent; transition: background .15s ease;
+  }
+  .btn-secondary-wide:hover { background: #eef4fa; }
+  .btn-secondary-wide:disabled { opacity: .6; cursor: default; }
+  .btn-secondary-wide:focus-visible { outline: 3px solid rgba(92,155,216,0.6); outline-offset: 2px; }
+
+  /* رأس لوحة مدير التمريض: العنوان وزر الخروج */
+  .mgr-head { display: flex; align-items: center; justify-content: space-between; gap: 10px 14px; flex-wrap: wrap; margin: 0 0 14px; }
+  .mgr-head .dash-title { margin: 0; }
+  .mgr-head .btn-outline { min-height: 44px; }
+  /* ثلاث خانات أرقام في صف واحد حتى على الهاتف (لا خانة يتيمة في سطر ثانٍ) */
+  .stats-grid.mgr-stats { grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 14px; }
+  .mgr-stats .stat-card { padding: 12px 6px; }
+  .mgr-stats .stat-label { font-size: 12.5px; line-height: 1.4; }
+
+  /* التبويبات: تبقى ظاهرة تحت الشريط العلوي أثناء التمرير */
+  .mgr-tabs {
+    position: sticky; top: 80px; z-index: 5;
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; padding: 6px; margin: 0 0 16px;
+    background: #fff; border: 1px solid var(--c-line); border-radius: 16px; box-shadow: var(--sh-1);
+  }
+  .mgr-tab {
+    min-height: 48px; margin: 0; padding: 6px 4px; border: 0; border-radius: 12px; background: transparent;
+    color: var(--c-muted); font-family: inherit; font-size: 16px; font-weight: 700; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; gap: 6px; white-space: nowrap;
+    -webkit-tap-highlight-color: transparent; transition: background .15s ease, color .15s ease;
+  }
+  .mgr-tab:hover { background: #f1f6fb; color: var(--c-blue); }
+  .mgr-tab[aria-selected="true"] { background: var(--c-blue); color: #fff; }
+  .mgr-tab:focus-visible { outline: 3px solid rgba(92,155,216,0.6); outline-offset: 2px; }
+  .mgr-tab .mgr-count {
+    min-width: 22px; height: 22px; padding: 0 6px; border-radius: var(--r-pill);
+    background: var(--c-wait-bg); color: var(--c-wait); font-size: 13px; font-weight: 800; line-height: 22px; text-align: center;
+  }
+  .mgr-tab[aria-selected="true"] .mgr-count { background: #fff; color: var(--c-blue); }
+  .mgr-tab .mgr-count:empty { display: none; }
+  @media (max-width: 860px) { .mgr-tabs { top: 76px; } }
+  @media (max-width: 380px) { .mgr-tab { font-size: 15px; } }
+
+  /* بطاقة طلب الزيارة: يراها مدير التمريض والإدارة. الجديد بحافة صفراء، وما تم التواصل فيه
+     بحافة خضراء ونص أهدأ. */
+  .nreq-list { display: flex; flex-direction: column; gap: 12px; }
+  .nreq-card {
+    background: #fff; border: 1px solid var(--c-line); border-inline-start: 5px solid #d9a400;
+    border-radius: var(--r-m); padding: 14px 16px; box-shadow: var(--sh-1);
+  }
+  .nreq-card.done { border-inline-start-color: var(--c-ok); background: #fbfdfc; box-shadow: none; }
+  .nreq-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+  .nreq-who { margin: 0; font-size: var(--fs-m); font-weight: 700; color: var(--c-ink); overflow-wrap: anywhere; }
+  .nreq-badge { flex: 0 0 auto; border-radius: var(--r-pill); padding: 3px 10px; font-size: 13px; font-weight: 700; white-space: nowrap; }
+  .nreq-badge.new { background: var(--c-wait-bg); color: var(--c-wait); }
+  .nreq-badge.done { background: var(--c-ok-bg); color: var(--c-ok); }
+  .nreq-row { margin: 4px 0 0; font-size: var(--fs-s); color: var(--c-text); overflow-wrap: anywhere; }
+  .nreq-card.done .nreq-row { color: var(--c-muted); }
+  .nreq-time { margin: 6px 0 0; font-size: var(--fs-xs); color: var(--c-muted); }
+  .nreq-notes {
+    margin: 8px 0 0; padding: 8px 12px; border-radius: var(--r-s); background: #f4f8fc;
+    font-size: var(--fs-s); color: var(--c-text); line-height: 1.6; overflow-wrap: anywhere; white-space: pre-line;
+  }
+  .nreq-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 12px 0 0; }
+  .nreq-actions > a, .nreq-actions > button {
+    min-height: 48px; margin: 0; width: 100%; border-radius: var(--r-m); font-size: var(--fs-s); font-weight: 700;
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 8px 6px;
+    font-family: inherit; text-decoration: none; cursor: pointer; white-space: nowrap;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .nreq-actions .call-btn { background: #fff; border: 1.5px solid var(--c-line); color: var(--c-blue); }
+  .nreq-actions .call-btn:hover { background: #f3f8fc; }
+  .nreq-actions .nreq-done-btn { grid-column: 1 / -1; border: 0; background: var(--c-blue); color: #fff; }
+  .nreq-actions .nreq-done-btn:hover { filter: brightness(1.06); }
+  .nreq-actions .nreq-del-btn {
+    grid-column: 1 / -1; min-height: 44px; border: 0; background: none; color: var(--c-no);
+    font-size: 14px; font-weight: 600; text-decoration: underline; text-underline-offset: 3px;
+  }
+  @media (min-width: 560px) {
+    .nreq-actions { grid-template-columns: repeat(3, 1fr); }
+    .nreq-actions .nreq-done-btn { grid-column: auto; }
+  }
+
+  /* صفحة التمريض (المريض): زر طلب الزيارة داخل تفاصيل الممرض، ونصّ بديل حين لا يكون متاحاً */
+  button.primary.nurse-request-btn { min-height: 52px; margin: 0 0 14px; font-size: var(--fs-m); border-radius: var(--r-m); }
+  .nurse-unavailable-note {
+    margin: 0 0 14px; padding: 12px 14px; border-radius: var(--r-m); background: #f3f6f9;
+    color: var(--c-muted); font-size: var(--fs-s); text-align: center;
+  }
+
+  /* نافذة طلب الزيارة. على الهاتف تصعد من أسفل الشاشة. app.js يضع ارتفاع الجزء الظاهر فوق
+     لوحة المفاتيح في --vv-h و--vv-top، فلا تختفي الحقول خلف لوحة المفاتيح حين تُفتح. */
+  .nreq-overlay {
+    position: fixed; left: 0; right: 0; top: var(--vv-top, 0px); height: var(--vv-h, 100%); z-index: 1000;
+    background: rgba(12,32,52,0.55);
+    display: flex; align-items: center; justify-content: center; padding: 18px;
+  }
+  body.nreq-lock { overflow: hidden; }
+  .nreq-sheet {
+    background: #fff; border-radius: 22px; width: 100%; max-width: 520px; max-height: 100%;
+    overflow-y: auto; overscroll-behavior: contain; padding: 20px 20px 18px;
+    box-shadow: 0 24px 60px rgba(9,28,48,0.35);
+  }
+  .nreq-sheet-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin: 0 0 4px; }
+  .nreq-sheet-head h3 { margin: 0; font-size: 20px; line-height: 1.4; color: #163a5c; }
+  .nreq-sheet-close {
+    flex: 0 0 auto; width: 44px; height: 44px; margin: -6px -6px 0 0; border: 0; border-radius: 50%;
+    background: #f1f5f9; color: var(--c-muted); font-size: 18px; cursor: pointer; -webkit-tap-highlight-color: transparent;
+  }
+  html[dir="rtl"] .nreq-sheet-close { margin: -6px 0 0 -6px; }
+  .nreq-sheet-close:hover { background: #e6edf4; }
+  .nreq-sheet-sub { margin: 0 0 14px; font-size: var(--fs-xs); line-height: 1.6; color: var(--c-muted); }
+  .nreq-field { display: block; margin: 0 0 12px; }
+  .nreq-field > span { display: block; margin: 0 0 5px; font-size: 14.5px; font-weight: 600; color: var(--c-ink); }
+  .nreq-field > span small { font-weight: 400; color: var(--c-muted); font-size: 13px; }
+  .nreq-field input, .nreq-field textarea { width: 100%; margin: 0; box-sizing: border-box; min-height: 48px; }
+  .nreq-field textarea {
+    min-height: 84px; padding: 12px; border: 1px solid #cfe0ef; border-radius: 16px;
+    font-size: 16px; line-height: 1.6; resize: vertical;
+  }
+  .nreq-sheet button.primary { min-height: 52px; font-size: var(--fs-m); margin-top: 4px; }
+  .nreq-privacy { margin: 10px 0 0; font-size: 12.5px; line-height: 1.6; color: var(--c-muted); text-align: center; }
+  .nreq-success { text-align: center; padding: 14px 4px 4px; }
+  .nreq-success-icon {
+    width: 64px; height: 64px; margin: 0 auto 12px; border-radius: 50%;
+    background: var(--c-ok-bg); color: var(--c-ok); font-size: 32px; font-weight: 800;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .nreq-success p { margin: 0 0 16px; font-size: var(--fs-m); font-weight: 600; line-height: 1.6; color: var(--c-ink); }
+  @media (max-width: 700px) {
+    .nreq-overlay { align-items: flex-end; padding: 0; }
+    .nreq-sheet { max-width: 100%; border-radius: 22px 22px 0 0; padding: 18px 16px calc(16px + env(safe-area-inset-bottom)); }
+  }
+
+  /* بطاقة «هل أنت ممرض أو ممرضة؟» أسفل قائمة الممرضين. لا تظهر إلا إن وضعت الإدارة رقم المدير. */
+  .nursing-join {
+    margin: 22px 0 0; padding: 18px; border-radius: var(--r-l); border: 1px solid var(--c-line);
+    background: linear-gradient(135deg, #f5faff 0%, #e8f2fb 100%);
+    display: flex; align-items: center; gap: 14px 18px; flex-wrap: wrap;
+  }
+  .nursing-join-text { flex: 1 1 240px; min-width: 0; }
+  .nursing-join-text h3 { margin: 0 0 4px; font-size: var(--fs-m); color: var(--c-ink); }
+  .nursing-join-text p { margin: 0; font-size: var(--fs-s); line-height: 1.6; color: var(--c-muted); }
+  .nursing-join-actions { flex: 1 1 240px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .nursing-join-actions > a {
+    min-height: 48px; border-radius: var(--r-m); font-size: var(--fs-s); font-weight: 700; text-decoration: none;
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 8px 6px; white-space: nowrap;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .nursing-join-actions .call-btn { background: #fff; border: 1.5px solid var(--c-line); color: var(--c-blue); }
+  .nursing-join-actions .call-btn:hover { background: #f3f8fc; }
+
+  /* شارة الشهادة في لوحة مدير التمريض: يرى «موثّقة» أو «لا شهادة» فقط، والملف للإدارة وحدها */
+  .cert-pill { display: inline-block; border-radius: var(--r-pill); padding: 3px 10px; font-size: 12.5px; font-weight: 700; white-space: nowrap; }
+  .cert-pill.yes { background: var(--c-ok-bg); color: var(--c-ok); }
+  .cert-pill.no { background: #f1f4f7; color: var(--c-muted); }
+
+  /* حقول مكان الممرض (المدينة والحي والشارع) في نموذج الإضافة وفي التعديل */
+  .loc-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 0 10px; }
+  .loc-fields .loc-street { grid-column: 1 / -1; }
+  .loc-hint { margin: -8px 0 14px; font-size: 12.5px; line-height: 1.6; color: #616e7a; }
+  @media (max-width: 480px) { .loc-fields { grid-template-columns: 1fr; } }
+
+  /* بطاقة «مدير التمريض» في لوحة الإدارة: الحالة، وكلمة المرور، ورقم الانضمام */
+  .mgr-status { display: inline-flex; align-items: center; gap: 6px; border-radius: var(--r-pill); padding: 4px 12px; font-size: 13.5px; font-weight: 700; }
+  .mgr-status.on { background: var(--c-ok-bg); color: var(--c-ok); }
+  .mgr-status.off { background: #f1f4f7; color: var(--c-muted); }
+  .mgr-settings-block { padding: 14px 0 0; margin: 14px 0 0; border-top: 1px solid #eef2f6; }
+  .mgr-settings-block > label { display: block; margin: 0 0 6px; font-size: 14.5px; font-weight: 600; color: var(--c-ink); }
+  .mgr-settings-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: stretch; }
+  .mgr-settings-row > .password-field, .mgr-settings-row > input { flex: 1 1 220px; margin: 0; min-height: 48px; }
+  .mgr-settings-row > button { flex: 0 0 auto; min-height: 48px; margin: 0; }
+  .mgr-settings-hint { margin: 8px 0 0; font-size: 12.5px; line-height: 1.6; color: #616e7a; }
 </style>
 </head>
 <body class="has-hero">
@@ -2641,12 +2821,16 @@
   <div id="view-admin" style="display:none;">
     <div id="admin-auth-section"></div>
     <div id="admin-panel" style="display:none;"></div>
+    <!-- لوحة مدير التمريض: تفتح من بطاقة الدخول الثانية في الصفحة نفسها، ولا ترى إلا التمريض -->
+    <div id="manager-panel" style="display:none;"></div>
   </div>
 
   <div id="view-nursing" style="display:none;">
     <h2 class="dash-title" id="nursing-page-title">خدمات تمريض 🩺</h2>
     <p class="muted" style="margin-top:-8px;" id="nursing-page-desc">تواصل مع ممرضين موثوقين لتلقّي الرعاية التمريضية في منزلك.</p>
     <div id="nurses-list"></div>
+    <!-- «هل أنت ممرض أو ممرضة؟»: تظهر حين تضع الإدارة رقم مدير التمريض -->
+    <div id="nursing-join" class="nursing-join" style="display:none;"></div>
   </div>
 </div>
 </div>
@@ -2690,6 +2874,9 @@
     </div>
   </div>
 </div>
+
+<!-- نافذة طلب زيارة تمريضية: يملؤها app.js (الحقول ونص النجاح بالعربية والإنجليزية) -->
+<div id="nreq-overlay" class="nreq-overlay" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="nreq-title"></div>
 
 <!-- شريط انقطاع الإنترنت: يظهر فور فقدان الاتصال ويختفي مع عودته، فيعرف المستخدم
      سبب الفشل قبل أن يحاول. role=status لتعلنه قارئات الشاشة دون مقاطعة. -->
