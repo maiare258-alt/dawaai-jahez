@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 
-const { validIdParam, DUMMY_PASSWORD_HASH } = require('../middleware/shared');
+const { validIdParam, DUMMY_PASSWORD_HASH, ALLOWED_CITIES } = require('../middleware/shared');
 router.param('id', validIdParam);
 
 const bcrypt = require('bcryptjs');
@@ -165,11 +165,7 @@ function dutyFieldsError({ on_duty_day, on_duty_shift, on_duty_start_time, on_du
   return null;
 }
 
-const ALLOWED_CITIES = [
-  'damascus', 'rif_dimashq', 'aleppo', 'homs', 'hama', 'salamiyah',
-  'latakia', 'tartus', 'idlib', 'deir_ez_zor', 'hasakah', 'raqqa',
-  'daraa', 'suwayda', 'quneitra'
-];
+// قائمة المدن ALLOWED_CITIES في middleware/shared.js: يستعملها الممرضون أيضاً
 
 // عرض الصيدليات المناوبة حالياً (متاح للجميع - واجهة المريض)
 // GET /api/pharmacies/on-duty
