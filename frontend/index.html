@@ -2175,10 +2175,11 @@
     .hero-3d .rig { animation: none; }
   }
 
-  /* لا حركة لا تنتهي: رسوم العلبة والعربة والدوائر الصغيرة، ورسوم شريط اللوحتين، كانت تطفو
-     بلا توقف. الآن تتحرك دورة واحدة عند فتح الصفحة ثم تقف، فلا تستهلك البطارية ولا تشتّت. */
-  .hero-particles span, .hero-cart-illustration, .hero-bottle-illustration,
-  .art-dots i, .staff-art-capsule, .staff-art-bottle { animation-iteration-count: 1; }
+  /* رسوم العلبة والعربة والدوائر البيضاء في الواجهة الأولى تبقى تطفو بلا توقف كما كانت
+     (قرار ميار): تظهر على الحاسوب وحده، فهي مخفية على الهاتف ولا تكلّفه شيئاً. الكبسولة
+     وحدها تتحرك مرة ثم تقف. رسوم شريط لوحتي الصيدلي والإدارة تتحرك مرة واحدة ثم تقف، لأنها
+     تظهر على الهاتف أيضاً والصيدلي يبقى في لوحته طويلاً. من فعّل «تقليل الحركة» لا يرى أي حركة. */
+  .staff-art-capsule, .staff-art-bottle, .staff-banner-art .art-dots i { animation-iteration-count: 1; }
 </style>
 </head>
 <body class="has-hero">
