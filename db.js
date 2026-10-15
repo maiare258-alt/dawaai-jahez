@@ -228,6 +228,30 @@ async function initDb() {
   ]) {
     await pool.query(`ALTER TABLE nurses ADD COLUMN IF NOT EXISTS ${col};`);
   }
+  // مكان عمل الممرض (أكتوبر 2026): المدينة والحي يراهما المريض، والشارع لمديري التمريض
+  // والإدارة وحدهم لتخطيط التغطية، لأنه قد يكون عنوان بيت الممرض. كلها اختيارية.
+  for (const col of ['city TEXT', 'area TEXT', 'street TEXT']) {
+    await pool.query(`ALTER TABLE nurses ADD COLUMN IF NOT EXISTS ${col};`);
+  }
+
+  // طلبات المرضى لزيارة تمريضية (أكتوبر 2026). تصل إلى مدير التمريض فيتصل بالمريض
+  // والممرض. اسم الممرض يُحفظ مع الطلب كي يبقى مقروءاً إن حُذف الممرض لاحقاً. تحمل رقم
+  // هاتف المريض، فتُحذف تلقائياً بعد 30 يوماً (deleteOldNurseRequests).
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS nurse_requests (
+      id SERIAL PRIMARY KEY,
+      nurse_id INTEGER REFERENCES nurses(id) ON DELETE SET NULL,
+      nurse_name TEXT,
+      patient_name TEXT NOT NULL,
+      patient_phone TEXT NOT NULL,
+      patient_area TEXT,
+      notes TEXT,
+      status TEXT NOT NULL DEFAULT 'new',
+      created_at TIMESTAMP DEFAULT NOW(),
+      contacted_at TIMESTAMP
+    );
+  `);
+  await pool.query(`CREATE INDEX IF NOT EXISTS nurse_requests_created ON nurse_requests (created_at);`);
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS nurse_ratings (
@@ -316,7 +340,7 @@ async function initDb() {
     await pool.query(`ALTER TABLE ads ADD COLUMN IF NOT EXISTS ${col};`);
   }
 
-  for (const table of ['search_log', 'app_settings', 'visit_daily', 'ads']) {
+  for (const table of ['search_log', 'app_settings', 'visit_daily', 'ads', 'nurse_requests']) {
     try {
       await pool.query(`ALTER TABLE ${table} ENABLE ROW LEVEL SECURITY;`);
     } catch (err) {
@@ -789,7 +813,7 @@ async function ping(timeoutMs = 4000) {
 // الحسابات ويلزم إعادة تعيين كلمة مرور كل صيدلية. الهاش ليس كلمة مرور، لكن
 // الملف يبقى حساساً ويجب حفظه في مكان آمن.
 async function exportAll() {
-  const tables = ['pharmacies', 'medicines', 'stock', 'orders', 'nurses', 'nurse_ratings', 'search_log', 'app_settings', 'visit_daily', 'ads'];
+  const tables = ['pharmacies', 'medicines', 'stock', 'orders', 'nurses', 'nurse_ratings', 'nurse_requests', 'search_log', 'app_settings', 'visit_daily', 'ads'];
   const data = {};
   for (const table of tables) {
     // أسماء الجداول ثابتة في المصفوفة أعلاه ولا تأتي من المستخدم إطلاقاً،
@@ -896,6 +920,19 @@ async function getSetting(key) {
   return rows.length ? rows[0].value : null;
 }
 
+// حفظ إعداد أو حذفه (value = null يحذف المفتاح)
+async function setSetting(key, value) {
+  if (value === null || value === undefined) {
+    await pool.query('DELETE FROM app_settings WHERE key = $1', [key]);
+    return;
+  }
+  await pool.query(
+    `INSERT INTO app_settings (key, value, updated_at) VALUES ($1, $2, NOW())
+     ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()`,
+    [key, String(value)]
+  );
+}
+
 // بدء الإطلاق الرسمي: يمسح بيانات الاستخدام التجريبية ويسجّل تاريخ الإطلاق، مرة واحدة فقط.
 //
 // ما يُمسح: سجل البحث، والطلبات، وتقييمات الممرضين — أي ما ينتج عن الاستخدام.
@@ -919,6 +956,8 @@ async function launchReset() {
     const searches = await client.query('DELETE FROM search_log');
     const orders = await client.query('DELETE FROM orders');
     const ratings = await client.query('DELETE FROM nurse_ratings');
+    // طلبات الزيارات التمريضية أثناء التجربة ليست طلبات مرضى حقيقيين
+    await client.query('DELETE FROM nurse_requests');
     // زيارات التجربة قبل الإطلاق (زياراتك أنت والاختبارات) لا تُعرض على المعلنين أرقاماً حقيقية
     const visits = await client.query('DELETE FROM visit_daily');
     await client.query('COMMIT');
@@ -1211,14 +1250,65 @@ async function getNursesWithRatings() {
   return rows;
 }
 
-async function addNurse({ name, specialty, university, graduation_year, phone, experience_years = null, services = null }) {
+async function addNurse({ name, specialty, university, graduation_year, phone, experience_years = null, services = null,
+  city = null, area = null, street = null }) {
   const { rows } = await pool.query(
-    `INSERT INTO nurses (name, specialty, university, graduation_year, phone, experience_years, services)
-     VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
+    `INSERT INTO nurses (name, specialty, university, graduation_year, phone, experience_years, services, city, area, street)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *`,
     [cleanText(name), cleanText(specialty), cleanText(university), cleanText(graduation_year), cleanText(phone),
-     experience_years, cleanText(services)]
+     experience_years, cleanText(services), city || null, cleanText(area), cleanText(street)]
   );
   return rows[0];
+}
+
+// مكان عمل الممرض. undefined = لا تغيير لذلك الحقل، و null أو '' = مسحه
+async function setNurseLocation(id, { city, area, street }) {
+  const { rows } = await pool.query(
+    `UPDATE nurses SET
+       city   = CASE WHEN $2::boolean THEN $3 ELSE city END,
+       area   = CASE WHEN $4::boolean THEN $5 ELSE area END,
+       street = CASE WHEN $6::boolean THEN $7 ELSE street END
+     WHERE id = $1 RETURNING id, city, area, street`,
+    [id, city !== undefined, city || null, area !== undefined, cleanText(area) || null, street !== undefined, cleanText(street) || null]
+  );
+  return rows[0] || null;
+}
+
+// ---------- طلبات الزيارات التمريضية ----------
+
+async function createNurseRequest({ nurse_id, nurse_name, patient_name, patient_phone, patient_area, notes }) {
+  const { rows } = await pool.query(
+    `INSERT INTO nurse_requests (nurse_id, nurse_name, patient_name, patient_phone, patient_area, notes)
+     VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, created_at`,
+    [nurse_id, cleanText(nurse_name), cleanText(patient_name), patient_phone, cleanText(patient_area), cleanText(notes)]
+  );
+  return rows[0];
+}
+
+// أرقام هواتف المرضى لا تبقى أكثر من 30 يوماً. يُستدعى قبل كل قراءة للقائمة، فلا يحتاج مؤقتاً.
+async function deleteOldNurseRequests() {
+  await pool.query(`DELETE FROM nurse_requests WHERE created_at < NOW() - INTERVAL '30 days'`);
+}
+
+async function getNurseRequests() {
+  await deleteOldNurseRequests();
+  const { rows } = await pool.query(
+    `SELECT id, nurse_id, nurse_name, patient_name, patient_phone, patient_area, notes, status, created_at, contacted_at
+     FROM nurse_requests ORDER BY created_at DESC, id DESC LIMIT 300`
+  );
+  return rows;
+}
+
+async function markNurseRequestContacted(id) {
+  const { rows } = await pool.query(
+    `UPDATE nurse_requests SET status = 'contacted', contacted_at = COALESCE(contacted_at, NOW())
+     WHERE id = $1 RETURNING id, status, contacted_at`, [id]);
+  return rows[0] || null;
+}
+
+async function deleteNurseRequest(id) {
+  const { rowCount } = await pool.query('DELETE FROM nurse_requests WHERE id = $1', [id]);
+  return rowCount > 0;
 }
 
 // أسماء الصيدليات المنضمة ومدنها فقط، لبطاقة "انضم إلينا". هذه الأسماء ظاهرة للمرضى
@@ -1457,6 +1547,12 @@ module.exports = {
   logSearch,
   getDemandReport,
   getSetting,
+  setSetting,
+  setNurseLocation,
+  createNurseRequest,
+  getNurseRequests,
+  markNurseRequestContacted,
+  deleteNurseRequest,
   launchReset,
   getAdminStats,
   getOnDutyPharmacies,
