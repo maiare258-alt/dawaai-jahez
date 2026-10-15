@@ -122,7 +122,7 @@ app.use('/api', (req, res, next) => {
 // طلب بلا أي بيانات دخول)، ثم يُحجب كل /api عن العنوان: البحث والمناوبة والطلبات. وشركات
 // الهاتف تضع كثيراً من المشتركين خلف عنوان واحد، فشخص واحد كان يستطيع حجب الموقع عنهم.
 function carriesCredentials(req) {
-  if (req.headers['x-admin-password'] || req.headers['x-pharmacy-password']) return true;
+  if (req.headers['x-admin-password'] || req.headers['x-pharmacy-password'] || req.headers['x-nursing-password']) return true;
   const b = req.body;
   return !!(b && typeof b === 'object' && !Array.isArray(b) && b.password);
 }
