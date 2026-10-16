@@ -966,7 +966,8 @@
     padding: 10px 14px; margin-bottom: 12px; font-size: 13.5px;
   }
   .location-coords { font-weight: 700; color: #163a5c; direction: ltr; }
-  .location-preview-link { color: #185fa5; font-weight: 600; text-decoration: underline; }
+  .location-preview-link { color: #185fa5; font-weight: 700; text-decoration: none; }
+  .location-preview-link:hover { opacity: 0.8; }
   .location-detect-btn { margin-bottom: 12px; }
   /* الإحداثيات أرقام لاتينية دائماً — نثبّت الاتجاه حتى لا تنقلب بواجهة عربية */
   #location-paste-input { direction: ltr; text-align: left; }
@@ -2263,8 +2264,9 @@
   .nreq-actions .nreq-done-btn:hover { filter: brightness(1.06); }
   .nreq-actions .nreq-del-btn {
     grid-column: 1 / -1; min-height: 44px; border: 0; background: none; color: var(--c-no);
-    font-size: 14px; font-weight: 600; text-decoration: underline; text-underline-offset: 3px;
+    font-size: 14.5px; font-weight: 700; text-decoration: none;
   }
+  .nreq-actions .nreq-del-btn:hover { background: var(--c-no-bg); }
   @media (min-width: 560px) {
     .nreq-actions { grid-template-columns: repeat(3, 1fr); }
     .nreq-actions .nreq-done-btn { grid-column: auto; }
@@ -2322,8 +2324,9 @@
   }
 
   /* بطاقة «هل أنت ممرض أو ممرضة؟» أسفل قائمة الممرضين. لا تظهر إلا إن وضعت الإدارة رقم المدير. */
+  /* في أعلى صفحة التمريض، فوق قائمة الممرضين (قرار ميار): يراها الممرض الجديد دون أن ينزل */
   .nursing-join {
-    margin: 22px 0 0; padding: 18px; border-radius: var(--r-l); border: 1px solid var(--c-line);
+    margin: 0 0 18px; padding: 18px; border-radius: var(--r-l); border: 1px solid var(--c-line);
     background: linear-gradient(135deg, #f5faff 0%, #e8f2fb 100%);
     display: flex; align-items: center; gap: 14px 18px; flex-wrap: wrap;
   }
@@ -2828,9 +2831,9 @@
   <div id="view-nursing" style="display:none;">
     <h2 class="dash-title" id="nursing-page-title">خدمات تمريض 🩺</h2>
     <p class="muted" style="margin-top:-8px;" id="nursing-page-desc">تواصل مع ممرضين موثوقين لتلقّي الرعاية التمريضية في منزلك.</p>
-    <div id="nurses-list"></div>
-    <!-- «هل أنت ممرض أو ممرضة؟»: تظهر حين تضع الإدارة رقم مدير التمريض -->
+    <!-- «هل أنت ممرض أو ممرضة؟»: تظهر حين تضع الإدارة رقم مدير التمريض، فوق القائمة -->
     <div id="nursing-join" class="nursing-join" style="display:none;"></div>
+    <div id="nurses-list"></div>
   </div>
 </div>
 </div>
