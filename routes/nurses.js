@@ -134,6 +134,7 @@ const adminAuth = require('../middleware/adminAuth');
 const nursingAuth = require('../middleware/nursingAuth');
 const bcrypt = require('bcryptjs');
 const rateLimit = require('../middleware/rateLimit');
+const push = require('../push');
 
 // ========== مسارات عامة (واجهة المريض) ==========
 
@@ -493,6 +494,8 @@ router.post('/:id/requests', rateLimit(5, 15 * 60 * 1000), async (req, res) => {
       nurse_id: nurse.id, nurse_name: nurse.name, patient_name, patient_phone: phone, patient_area, notes: notes || null
     });
     res.status(201).json({ success: true, id: created.id });
+    // إشعار مدير التمريض والإدارة بعد الرد، فلا ينتظره المريض
+    push.notifyNurseRequest(nurse.name).catch(err => console.error(err));
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'حدث خطأ أثناء إرسال الطلب' });
@@ -572,6 +575,8 @@ router.put('/manager/password', adminAuth, async (req, res) => {
   try {
     await db.setSetting('nursing_manager_hash', await bcrypt.hash(password, 10));
     await db.setSetting('nursing_manager_set_at', new Date().toISOString());
+    // كلمة جديدة: جهاز من كان يستعمل القديمة لا تصله إشعارات التمريض بعد الآن
+    await db.deletePushSubscriptionsByRole('manager');
     res.json({ success: true, enabled: true });
   } catch (err) {
     console.error(err);
@@ -583,6 +588,7 @@ router.put('/manager/password', adminAuth, async (req, res) => {
 router.delete('/manager/password', adminAuth, async (req, res) => {
   try {
     await db.setSetting('nursing_manager_hash', null);
+    await db.deletePushSubscriptionsByRole('manager');
     res.json({ success: true, enabled: false });
   } catch (err) {
     console.error(err);
