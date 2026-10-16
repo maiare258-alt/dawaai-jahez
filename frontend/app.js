@@ -207,6 +207,20 @@ const translations = {
     danger_delete_cert: 'احذف الشهادة', danger_clear_duty: 'ألغِ كل المناوبات', danger_delete_pharmacy: 'احذف الصيدلية',
     danger_delete_medicine: 'احذف الدواء', danger_delete_nurse: 'احذف الممرض', danger_reject_rating: 'ارفض التقييم',
     danger_delete_rating: 'احذف التقييم',
+    // ---- إشعارات الهاتف (أكتوبر 2026) ----
+    push_card_title: '🔔 إشعارات الهاتف',
+    push_desc_pharmacy: 'يصلك إشعار على هذا الهاتف عند كل طلب دواء جديد لصيدليتك، حتى والموقع مغلق.',
+    push_desc_manager: 'يصلك إشعار على هذا الهاتف عند كل طلب زيارة تمريضية جديد، حتى والموقع مغلق.',
+    push_enable_btn: '🔔 فعّل الإشعارات', push_on_status: '✓ الإشعارات مفعّلة على هذا الجهاز',
+    push_test_btn: 'أرسل إشعاراً تجريبياً', push_off_btn: 'أوقفها',
+    push_enabled_done: 'فُعّلت الإشعارات على هذا الجهاز. اضغط «أرسل إشعاراً تجريبياً» لتتأكد أنها تصل.',
+    push_test_sent: 'أُرسل إشعار تجريبي. إن لم يظهر على هاتفك خلال دقيقة، فإشعارات هذا الهاتف لا تصل: قد تكون موقوفة في إعدادات الهاتف، أو محجوبة في شبكتك.',
+    push_test_failed: 'رفضت خدمة الإشعارات الإرسال الآن. حاول بعد قليل.',
+    push_gone: 'انتهى اشتراك هذا الجهاز بالإشعارات. اضغط «فعّل الإشعارات» من جديد.',
+    push_subscribe_failed: 'تعذّر تفعيل الإشعارات: خدمة الإشعارات في هذا الهاتف لم تستجب. قد تكون محجوبة في شبكتك. جرّب شبكة أخرى، أو أعد المحاولة لاحقاً.',
+    push_denied_help: 'الإشعارات محظورة لهذا الموقع. للسماح بها في Chrome: اضغط رمز القفل 🔒 بجانب عنوان الموقع، ثم «الأذونات» أو «إعدادات الموقع»، واختر «السماح» للإشعارات، ثم أعد تحميل الصفحة. وفي تطبيق دوائي جاهز: إعدادات الهاتف ← التطبيقات ← دوائي جاهز ← الإشعارات.',
+    push_ios_help: 'على iPhone تعمل الإشعارات بعد إضافة الموقع إلى الشاشة الرئيسية: اضغط زر المشاركة في Safari، ثم «إضافة إلى الشاشة الرئيسية»، وافتح الموقع من أيقونته الجديدة.',
+    push_unsupported: 'هذا المتصفح لا يدعم إشعارات الهاتف. افتح الموقع في Chrome.',
     // ---- التمريض: طلب زيارة، وبطاقة الانضمام، ولوحة مدير التمريض (أكتوبر 2026) ----
     nurse_request_btn: '🩺 اطلب زيارة تمريضية', nurse_unavailable_note: 'هذا الممرض غير متاح حالياً',
     nreq_title: 'طلب زيارة من {name}',
@@ -883,6 +897,20 @@ const translations = {
     danger_delete_cert: 'Delete certificate', danger_clear_duty: 'Clear all duty', danger_delete_pharmacy: 'Delete pharmacy',
     danger_delete_medicine: 'Delete medicine', danger_delete_nurse: 'Delete nurse', danger_reject_rating: 'Reject review',
     danger_delete_rating: 'Delete review',
+    // ---- Phone notifications (October 2026) ----
+    push_card_title: '🔔 Phone notifications',
+    push_desc_pharmacy: 'Get a notification on this phone for every new medicine order to your pharmacy, even when the site is closed.',
+    push_desc_manager: 'Get a notification on this phone for every new nursing visit request, even when the site is closed.',
+    push_enable_btn: '🔔 Turn on notifications', push_on_status: '✓ Notifications are on for this device',
+    push_test_btn: 'Send a test notification', push_off_btn: 'Turn off',
+    push_enabled_done: 'Notifications are on for this device. Tap "Send a test notification" to make sure they arrive.',
+    push_test_sent: 'A test notification was sent. If it does not appear on your phone within a minute, notifications are not reaching this phone: they may be turned off in the phone settings, or blocked on your network.',
+    push_test_failed: 'The notification service refused to send right now. Please try again shortly.',
+    push_gone: 'This device is no longer subscribed. Tap "Turn on notifications" again.',
+    push_subscribe_failed: 'Notifications could not be turned on: the notification service on this phone did not respond. It may be blocked on your network. Try another network, or try again later.',
+    push_denied_help: 'Notifications are blocked for this site. To allow them in Chrome: tap the lock icon 🔒 next to the address, then "Permissions" or "Site settings", choose "Allow" for notifications, and reload the page. In the Dawaai Jahez app: phone Settings → Apps → Dawaai Jahez → Notifications.',
+    push_ios_help: 'On iPhone, notifications work after adding the site to the home screen: tap Share in Safari, then "Add to Home Screen", and open the site from its new icon.',
+    push_unsupported: 'This browser does not support phone notifications. Open the site in Chrome.',
     // ---- Nursing: visit request, join card, nursing manager panel (October 2026) ----
     nurse_request_btn: '🩺 Request a home nursing visit', nurse_unavailable_note: 'This nurse is currently unavailable',
     nreq_title: 'Visit request: {name}',
@@ -1598,6 +1626,8 @@ const BACKEND_ERROR_MAP = {
 // الإنكليزية. العربية تُعرض كما أرسلها الخادم، والإنكليزية من هنا. أي رسالة جديدة
 // تُضاف إلى الخادم ولا تُضاف هنا تظهر في الواجهة الإنكليزية برسالة عامة مفهومة.
 const BACKEND_ERROR_EN = {
+  'اشتراك الإشعارات غير صالح': 'The notification subscription is not valid.',
+  'الإشعارات غير مفعّلة على هذا الجهاز': 'Notifications are not turned on for this device.',
   'المنطقة أو الحي مطلوب': 'The area or neighbourhood is required.',
   'اسم المنطقة طويل جداً': 'The area name is too long.',
   'الملاحظة طويلة جداً': 'The note is too long.',
@@ -1941,6 +1971,7 @@ function applyLanguage() {
     }
   }
   renderNursingJoin();
+  refreshPushAfterLanguage();
   // نافذة طلب الزيارة مفتوحة: تُرسم باللغة الجديدة وما كُتب فيها باقٍ
   if (nreqState) {
     if (!nreqState.sent) saveNreqDraft();
@@ -2622,7 +2653,10 @@ function renderBellPanel() {
 function refreshBellUI() {
   updateBellBadge();
   const cartSection = document.getElementById('cart-section');
-  if (cartSection && cartSection.style.display !== 'none') renderCart();
+  // صف الجرس لا يظهر في السلة إلا وهي فارغة. والسلة فيها أدوية تحمل نموذج الطلب: إعادة رسمه
+  // كانت تستبدل حقل الاسم بينما المريض يكتب فيه (حين يصل رد صيدلية على طلب سابق)، فيملأ الملء
+  // التلقائي الحقل القديم المحذوف ويبقى في الجديد أول حرف فقط.
+  if (cartSection && cartSection.style.display !== 'none' && cart.length === 0) renderCart();
 }
 
 function dismissMyOrder(id) {
@@ -3972,6 +4006,9 @@ function loadDashboard() {
     <span style="font-weight:500; font-size:16px;">${t('pharmacy_label_prefix')} ${escapeHtml(currentPharmacy.name)}</span>
     <button class="action-pill-btn blue" onclick="logout()">${t('logout_btn')}</button>
   `;
+  pushState.pharmacy = null;
+  renderPushCard('pharmacy');
+  checkPushState('pharmacy');
   document.getElementById('duty-checkbox').checked = !!currentPharmacy.on_duty;
   document.getElementById('assistant-phone-input').value = currentPharmacy.assistant_phone || '';
   document.getElementById('main-phone-input').value = currentPharmacy.phone || '';
@@ -4372,6 +4409,8 @@ async function saveAssistantPhoneNow() {
 
 function logout() {
   currentPharmacy = null;
+  pushState.pharmacy = null;
+  renderPushCard('pharmacy');
   stopOrdersPolling();
   pharmacistStockCache = [];
   pharmacistOrdersCache = [];
@@ -5386,8 +5425,17 @@ function renderStatsSection(stats) {
 }
 
 // إعادة رسم اللوحة من آخر بيانات محفوظة بدون أي طلب شبكة جديد (تبديل اللغة، أو بعد أي إجراء إداري)
+// أقسام في اللوحة تُملأ بعد رسمها بجزء من الثانية (الإحصاءات، والإعلانات، وحالة النظام). كانت
+// الصفحة تقصر في تلك اللحظة فتقفز إلى الأعلى ثم تعود، فتتحرك الزخارف خلفها. نُبقي ارتفاع اللوحة
+// كما كان حتى تمتلئ تلك الأقسام، ثم نحرره.
+let adminHeightLock = 0;
+
 function renderAdminPanelUI() {
   const adminDraft = readAdminDraft();
+  const panelEl = document.getElementById('admin-panel');
+  const lockToken = ++adminHeightLock;
+  if (panelEl.offsetHeight > 0) panelEl.style.minHeight = `${panelEl.offsetHeight}px`;
+  const releaseHeight = () => { if (lockToken === adminHeightLock) panelEl.style.minHeight = ''; };
   const { pharmacies, medicines, nurses, pendingRatings, stats, nurseRequests, managerSettings } = adminDataCache;
 
   approvedRatingsLoaded = false;
@@ -5730,14 +5778,13 @@ function renderAdminPanelUI() {
   renderAdminUsernameList();
   renderAdminAddressList();
   renderBackupInfo();
-  checkSystemStatus();
-  loadDemandReport();
-  loadVisitsReport();
+  const pending = [checkSystemStatus(), loadDemandReport(), loadVisitsReport()];
   restoreAdminDraft(adminDraft);
   restoreAdEditorView();   // كان هنا adEditor = null، فتضيع الصورة المجهّزة مع أي إعادة رسم
   setupAdEditorEvents();
-  loadAdsAdmin();
-  loadCertStorageUsage();
+  pending.push(loadAdsAdmin(), loadCertStorageUsage());
+  Promise.allSettled(pending).then(() => requestAnimationFrame(releaseHeight));
+  setTimeout(releaseHeight, 15000);   // شبكة بطيئة جداً: لا يبقى الارتفاع مقفلاً إلى الأبد
 }
 
 function addPharmacy() { return runGuarded('addPharmacy', 'add-pharmacy-btn', addPharmacyNow); }
@@ -7822,7 +7869,8 @@ async function submitNurseRequestNow() {
     return;
   }
   if (!nreqState || nreqState.nurseId !== nurseId) return;
-  nreqDraft.notes = '';
+  // بعد النجاح لا يبقى اسم المريض ورقمه في النافذة: هاتف العائلة قد يستعمله غيره بعده
+  nreqDraft.name = ''; nreqDraft.phone = ''; nreqDraft.area = ''; nreqDraft.notes = '';
   nreqState.sent = true;
   renderNurseRequestSheet();
   const ok = document.getElementById('nreq-ok');
@@ -7874,12 +7922,14 @@ async function checkManagerPasswordNow() {
   document.getElementById('admin-auth-section').innerHTML = '';
   document.getElementById('manager-panel').style.display = 'block';
   updateStaffBanner();
-  loadManagerPanel();
+  pushState.manager = null;
+  loadManagerPanel().then(() => checkPushState('manager'));
   startManagerPolling();
 }
 
 function logoutManager() {
   managerPassword = null;
+  pushState.manager = null;
   managerSessionId++;          // أي رد يصل بعد الخروج يُهمل
   managerLoadedOnce = false;
   managerCache = { nurses: [], requests: [], pendingRatings: [] };
@@ -7972,6 +8022,7 @@ function renderManagerPanelUI() {
       <h2 class="dash-title">${t('mgr_panel_title')}</h2>
       <button type="button" class="action-pill-btn blue" onclick="logoutManager()">${t('logout_btn')}</button>
     </div>
+    <div id="push-card-manager"></div>
     <div class="stats-grid mgr-stats" id="mgr-stats">${managerStatsHtml()}</div>
     <div class="mgr-tabs" role="tablist" aria-label="${t('mgr_tabs_aria')}" onkeydown="onManagerTabsKey(event)">
       ${MANAGER_TABS.map(k => `
@@ -7987,6 +8038,7 @@ function renderManagerPanelUI() {
       <div id="mgr-ratings-list">${managerRatingsHtml()}</div>
     </div>`;
   applyManagerDrafts();
+  renderPushCard('manager');
 }
 
 function setManagerTab(key) {
@@ -8055,10 +8107,10 @@ function applyManagerDrafts() {
 }
 function forgetManagerDrafts(ids) { for (const id of ids) delete managerDrafts[id]; }
 
-// تحديث دوري للطلبات والتقييمات كل 30 ثانية والصفحة ظاهرة. يرسم القائمتين والأرقام فقط
+// تحديث دوري للطلبات والتقييمات كل 15 ثانية والصفحة ظاهرة. يرسم القائمتين والأرقام فقط
 // حين يتغير شيء، ولا يلمس قسم الممرضين، فلا يضيع ما يكتبه المدير فيه.
 let managerPollTimer = null;
-const POLL_MANAGER_MS = 30000;
+const POLL_MANAGER_MS = 15000;   // كان 30 ثانية: الطلب الجديد يظهر أسرع واللوحة مفتوحة
 function startManagerPolling() {
   stopManagerPolling();
   managerPollTimer = setInterval(whenVisible(pollManager), POLL_MANAGER_MS);
@@ -8137,7 +8189,7 @@ function nurseRequestCardsHtml(list, role) {
 }
 
 function nursingHeadersFor(role) { return role === 'admin' ? adminHeaders() : managerHeaders(); }
-function afterNursingAction(role) { if (role === 'admin') renderAdminPanel(); else loadManagerPanel(); }
+function afterNursingAction(role) { if (role === 'admin') refreshAdminRequests(); else loadManagerPanel(); }
 
 function markNurseRequestDone(id, role) {
   return runGuarded('nreqDone:' + id, null, async () => {
@@ -8376,10 +8428,31 @@ function managerSettingsCardHtml(s) {
 
 function adminRequestsSectionHtml(requests) {
   if (!requests) return '';
+  return `<div id="admin-requests-wrap">${adminRequestsInnerHtml(requests)}</div>`;
+}
+function adminRequestsInnerHtml(requests) {
   return `
     <h3>${t('admin_requests_title')} (${requests.length})</h3>
     <p class="muted" style="margin:-6px 0 12px; font-size:13.5px; line-height:1.6;">${t('nreq_auto_delete_note')}</p>
     <div class="nreq-list" style="margin-bottom:20px;">${nurseRequestCardsHtml(requests, 'admin')}</div>`;
+}
+
+// تحديث قسم طلبات الزيارات وحده في الإدارة: بعد «تم التواصل» أو الحذف، ومع الفحص الدوري كل
+// 15 ثانية. كانت اللوحة كلها تُعاد رسمها، فتقصر الصفحة لحظة وتقفز ثم تعود.
+async function refreshAdminRequests() {
+  if (!adminPassword) return;
+  const session = adminSessionId;
+  try {
+    const res = await fetchWithTimeout(`${API}/nurses/requests`, { headers: adminHeaders(), cache: 'no-store' }, 20000);
+    if (adminSessionGone(session)) return;
+    if (res.status === 401) { adminSessionExpired(); return; }
+    const list = await readJsonOk(res);
+    if (adminSessionGone(session)) return;
+    if (JSON.stringify(list) === JSON.stringify(adminDataCache.nurseRequests)) return;
+    adminDataCache.nurseRequests = list;
+    const wrap = document.getElementById('admin-requests-wrap');
+    if (wrap) wrap.innerHTML = adminRequestsInnerHtml(list);
+  } catch (err) { /* يعاد في الفحص التالي */ }
 }
 
 // رد إداري برمز 401: كلمة مرور الإدارة لم تعد صحيحة
@@ -8431,6 +8504,255 @@ async function saveManagerContactNow() {
   if (input) { input.value = data.phone || ''; input.defaultValue = input.value; }
   customAlert(t(data.phone ? 'mgr_contact_saved' : 'mgr_contact_cleared'), 'success');
   renderAdminPanel();
+}
+
+// ===================== إشعارات الهاتف (أكتوبر 2026) =====================
+// بطاقة «🔔 إشعارات الهاتف» في لوحة الصيدلي ولوحة مدير التمريض (لا في الإدارة: قرار ميار).
+// التفعيل يطلب إذن المتصفح، ثم يشترك عند خدمة الإشعارات بمفتاح الموقع العام، ويرسل الاشتراك
+// إلى الخادم مع كلمة مرور اللوحة نفسها، فيعرف الخادم لمن يرسل. service-worker.js يعرض الإشعار.
+//
+// الأدوار: 'pharmacy' (لوحة الصيدلي) و'manager' (لوحة مدير التمريض). الجهاز الواحد قد يشترك
+// بالدورين، والاشتراك في المتصفح واحد، فإيقاف دور لا يلغي اشتراك المتصفح، بل سجلّه عند الخادم.
+
+const PUSH_ROLES = ['pharmacy', 'manager'];
+const pushState = { pharmacy: null, manager: null };   // null | unsupported | ios | denied | off | on
+
+function pushSupported() {
+  return 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+}
+function isIOSDevice() {
+  return /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+}
+function isStandaloneApp() {
+  return (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true;
+}
+
+function pushHeadersFor(role) {
+  if (role === 'pharmacy') return { 'Content-Type': 'application/json', ...pharmacyHeaders() };
+  return managerHeaders();
+}
+function pushRoleActive(role) { return role === 'pharmacy' ? !!currentPharmacy : !!managerPassword; }
+
+function base64UrlToBytes(s) {
+  const b64 = s.replace(/-/g, '+').replace(/_/g, '/') + '='.repeat((4 - s.length % 4) % 4);
+  const raw = atob(b64);
+  return Uint8Array.from(raw, c => c.charCodeAt(0));
+}
+function sameBytes(a, b) {
+  if (!a || !b) return false;
+  const x = new Uint8Array(a), y = new Uint8Array(b);
+  return x.length === y.length && x.every((v, i) => v === y[i]);
+}
+
+// انتظار تسجيل service-worker.js، بمهلة: إن تعذّر (متصفح يمنعه) نعرض أن الإشعارات غير مدعومة
+function serviceWorkerReady(ms = 10000) {
+  return Promise.race([
+    navigator.serviceWorker.ready,
+    new Promise((_, reject) => setTimeout(() => reject(new Error('sw timeout')), ms))
+  ]);
+}
+
+// اشتراك المتصفح الحالي، أو null. اشتراك بمفتاح غير مفتاح الموقع الحالي لا يُحسب.
+async function currentBrowserSubscription(publicKey) {
+  const reg = await serviceWorkerReady();
+  const sub = await reg.pushManager.getSubscription();
+  if (sub && publicKey && sub.options && sub.options.applicationServerKey &&
+      !sameBytes(sub.options.applicationServerKey, base64UrlToBytes(publicKey))) {
+    await sub.unsubscribe().catch(() => {});
+    return null;
+  }
+  return sub;
+}
+
+// الحالة الحقيقية لهذا الجهاز ولهذا الدور، من المتصفح ثم من الخادم
+async function checkPushState(role) {
+  if (!pushRoleActive(role)) return;
+  let state;
+  if (!pushSupported()) state = isIOSDevice() && !isStandaloneApp() ? 'ios' : 'unsupported';
+  else if (Notification.permission === 'denied') state = 'denied';
+  else if (Notification.permission !== 'granted') state = 'off';
+  else {
+    try {
+      const sub = await currentBrowserSubscription(null);
+      if (!sub) state = 'off';
+      else {
+        const res = await fetchWithTimeout(`${API}/push/status`, { method: 'POST', headers: pushHeadersFor(role),
+          body: JSON.stringify({ role, endpoint: sub.endpoint }) }, 15000);
+        const data = await res.json().catch(() => ({}));
+        state = res.ok && data.subscribed ? 'on' : 'off';
+      }
+    } catch (err) { state = 'off'; }
+  }
+  if (!pushRoleActive(role)) return;   // خرج أثناء الفحص
+  pushState[role] = state;
+  renderPushCard(role);
+}
+
+// مكان البطاقة: تحت اسم الصيدلية في لوحة الصيدلي، وتحت العنوان في لوحة مدير التمريض
+function pushCardHost(role) {
+  if (role === 'pharmacy') {
+    let host = document.getElementById('push-card-pharmacy');
+    const label = document.getElementById('pharmacy-label');
+    if (!host && label) {
+      label.insertAdjacentHTML('afterend', '<div id="push-card-pharmacy"></div>');
+      host = document.getElementById('push-card-pharmacy');
+    }
+    return host;
+  }
+  return document.getElementById('push-card-manager');
+}
+
+function renderPushCard(role) {
+  const host = pushCardHost(role);
+  if (!host) return;
+  if (!pushRoleActive(role)) { host.innerHTML = ''; return; }
+  const state = pushState[role];
+  if (!state) { host.innerHTML = ''; return; }   // الفحص لم ينته بعد: لا نعرض حالة قد تكون خاطئة
+  const box = 'background:#fff; border:1px solid #cfe0ef; border-radius:16px; padding:14px 16px; margin:0 0 16px;';
+  if (state === 'on') {
+    host.innerHTML = `
+      <div style="${box} display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:10px;">
+        <span class="mgr-status on">${t('push_on_status')}</span>
+        <span style="display:flex; flex-wrap:wrap; align-items:center; gap:6px 10px;">
+          <button type="button" class="btn-outline blue small" id="push-test-${role}" onclick="testPush('${role}')">${t('push_test_btn')}</button>
+          <button type="button" id="push-off-${role}" onclick="disablePush('${role}')" style="min-height:44px; padding:0 8px; border:0; background:none; color:#5b6b79; font:inherit; font-size:14.5px; font-weight:600; cursor:pointer;">${t('push_off_btn')}</button>
+        </span>
+      </div>`;
+    return;
+  }
+  const notes = {
+    off: `<p class="muted" style="margin:0 0 12px; font-size:14.5px; line-height:1.7;">${t(role === 'pharmacy' ? 'push_desc_pharmacy' : 'push_desc_manager')}</p>
+          <button type="button" class="primary" id="push-on-${role}" style="min-height:48px; margin:0;" onclick="enablePush('${role}')">${t('push_enable_btn')}</button>`,
+    denied: `<p style="margin:0; font-size:14.5px; line-height:1.8; color:#7a5a00;">${t('push_denied_help')}</p>`,
+    ios: `<p style="margin:0; font-size:14.5px; line-height:1.8; color:#2c3e50;">${t('push_ios_help')}</p>`,
+    unsupported: `<p class="muted" style="margin:0; font-size:14.5px; line-height:1.7;">${t('push_unsupported')}</p>`
+  };
+  host.innerHTML = `
+    <div style="${box}">
+      <h3 style="margin:0 0 6px; font-size:17px; color:#0f2a47;">${t('push_card_title')}</h3>
+      ${notes[state] || notes.off}
+    </div>`;
+}
+
+function enablePush(role) { return runGuarded('enablePush:' + role, `push-on-${role}`, () => enablePushNow(role)); }
+async function enablePushNow(role) {
+  if (!pushSupported()) { pushState[role] = isIOSDevice() ? 'ios' : 'unsupported'; renderPushCard(role); return; }
+  let permission = Notification.permission;
+  if (permission !== 'granted') {
+    try { permission = await Notification.requestPermission(); } catch (e) { permission = 'denied'; }
+  }
+  if (permission !== 'granted') {
+    pushState[role] = permission === 'denied' ? 'denied' : 'off';
+    renderPushCard(role);
+    return;
+  }
+  let sub;
+  try {
+    const keyRes = await fetchWithTimeout(`${API}/push/key`, {}, 15000);
+    const { publicKey } = await readJsonOk(keyRes, 'object');
+    sub = await currentBrowserSubscription(publicKey);
+    if (!sub) {
+      const reg = await serviceWorkerReady();
+      // حين تكون خدمة Google محجوبة لا يرد المتصفح أبداً، فيبقى الزر معطّلاً بلا تفسير. بعد 20
+      // ثانية نعتبرها فشلت ونشرح السبب
+      sub = await Promise.race([
+        reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: base64UrlToBytes(publicKey) }),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('push subscribe timeout')), 20000))
+      ]);
+    }
+  } catch (err) {
+    // أكثر سبب متوقع هنا في سوريا: خدمة إشعارات Google لا تستجيب من هذه الشبكة
+    await customAlert(t('push_subscribe_failed'), 'error');
+    return;
+  }
+  if (!pushRoleActive(role)) return;
+  try {
+    const res = await fetchWithTimeout(`${API}/push/subscribe`, { method: 'POST', headers: pushHeadersFor(role),
+      body: JSON.stringify({ role, lang: currentLang, subscription: sub.toJSON() }) }, 20000);
+    const data = await res.json().catch(() => ({}));
+    if (res.status === 401) { if (role === 'manager') managerSessionExpired(); else await customAlert(translateApiError(data.error), 'error'); return; }
+    if (!res.ok) { await customAlert(translateApiError(data.error), 'error'); return; }
+  } catch (err) {
+    await customAlert(t('server_error_title'), 'error');
+    return;
+  }
+  pushState[role] = 'on';
+  renderPushCard(role);
+  await customAlert(t('push_enabled_done'), 'success');
+}
+
+function testPush(role) { return runGuarded('testPush:' + role, `push-test-${role}`, () => testPushNow(role)); }
+async function testPushNow(role) {
+  let sub = null;
+  try { sub = await currentBrowserSubscription(null); } catch (e) { sub = null; }
+  if (!sub) { pushState[role] = 'off'; renderPushCard(role); await customAlert(t('push_gone'), 'warning'); return; }
+  try {
+    const res = await fetchWithTimeout(`${API}/push/test`, { method: 'POST', headers: pushHeadersFor(role),
+      body: JSON.stringify({ role, endpoint: sub.endpoint }) }, 20000);
+    const data = await res.json().catch(() => ({}));
+    if (res.status === 404 || data.result === 'gone') { pushState[role] = 'off'; renderPushCard(role); await customAlert(t('push_gone'), 'warning'); return; }
+    if (res.status === 429) { await customAlert(t('rate_limited_error'), 'warning'); return; }
+    if (!res.ok || data.result !== 'sent') { await customAlert(t('push_test_failed'), 'error'); return; }
+    await customAlert(t('push_test_sent'), 'success');
+  } catch (err) {
+    await customAlert(t('server_error_title'), 'error');
+  }
+}
+
+function disablePush(role) { return runGuarded('disablePush:' + role, `push-off-${role}`, () => disablePushNow(role)); }
+async function disablePushNow(role) {
+  let sub = null;
+  try { sub = await currentBrowserSubscription(null); } catch (e) { sub = null; }
+  if (sub) {
+    const ok = await runAction(`${API}/push/unsubscribe`, { method: 'POST', headers: pushHeadersFor(role),
+      body: JSON.stringify({ role, endpoint: sub.endpoint }) });
+    if (!ok) return;
+  }
+  pushState[role] = 'off';
+  renderPushCard(role);
+}
+
+// تبديل اللغة: البطاقة تُرسم باللغة الجديدة، والاشتراك المفعّل يُحدَّث كي تصل الإشعارات بها أيضاً
+function refreshPushAfterLanguage() {
+  for (const role of PUSH_ROLES) {
+    renderPushCard(role);
+    if (pushState[role] !== 'on' || !pushRoleActive(role)) continue;
+    currentBrowserSubscription(null).then(sub => {
+      if (!sub || !pushRoleActive(role)) return;
+      return fetchWithTimeout(`${API}/push/subscribe`, { method: 'POST', headers: pushHeadersFor(role),
+        body: JSON.stringify({ role, lang: currentLang, subscription: sub.toJSON() }) }, 20000);
+    }).catch(() => {});
+  }
+}
+
+// ---------- فتح اللوحة من الإشعار ----------
+// الرابط "/?open=pharmacist" أو "/?open=admin". يأتي إما عند فتح الموقع من إشعار (والموقع
+// مغلق)، أو رسالة من service-worker.js والموقع مفتوح، فننتقل دون إعادة تحميل ولا تسجيل دخول.
+function openFromNotificationUrl(url) {
+  let target = null;
+  try { target = new URL(url, location.origin).searchParams.get('open'); } catch (e) { target = null; }
+  if (target === 'pharmacist') {
+    headerGoPharmacist(document.getElementById('nav-pharmacist'));
+    if (currentPharmacy) loadOrders();
+  } else if (target === 'admin') {
+    headerGoAdmin(document.getElementById('nav-admin'));
+    if (managerPassword) { setManagerTab('requests'); pollManager(); }
+    else if (adminPassword) refreshAdminRequests();
+  }
+}
+
+function handleOpenParamOnLoad() {
+  if (!/[?&]open=/.test(location.search)) return;
+  openFromNotificationUrl(location.href);
+  // نزيل ?open= من شريط العنوان، كي لا يعيد تحديث الصفحة فتح اللوحة نفسها
+  try { history.replaceState(null, '', location.pathname + location.hash); } catch (e) { /* لا شيء */ }
+}
+
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.addEventListener('message', (event) => {
+    const d = event.data;
+    if (d && d.type === 'dj-open' && typeof d.url === 'string') openFromNotificationUrl(d.url);
+  });
 }
 
 // ---------- إدارة خدمات التمريض (لوحة الإدارة) ----------
@@ -8532,6 +8854,7 @@ function stopAdminRatingsPolling() {
 
 async function loadPendingRatingsForAdmin() {
   if (!adminPassword) { stopAdminRatingsPolling(); return; }
+  refreshAdminRequests();
   const session = adminSessionId;
   try {
     const res = await fetchWithTimeout(`${API}/nurses/ratings/pending`, { headers: adminHeaders() }, 20000);
@@ -8641,3 +8964,6 @@ window.__pendingSearch = false;
 
 // لو فُتح الموقع والاتصال مقطوع أصلاً، فحدث offline لن يُطلق — نفحص مرة عند البدء
 updateOfflineBanner();
+
+// فُتح الموقع من إشعار (والموقع مغلق): نذهب إلى اللوحة المطلوبة
+handleOpenParamOnLoad();
