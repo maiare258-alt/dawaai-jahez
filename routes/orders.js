@@ -9,6 +9,7 @@ const bcrypt = require('bcryptjs');
 
 const db = require('../db');
 const rateLimit = require('../middleware/rateLimit');
+const push = require('../push');
 
 // وسيط مصادقة الصيدلي عبر الترويسات، مع فحص ملكية الطلب.
 // أُفرد كوسيط بدل تكراره في كل مسار: أي مسار جديد يُحمى بإضافة اسمه فقط،
@@ -121,6 +122,8 @@ router.post('/', rateLimit(20, 15 * 60 * 1000), async (req, res) => {
     const groups = Object.keys(byPharmacy).map(pid => ({ pharmacyId: Number(pid), items: byPharmacy[pid] }));
     const orders = await db.createOrdersAtomic(groups, patient_name, patient_phone, notes, requestKey);
     res.status(201).json({ success: true, orders });
+    // إشعار الهاتف بعد الرد، فلا ينتظره المريض. إعادة الإرسال بمفتاح التفرّد نفسه لا تكرر الإشعار.
+    push.notifyNewOrders(orders.filter(o => o && o.isFresh)).catch(err => console.error(err));
   } catch (err) {
     // مفتاح أجنبي لعنصر غير موجود (23503): رفض واضح بدل خطأ خادم
     if (err && err.code === '23503') return res.status(404).json({ error: 'الصيدلية غير موجودة' });
