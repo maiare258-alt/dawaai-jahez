@@ -340,7 +340,26 @@ async function initDb() {
     await pool.query(`ALTER TABLE ads ADD COLUMN IF NOT EXISTS ${col};`);
   }
 
-  for (const table of ['search_log', 'app_settings', 'visit_daily', 'ads', 'nurse_requests']) {
+  // اشتراكات إشعارات الهاتف (أكتوبر 2026): جهاز لكل صف، ودور (admin أو manager أو pharmacy)،
+  // والصيدلية إن كان الدور صيدلية. الجهاز الواحد قد يشترك بأكثر من دور. حذف الصيدلية يحذف
+  // اشتراكاتها. لا تحمل أي بيانات مريض: عنوان خدمة الإشعارات ومفتاحا التشفير فقط.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS push_subscriptions (
+      id SERIAL PRIMARY KEY,
+      endpoint TEXT NOT NULL,
+      p256dh TEXT NOT NULL,
+      auth TEXT NOT NULL,
+      role TEXT NOT NULL,
+      pharmacy_id INTEGER REFERENCES pharmacies(id) ON DELETE CASCADE,
+      lang TEXT NOT NULL DEFAULT 'ar',
+      fail_count INTEGER NOT NULL DEFAULT 0,
+      created_at TIMESTAMP DEFAULT NOW(),
+      last_ok_at TIMESTAMP,
+      UNIQUE (endpoint, role)
+    );
+  `);
+
+  for (const table of ['search_log', 'app_settings', 'visit_daily', 'ads', 'nurse_requests', 'push_subscriptions']) {
     try {
       await pool.query(`ALTER TABLE ${table} ENABLE ROW LEVEL SECURITY;`);
     } catch (err) {
@@ -921,6 +940,16 @@ async function getSetting(key) {
 }
 
 // حفظ إعداد أو حذفه (value = null يحذف المفتاح)
+// يحفظ القيمة إن لم يكن للمفتاح قيمة بعد، ويعيد القيمة المحفوظة فعلاً (الجديدة أو السابقة).
+// لمفاتيح الإشعارات: طلبان متزامنان أول مرة لا يحفظان مفتاحين مختلفين.
+async function setSettingIfMissing(key, value) {
+  await pool.query(
+    `INSERT INTO app_settings (key, value, updated_at) VALUES ($1, $2, NOW()) ON CONFLICT (key) DO NOTHING`,
+    [key, String(value)]
+  );
+  return getSetting(key);
+}
+
 async function setSetting(key, value) {
   if (value === null || value === undefined) {
     await pool.query('DELETE FROM app_settings WHERE key = $1', [key]);
@@ -1132,6 +1161,13 @@ async function setStock(pharmacyId, medicineId, available, manufactureDate, expi
 // ON CONFLICT ... DO NOTHING لا يرجّع صفاً عند التصادم، فنقرأ الموجود بعدها.
 // والضمان هنا في القاعدة لا في التطبيق: طلبان متزامنان بالمفتاح نفسه ينتجان
 // طلباً واحداً، ويرجع كلاهما المعرّف نفسه.
+// طلب أُنشئ الآن (لا طلب قديم أُعيد بمفتاح التفرّد نفسه): وحده يستحق إشعاراً. الخاصية
+// غير قابلة للعدّ، فلا تظهر في رد JSON.
+function markFresh(row) {
+  if (row) Object.defineProperty(row, 'isFresh', { value: true, enumerable: false });
+  return row;
+}
+
 async function createOrder(pharmacyId, patientName, patientPhone, items, notes, requestKey, q = pool) {
   if (!requestKey) {
     const { rows } = await q.query(
@@ -1139,7 +1175,7 @@ async function createOrder(pharmacyId, patientName, patientPhone, items, notes, 
        VALUES ($1, $2, $3, $4, $5) RETURNING *`,
       [pharmacyId, patientName, patientPhone, JSON.stringify(items), notes || null]
     );
-    return rows[0];
+    return markFresh(rows[0]);
   }
   const inserted = await q.query(
     `INSERT INTO orders (pharmacy_id, patient_name, patient_phone, items, notes, request_key)
@@ -1148,7 +1184,7 @@ async function createOrder(pharmacyId, patientName, patientPhone, items, notes, 
      RETURNING *`,
     [pharmacyId, patientName, patientPhone, JSON.stringify(items), notes || null, requestKey]
   );
-  if (inserted.rows.length) return inserted.rows[0];
+  if (inserted.rows.length) return markFresh(inserted.rows[0]);
   const existing = await q.query(
     `SELECT * FROM orders WHERE request_key = $1 AND pharmacy_id = $2`,
     [requestKey, pharmacyId]
@@ -1309,6 +1345,53 @@ async function markNurseRequestContacted(id) {
 async function deleteNurseRequest(id) {
   const { rowCount } = await pool.query('DELETE FROM nurse_requests WHERE id = $1', [id]);
   return rowCount > 0;
+}
+
+// ---------- اشتراكات إشعارات الهاتف ----------
+
+async function savePushSubscription({ endpoint, p256dh, auth, role, pharmacyId, lang }) {
+  await pool.query(
+    `INSERT INTO push_subscriptions (endpoint, p256dh, auth, role, pharmacy_id, lang)
+     VALUES ($1, $2, $3, $4, $5, $6)
+     ON CONFLICT (endpoint, role) DO UPDATE SET p256dh = EXCLUDED.p256dh, auth = EXCLUDED.auth,
+       pharmacy_id = EXCLUDED.pharmacy_id, lang = EXCLUDED.lang, fail_count = 0`,
+    [endpoint, p256dh, auth, role, pharmacyId || null, lang === 'en' ? 'en' : 'ar']
+  );
+}
+
+async function findPushSubscription(endpoint, role) {
+  const { rows } = await pool.query('SELECT * FROM push_subscriptions WHERE endpoint = $1 AND role = $2', [endpoint, role]);
+  return rows[0] || null;
+}
+
+// المستلمون: كل أصحاب الأدوار المذكورة، وصيدليات بعينها
+async function getPushSubscriptionsFor({ roles = [], pharmacyIds = [] }) {
+  const { rows } = await pool.query(
+    `SELECT * FROM push_subscriptions
+     WHERE (role <> 'pharmacy' AND role = ANY($1::text[]))
+        OR (role = 'pharmacy' AND pharmacy_id = ANY($2::int[]))`,
+    [roles, pharmacyIds.map(Number)]
+  );
+  return rows;
+}
+
+async function deletePushSubscription(id) {
+  await pool.query('DELETE FROM push_subscriptions WHERE id = $1', [id]);
+}
+async function deletePushSubscriptionByEndpoint(endpoint, role) {
+  await pool.query('DELETE FROM push_subscriptions WHERE endpoint = $1 AND role = $2', [endpoint, role]);
+}
+// تغيير كلمة مرور مدير التمريض أو إيقافها: لا تبقى إشعارات التمريض تصل إلى جهازه القديم
+async function deletePushSubscriptionsByRole(role) {
+  await pool.query('DELETE FROM push_subscriptions WHERE role = $1', [role]);
+}
+async function markPushOk(id) {
+  await pool.query('UPDATE push_subscriptions SET last_ok_at = NOW(), fail_count = 0 WHERE id = $1', [id]);
+}
+// رفض متكرر من خدمة الإشعارات (لا 404 ولا 410): بعد 20 مرة متتالية يُحذف الاشتراك
+async function markPushFailed(id) {
+  await pool.query('UPDATE push_subscriptions SET fail_count = fail_count + 1 WHERE id = $1', [id]);
+  await pool.query('DELETE FROM push_subscriptions WHERE id = $1 AND fail_count >= 20', [id]);
 }
 
 // أسماء الصيدليات المنضمة ومدنها فقط، لبطاقة "انضم إلينا". هذه الأسماء ظاهرة للمرضى
@@ -1553,6 +1636,15 @@ module.exports = {
   getNurseRequests,
   markNurseRequestContacted,
   deleteNurseRequest,
+  setSettingIfMissing,
+  savePushSubscription,
+  findPushSubscription,
+  getPushSubscriptionsFor,
+  deletePushSubscription,
+  deletePushSubscriptionByEndpoint,
+  deletePushSubscriptionsByRole,
+  markPushOk,
+  markPushFailed,
   launchReset,
   getAdminStats,
   getOnDutyPharmacies,
