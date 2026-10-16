@@ -18,6 +18,12 @@ function readJsonArray(key) {
 const API = '/api';
 let currentPharmacy = null;
 let adminPassword = null;
+// مدير التمريض: كلمة مروره الخاصة تفتح التمريض وحده (الطلبات والممرضين والتقييمات)
+let managerPassword = null;
+let managerSessionId = 0;
+let managerLoadedOnce = false;
+let managerTab = 'requests';
+let managerCache = { nurses: [], requests: [], pendingRatings: [] };
 let cart = readJsonArray('cart');
 // التصنيف الحالي لصفحة البحث: 'medicine' (الرئيسية) أو 'cosmetic' (مستحضرات تجميل)
 let currentCategory = 'medicine';
@@ -201,6 +207,57 @@ const translations = {
     danger_delete_cert: 'احذف الشهادة', danger_clear_duty: 'ألغِ كل المناوبات', danger_delete_pharmacy: 'احذف الصيدلية',
     danger_delete_medicine: 'احذف الدواء', danger_delete_nurse: 'احذف الممرض', danger_reject_rating: 'ارفض التقييم',
     danger_delete_rating: 'احذف التقييم',
+    // ---- التمريض: طلب زيارة، وبطاقة الانضمام، ولوحة مدير التمريض (أكتوبر 2026) ----
+    nurse_request_btn: '🩺 اطلب زيارة تمريضية', nurse_unavailable_note: 'هذا الممرض غير متاح حالياً',
+    nreq_title: 'طلب زيارة من {name}',
+    nreq_sub: 'يصل طلبك إلى مدير التمريض، فيتصل بك ليرتّب الزيارة مع الممرض.',
+    nreq_name_label: 'الاسم', nreq_phone_label: 'رقم الهاتف', nreq_area_label: 'المنطقة أو الحي',
+    nreq_notes_label: 'الخدمة المطلوبة', nreq_optional: '(اختياري)',
+    nreq_notes_placeholder: 'مثل: تبديل ضماد، أو حقنة، أو قياس ضغط',
+    nreq_submit: 'أرسل الطلب',
+    nreq_privacy: 'رقمك يصل إلى مدير التمريض وحده، ويُحذف بعد 30 يوماً.',
+    nreq_success: 'وصل طلبك. سيتصل بك مدير التمريض قريباً',
+    nreq_name_required: 'اكتب اسمك.', nreq_phone_invalid: 'اكتب رقم هاتف صحيحاً من 7 إلى 15 رقماً.',
+    nreq_area_required: 'اكتب منطقتك أو حيّك، كي يعرف مدير التمريض أي ممرض أقرب إليك.',
+    nursing_join_title: 'هل أنت ممرض أو ممرضة؟', nursing_join_text: 'انضم إلى المنصة: تواصل مع مدير التمريض.',
+    nursing_join_wa_msg: 'مرحباً، أعمل في التمريض وأرغب بالانضمام إلى منصة دوائي جاهز.',
+    mgr_login_title: '🩺 دخول مدير التمريض', mgr_login_sub: 'لإدارة الممرضين وطلبات الزيارات فقط.',
+    mgr_password_placeholder: 'كلمة مرور مدير التمريض', mgr_login_btn: 'دخول مدير التمريض',
+    mgr_wrong_password: 'كلمة مرور مدير التمريض غير صحيحة',
+    mgr_session_expired: 'انتهت جلسة مدير التمريض: تغيّرت كلمة المرور أو أُوقف الدخول. سجّل الدخول من جديد.',
+    staff_banner_manager_title: 'لوحة مدير التمريض',
+    staff_banner_manager_sub: 'تابع طلبات الزيارات، ونظّم الممرضين وتقييماتهم.',
+    mgr_panel_title: 'لوحة مدير التمريض 🩺', mgr_tabs_aria: 'أقسام لوحة مدير التمريض',
+    mgr_stat_new: 'طلبات جديدة', mgr_stat_available: 'ممرضون متاحون', mgr_stat_pending: 'تقييمات تنتظر',
+    mgr_tab_requests: 'الطلبات', mgr_tab_nurses: 'الممرضون', mgr_tab_ratings: 'التقييمات',
+    nreq_empty_title: 'لا طلبات بعد', nreq_empty_sub: 'حين يطلب مريض زيارة تمريضية يظهر طلبه هنا.',
+    nreq_new_badge: 'جديد', nreq_done_badge: '✓ تم التواصل', nreq_mark_done: '✓ تم التواصل',
+    nreq_nurse_label: 'الممرض المطلوب', nreq_nurse_deleted: '(حُذف من القائمة)',
+    nreq_delete_btn: 'حذف الطلب', nreq_delete_confirm: 'حذف طلب {name}؟ لا يمكن التراجع عن الحذف.',
+    nreq_wa_msg: 'مرحباً {name}، معك مدير التمريض في منصة دوائي جاهز بخصوص طلب الزيارة التمريضية.',
+    nreq_auto_delete_note: 'تُحذف الطلبات تلقائياً بعد 30 يوماً، لأنها تحمل أرقام هواتف المرضى.',
+    mgr_no_delete_hint: 'لإخفاء ممرض عن المرضى اجعله «غير متاح». حذف الممرضين للإدارة وحدها.',
+    mgr_edit_btn: 'تعديل', mgr_no_pending_ratings: 'لا تقييمات تنتظر الموافقة.',
+    cert_pill_yes: '✓ شهادة موثّقة', cert_pill_no: 'لا شهادة',
+    nurse_phone_label: 'هاتف الممرض',
+    loc_city_placeholder: 'مدينة العمل', loc_area_placeholder: 'الحي أو المنطقة',
+    loc_street_placeholder: 'الشارع أو أقرب علامة (لا يراه المرضى)',
+    loc_hint: 'المريض يرى المدينة والحي فقط. الشارع يراه مدير التمريض والإدارة وحدهما.',
+    mgr_settings_title: '🩺 مدير التمريض', mgr_status_on: '● الدخول مفعّل', mgr_status_off: '● الدخول موقوف',
+    mgr_settings_desc: 'مدير التمريض يدخل من صفحة الإدارة نفسها بكلمة مروره، ولا يرى إلا التمريض: الطلبات والممرضين والتقييمات. لا يحذف ممرضاً ولا يرى ملفات الشهادات.',
+    mgr_pw_label: 'كلمة مرور مدير التمريض', mgr_pw_change_label: 'كلمة مرور جديدة لمدير التمريض',
+    mgr_pw_placeholder: '8 أحرف على الأقل', mgr_pw_save: 'احفظ كلمة المرور',
+    mgr_pw_hint: 'أعطها لمدير التمريض وحده، ولا تستعمل كلمة مرور الإدارة. حفظ كلمة جديدة يُخرج من يستعمل القديمة.',
+    mgr_pw_too_short: 'كلمة المرور يجب أن تكون 8 أحرف على الأقل.',
+    mgr_pw_same_as_admin: 'لا تستعمل كلمة مرور الإدارة لمدير التمريض، وإلا صار قادراً على دخول الإدارة كلها.',
+    mgr_pw_saved: 'حُفظت كلمة مرور مدير التمريض.',
+    mgr_disable_btn: 'أوقف الدخول', danger_disable_manager: 'أوقف الدخول',
+    mgr_disable_confirm: 'إيقاف دخول مدير التمريض؟ تُرفض كلمة مروره فوراً، ويمكنك وضع كلمة جديدة متى شئت.',
+    mgr_disabled_done: 'أُوقف دخول مدير التمريض.',
+    mgr_contact_label: 'رقم مدير التمريض للانضمام', mgr_contact_save: 'احفظ الرقم',
+    mgr_contact_hint: 'يظهر في صفحة التمريض في بطاقة «هل أنت ممرض أو ممرضة؟». اتركه فارغاً لإخفاء البطاقة.',
+    mgr_contact_saved: 'حُفظ الرقم، وظهرت البطاقة في صفحة التمريض.', mgr_contact_cleared: 'حُذف الرقم وأُخفيت البطاقة.',
+    admin_requests_title: '🩺 طلبات الزيارات التمريضية',
     pharm_login_no_account: 'إن لم يكن لديك حساب بعد، فتواصل مع فريق دوائي جاهز لتسجيل صيدليتك من البطاقة أدناه.',
     username_placeholder: 'اسم المستخدم', password_placeholder: 'كلمة المرور', login_btn: 'دخول',
     pharm_dashboard_title: 'لوحة الصيدلي', pharmacy_label_prefix: 'صيدلية:', logout_btn: '🚪 تسجيل الخروج',
@@ -826,6 +883,57 @@ const translations = {
     danger_delete_cert: 'Delete certificate', danger_clear_duty: 'Clear all duty', danger_delete_pharmacy: 'Delete pharmacy',
     danger_delete_medicine: 'Delete medicine', danger_delete_nurse: 'Delete nurse', danger_reject_rating: 'Reject review',
     danger_delete_rating: 'Delete review',
+    // ---- Nursing: visit request, join card, nursing manager panel (October 2026) ----
+    nurse_request_btn: '🩺 Request a home nursing visit', nurse_unavailable_note: 'This nurse is currently unavailable',
+    nreq_title: 'Visit request: {name}',
+    nreq_sub: 'Your request goes to the nursing manager, who will call you to arrange the visit with the nurse.',
+    nreq_name_label: 'Your name', nreq_phone_label: 'Phone number', nreq_area_label: 'Area or neighbourhood',
+    nreq_notes_label: 'Service needed', nreq_optional: '(optional)',
+    nreq_notes_placeholder: 'e.g. dressing change, injection, blood pressure check',
+    nreq_submit: 'Send request',
+    nreq_privacy: 'Your number goes only to the nursing manager and is deleted after 30 days.',
+    nreq_success: 'Your request has arrived. The nursing manager will call you soon',
+    nreq_name_required: 'Please enter your name.', nreq_phone_invalid: 'Enter a valid phone number of 7 to 15 digits.',
+    nreq_area_required: 'Enter your area or neighbourhood, so the nursing manager knows which nurse is closest to you.',
+    nursing_join_title: 'Are you a nurse?', nursing_join_text: 'Join the platform: contact the nursing manager.',
+    nursing_join_wa_msg: 'Hello, I work in nursing and would like to join the Dawaai Jahez platform.',
+    mgr_login_title: '🩺 Nursing manager sign-in', mgr_login_sub: 'For managing nurses and visit requests only.',
+    mgr_password_placeholder: 'Nursing manager password', mgr_login_btn: 'Sign in as nursing manager',
+    mgr_wrong_password: 'Incorrect nursing manager password',
+    mgr_session_expired: 'The nursing manager session has ended: the password was changed or sign-in was disabled. Please sign in again.',
+    staff_banner_manager_title: 'Nursing manager panel',
+    staff_banner_manager_sub: 'Follow visit requests, and manage nurses and their reviews.',
+    mgr_panel_title: 'Nursing manager panel 🩺', mgr_tabs_aria: 'Nursing manager panel sections',
+    mgr_stat_new: 'New requests', mgr_stat_available: 'Available nurses', mgr_stat_pending: 'Reviews waiting',
+    mgr_tab_requests: 'Requests', mgr_tab_nurses: 'Nurses', mgr_tab_ratings: 'Reviews',
+    nreq_empty_title: 'No requests yet', nreq_empty_sub: 'When a patient requests a nursing visit, it appears here.',
+    nreq_new_badge: 'New', nreq_done_badge: '✓ Contacted', nreq_mark_done: '✓ Contacted',
+    nreq_nurse_label: 'Requested nurse', nreq_nurse_deleted: '(removed from the list)',
+    nreq_delete_btn: 'Delete request', nreq_delete_confirm: 'Delete the request from {name}? This cannot be undone.',
+    nreq_wa_msg: 'Hello {name}, this is the nursing manager at Dawaai Jahez about your nursing visit request.',
+    nreq_auto_delete_note: 'Requests are deleted automatically after 30 days, because they carry patients\' phone numbers.',
+    mgr_no_delete_hint: 'To hide a nurse from patients, set them as "unavailable". Only the admin can delete nurses.',
+    mgr_edit_btn: 'Edit', mgr_no_pending_ratings: 'No reviews are waiting for approval.',
+    cert_pill_yes: '✓ Verified certificate', cert_pill_no: 'No certificate',
+    nurse_phone_label: 'Nurse phone',
+    loc_city_placeholder: 'City of work', loc_area_placeholder: 'Area or neighbourhood',
+    loc_street_placeholder: 'Street or nearest landmark (hidden from patients)',
+    loc_hint: 'Patients see the city and area only. The street is visible to the nursing manager and the admin only.',
+    mgr_settings_title: '🩺 Nursing manager', mgr_status_on: '● Sign-in enabled', mgr_status_off: '● Sign-in disabled',
+    mgr_settings_desc: 'The nursing manager signs in from this same admin page with their own password, and sees nursing only: requests, nurses and reviews. They cannot delete nurses or open certificate files.',
+    mgr_pw_label: 'Nursing manager password', mgr_pw_change_label: 'New nursing manager password',
+    mgr_pw_placeholder: 'At least 8 characters', mgr_pw_save: 'Save password',
+    mgr_pw_hint: 'Give it to the nursing manager only, and do not reuse the admin password. Saving a new password signs out anyone using the old one.',
+    mgr_pw_too_short: 'The password must be at least 8 characters.',
+    mgr_pw_same_as_admin: 'Do not use the admin password for the nursing manager, or they could open the whole admin panel.',
+    mgr_pw_saved: 'The nursing manager password has been saved.',
+    mgr_disable_btn: 'Disable sign-in', danger_disable_manager: 'Disable sign-in',
+    mgr_disable_confirm: 'Disable nursing manager sign-in? Their password stops working immediately, and you can set a new one at any time.',
+    mgr_disabled_done: 'Nursing manager sign-in has been disabled.',
+    mgr_contact_label: 'Nursing manager number for joining', mgr_contact_save: 'Save number',
+    mgr_contact_hint: 'Shown on the nursing page in the "Are you a nurse?" card. Leave it empty to hide the card.',
+    mgr_contact_saved: 'The number has been saved, and the card now appears on the nursing page.', mgr_contact_cleared: 'The number was removed and the card is hidden.',
+    admin_requests_title: '🩺 Nursing visit requests',
     pharm_login_no_account: "If you don't have an account yet, contact the Dawaai Jahez team to register your pharmacy using the card below.",
     username_placeholder: 'Username', password_placeholder: 'Password', login_btn: 'Login',
     pharm_dashboard_title: 'Pharmacist Panel', pharmacy_label_prefix: 'Pharmacy:', logout_btn: '🚪 Logout',
@@ -1490,6 +1598,16 @@ const BACKEND_ERROR_MAP = {
 // الإنكليزية. العربية تُعرض كما أرسلها الخادم، والإنكليزية من هنا. أي رسالة جديدة
 // تُضاف إلى الخادم ولا تُضاف هنا تظهر في الواجهة الإنكليزية برسالة عامة مفهومة.
 const BACKEND_ERROR_EN = {
+  'المنطقة أو الحي مطلوب': 'The area or neighbourhood is required.',
+  'اسم المنطقة طويل جداً': 'The area name is too long.',
+  'الملاحظة طويلة جداً': 'The note is too long.',
+  'الممرض غير متاح حالياً': 'This nurse is currently unavailable.',
+  'كلمة المرور يجب أن تكون 8 أحرف على الأقل': 'The password must be at least 8 characters.',
+  'كلمة المرور طويلة جداً': 'The password is too long.',
+  'لا تستعمل كلمة مرور الإدارة لمدير التمريض': 'Do not use the admin password for the nursing manager.',
+  'حدث خطأ أثناء حفظ كلمة المرور': 'An error occurred while saving the password. Please try again shortly.',
+  'حدث خطأ أثناء إيقاف الدخول': 'An error occurred while disabling sign-in. Please try again shortly.',
+  'كلمة مرور مدير التمريض غير صحيحة': 'Incorrect nursing manager password.',
   'بيانات الدخول غير صالحة': 'Invalid login details.',
   'حدث خطأ في الخادم': 'A server error occurred. Please try again shortly.',
   'كلمة مرور الإدارة غير صحيحة': 'Incorrect admin password.',
@@ -1806,6 +1924,8 @@ function applyLanguage() {
   // فحوصاتها الدورية وتقاريرها وهي مخفية. وعند فتحها لاحقاً تُرسم من جديد على أي حال.
   if (adminPassword && document.getElementById('view-admin').style.display !== 'none') {
     renderAdminPanelUI();
+  } else if (managerPassword && document.getElementById('view-admin').style.display !== 'none') {
+    renderManagerPanelUI();
   } else if (document.getElementById('admin-auth-section').innerHTML.trim()) {
     renderAdminAuthForm();
   }
@@ -1819,6 +1939,12 @@ function applyLanguage() {
       const panel = document.getElementById(`nurse-detail-${id}`);
       if (panel) { panel.style.display = 'block'; renderNurseDetail(id); }
     }
+  }
+  renderNursingJoin();
+  // نافذة طلب الزيارة مفتوحة: تُرسم باللغة الجديدة وما كُتب فيها باقٍ
+  if (nreqState) {
+    if (!nreqState.sent) saveNreqDraft();
+    renderNurseRequestSheet();
   }
 }
 
@@ -1927,6 +2053,11 @@ function updateStaffBanner() {
   const title = document.getElementById('staff-banner-title');
   const sub = document.getElementById('staff-banner-sub');
   if (!title || !sub || (view !== 'pharmacist' && view !== 'admin')) return;
+  if (view === 'admin' && managerPassword) {
+    title.textContent = t('staff_banner_manager_title');
+    sub.textContent = t('staff_banner_manager_sub');
+    return;
+  }
   title.textContent = t(view === 'admin' ? 'staff_banner_admin_title' : 'staff_banner_pharmacist_title');
   sub.textContent = t(view === 'admin' ? 'staff_banner_admin_sub' : 'staff_banner_pharmacist_sub');
 }
@@ -1946,9 +2077,9 @@ function showView(view) {
   document.getElementById('view-admin').style.display = view === 'admin' ? 'block' : 'none';
   document.getElementById('view-nursing').style.display = view === 'nursing' ? 'block' : 'none';
   if (view === 'pharmacist' && !currentPharmacy) renderPharmacyAuthForm();
-  if (view === 'admin' && !adminPassword) renderAdminAuthForm();
+  if (view === 'admin' && !adminPassword && !managerPassword) renderAdminAuthForm();
   if (view !== 'nursing') stopNursingPolling();
-  if (view !== 'admin') stopAdminRatingsPolling();
+  if (view !== 'admin') { stopAdminRatingsPolling(); stopManagerPolling(); }
   updateCartVisibility();
 }
 
@@ -2094,6 +2225,7 @@ function headerGoAdmin(link) {
   const wasOnAdmin = document.getElementById('view-admin').style.display !== 'none';
   showView('admin');
   if (adminPassword && !wasOnAdmin) renderAdminPanel();
+  if (managerPassword && !wasOnAdmin) { loadManagerPanel(); startManagerPolling(); }
   document.getElementById('view-admin').scrollIntoView({ behavior: 'smooth', block: 'start' });
   setActiveNav(link);
 }
@@ -3109,6 +3241,7 @@ function renderNursesList(nurses) {
         <span class="badge ${n.available ? 'yes' : 'no'}">${n.available ? t('nurse_available_full') : t('nurse_unavailable_full')}</span>
       </div>
       <div class="result-row">🎓 ${escapeHtml(n.specialty || t('general_nurse_label'))}</div>
+      ${nurseLocationText(n) ? `<div class="result-row">📍 ${escapeHtml(nurseLocationText(n))}</div>` : ''}
       ${Number.isInteger(n.experience_years) && n.experience_years > 0 ? `<div class="result-row">⏳ ${t('nurse_experience_label')}: <bdi>${n.experience_years}</bdi></div>` : ''}
       ${n.services ? `<div class="result-row">🩺 ${t('nurse_services_label')}: ${escapeHtml(n.services)}</div>` : ''}
       <div class="result-row">
@@ -3126,6 +3259,7 @@ async function loadNurses() {
   const container = document.getElementById('nurses-list');
   container.innerHTML = skeletonHtml(3);
   openNurseDetailIds.clear();
+  loadNursingContact();
   try {
     const res = await fetchWithTimeout(`${API}/nurses`, {}, 15000);
     const nurses = await readJsonOk(res);
@@ -3220,7 +3354,13 @@ async function renderNurseDetail(nurseId, draft) {
 
   const alreadyRated = hasRatedNurse(nurseId);
 
+  // طلب الزيارة أول ما في التفاصيل. الممرض غير المتاح لا يُطلب، فيظهر سبب غياب الزر بدله
+  const requestHtml = !nurse ? '' : nurse.available
+    ? `<button type="button" class="primary nurse-request-btn" onclick="openNurseRequest(${nurseId})">${t('nurse_request_btn')}</button>`
+    : `<div class="nurse-unavailable-note">${t('nurse_unavailable_note')}</div>`;
+
   panel.innerHTML = `
+    ${requestHtml}
     <div class="box">
       ${nurse && nurse.university ? `<div class="result-row">🎓 ${escapeHtml(nurse.university)}${nurse.graduation_year ? ` - ${t('grad_year_label')} ${escapeHtml(nurse.graduation_year)}` : ''}</div>` : ''}
       ${nurse && nurse.phone ? `<div class="result-row">📞 ${escapeHtml(nurse.phone)}</div>` : ''}
@@ -4875,6 +5015,13 @@ async function deleteMyAccountNow() {
 
 function renderAdminAuthForm() {
   document.getElementById('admin-panel').style.display = 'none';
+  if (!managerPassword) document.getElementById('manager-panel').style.display = 'none';
+  // تبديل اللغة يعيد رسم البطاقتين: ما كُتب في حقلي كلمة المرور يبقى
+  const keep = {};
+  for (const id of ['admin-password-input', 'mgr-password-input']) {
+    const el = document.getElementById(id);
+    if (el && el.value) keep[id] = el.value;
+  }
   document.getElementById('admin-auth-section').innerHTML = `
     ${staffNoteHtml('staff_note_admin')}
     <div class="auth-box">
@@ -4884,7 +5031,9 @@ function renderAdminAuthForm() {
       </div>
       <button class="primary" id="admin-login-btn" onclick="checkAdminPassword()">${t('login_btn')}</button>
     </div>
+    ${managerLoginCardHtml()}
   `;
+  for (const [id, v] of Object.entries(keep)) document.getElementById(id).value = v;
 }
 
 function checkAdminPassword() { return runGuarded('checkAdminPassword', 'admin-login-btn', checkAdminPasswordNow); }
@@ -4916,7 +5065,7 @@ function logoutAdmin() {
   stopAdminRatingsPolling();
   adminPanelLoadedOnce = false;
   // ن10: لا يبقى شيء من جلسة الإدارة في الذاكرة بعد الخروج
-  adminDataCache = { pharmacies: [], medicines: [], nurses: [], pendingRatings: [], stats: null };
+  adminDataCache = { pharmacies: [], medicines: [], nurses: [], pendingRatings: [], stats: null, nurseRequests: null, managerSettings: null };
   adsAdminCache = [];
   editingPharmacyId = null;
   editingPharmacyNameDraft = '';
@@ -4959,6 +5108,7 @@ let editingPharmacyNameDraft = '';
 const ADMIN_DRAFT_FIELDS = ['ph-name', 'ph-address', 'ph-city', 'ph-phone', 'ph-whatsapp', 'ph-username', 'ph-password',
   'med-name', 'med-generic', 'med-alt', 'med-category',
   'nurse-name', 'nurse-specialty', 'nurse-university', 'nurse-grad-year', 'nurse-phone', 'nurse-exp-years', 'nurse-services',
+  'nurse-city', 'nurse-area', 'nurse-street', 'mgr-pw-new',
   'ad-advertiser', 'ad-advertiser-en', 'ad-desc', 'ad-desc-en', 'ad-link', 'ad-starts', 'ad-ends'];
 const ADMIN_DRAFT_RADIOS = ['ph-listing-type', 'ad-placement'];
 
@@ -4968,7 +5118,7 @@ const ADMIN_DRAFT_RADIOS = ['ph-listing-type', 'ad-placement'];
 // عن القيمة التي رُسم بها الحقل، في ذاكرة باسم الحقل، ونعيده بعد كل رسم. والذاكرة لا تُمحى
 // إن أخفى البحث الصف، فيعود ما كُتب فيه عند ظهوره. بعد الحفظ الناجح تُنسى مسودة الصف
 // (forgetRowDrafts)، فيظهر الحقل بقيمته الجديدة من الخادم.
-const ADMIN_ROW_FIELD_RE = /^(addr-input|coords-input|uname-input|nurse-exp|nurse-svc|duty-on|duty-day|duty-shift)-\d+$/;
+const ADMIN_ROW_FIELD_RE = /^(addr-input|coords-input|uname-input|nurse-exp|nurse-svc|nurse-city|nurse-area|nurse-street|duty-on|duty-day|duty-shift)-\d+$/;
 let adminRowDrafts = {};
 
 function rowFieldChanged(el) {
@@ -5119,17 +5269,22 @@ async function renderAdminPanel() {
       if (!r.ok || !Array.isArray(data)) throw new Error('admin list failed: ' + r.status);
       return data;
     });
-    const [pharmacies, medicines, nurses, pendingRatings, stats] = await Promise.all([
+    const [pharmacies, medicines, nurses, pendingRatings, stats, nurseRequests, managerSettings] = await Promise.all([
       list(`${API}/pharmacies`, { headers: adminHeaders() }),
       list(`${API}/medicines`, { headers: adminHeaders() }),
       list(`${API}/nurses/admin/all`, { headers: adminHeaders(), cache: 'no-store' }),
       list(`${API}/nurses/ratings/pending`, { headers: adminHeaders() }),
       // فشل الإحصاءات وحدها يجب ألا يُسقط اللوحة كلها — تُعاد null فيُخفى القسم فقط
-      fetchWithTimeout(`${API}/stats`, { headers: adminHeaders() }, 20000).then(r => r.ok ? r.json() : null).catch(() => null)
+      fetchWithTimeout(`${API}/stats`, { headers: adminHeaders() }, 20000).then(r => r.ok ? r.json() : null).catch(() => null),
+      // طلبات الزيارات وإعدادات مدير التمريض: فشلهما يُخفي قسميهما فقط، لا اللوحة كلها
+      fetchWithTimeout(`${API}/nurses/requests`, { headers: adminHeaders(), cache: 'no-store' }, 20000)
+        .then(r => r.ok ? r.json() : null).then(d => Array.isArray(d) ? d : null).catch(() => null),
+      fetchWithTimeout(`${API}/nurses/manager/settings`, { headers: adminHeaders(), cache: 'no-store' }, 20000)
+        .then(r => r.ok ? r.json() : null).catch(() => null)
     ]);
     if (adminSessionGone(session) || seq < adminPanelShownSeq) return;
     adminPanelShownSeq = seq;
-    adminDataCache = { pharmacies, medicines, nurses, pendingRatings, stats };
+    adminDataCache = { pharmacies, medicines, nurses, pendingRatings, stats, nurseRequests, managerSettings };
     renderAdminPanelUI();
     adminPanelLoadedOnce = true;
   } catch (err) {
@@ -5233,7 +5388,7 @@ function renderStatsSection(stats) {
 // إعادة رسم اللوحة من آخر بيانات محفوظة بدون أي طلب شبكة جديد (تبديل اللغة، أو بعد أي إجراء إداري)
 function renderAdminPanelUI() {
   const adminDraft = readAdminDraft();
-  const { pharmacies, medicines, nurses, pendingRatings, stats } = adminDataCache;
+  const { pharmacies, medicines, nurses, pendingRatings, stats, nurseRequests, managerSettings } = adminDataCache;
 
   approvedRatingsLoaded = false;
   lastPendingRatingsSnapshot = JSON.stringify(pendingRatings);
@@ -5502,6 +5657,7 @@ function renderAdminPanelUI() {
       <input id="nurse-phone" placeholder="${t('phone_placeholder')}">
       <input id="nurse-exp-years" type="number" min="0" max="60" inputmode="numeric" placeholder="${t('exp_years_placeholder')}">
       <input id="nurse-services" maxlength="200" placeholder="${t('services_placeholder')}">
+      ${locationFieldsHtml(k => `nurse-${k}`, null)}
       <p class="muted" style="margin:-2px 0 10px; font-size:13px;">${t('nurse_cert_after_add_hint')}</p>
       <button class="primary" id="add-nurse-btn" onclick="addNurseAdmin()">${t('add_nurse_btn')}</button>
     </div>
@@ -5519,7 +5675,7 @@ function renderAdminPanelUI() {
           : `<div class="stock-table-header"><span>${t('nurses_table_header')}</span><span class="col-action">${t('actions_header_plural')}</span></div>
              ${nurses.map(n => `
                <div class="row">
-                 <span><bdi>${escapeHtml(n.name)}</bdi> <span class="muted" style="font-size:12px;">${escapeHtml(n.specialty || '')}</span></span>
+                 <span><bdi>${escapeHtml(n.name)}</bdi> <span class="muted" style="font-size:12px;">${escapeHtml(n.specialty || '')}</span>${nurseLocationText(n) ? `<br><span class="muted" style="font-size:12.5px;">📍 ${escapeHtml(nurseLocationText(n))}</span>` : ''}</span>
                  <div style="display:flex; gap:8px 6px; align-items:center; flex-wrap:wrap; justify-content:flex-end;">
                    <button class="btn-outline blue small table-action-btn" onclick="toggleNurseEditor(${n.id})">${n.cert_verified ? '✓ ' : ''}${t('nurse_profile_btn')}</button>
                    <button class="toggle-btn ${n.available ? 'yes' : 'no'}" onclick="toggleNurseAvailabilityAdmin(${n.id}, ${!n.available})">${n.available ? t('nurse_available_short') : t('nurse_unavailable_short')}</button>
@@ -5531,6 +5687,9 @@ function renderAdminPanelUI() {
         }
       </div>
     </div>
+
+    ${managerSettingsCardHtml(managerSettings)}
+    ${adminRequestsSectionHtml(nurseRequests)}
 
     <div id="pending-ratings-wrap" style="${pendingRatings.length === 0 ? 'display:none;' : ''}">
       <div class="orders-wrap">
@@ -6910,6 +7069,7 @@ function nurseEditorHtml(n) {
     type: n.cert_mime === 'application/pdf' ? t('cert_type_pdf') : t('cert_type_image'),
     size: formatBytes(n.cert_size), date }) : t('cert_none');
   return `
+    ${nursePhoneLineHtml(n)}
     <div class="nurse-editor-grid">
       <label class="admin-address-field"><span>${t('nurse_experience_label')}</span>
         <input type="number" min="0" max="60" inputmode="numeric" id="nurse-exp-${n.id}" value="${Number.isInteger(n.experience_years) ? n.experience_years : ''}">
@@ -6917,6 +7077,7 @@ function nurseEditorHtml(n) {
       <label class="admin-address-field"><span>${t('nurse_services_label')}</span>
         <input type="text" maxlength="200" id="nurse-svc-${n.id}" value="${escapeHtml(n.services || '')}" placeholder="${t('services_placeholder')}">
       </label>
+      ${locationFieldsHtml(k => `nurse-${k}-${n.id}`, n)}
       <button type="button" class="primary" onclick="saveNurseProfile(${n.id})">${t('nurse_profile_save')}</button>
     </div>
     <div class="nurse-cert-box">
@@ -6956,11 +7117,12 @@ async function saveNurseProfile(id) {
   const n = nurseFromCache(id); if (!n) return;
   try {
     const res = await fetchWithTimeout(`${API}/nurses/${id}/profile`, { method: 'PUT', headers: adminHeaders(),
-      body: JSON.stringify({ experience_years: document.getElementById(`nurse-exp-${id}`).value, services: document.getElementById(`nurse-svc-${id}`).value }) }, 20000);
+      body: JSON.stringify({ experience_years: document.getElementById(`nurse-exp-${id}`).value, services: document.getElementById(`nurse-svc-${id}`).value,
+        ...readLocationFields(k => `nurse-${k}-${id}`) }) }, 20000);
     const data = await res.json().catch(() => ({}));
     if (!res.ok) { await customAlert(translateApiError(data.error), 'error'); return; }
-    n.experience_years = data.experience_years; n.services = data.services;
-    forgetRowDrafts([`nurse-exp-${id}`, `nurse-svc-${id}`]);
+    Object.assign(n, data);
+    forgetRowDrafts([`nurse-exp-${id}`, `nurse-svc-${id}`, `nurse-city-${id}`, `nurse-area-${id}`, `nurse-street-${id}`]);
     refreshNurseEditor(id);
     await customAlert(t('nurse_profile_saved'), 'success');
   } catch (err) { await customAlert(t('server_error_title'), 'error'); }
@@ -7435,6 +7597,842 @@ function togglePassword(inputId, btn) {
   }
 }
 
+// ===================== التمريض: طلب زيارة، ومدير التمريض (أكتوبر 2026) =====================
+// رقم الممرض لم يعد يظهر للمرضى: يطلب المريض زيارة، فيصل الطلب إلى مدير التمريض فيتصل به
+// وبالممرض. ومدير التمريض يدخل من صفحة الإدارة نفسها ببطاقة ثانية وكلمة مرور خاصة به،
+// فلا يرى إلا التمريض. الخادم هو الحارس الحقيقي: كلمة مروره لا تفتح أي مسار آخر.
+
+// رقم سوري لرابط واتساب: 09… يصير 9639…، و00963… يصير 963…. غير ذلك (رقم أرضي، أو أجنبي
+// ناقص) يعيد null فيُخفى زر واتساب ويبقى زر الاتصال. القاعدة نفسها التي يطبّقها الخادم على
+// رقم واتساب الصيدلية.
+function syWaNumber(phone) {
+  let d = String(phone || '').replace(/[٠-٩]/g, c => String('٠١٢٣٤٥٦٧٨٩'.indexOf(c))).replace(/\D/g, '');
+  if (d.startsWith('00963')) d = d.slice(2);
+  else if (d.startsWith('963')) { /* جاهز */ }
+  else if (d.startsWith('0')) d = '963' + d.slice(1);
+  else if (d.length === 9 && d.startsWith('9')) d = '963' + d;
+  return d.length === 12 && d.startsWith('9639') ? d : null;
+}
+
+// زر واتساب رابطاً (a) لا زراً: يعمل حتى لو أوقف المتصفح النوافذ المنبثقة، وتنسيقه في
+// index.html مكتوب للروابط في بطاقة الانضمام
+function waAnchorHtml(phone, message) {
+  const url = waLink(syWaNumber(phone), message);
+  if (!url) return '';
+  return `<a class="wa-result-btn" href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer" onclick="this.blur()"><span class="wa-icon">💬</span> ${t('wa_result_btn')}</a>`;
+}
+
+// المدينة والحي كما يراهما المريض (الشارع لا يصل إليه أصلاً من الخادم)
+function nurseLocationText(n) {
+  if (!n) return '';
+  return [n.city ? cityName(n.city) : '', (n.area || '').trim()].filter(Boolean).join(currentLang === 'ar' ? '، ' : ', ');
+}
+
+// حقول مكان العمل: المدينة والحي والشارع. idFor يبني معرّف كل حقل، فتُستعمل في نموذج
+// الإضافة وفي تعديل كل ممرض، في الإدارة وفي لوحة مدير التمريض.
+function locationFieldsHtml(idFor, n) {
+  const v = n || {};
+  return `
+    <div class="loc-fields">
+      <select id="${idFor('city')}" aria-label="${t('loc_city_placeholder')}">
+        <option value="">${t('loc_city_placeholder')}</option>
+        ${cityOptionsHtml(v.city || '')}
+      </select>
+      <input id="${idFor('area')}" maxlength="80" placeholder="${t('loc_area_placeholder')}" aria-label="${t('loc_area_placeholder')}" value="${escapeHtml(v.area || '')}">
+      <input class="loc-street" id="${idFor('street')}" maxlength="120" placeholder="${t('loc_street_placeholder')}" aria-label="${t('loc_street_placeholder')}" value="${escapeHtml(v.street || '')}">
+    </div>
+    <p class="loc-hint">${t('loc_hint')}</p>`;
+}
+
+function readLocationFields(idFor) {
+  const v = k => { const el = document.getElementById(idFor(k)); return el ? el.value : ''; };
+  return { city: v('city') || null, area: v('area').trim() || null, street: v('street').trim() || null };
+}
+
+// ---------- صفحة التمريض: بطاقة «هل أنت ممرض أو ممرضة؟» ----------
+
+let nursingContactPhone = null;
+
+async function loadNursingContact() {
+  try {
+    const res = await fetchWithTimeout(`${API}/nurses/contact`, {}, 15000);
+    const data = await readJsonOk(res, 'object');
+    nursingContactPhone = data.phone || null;
+  } catch (err) { /* تبقى آخر قيمة معروفة: البطاقة ثانوية، وفشلها لا يستحق رسالة */ }
+  renderNursingJoin();
+}
+
+function renderNursingJoin() {
+  const box = document.getElementById('nursing-join');
+  if (!box) return;
+  if (!nursingContactPhone) { box.style.display = 'none'; box.innerHTML = ''; return; }
+  box.innerHTML = `
+    <div class="nursing-join-text">
+      <h3>${t('nursing_join_title')}</h3>
+      <p>${t('nursing_join_text')}</p>
+    </div>
+    <div class="nursing-join-actions">
+      ${waAnchorHtml(nursingContactPhone, t('nursing_join_wa_msg'))}
+      ${callBtnHtml(nursingContactPhone)}
+    </div>`;
+  box.style.display = 'flex';
+}
+
+// ---------- صفحة التمريض: نافذة طلب الزيارة ----------
+// الاسم والهاتف والمنطقة تبقى في الذاكرة بعد الإغلاق أو الإرسال (لا في التخزين الدائم)،
+// فمن أغلق النافذة بالخطأ أو طلب ممرضاً آخر لا يكتبها من جديد.
+
+let nreqState = null;          // { nurseId, nurseName, sent }
+const nreqDraft = { name: '', phone: '', area: '', notes: '' };
+let nreqKeyHandler = null;
+let nreqViewportHandler = null;
+
+function saveNreqDraft() {
+  for (const k of ['name', 'phone', 'area', 'notes']) {
+    const el = document.getElementById(`nreq-${k}`);
+    if (el) nreqDraft[k] = el.value;
+  }
+}
+
+function renderNurseRequestSheet() {
+  const overlay = document.getElementById('nreq-overlay');
+  if (!overlay || !nreqState) return;
+  if (nreqState.sent) {
+    overlay.innerHTML = `
+      <div class="nreq-sheet" tabindex="-1">
+        <div class="nreq-success" role="status">
+          <div class="nreq-success-icon" aria-hidden="true">✓</div>
+          <p id="nreq-title">${t('nreq_success')}</p>
+          <button type="button" class="btn-outline blue" id="nreq-ok" onclick="closeNurseRequest()">${t('modal_ok')}</button>
+        </div>
+      </div>`;
+    return;
+  }
+  overlay.innerHTML = `
+    <div class="nreq-sheet" tabindex="-1">
+      <div class="nreq-sheet-head">
+        <h3 id="nreq-title">🩺 ${escapeHtml(tFormat('nreq_title', { name: nreqState.nurseName }))}</h3>
+        <button type="button" class="nreq-sheet-close" onclick="closeNurseRequest()" aria-label="${t('close_aria')}">✕</button>
+      </div>
+      <p class="nreq-sheet-sub">${t('nreq_sub')}</p>
+      <label class="nreq-field"><span>${t('nreq_name_label')}</span>
+        <input id="nreq-name" maxlength="60" autocomplete="name" value="${escapeHtml(nreqDraft.name)}"></label>
+      <label class="nreq-field"><span>${t('nreq_phone_label')}</span>
+        <input id="nreq-phone" type="tel" inputmode="tel" maxlength="20" autocomplete="tel" value="${escapeHtml(nreqDraft.phone)}"></label>
+      <label class="nreq-field"><span>${t('nreq_area_label')}</span>
+        <input id="nreq-area" maxlength="120" value="${escapeHtml(nreqDraft.area)}"></label>
+      <label class="nreq-field"><span>${t('nreq_notes_label')} <small>${t('nreq_optional')}</small></span>
+        <textarea id="nreq-notes" maxlength="300" rows="3" placeholder="${t('nreq_notes_placeholder')}">${escapeHtml(nreqDraft.notes)}</textarea></label>
+      <button type="button" class="primary" id="nreq-submit" onclick="submitNurseRequest()">${t('nreq_submit')}</button>
+      <p class="nreq-privacy">${t('nreq_privacy')}</p>
+    </div>`;
+}
+
+// لوحة مفاتيح الهاتف تغطي أسفل الشاشة دون أن يتغير حجم الصفحة. نضع النافذة في الجزء الظاهر
+// فوقها فقط، وتمرّر داخلها، ويبقى الحقل الذي يكتب فيه المريض ظاهراً.
+function syncNreqViewport() {
+  const overlay = document.getElementById('nreq-overlay');
+  const vv = window.visualViewport;
+  if (!overlay || !vv) return;
+  overlay.style.setProperty('--vv-h', `${Math.round(vv.height)}px`);
+  overlay.style.setProperty('--vv-top', `${Math.round(vv.offsetTop)}px`);
+  const active = document.activeElement;
+  if (active && overlay.contains(active) && /^(INPUT|TEXTAREA)$/.test(active.tagName)) {
+    active.scrollIntoView({ block: 'nearest' });
+  }
+}
+
+function openNurseRequest(nurseId) {
+  const nurse = nursesCache.find(n => n.id === nurseId);
+  const overlay = document.getElementById('nreq-overlay');
+  if (!nurse || !overlay) return;
+  nreqState = { nurseId, nurseName: nurse.name, sent: false };
+  renderNurseRequestSheet();
+  overlay.style.display = 'flex';
+  document.body.classList.add('nreq-lock');
+  overlay.onclick = (e) => { if (e.target === overlay) closeNurseRequest(); };
+  if (nreqKeyHandler) document.removeEventListener('keydown', nreqKeyHandler);
+  nreqKeyHandler = (e) => {
+    // نافذة تنبيه فوقها (خطأ في الحقول مثلاً) تُغلق هي أولاً
+    if (e.key === 'Escape' && document.getElementById('custom-modal-overlay').style.display === 'none') closeNurseRequest();
+  };
+  document.addEventListener('keydown', nreqKeyHandler);
+  if (window.visualViewport && !nreqViewportHandler) {
+    nreqViewportHandler = () => syncNreqViewport();
+    window.visualViewport.addEventListener('resize', nreqViewportHandler);
+    window.visualViewport.addEventListener('scroll', nreqViewportHandler);
+  }
+  syncNreqViewport();
+  // التركيز على النافذة نفسها لا على أول حقل: كي لا تقفز لوحة المفاتيح فوراً فتغطي الشرح
+  dialogOpened(overlay, overlay.querySelector('.nreq-sheet'));
+}
+
+function closeNurseRequest() {
+  const overlay = document.getElementById('nreq-overlay');
+  if (!overlay || overlay.style.display === 'none') return;
+  if (nreqState && !nreqState.sent) saveNreqDraft();
+  overlay.style.display = 'none';
+  overlay.innerHTML = '';
+  overlay.onclick = null;
+  document.body.classList.remove('nreq-lock');
+  if (nreqKeyHandler) { document.removeEventListener('keydown', nreqKeyHandler); nreqKeyHandler = null; }
+  if (nreqViewportHandler && window.visualViewport) {
+    window.visualViewport.removeEventListener('resize', nreqViewportHandler);
+    window.visualViewport.removeEventListener('scroll', nreqViewportHandler);
+  }
+  nreqViewportHandler = null;
+  nreqState = null;
+  dialogClosed(overlay);
+}
+
+function submitNurseRequest() { return runGuarded('submitNurseRequest', 'nreq-submit', submitNurseRequestNow); }
+async function submitNurseRequestNow() {
+  if (!nreqState || nreqState.sent) return;
+  saveNreqDraft();
+  const name = nreqDraft.name.trim();
+  const phone = nreqDraft.phone.replace(/[٠-٩]/g, d => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d))).replace(/[\s\-()]/g, '');
+  const area = nreqDraft.area.trim();
+  const notes = nreqDraft.notes.trim();
+  const problem = !name ? ['nreq_name_required', 'nreq-name']
+    : !/^[0-9]{7,15}$/.test(phone) ? ['nreq_phone_invalid', 'nreq-phone']
+    : !area ? ['nreq_area_required', 'nreq-area'] : null;
+  if (problem) {
+    await customAlert(t(problem[0]), 'warning');
+    const el = document.getElementById(problem[1]);
+    if (el) el.focus();
+    return;
+  }
+  const nurseId = nreqState.nurseId;
+  try {
+    const res = await fetchWithTimeout(`${API}/nurses/${nurseId}/requests`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ patient_name: name, patient_phone: phone, patient_area: area, notes: notes || null })
+    }, 20000);
+    const data = await res.json().catch(() => ({}));
+    if (res.status === 429) { await customAlert(t('rate_limited_error'), 'warning'); return; }
+    if (!res.ok) {
+      await customAlert(translateApiError(data.error), 'error');
+      // صار الممرض غير متاح أو حُذف أثناء الكتابة: نحدّث القائمة كي يرى المريض حاله الآن
+      if (res.status === 404 || res.status === 409) { closeNurseRequest(); pollNurses(); }
+      return;
+    }
+  } catch (err) {
+    const kind = classifyFetchError(err);
+    await customAlert(t(kind === 'offline' ? 'err_offline' : kind === 'timeout' ? 'err_timeout_search' : 'err_network'), 'error');
+    return;
+  }
+  if (!nreqState || nreqState.nurseId !== nurseId) return;
+  nreqDraft.notes = '';
+  nreqState.sent = true;
+  renderNurseRequestSheet();
+  const ok = document.getElementById('nreq-ok');
+  if (ok) ok.focus({ preventScroll: true });
+}
+
+// ---------- مدير التمريض: الدخول والخروج ----------
+
+function managerHeaders() {
+  return { 'Content-Type': 'application/json', 'x-nursing-password': encodeURIComponent(managerPassword || '') };
+}
+
+// بطاقة الدخول الثانية تحت بطاقة الإدارة. زرها بإطار لا ممتلئ، فيبقى دخول الإدارة الأبرز.
+function managerLoginCardHtml() {
+  return `
+    <div class="auth-box mgr-login">
+      <h3>${t('mgr_login_title')}</h3>
+      <p class="muted">${t('mgr_login_sub')}</p>
+      <div class="password-field">
+        <input id="mgr-password-input" type="password" autocomplete="current-password" placeholder="${t('mgr_password_placeholder')}" aria-label="${t('mgr_password_placeholder')}" onkeydown="if(event.key==='Enter') checkManagerPassword()">
+        <button type="button" class="toggle-password" onclick="togglePassword('mgr-password-input', this)" aria-label="${t('show_password_aria')}">👁</button>
+      </div>
+      <button type="button" class="btn-secondary-wide" id="mgr-login-btn" onclick="checkManagerPassword()">${t('mgr_login_btn')}</button>
+    </div>`;
+}
+
+function checkManagerPassword() { return runGuarded('checkManagerPassword', 'mgr-login-btn', checkManagerPasswordNow); }
+async function checkManagerPasswordNow() {
+  const input = document.getElementById('mgr-password-input');
+  const password = input ? input.value : '';
+  if (!password) { await customAlert(t('mgr_wrong_password'), 'error'); return; }
+  let requests;
+  try {
+    const res = await fetchWithTimeout(`${API}/nurses/requests`,
+      { headers: { 'x-nursing-password': encodeURIComponent(password) }, cache: 'no-store' }, 20000);
+    if (res.status === 401) { await customAlert(t('mgr_wrong_password'), 'error'); return; }
+    if (res.status === 429) { await customAlert(t('rate_limited_error'), 'warning'); return; }
+    requests = await readJsonOk(res);
+  } catch (err) {
+    await customAlert(t('server_error_title'), 'error');
+    return;
+  }
+  managerPassword = password;
+  managerSessionId++;
+  managerLoadedOnce = false;
+  managerTab = 'requests';
+  managerCache = { nurses: [], requests, pendingRatings: [] };
+  markStaffDevice();
+  document.getElementById('admin-auth-section').innerHTML = '';
+  document.getElementById('manager-panel').style.display = 'block';
+  updateStaffBanner();
+  loadManagerPanel();
+  startManagerPolling();
+}
+
+function logoutManager() {
+  managerPassword = null;
+  managerSessionId++;          // أي رد يصل بعد الخروج يُهمل
+  managerLoadedOnce = false;
+  managerCache = { nurses: [], requests: [], pendingRatings: [] };
+  managerDrafts = {};
+  openManagerEditors.clear();
+  stopManagerPolling();
+  const panel = document.getElementById('manager-panel');
+  panel.style.display = 'none';
+  panel.innerHTML = '';
+  updateStaffBanner();
+  renderAdminAuthForm();
+}
+
+// تغيّرت كلمة المرور أو أوقفتها الإدارة واللوحة مفتوحة: نخرج فوراً بدل إرسال محاولات خاطئة
+// متكررة يحتسبها الخادم فيحظر الشبكة كلها مؤقتاً
+let managerSessionEnding = false;
+async function managerSessionExpired() {
+  if (managerSessionEnding || !managerPassword) return;
+  managerSessionEnding = true;
+  logoutManager();
+  await customAlert(t('mgr_session_expired'), 'warning');
+  managerSessionEnding = false;
+}
+
+// ---------- مدير التمريض: اللوحة ----------
+
+let managerPanelSeq = 0, managerPanelShownSeq = 0;
+
+function managerList(url) {
+  return fetchWithTimeout(url, { headers: managerHeaders(), cache: 'no-store' }, 20000).then(r => {
+    if (r.status === 401) { const e = new Error('nursing session expired'); e.sessionExpired = true; throw e; }
+    return readJsonOk(r);
+  });
+}
+
+async function loadManagerPanel() {
+  const session = managerSessionId;
+  const seq = ++managerPanelSeq;
+  const panel = document.getElementById('manager-panel');
+  if (!managerLoadedOnce) panel.innerHTML = skeletonHtml(3);
+  try {
+    const [nurses, requests, pendingRatings] = await Promise.all([
+      managerList(`${API}/nurses/admin/all`),
+      managerList(`${API}/nurses/requests`),
+      managerList(`${API}/nurses/ratings/pending`)
+    ]);
+    if (session !== managerSessionId || !managerPassword || seq < managerPanelShownSeq) return;
+    managerPanelShownSeq = seq;
+    managerCache = { nurses, requests, pendingRatings };
+    renderManagerPanelUI();
+    managerLoadedOnce = true;
+  } catch (err) {
+    if (session !== managerSessionId || seq < managerPanelShownSeq) return;
+    if (err && err.sessionExpired) { managerSessionExpired(); return; }
+    if (!managerLoadedOnce) panel.innerHTML = `<p class="muted" style="padding:20px;">${t('server_error_title')}</p>`;
+  }
+}
+
+function managerCounts() {
+  const { nurses, requests, pendingRatings } = managerCache;
+  return {
+    fresh: requests.filter(r => r.status !== 'contacted').length,
+    available: nurses.filter(n => n.available).length,
+    pending: pendingRatings.length
+  };
+}
+
+function managerStatsHtml() {
+  const c = managerCounts();
+  return `
+    <div class="stat-card"><div class="stat-value">${c.fresh}</div><div class="stat-label">${t('mgr_stat_new')}</div></div>
+    <div class="stat-card"><div class="stat-value stat-green">${c.available}</div><div class="stat-label">${t('mgr_stat_available')}</div></div>
+    <div class="stat-card"><div class="stat-value">${c.pending}</div><div class="stat-label">${t('mgr_stat_pending')}</div></div>`;
+}
+
+const MANAGER_TABS = ['requests', 'nurses', 'ratings'];
+function managerTabCount(key) {
+  const c = managerCounts();
+  const n = key === 'requests' ? c.fresh : key === 'ratings' ? c.pending : 0;
+  return n > 0 ? String(n) : '';
+}
+
+function renderManagerPanelUI() {
+  const panel = document.getElementById('manager-panel');
+  if (!panel || !managerPassword) return;
+  captureManagerDrafts();
+  const { requests } = managerCache;
+  panel.innerHTML = `
+    <div class="mgr-head">
+      <h2 class="dash-title">${t('mgr_panel_title')}</h2>
+      <button type="button" class="action-pill-btn blue" onclick="logoutManager()">${t('logout_btn')}</button>
+    </div>
+    <div class="stats-grid mgr-stats" id="mgr-stats">${managerStatsHtml()}</div>
+    <div class="mgr-tabs" role="tablist" aria-label="${t('mgr_tabs_aria')}" onkeydown="onManagerTabsKey(event)">
+      ${MANAGER_TABS.map(k => `
+        <button type="button" class="mgr-tab" role="tab" id="mgr-tab-${k}" aria-controls="mgr-pane-${k}"
+          aria-selected="${managerTab === k}" tabindex="${managerTab === k ? 0 : -1}" onclick="setManagerTab('${k}')">${t('mgr_tab_' + k)}<span class="mgr-count" id="mgr-count-${k}">${managerTabCount(k)}</span></button>`).join('')}
+    </div>
+    <div id="mgr-pane-requests" role="tabpanel" aria-labelledby="mgr-tab-requests"${managerTab === 'requests' ? '' : ' hidden'}>
+      <p class="muted" style="margin:0 0 12px; font-size:13.5px; line-height:1.6;">${t('nreq_auto_delete_note')}</p>
+      <div class="nreq-list" id="mgr-requests-list">${nurseRequestCardsHtml(requests, 'mgr')}</div>
+    </div>
+    <div id="mgr-pane-nurses" role="tabpanel" aria-labelledby="mgr-tab-nurses"${managerTab === 'nurses' ? '' : ' hidden'}>${managerNursesHtml()}</div>
+    <div id="mgr-pane-ratings" role="tabpanel" aria-labelledby="mgr-tab-ratings"${managerTab === 'ratings' ? '' : ' hidden'}>
+      <div id="mgr-ratings-list">${managerRatingsHtml()}</div>
+    </div>`;
+  applyManagerDrafts();
+}
+
+function setManagerTab(key) {
+  if (!MANAGER_TABS.includes(key)) return;
+  managerTab = key;
+  for (const k of MANAGER_TABS) {
+    const tab = document.getElementById(`mgr-tab-${k}`);
+    const pane = document.getElementById(`mgr-pane-${k}`);
+    if (!tab || !pane) continue;
+    tab.setAttribute('aria-selected', String(k === key));
+    tab.tabIndex = k === key ? 0 : -1;
+    pane.hidden = k !== key;
+  }
+  // التبويبات ثابتة أعلى الشاشة أثناء التمرير: إن كان المدير نزل كثيراً، نعيده إلى بداية
+  // القسم الجديد تحتها مباشرة، لا إلى منتصفه
+  const tabs = document.querySelector('.mgr-tabs');
+  const pane = document.getElementById(`mgr-pane-${key}`);
+  if (tabs && pane) {
+    const under = tabs.getBoundingClientRect().bottom + 8;
+    const top = pane.getBoundingClientRect().top;
+    if (top < under) window.scrollBy({ top: top - under });
+  }
+}
+
+// الأسهم تنقل بين التبويبات (والاتجاه يتبع اللغة)، وHome وEnd إلى الطرفين
+function onManagerTabsKey(e) {
+  const i = MANAGER_TABS.indexOf(managerTab);
+  const rtl = document.documentElement.dir === 'rtl';
+  let next = null;
+  if (e.key === 'ArrowLeft') next = rtl ? i + 1 : i - 1;
+  else if (e.key === 'ArrowRight') next = rtl ? i - 1 : i + 1;
+  else if (e.key === 'Home') next = 0;
+  else if (e.key === 'End') next = MANAGER_TABS.length - 1;
+  if (next === null) return;
+  e.preventDefault();
+  const key = MANAGER_TABS[(next + MANAGER_TABS.length) % MANAGER_TABS.length];
+  setManagerTab(key);
+  const tab = document.getElementById(`mgr-tab-${key}`);
+  if (tab) tab.focus();
+}
+
+// ما يكتبه المدير في نموذج الإضافة أو في تعديل ممرض لا يُمحى حين تُعاد رسم اللوحة
+// (إجراء آخر، أو تبديل اللغة). نحفظ الحقول التي تختلف عن قيمتها المرسومة، ونعيدها بعد الرسم.
+let managerDrafts = {};
+let managerDraftFocus = null;
+function captureManagerDrafts() {
+  const root = document.getElementById('mgr-pane-nurses');
+  if (!root) return;
+  root.querySelectorAll('input[id], select[id], textarea[id]').forEach(el => {
+    if (rowFieldChanged(el)) managerDrafts[el.id] = el.value;
+    else delete managerDrafts[el.id];
+  });
+  const a = document.activeElement;
+  managerDraftFocus = a && root.contains(a) && a.id ? a.id : null;
+}
+function applyManagerDrafts() {
+  for (const [id, v] of Object.entries(managerDrafts)) {
+    const el = document.getElementById(id);
+    if (el) el.value = v;
+  }
+  if (managerDraftFocus) {
+    const el = document.getElementById(managerDraftFocus);
+    if (el) el.focus({ preventScroll: true });
+    managerDraftFocus = null;
+  }
+}
+function forgetManagerDrafts(ids) { for (const id of ids) delete managerDrafts[id]; }
+
+// تحديث دوري للطلبات والتقييمات كل 30 ثانية والصفحة ظاهرة. يرسم القائمتين والأرقام فقط
+// حين يتغير شيء، ولا يلمس قسم الممرضين، فلا يضيع ما يكتبه المدير فيه.
+let managerPollTimer = null;
+const POLL_MANAGER_MS = 30000;
+function startManagerPolling() {
+  stopManagerPolling();
+  managerPollTimer = setInterval(whenVisible(pollManager), POLL_MANAGER_MS);
+}
+function stopManagerPolling() {
+  if (managerPollTimer) { clearInterval(managerPollTimer); managerPollTimer = null; }
+}
+async function pollManager() {
+  if (!managerPassword) { stopManagerPolling(); return; }
+  if (document.getElementById('view-admin').style.display === 'none') return;
+  const session = managerSessionId;
+  try {
+    const [requests, pendingRatings] = await Promise.all([
+      managerList(`${API}/nurses/requests`), managerList(`${API}/nurses/ratings/pending`)
+    ]);
+    if (session !== managerSessionId || !managerLoadedOnce) return;
+    const reqChanged = JSON.stringify(requests) !== JSON.stringify(managerCache.requests);
+    const ratChanged = JSON.stringify(pendingRatings) !== JSON.stringify(managerCache.pendingRatings);
+    if (!reqChanged && !ratChanged) return;
+    managerCache.requests = requests;
+    managerCache.pendingRatings = pendingRatings;
+    refreshManagerLists(reqChanged, ratChanged);
+  } catch (err) {
+    if (err && err.sessionExpired && session === managerSessionId) managerSessionExpired();
+  }
+}
+function refreshManagerLists(requestsToo = true, ratingsToo = true) {
+  const stats = document.getElementById('mgr-stats');
+  if (stats) stats.innerHTML = managerStatsHtml();
+  for (const k of MANAGER_TABS) {
+    const c = document.getElementById(`mgr-count-${k}`);
+    if (c) c.textContent = managerTabCount(k);
+  }
+  const rl = document.getElementById('mgr-requests-list');
+  if (rl && requestsToo) rl.innerHTML = nurseRequestCardsHtml(managerCache.requests, 'mgr');
+  const pl = document.getElementById('mgr-ratings-list');
+  if (pl && ratingsToo) pl.innerHTML = managerRatingsHtml();
+}
+
+// ---------- بطاقات طلبات الزيارات (مدير التمريض والإدارة) ----------
+// role: 'mgr' أو 'admin'، يحدد كلمة المرور التي تُرسل مع الإجراء وما يُحدَّث بعده
+
+function nurseRequestCardsHtml(list, role) {
+  if (!list || list.length === 0) {
+    return `
+      <div class="empty-state">
+        <div class="empty-icon">🩺</div>
+        <p class="empty-title">${t('nreq_empty_title')}</p>
+        <p class="empty-subtitle">${t('nreq_empty_sub')}</p>
+      </div>`;
+  }
+  // الجديد أولاً ثم ما تم التواصل فيه، والأحدث أولاً في كلٍّ منهما (ترتيب الخادم)
+  const sorted = [...list.filter(r => r.status !== 'contacted'), ...list.filter(r => r.status === 'contacted')];
+  return sorted.map(r => {
+    const done = r.status === 'contacted';
+    const rel = relativeTime(r.created_at);
+    return `
+      <div class="nreq-card${done ? ' done' : ''}">
+        <div class="nreq-top">
+          <p class="nreq-who">👤 <bdi>${escapeHtml(r.patient_name)}</bdi></p>
+          <span class="nreq-badge ${done ? 'done' : 'new'}">${done ? t('nreq_done_badge') : t('nreq_new_badge')}</span>
+        </div>
+        <p class="nreq-row">📞 <bdi dir="ltr">${escapeHtml(r.patient_phone)}</bdi></p>
+        ${r.patient_area ? `<p class="nreq-row">📍 ${escapeHtml(r.patient_area)}</p>` : ''}
+        <p class="nreq-row">🩺 ${t('nreq_nurse_label')}: <bdi>${escapeHtml(r.nurse_name || '')}</bdi>${r.nurse_id === null ? ` <span class="muted" style="font-size:13px;">${t('nreq_nurse_deleted')}</span>` : ''}</p>
+        ${r.notes ? `<p class="nreq-notes">${escapeHtml(r.notes)}</p>` : ''}
+        <p class="nreq-time">🕐 <bdi>${formatOrderTime(r.created_at)}</bdi>${rel ? ` · ${escapeHtml(rel)}` : ''}</p>
+        <div class="nreq-actions">
+          ${callBtnHtml(r.patient_phone)}
+          ${waAnchorHtml(r.patient_phone, tFormat('nreq_wa_msg', { name: r.patient_name }))}
+          ${done ? '' : `<button type="button" class="nreq-done-btn" onclick="markNurseRequestDone(${r.id}, '${role}')">${t('nreq_mark_done')}</button>`}
+          <button type="button" class="nreq-del-btn" onclick="deleteNurseRequest(${r.id}, '${role}')">${t('nreq_delete_btn')}</button>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function nursingHeadersFor(role) { return role === 'admin' ? adminHeaders() : managerHeaders(); }
+function afterNursingAction(role) { if (role === 'admin') renderAdminPanel(); else loadManagerPanel(); }
+
+function markNurseRequestDone(id, role) {
+  return runGuarded('nreqDone:' + id, null, async () => {
+    if (!(await runAction(`${API}/nurses/requests/${id}/contacted`, { method: 'PUT', headers: nursingHeadersFor(role) }))) return;
+    afterNursingAction(role);
+  });
+}
+
+function deleteNurseRequest(id, role) {
+  return runGuarded('nreqDelete:' + id, null, async () => {
+    const list = role === 'admin' ? (adminDataCache.nurseRequests || []) : managerCache.requests;
+    const r = list.find(x => x.id === id);
+    const confirmed = await customConfirm(tFormat('nreq_delete_confirm', { name: r ? r.patient_name : '' }), 'warning', 'danger_delete_order');
+    if (!confirmed) return;
+    if (!(await runAction(`${API}/nurses/requests/${id}`, { method: 'DELETE', headers: nursingHeadersFor(role) }))) return;
+    afterNursingAction(role);
+  });
+}
+
+// ---------- مدير التمريض: الممرضون ----------
+
+const openManagerEditors = new Set();
+const MGR_ADD_FIELDS = ['mgr-nurse-name', 'mgr-nurse-specialty', 'mgr-nurse-university', 'mgr-nurse-grad-year',
+  'mgr-nurse-phone', 'mgr-nurse-exp-years', 'mgr-nurse-services', 'mgr-nurse-city', 'mgr-nurse-area', 'mgr-nurse-street'];
+
+function managerNursesHtml() {
+  const nurses = managerCache.nurses;
+  return `
+    <div class="box" style="margin:0 0 20px;">
+      <h3 style="margin-top:0;">${t('add_nurse_title')}</h3>
+      <input id="mgr-nurse-name" placeholder="${t('nurse_name_placeholder')}" aria-label="${t('nurse_name_placeholder')}">
+      <input id="mgr-nurse-specialty" placeholder="${t('specialty_placeholder')}" aria-label="${t('specialty_placeholder')}">
+      <input id="mgr-nurse-university" placeholder="${t('university_placeholder')}" aria-label="${t('university_placeholder')}">
+      <input id="mgr-nurse-grad-year" placeholder="${t('grad_year_placeholder')}" aria-label="${t('grad_year_placeholder')}">
+      <input id="mgr-nurse-phone" type="tel" inputmode="tel" placeholder="${t('phone_placeholder')}" aria-label="${t('phone_placeholder')}">
+      <input id="mgr-nurse-exp-years" type="number" min="0" max="60" inputmode="numeric" placeholder="${t('exp_years_placeholder')}" aria-label="${t('exp_years_placeholder')}">
+      <input id="mgr-nurse-services" maxlength="200" placeholder="${t('services_placeholder')}" aria-label="${t('services_placeholder')}">
+      ${locationFieldsHtml(k => `mgr-nurse-${k}`, null)}
+      <button type="button" class="primary" id="mgr-add-nurse-btn" onclick="addNurseManager()">${t('add_nurse_btn')}</button>
+    </div>
+
+    <h3>${t('registered_nurses_title')} (${nurses.length})</h3>
+    <p class="muted" style="margin:-6px 0 12px; font-size:13.5px; line-height:1.6;">${t('mgr_no_delete_hint')}</p>
+    <div class="stock-table-wrap" style="margin-bottom:20px;">
+      <div class="stock-scroll">
+        ${nurses.length === 0
+          ? `<p class="muted" style="padding:16px 18px; margin:0;">${t('no_nurses_yet')}</p>`
+          : `<div class="stock-table-header"><span>${t('nurses_table_header')}</span><span class="col-action">${t('actions_header_plural')}</span></div>
+             ${nurses.map(n => {
+               const loc = nurseLocationText(n);
+               return `
+               <div class="row">
+                 <span>
+                   <bdi>${escapeHtml(n.name)}</bdi> <span class="muted" style="font-size:12px;">${escapeHtml(n.specialty || '')}</span>
+                   <span style="display:flex; flex-wrap:wrap; align-items:center; gap:4px 8px; margin-top:4px;">
+                     <span class="cert-pill ${n.cert_verified ? 'yes' : 'no'}">${n.cert_verified ? t('cert_pill_yes') : t('cert_pill_no')}</span>
+                     ${loc ? `<span class="muted" style="font-size:12.5px;">📍 ${escapeHtml(loc)}</span>` : ''}
+                   </span>
+                 </span>
+                 <div style="display:flex; gap:8px 6px; align-items:center; flex-wrap:wrap; justify-content:flex-end;">
+                   <button type="button" class="btn-outline blue small table-action-btn" onclick="toggleManagerEditor(${n.id})" aria-expanded="${openManagerEditors.has(n.id)}">${t('mgr_edit_btn')}</button>
+                   <button type="button" class="toggle-btn ${n.available ? 'yes' : 'no'}" onclick="toggleNurseAvailabilityManager(${n.id}, ${!n.available})">${n.available ? t('nurse_available_short') : t('nurse_unavailable_short')}</button>
+                 </div>
+               </div>
+               <div class="nurse-editor" id="mgr-nurse-editor-${n.id}" style="${openManagerEditors.has(n.id) ? '' : 'display:none;'}">${managerNurseEditorHtml(n)}</div>`;
+             }).join('')}`
+        }
+      </div>
+    </div>`;
+}
+
+// تعديل ممرض من لوحة المدير: الخبرة والخدمات والمكان، وهاتفه للاتصال به. لا شهادات هنا.
+function managerNurseEditorHtml(n) {
+  return `
+    ${nursePhoneLineHtml(n)}
+    <div class="nurse-editor-grid">
+      <label class="admin-address-field"><span>${t('nurse_experience_label')}</span>
+        <input type="number" min="0" max="60" inputmode="numeric" id="mgr-nurse-exp-${n.id}" value="${Number.isInteger(n.experience_years) ? n.experience_years : ''}">
+      </label>
+      <label class="admin-address-field"><span>${t('nurse_services_label')}</span>
+        <input type="text" maxlength="200" id="mgr-nurse-svc-${n.id}" value="${escapeHtml(n.services || '')}" placeholder="${t('services_placeholder')}">
+      </label>
+    </div>
+    <div style="margin-top:12px;">${locationFieldsHtml(k => `mgr-nurse-${k}-${n.id}`, n)}</div>
+    <button type="button" class="primary" id="mgr-nurse-save-${n.id}" style="width:auto; padding:12px 28px; margin:0;" onclick="saveNurseProfileManager(${n.id})">${t('nurse_profile_save')}</button>`;
+}
+
+// هاتف الممرض داخل التعديل (للإدارة ولمدير التمريض): رابط اتصال مباشر
+function nursePhoneLineHtml(n) {
+  const digits = String(n.phone || '').replace(/[^\d+]/g, '');
+  if (!digits) return '';
+  return `<p style="margin:0 0 12px; font-size:15px;">📞 ${t('nurse_phone_label')}: <a href="tel:${digits}" dir="ltr" style="color:#185fa5; font-weight:700;" onclick="this.blur()">${escapeHtml(n.phone)}</a></p>`;
+}
+
+function toggleManagerEditor(id) {
+  const box = document.getElementById(`mgr-nurse-editor-${id}`);
+  if (!box) return;
+  const show = box.style.display === 'none';
+  box.style.display = show ? '' : 'none';
+  if (show) openManagerEditors.add(id); else openManagerEditors.delete(id);
+  const btn = document.querySelector(`[onclick="toggleManagerEditor(${id})"]`);
+  if (btn) btn.setAttribute('aria-expanded', String(show));
+}
+
+function addNurseManager() { return runGuarded('addNurseManager', 'mgr-add-nurse-btn', addNurseManagerNow); }
+async function addNurseManagerNow() {
+  const v = id => document.getElementById(id).value;
+  const body = {
+    name: v('mgr-nurse-name'), specialty: v('mgr-nurse-specialty'), university: v('mgr-nurse-university'),
+    graduation_year: v('mgr-nurse-grad-year'), phone: v('mgr-nurse-phone'),
+    experience_years: v('mgr-nurse-exp-years'), services: v('mgr-nurse-services'),
+    ...readLocationFields(k => `mgr-nurse-${k}`)
+  };
+  let data;
+  try {
+    const res = await fetchWithTimeout(`${API}/nurses`, { method: 'POST', headers: managerHeaders(), body: JSON.stringify(body) }, 20000);
+    data = await res.json().catch(() => ({}));
+    if (res.status === 401) { managerSessionExpired(); return; }
+    if (!res.ok) { await customAlert(translateApiError(data.error), 'error'); return; }
+  } catch (err) {
+    await customAlert(t('server_error_title'), 'error');
+    return;
+  }
+  clearAdminFields(MGR_ADD_FIELDS);
+  forgetManagerDrafts(MGR_ADD_FIELDS);
+  customAlert(tFormat('item_added_success', { name: data.name }), 'success');
+  loadManagerPanel();
+}
+
+function toggleNurseAvailabilityManager(id, available) {
+  return runGuarded('mgrAvail:' + id, null, async () => {
+    if (!(await runAction(`${API}/nurses/${id}/availability`, {
+      method: 'PUT', headers: managerHeaders(), body: JSON.stringify({ available })
+    }))) return;
+    loadManagerPanel();
+  });
+}
+
+function saveNurseProfileManager(id) { return runGuarded('mgrProfile:' + id, `mgr-nurse-save-${id}`, () => saveNurseProfileManagerNow(id)); }
+async function saveNurseProfileManagerNow(id) {
+  const n = managerCache.nurses.find(x => x.id === id);
+  if (!n) return;
+  const idFor = k => `mgr-nurse-${k}-${id}`;
+  const ids = [`mgr-nurse-exp-${id}`, `mgr-nurse-svc-${id}`, idFor('city'), idFor('area'), idFor('street')];
+  try {
+    const res = await fetchWithTimeout(`${API}/nurses/${id}/profile`, { method: 'PUT', headers: managerHeaders(),
+      body: JSON.stringify({
+        experience_years: document.getElementById(`mgr-nurse-exp-${id}`).value,
+        services: document.getElementById(`mgr-nurse-svc-${id}`).value,
+        ...readLocationFields(idFor)
+      }) }, 20000);
+    const data = await res.json().catch(() => ({}));
+    if (res.status === 401) { managerSessionExpired(); return; }
+    if (!res.ok) { await customAlert(translateApiError(data.error), 'error'); return; }
+    Object.assign(n, data);
+  } catch (err) {
+    await customAlert(t('server_error_title'), 'error');
+    return;
+  }
+  forgetManagerDrafts(ids);
+  // الحقول التي حُفظت تُرسم من جديد بقيمها من الخادم، وما سواها يبقى كما كتبه المدير
+  for (const fid of ids) { const el = document.getElementById(fid); if (el) el.defaultValue = el.value; }
+  renderManagerPanelUI();
+  await customAlert(t('nurse_profile_saved'), 'success');
+}
+
+// ---------- مدير التمريض: التقييمات ----------
+
+function managerRatingsHtml() {
+  const ratings = managerCache.pendingRatings;
+  if (!ratings.length) return `<p class="muted" style="padding:8px 2px;">${t('mgr_no_pending_ratings')}</p>`;
+  return `<div class="orders-wrap"><h3 style="margin-top:0;">${t('pending_ratings_title')} (${ratings.length})</h3>` +
+    ratings.map(r => `
+    <div class="order-card is-new">
+      <div class="order-card-top">
+        <span class="order-patient-name">👤 ${escapeHtml(r.patient_name)} ← ${escapeHtml(r.nurse_name)}</span>
+        <span class="order-new-badge">${'★'.repeat(r.stars)}${'☆'.repeat(5 - r.stars)}</span>
+      </div>
+      ${r.comment ? `<div class="order-items-list"><div class="order-item-line">💬 ${escapeHtml(r.comment)}</div></div>` : ''}
+      <div class="order-actions-row">
+        <button type="button" class="btn-outline green small" onclick="approveRatingManager(${r.id})">${t('approve_btn')}</button>
+        <button type="button" class="btn-outline red small" onclick="rejectRatingManager(${r.id})">${t('reject_btn')}</button>
+      </div>
+    </div>`).join('') + '</div>';
+}
+
+function approveRatingManager(id) {
+  return runGuarded('mgrApprove:' + id, null, async () => {
+    if (!(await runAction(`${API}/nurses/ratings/${id}/approve`, { method: 'PUT', headers: managerHeaders() }))) return;
+    loadManagerPanel();
+  });
+}
+
+function rejectRatingManager(id) {
+  return runGuarded('mgrReject:' + id, null, async () => {
+    const confirmed = await customConfirm(t('reject_rating_confirm'), 'warning', 'danger_reject_rating');
+    if (!confirmed) return;
+    if (!(await runAction(`${API}/nurses/ratings/${id}`, { method: 'DELETE', headers: managerHeaders() }))) return;
+    loadManagerPanel();
+  });
+}
+
+// ---------- لوحة الإدارة: بطاقة «مدير التمريض» وطلبات الزيارات ----------
+
+function managerSettingsCardHtml(s) {
+  if (!s) return '';   // فشل جلب الإعدادات: نخفي البطاقة بدل عرض حالة قد تكون خاطئة
+  return `
+    <div class="box" style="margin-bottom:20px;" id="mgr-settings-card">
+      <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap;">
+        <h3 style="margin:0;">${t('mgr_settings_title')}</h3>
+        <span class="mgr-status ${s.enabled ? 'on' : 'off'}">${s.enabled ? t('mgr_status_on') : t('mgr_status_off')}</span>
+      </div>
+      <p class="muted" style="font-size:13.5px; line-height:1.7; margin:10px 0 0;">${t('mgr_settings_desc')}</p>
+      <div class="mgr-settings-block">
+        <label for="mgr-pw-new">${s.enabled ? t('mgr_pw_change_label') : t('mgr_pw_label')}</label>
+        <div class="mgr-settings-row">
+          <div class="password-field">
+            <input id="mgr-pw-new" type="password" autocomplete="new-password" maxlength="100" placeholder="${t('mgr_pw_placeholder')}">
+            <button type="button" class="toggle-password" onclick="togglePassword('mgr-pw-new', this)" aria-label="${t('show_password_aria')}">👁</button>
+          </div>
+          <button type="button" class="btn-outline blue" id="mgr-pw-save-btn" onclick="saveManagerPassword()">${t('mgr_pw_save')}</button>
+        </div>
+        <p class="mgr-settings-hint">${t('mgr_pw_hint')}</p>
+        ${s.enabled ? `<button type="button" class="btn-outline red" id="mgr-disable-btn" style="margin-top:12px; min-height:48px;" onclick="disableManagerLogin()">${t('mgr_disable_btn')}</button>` : ''}
+      </div>
+      <div class="mgr-settings-block">
+        <label for="mgr-contact-phone">${t('mgr_contact_label')}</label>
+        <div class="mgr-settings-row">
+          <input id="mgr-contact-phone" type="tel" inputmode="tel" maxlength="20" dir="ltr" placeholder="09xxxxxxxx" value="${escapeHtml(s.phone || '')}">
+          <button type="button" class="btn-outline blue" id="mgr-contact-save-btn" onclick="saveManagerContact()">${t('mgr_contact_save')}</button>
+        </div>
+        <p class="mgr-settings-hint">${t('mgr_contact_hint')}</p>
+      </div>
+    </div>`;
+}
+
+function adminRequestsSectionHtml(requests) {
+  if (!requests) return '';
+  return `
+    <h3>${t('admin_requests_title')} (${requests.length})</h3>
+    <p class="muted" style="margin:-6px 0 12px; font-size:13.5px; line-height:1.6;">${t('nreq_auto_delete_note')}</p>
+    <div class="nreq-list" style="margin-bottom:20px;">${nurseRequestCardsHtml(requests, 'admin')}</div>`;
+}
+
+// رد إداري برمز 401: كلمة مرور الإدارة لم تعد صحيحة
+async function adminNursingCall(url, options) {
+  try {
+    const res = await fetchWithTimeout(url, options, 20000);
+    const data = await res.json().catch(() => ({}));
+    if (res.status === 401) { adminSessionExpired(); return null; }
+    if (!res.ok) { await customAlert(translateApiError(data.error), 'error'); return null; }
+    return data;
+  } catch (err) {
+    await customAlert(t('server_error_title'), 'error');
+    return null;
+  }
+}
+
+function saveManagerPassword() { return runGuarded('saveManagerPassword', 'mgr-pw-save-btn', saveManagerPasswordNow); }
+async function saveManagerPasswordNow() {
+  const input = document.getElementById('mgr-pw-new');
+  const pw = input ? input.value : '';
+  if (pw.length < 8) { await customAlert(t('mgr_pw_too_short'), 'warning'); return; }
+  if (pw === adminPassword) { await customAlert(t('mgr_pw_same_as_admin'), 'warning'); return; }
+  const data = await adminNursingCall(`${API}/nurses/manager/password`,
+    { method: 'PUT', headers: adminHeaders(), body: JSON.stringify({ password: pw }) });
+  if (!data) return;
+  clearAdminFields(['mgr-pw-new']);
+  customAlert(t('mgr_pw_saved'), 'success');
+  renderAdminPanel();
+}
+
+function disableManagerLogin() { return runGuarded('disableManagerLogin', 'mgr-disable-btn', disableManagerLoginNow); }
+async function disableManagerLoginNow() {
+  const confirmed = await customConfirm(t('mgr_disable_confirm'), 'warning', 'danger_disable_manager');
+  if (!confirmed) return;
+  const data = await adminNursingCall(`${API}/nurses/manager/password`, { method: 'DELETE', headers: adminHeaders() });
+  if (!data) return;
+  customAlert(t('mgr_disabled_done'), 'success');
+  renderAdminPanel();
+}
+
+function saveManagerContact() { return runGuarded('saveManagerContact', 'mgr-contact-save-btn', saveManagerContactNow); }
+async function saveManagerContactNow() {
+  const input = document.getElementById('mgr-contact-phone');
+  const phone = input ? input.value.trim() : '';
+  const data = await adminNursingCall(`${API}/nurses/manager/contact`,
+    { method: 'PUT', headers: adminHeaders(), body: JSON.stringify({ phone }) });
+  if (!data) return;
+  nursingContactPhone = data.phone || null;
+  if (input) { input.value = data.phone || ''; input.defaultValue = input.value; }
+  customAlert(t(data.phone ? 'mgr_contact_saved' : 'mgr_contact_cleared'), 'success');
+  renderAdminPanel();
+}
+
 // ---------- إدارة خدمات التمريض (لوحة الإدارة) ----------
 
 function addNurseAdmin() { return runGuarded('addNurseAdmin', 'add-nurse-btn', addNurseAdminNow); }
@@ -7447,6 +8445,7 @@ async function addNurseAdminNow() {
     phone: document.getElementById('nurse-phone').value,
     experience_years: document.getElementById('nurse-exp-years').value,
     services: document.getElementById('nurse-services').value,
+    ...readLocationFields(k => `nurse-${k}`),
   };
   let data;
   try {
@@ -7459,7 +8458,8 @@ async function addNurseAdminNow() {
     await customAlert(t('server_error_title'), 'error');
     return;
   }
-  clearAdminFields(['nurse-name', 'nurse-specialty', 'nurse-university', 'nurse-grad-year', 'nurse-phone', 'nurse-exp-years', 'nurse-services']);
+  clearAdminFields(['nurse-name', 'nurse-specialty', 'nurse-university', 'nurse-grad-year', 'nurse-phone', 'nurse-exp-years', 'nurse-services',
+    'nurse-city', 'nurse-area', 'nurse-street']);
   customAlert(tFormat('item_added_success', { name: data.name }), 'success');
   renderAdminPanel();
 }
