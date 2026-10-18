@@ -5390,7 +5390,6 @@ async function renderAdminPanel() {
     adminPanelShownSeq = seq;
     adminDataCache = { pharmacies, medicines, nurses, pendingRatings, stats, nurseRequests, managerSettings };
     adminNursesEtag = null;
-    lastAdminFullLoadAt = Date.now();
     renderAdminPanelUI();
     adminPanelLoadedOnce = true;
   } catch (err) {
@@ -9147,12 +9146,12 @@ function resetNurseLink(id, role) {
 }
 
 // ---------- مزامنة الممرضين بين الأجهزة ----------
-// لوحة الإدارة ولوحة المدير قد تكونان مفتوحتين على أكثر من جهاز. كل 30 ثانية والصفحة ظاهرة
+// لوحة الإدارة ولوحة المدير قد تكونان مفتوحتين على أكثر من جهاز. كل 15 ثانية والصفحة ظاهرة
 // نسأل الخادم: هل تغيّرت قائمة الممرضين؟ نرسل بصمة آخر نسخة (ETag)، فإن لم تتغير يرد 304
 // بلا محتوى، فلا يُستهلك إنترنت تقريباً. وإن تغيّرت نرسم قسم الممرضين وحده بلا وميض.
 // وعند العودة إلى الصفحة من تطبيق أو نافذة أخرى نفحص فوراً.
-const SYNC_NURSES_MS = 30000;
-let adminNursesEtag = null, lastAdminNursesSync = 0, lastAdminFullLoadAt = 0, adminNursesSyncTimer = null;
+const SYNC_NURSES_MS = 15000;   // كان 30: الرد بلا تغيير شبه فارغ، فالتقصير لا يكلف شيئاً يُذكر
+let adminNursesEtag = null, lastAdminNursesSync = 0, adminNursesSyncTimer = null;
 let managerNursesEtag = null, lastManagerNursesSync = 0, managerNursesSyncTimer = null;
 let lastStaffReturn = 0;
 
@@ -9167,10 +9166,33 @@ async function fetchNursesIfChanged(headers, etag) {
   return { changed: true, list, etag: res.headers.get('ETag') };
 }
 
-// المستخدم يكتب الآن في هذا القسم؟ نؤجل التحديث للجولة التالية حتى لا يضيع التركيز أو تُغلق لوحة المفاتيح
+// المستخدم يكتب الآن في هذا القسم؟ نؤجل التحديث للجولة التالية حتى لا يضيع التركيز أو تُغلق لوحة المفاتيح.
+// «يكتب» يعني حقلاً محدداً وكتابة خلال آخر 10 ثوانٍ: في Android يبقى الحقل محدداً بعد إغلاق لوحة
+// المفاتيح بزر الرجوع، فلو اكتفينا بالتحديد لتأجل التحديث إلى ما لا نهاية
+const TYPING_GRACE_MS = 10000;
+let lastTypingAt = 0;
+document.addEventListener('input', () => { lastTypingAt = Date.now(); }, true);
 function typingInside(root) {
   const a = document.activeElement;
-  return !!(root && a && root.contains(a) && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName));
+  if (!(root && a && root.contains(a) && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName))) return false;
+  return Date.now() - lastTypingAt < TYPING_GRACE_MS;
+}
+
+// بعد تحديث القسم: يعود المؤشر إلى الحقل الذي كان محدداً، على الحاسوب فقط
+// (على الهاتف يعيد ذلك فتح لوحة المفاتيح فجأة)
+function rememberFocus(root) {
+  const a = document.activeElement;
+  if (!root || !a || !a.id || !root.contains(a)) return null;
+  let start = null, end = null;
+  try { start = a.selectionStart; end = a.selectionEnd; } catch (e) { /* حقول بلا تحديد */ }
+  return { id: a.id, start, end };
+}
+function restoreFocus(f) {
+  if (!f || (window.matchMedia && matchMedia('(pointer: coarse)').matches)) return;
+  const el = document.getElementById(f.id);
+  if (!el) return;
+  el.focus({ preventScroll: true });
+  try { if (f.start !== null) el.setSelectionRange(f.start, f.end); } catch (e) { /* حقول بلا تحديد */ }
 }
 
 // محرر مفتوح لممرض اختفى من القائمة: نخبر المستخدم بدل أن يختفي المحرر بصمت
@@ -9197,9 +9219,11 @@ async function syncAdminNurses(force = false) {
     const gone = closedEditorsOf(old, r.list, openNurseEditors);
     adminDataCache.nurses = r.list;
     adminNursesEtag = r.etag;
+    const focus = rememberFocus(listEl);
     captureRowDrafts(listEl);
     listEl.innerHTML = adminNursesListHtml(r.list);
     applyRowDrafts();
+    restoreFocus(focus);
     const title = document.getElementById('admin-nurses-title');
     if (title) title.textContent = `${t('registered_nurses_title')} (${r.list.length})`;
     for (const id of openNurseEditors) if (!nurseLinkCache[id]) ensureNurseLink(id, 'admin');
@@ -9225,9 +9249,12 @@ async function syncManagerNurses(force = false) {
     const gone = closedEditorsOf(old, r.list, openManagerEditors);
     managerCache.nurses = r.list;
     managerNursesEtag = r.etag;
+    const focus = rememberFocus(pane);
     captureManagerDrafts();
+    managerDraftFocus = null;   // التركيز تعيده restoreFocus بشرطها (الحاسوب فقط)
     pane.innerHTML = managerNursesHtml();
     applyManagerDrafts();
+    restoreFocus(focus);
     refreshManagerLists(false, false);   // رقم «المتاحون» في الأعلى
     for (const id of openManagerEditors) if (!nurseLinkCache[id]) ensureNurseLink(id, 'mgr');
     for (const n of gone) await customAlert(tFormat('nurse_deleted_elsewhere', { name: n.name }), 'info');
@@ -9236,21 +9263,15 @@ async function syncManagerNurses(force = false) {
   }
 }
 
-// العودة إلى الصفحة: فحص فوري للممرضين. ولوحة الإدارة كلها تُحدَّث بصمت إن مرّ على آخر
-// تحميل كامل دقيقتان، ما لم يكن المستخدم يكتب فيها
+// العودة إلى الصفحة: فحص فوري خفيف للممرضين. لا نعيد تحميل اللوحة كلها هنا: سبع قوائم منها
+// الأدوية ثقيلة على إنترنت بطيء، وفشل واحدة منها كان يُلغي التحديث كله بصمت
 function onStaffReturn() {
   if (document.hidden || Date.now() - lastStaffReturn < 3000) return;
   lastStaffReturn = Date.now();
   // الفحص المستعجل أولاً، فلا يكرره الفحص الدوري الذي يليه
   if (managerPassword) syncManagerNurses(true);
   if (managerPassword && managerLoadedOnce) pollManager();
-  if (adminPassword && adminPanelLoadedOnce && document.body.dataset.view === 'admin') {
-    const panel = document.getElementById('admin-panel');
-    if (Date.now() - lastAdminFullLoadAt > 120000 && !typingInside(panel)) {
-      lastAdminNursesSync = Date.now();
-      renderAdminPanel();
-    } else syncAdminNurses(true);
-  }
+  if (adminPassword) syncAdminNurses(true);
 }
 
 // ---------- إدارة خدمات التمريض (لوحة الإدارة) ----------
