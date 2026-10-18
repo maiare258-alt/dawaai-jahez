@@ -1,4 +1,5 @@
 const express = require('express');
+const crypto = require('crypto');
 const router = express.Router();
 
 const { validIdParam, ALLOWED_CITIES } = require('../middleware/shared');
@@ -85,6 +86,8 @@ function adminNurse(n) {
   o.cert_size = n.cert_size || null;
   o.cert_uploaded_at = n.cert_uploaded_at || null;
   o.cert_verified = Boolean(n.cert_verified);
+  o.has_notify_link = Boolean(n.notify_token);
+  o.notify_enabled = Boolean(n.notify_enabled);
   return o;
 }
 
@@ -218,7 +221,7 @@ router.post('/', nursingAuth, async (req, res) => {
   try {
     const nurse = await db.addNurse({ name, specialty, university, graduation_year, phone,
       experience_years: exp.value, services: svc.value, ...loc.value });
-    res.status(201).json(nurse);
+    res.status(201).json(adminNurse(nurse));
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'حدث خطأ أثناء إضافة الممرض' });
@@ -311,7 +314,8 @@ router.delete('/:id', adminAuth, async (req, res) => {
 router.get('/admin/all', nursingAuth, async (req, res) => {
   try {
     res.set('Cache-Control', 'no-store');
-    res.json((await db.getNursesWithRatings()).map(adminNurse));
+    const [nurses, withPush] = await Promise.all([db.getNursesWithRatings(), db.getNurseIdsWithPush()]);
+    res.json(nurses.map(n => adminNurse({ ...n, notify_enabled: withPush.has(n.id) })));
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'حدث خطأ أثناء جلب الممرضين' });
@@ -494,8 +498,9 @@ router.post('/:id/requests', rateLimit(5, 15 * 60 * 1000), async (req, res) => {
       nurse_id: nurse.id, nurse_name: nurse.name, patient_name, patient_phone: phone, patient_area, notes: notes || null
     });
     res.status(201).json({ success: true, id: created.id });
-    // إشعار مدير التمريض والإدارة بعد الرد، فلا ينتظره المريض
-    push.notifyNurseRequest(nurse.name).catch(err => console.error(err));
+    // إشعار مدير التمريض والممرض المطلوب بعد الرد، فلا ينتظره المريض
+    push.notifyNurseRequest(nurse, { id: created.id, patient_phone: phone, patient_area })
+      .catch(err => console.error(err));
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'حدث خطأ أثناء إرسال الطلب' });
@@ -526,8 +531,11 @@ router.put('/requests/:id/contacted', nursingAuth, async (req, res) => {
 
 router.delete('/requests/:id', nursingAuth, async (req, res) => {
   try {
-    if (!(await db.deleteNurseRequest(req.params.id))) return res.status(404).json({ error: 'الطلب غير موجود' });
+    const request = await db.getNurseRequestById(req.params.id);
+    if (!request || !(await db.deleteNurseRequest(req.params.id))) return res.status(404).json({ error: 'الطلب غير موجود' });
     res.json({ success: true });
+    // وصل الطلب إلى الممرض؟ نخبره بالإلغاء كي لا يذهب
+    push.notifyNurseRequestCancelled(request).catch(err => console.error(err));
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'حدث خطأ أثناء حذف الطلب' });
@@ -612,6 +620,84 @@ router.put('/manager/contact', adminAuth, async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'حدث خطأ في الخادم' });
+  }
+});
+
+// ===================== رابط الممرض وصفحته =====================
+// لكل ممرض رمز عشوائي طويل (32 بايت). الرابط: https://الموقع/#nurse=الرمز. الرمز بعد # لا يصل
+// إلى الخادم ولا إلى سجلاته عند فتح الصفحة، والموقع يرسله في ترويسة x-nurse-token فقط.
+// لا يُخمَّن (256 بت)، ولا يفتح إلا طلبات ذلك الممرض.
+
+const newNurseToken = () => crypto.randomBytes(32).toString('base64url');
+
+// رابط الممرض لمدير التمريض والإدارة (يُنشأ أول مرة)
+router.post('/:id/notify-link', nursingAuth, async (req, res) => {
+  try {
+    const token = await db.ensureNurseToken(req.params.id, newNurseToken());
+    if (!token) return res.status(404).json({ error: 'الممرض غير موجود' });
+    res.set('Cache-Control', 'no-store');
+    res.json({ token });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'حدث خطأ في الخادم' });
+  }
+});
+
+// إلغاء الرابط وإنشاء غيره: القديم يتوقف فوراً، وأجهزة الممرض القديمة لا تصلها إشعارات بعد الآن
+router.post('/:id/notify-link/reset', nursingAuth, async (req, res) => {
+  try {
+    const token = await db.replaceNurseToken(req.params.id, newNurseToken());
+    if (!token) return res.status(404).json({ error: 'الممرض غير موجود' });
+    await db.deleteNursePushSubscriptions(req.params.id);
+    res.set('Cache-Control', 'no-store');
+    res.json({ token });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'حدث خطأ في الخادم' });
+  }
+});
+
+// التحقق من رمز الممرض (صفحته). الخطأ 401 دون تفصيل.
+async function nurseTokenAuth(req, res, next) {
+  const token = req.headers['x-nurse-token'];
+  if (typeof token !== 'string' || !/^[A-Za-z0-9_-]{40,64}$/.test(token)) {
+    return res.status(401).json({ error: 'رابط الممرض غير صالح أو أُلغي' });
+  }
+  try {
+    const nurse = await db.getNurseByToken(token);
+    if (!nurse) return res.status(401).json({ error: 'رابط الممرض غير صالح أو أُلغي' });
+    req.nurse = nurse;
+    next();
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'حدث خطأ في الخادم' });
+  }
+}
+
+// صفحة الممرض: اسمه وحالته، وطلباته في آخر 30 يوماً ببيانات المرضى (قرار ميار: الممرض يتصل بالمريض)
+router.get('/me/page', rateLimit(120, 15 * 60 * 1000), nurseTokenAuth, async (req, res) => {
+  try {
+    res.set('Cache-Control', 'no-store');
+    const n = req.nurse;
+    res.json({
+      nurse: { id: n.id, name: n.name, available: n.available, city: n.city || null, area: n.area || null },
+      requests: await db.getNurseRequestsForNurse(n.id)
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'حدث خطأ أثناء جلب الطلبات' });
+  }
+});
+
+// الممرض: «تواصلت مع المريض»
+router.put('/me/requests/:id/contacted', rateLimit(120, 15 * 60 * 1000), nurseTokenAuth, async (req, res) => {
+  try {
+    const r = await db.markNurseRequestContactedByNurse(req.params.id, req.nurse.id);
+    if (!r) return res.status(404).json({ error: 'الطلب غير موجود' });
+    res.json(r);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'حدث خطأ أثناء تحديث الطلب' });
   }
 });
 
