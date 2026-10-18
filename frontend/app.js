@@ -227,6 +227,7 @@ const translations = {
     nurse_link_reset_btn: 'إلغاء الرابط وإنشاء جديد', danger_reset_nurse_link: 'ألغِ الرابط',
     nurse_link_wa_msg: 'مرحباً {name}، هذا رابطك الخاص في منصة دوائي جاهز. افتحه على هاتفك واضغط «فعّل الإشعارات» لتصلك طلبات الزيارات التمريضية:\n{link}\nلا ترسله لأحد.',
     nurse_link_copied: 'نُسخ الرابط. أرسله إلى الممرض وحده.',
+    nurse_deleted_elsewhere: 'حُذف الممرض «{name}» من جهاز آخر، فأُغلق محرره.',
     nurse_link_copy_manual: 'انسخ هذا الرابط وأرسله إلى الممرض وحده:',
     nurse_link_reset_confirm: 'إلغاء رابط {name}؟ يتوقف الرابط القديم فوراً، ولا تصل الإشعارات إلى هاتفه حتى يفتح الرابط الجديد.',
     nurse_link_reset_done: 'أُنشئ رابط جديد. أرسله إلى الممرض.',
@@ -940,6 +941,7 @@ const translations = {
     nurse_link_reset_btn: 'Cancel the link and create a new one', danger_reset_nurse_link: 'Cancel link',
     nurse_link_wa_msg: 'Hello {name}, this is your private link on Dawaai Jahez. Open it on your phone and tap "Turn on notifications" to receive nursing visit requests:\n{link}\nDo not share it with anyone.',
     nurse_link_copied: 'Link copied. Send it to the nurse only.',
+    nurse_deleted_elsewhere: 'Nurse “{name}” was deleted from another device, so their editor was closed.',
     nurse_link_copy_manual: 'Copy this link and send it to the nurse only:',
     nurse_link_reset_confirm: "Cancel {name}'s link? The old link stops working immediately, and notifications stop reaching their phone until they open the new link.",
     nurse_link_reset_done: 'A new link was created. Send it to the nurse.',
@@ -5387,6 +5389,8 @@ async function renderAdminPanel() {
     if (adminSessionGone(session) || seq < adminPanelShownSeq) return;
     adminPanelShownSeq = seq;
     adminDataCache = { pharmacies, medicines, nurses, pendingRatings, stats, nurseRequests, managerSettings };
+    adminNursesEtag = null;
+    lastAdminFullLoadAt = Date.now();
     renderAdminPanelUI();
     adminPanelLoadedOnce = true;
   } catch (err) {
@@ -5775,30 +5779,14 @@ function renderAdminPanelUI({ refresh = true } = {}) {
       <button class="primary" id="add-nurse-btn" onclick="addNurseAdmin()">${t('add_nurse_btn')}</button>
     </div>
 
-    <h3>${t('registered_nurses_title')} (${nurses.length})</h3>
+    <h3 id="admin-nurses-title">${t('registered_nurses_title')} (${nurses.length})</h3>
     <div class="cert-storage-bar">
       <span class="muted">${t('cert_storage_label')}</span>
       <span id="cert-storage-usage">…</span>
       <button type="button" class="btn-outline blue small" onclick="checkCertStorage()">${t('cert_storage_check_btn')}</button>
     </div>
     <div class="stock-table-wrap" style="margin-bottom:20px;">
-      <div class="stock-scroll">
-        ${nurses.length === 0
-          ? `<p class="muted" style="padding:16px 18px; margin:0;">${t('no_nurses_yet')}</p>`
-          : `<div class="stock-table-header"><span>${t('nurses_table_header')}</span><span class="col-action">${t('actions_header_plural')}</span></div>
-             ${nurses.map(n => `
-               <div class="row">
-                 <span><bdi>${escapeHtml(n.name)}</bdi> <span class="muted" style="font-size:12px;">${escapeHtml(n.specialty || '')}</span> ${nursePillsHtml(n)}${nurseLocationText(n) ? `<br><span class="muted" style="font-size:12.5px;">📍 ${escapeHtml(nurseLocationText(n))}</span>` : ''}</span>
-                 <div style="display:flex; gap:8px 6px; align-items:center; flex-wrap:wrap; justify-content:flex-end;">
-                   <button class="btn-outline blue small table-action-btn" onclick="toggleNurseEditor(${n.id})">${n.cert_verified ? '✓ ' : ''}${t('nurse_profile_btn')}</button>
-                   <button class="toggle-btn ${n.available ? 'yes' : 'no'}" onclick="toggleNurseAvailabilityAdmin(${n.id}, ${!n.available})">${n.available ? t('nurse_available_short') : t('nurse_unavailable_short')}</button>
-                   <button class="btn-outline red small table-action-btn" onclick="deleteNurseAdmin(${n.id})">${t('delete_btn')}</button>
-                 </div>
-               </div>
-               <div class="nurse-editor" id="nurse-editor-${n.id}" style="${openNurseEditors.has(n.id) ? '' : 'display:none;'}">${nurseEditorHtml(n)}</div>
-             `).join('')}`
-        }
-      </div>
+      <div class="stock-scroll" id="admin-nurses-list">${adminNursesListHtml(nurses)}</div>
     </div>
 
     ${managerSettingsCardHtml(managerSettings)}
@@ -6023,8 +6011,11 @@ document.addEventListener('visibilitychange', () => {
   if (myOrdersPollInterval) try { checkMyOrdersStatus(); } catch (e) {}
   if (ordersPollInterval) try { loadOrders(); } catch (e) {}
   if (nursingPollInterval) try { pollNurses(); } catch (e) {}
+  onStaffReturn();
   if (adminRatingsPollInterval) try { loadPendingRatingsForAdmin(); } catch (e) {}
 });
+// على الحاسوب لا تختفي الصفحة حين يُنتقل إلى نافذة أخرى، فنستمع أيضاً لعودة التركيز إليها
+window.addEventListener('focus', () => onStaffReturn());
 
 // ================= التعامل مع الإخفاق =================
 // كانت ٥١ طلباً شبكياً بلا أي مهلة زمنية: لو علق الاتصال — وهو شائع على الشبكة
@@ -7245,6 +7236,23 @@ function nurseEditorHtml(n) {
     </div>`;
 }
 
+// صفوف الممرضين في لوحة الإدارة. منفصلة لتُحدَّث وحدها حين يغيّر جهاز آخر شيئاً فيها
+function adminNursesListHtml(nurses) {
+  if (nurses.length === 0) return `<p class="muted" style="padding:16px 18px; margin:0;">${t('no_nurses_yet')}</p>`;
+  return `<div class="stock-table-header"><span>${t('nurses_table_header')}</span><span class="col-action">${t('actions_header_plural')}</span></div>
+    ${nurses.map(n => `
+      <div class="row">
+        <span><bdi>${escapeHtml(n.name)}</bdi> <span class="muted" style="font-size:12px;">${escapeHtml(n.specialty || '')}</span> ${nursePillsHtml(n)}${nurseLocationText(n) ? `<br><span class="muted" style="font-size:12.5px;">📍 ${escapeHtml(nurseLocationText(n))}</span>` : ''}</span>
+        <div style="display:flex; gap:8px 6px; align-items:center; flex-wrap:wrap; justify-content:flex-end;">
+          <button class="btn-outline blue small table-action-btn" onclick="toggleNurseEditor(${n.id})">${n.cert_verified ? '✓ ' : ''}${t('nurse_profile_btn')}</button>
+          <button class="toggle-btn ${n.available ? 'yes' : 'no'}" onclick="toggleNurseAvailabilityAdmin(${n.id}, ${!n.available})">${n.available ? t('nurse_available_short') : t('nurse_unavailable_short')}</button>
+          <button class="btn-outline red small table-action-btn" onclick="deleteNurseAdmin(${n.id})">${t('delete_btn')}</button>
+        </div>
+      </div>
+      <div class="nurse-editor" id="nurse-editor-${n.id}" style="${openNurseEditors.has(n.id) ? '' : 'display:none;'}">${nurseEditorHtml(n)}</div>
+    `).join('')}`;
+}
+
 function nurseFromCache(id) { return (adminDataCache.nurses || []).find(x => x.id === id); }
 
 function refreshNurseEditor(id) {
@@ -8099,6 +8107,7 @@ async function loadManagerPanel() {
     if (session !== managerSessionId || !managerPassword || seq < managerPanelShownSeq) return;
     managerPanelShownSeq = seq;
     managerCache = { nurses, requests, pendingRatings };
+    managerNursesEtag = null;
     renderManagerPanelUI();
     managerLoadedOnce = true;
   } catch (err) {
@@ -8235,9 +8244,11 @@ const POLL_MANAGER_MS = 15000;   // كان 30 ثانية: الطلب الجدي�
 function startManagerPolling() {
   stopManagerPolling();
   managerPollTimer = setInterval(whenVisible(pollManager), POLL_MANAGER_MS);
+  managerNursesSyncTimer = setInterval(whenVisible(() => syncManagerNurses()), SYNC_NURSES_MS);
 }
 function stopManagerPolling() {
   if (managerPollTimer) { clearInterval(managerPollTimer); managerPollTimer = null; }
+  if (managerNursesSyncTimer) { clearInterval(managerNursesSyncTimer); managerNursesSyncTimer = null; }
 }
 async function pollManager() {
   if (!managerPassword) { stopManagerPolling(); return; }
@@ -9135,6 +9146,113 @@ function resetNurseLink(id, role) {
   });
 }
 
+// ---------- مزامنة الممرضين بين الأجهزة ----------
+// لوحة الإدارة ولوحة المدير قد تكونان مفتوحتين على أكثر من جهاز. كل 30 ثانية والصفحة ظاهرة
+// نسأل الخادم: هل تغيّرت قائمة الممرضين؟ نرسل بصمة آخر نسخة (ETag)، فإن لم تتغير يرد 304
+// بلا محتوى، فلا يُستهلك إنترنت تقريباً. وإن تغيّرت نرسم قسم الممرضين وحده بلا وميض.
+// وعند العودة إلى الصفحة من تطبيق أو نافذة أخرى نفحص فوراً.
+const SYNC_NURSES_MS = 30000;
+let adminNursesEtag = null, lastAdminNursesSync = 0, lastAdminFullLoadAt = 0, adminNursesSyncTimer = null;
+let managerNursesEtag = null, lastManagerNursesSync = 0, managerNursesSyncTimer = null;
+let lastStaffReturn = 0;
+
+async function fetchNursesIfChanged(headers, etag) {
+  // Cache-Control صريح حتى لا يضيف المتصفح no-cache فيتجاهل الخادم البصمة
+  const h = { ...headers, 'Cache-Control': 'max-age=0' };
+  if (etag) h['If-None-Match'] = etag;
+  const res = await fetchWithTimeout(`${API}/nurses/admin/all`, { headers: h, cache: 'no-store' }, 20000);
+  if (res.status === 401) { const e = new Error('session expired'); e.sessionExpired = true; throw e; }
+  if (res.status === 304) return { changed: false, etag };
+  const list = await readJsonOk(res);
+  return { changed: true, list, etag: res.headers.get('ETag') };
+}
+
+// المستخدم يكتب الآن في هذا القسم؟ نؤجل التحديث للجولة التالية حتى لا يضيع التركيز أو تُغلق لوحة المفاتيح
+function typingInside(root) {
+  const a = document.activeElement;
+  return !!(root && a && root.contains(a) && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName));
+}
+
+// محرر مفتوح لممرض اختفى من القائمة: نخبر المستخدم بدل أن يختفي المحرر بصمت
+function closedEditorsOf(oldList, newList, openSet) {
+  const ids = new Set(newList.map(n => n.id));
+  const gone = oldList.filter(n => openSet.has(n.id) && !ids.has(n.id));
+  for (const n of gone) openSet.delete(n.id);
+  return gone;
+}
+
+async function syncAdminNurses(force = false) {
+  if (!adminPassword || !adminPanelLoadedOnce || document.body.dataset.view !== 'admin') return;
+  if (!force && Date.now() - lastAdminNursesSync < 3000) return;   // فحص مستعجل سبقه للتو
+  lastAdminNursesSync = Date.now();
+  const session = adminSessionId;
+  try {
+    const r = await fetchNursesIfChanged(adminHeaders(), adminNursesEtag);
+    if (adminSessionGone(session)) return;
+    if (!r.changed) return;
+    const old = adminDataCache.nurses || [];
+    if (JSON.stringify(r.list) === JSON.stringify(old)) { adminNursesEtag = r.etag; return; }
+    const listEl = document.getElementById('admin-nurses-list');
+    if (!listEl || typingInside(listEl)) return;   // البصمة لا تُحفظ، فتُعاد المحاولة في الجولة التالية
+    const gone = closedEditorsOf(old, r.list, openNurseEditors);
+    adminDataCache.nurses = r.list;
+    adminNursesEtag = r.etag;
+    captureRowDrafts(listEl);
+    listEl.innerHTML = adminNursesListHtml(r.list);
+    applyRowDrafts();
+    const title = document.getElementById('admin-nurses-title');
+    if (title) title.textContent = `${t('registered_nurses_title')} (${r.list.length})`;
+    for (const id of openNurseEditors) if (!nurseLinkCache[id]) ensureNurseLink(id, 'admin');
+    for (const n of gone) await customAlert(tFormat('nurse_deleted_elsewhere', { name: n.name }), 'info');
+  } catch (err) {
+    if (err && err.sessionExpired && !adminSessionGone(session)) adminSessionExpired();
+  }
+}
+
+async function syncManagerNurses(force = false) {
+  if (!managerPassword || !managerLoadedOnce) return;
+  if (!force && Date.now() - lastManagerNursesSync < 3000) return;
+  lastManagerNursesSync = Date.now();
+  const session = managerSessionId;
+  try {
+    const r = await fetchNursesIfChanged(managerHeaders(), managerNursesEtag);
+    if (session !== managerSessionId || !managerPassword) return;
+    if (!r.changed) return;
+    const old = managerCache.nurses || [];
+    if (JSON.stringify(r.list) === JSON.stringify(old)) { managerNursesEtag = r.etag; return; }
+    const pane = document.getElementById('mgr-pane-nurses');
+    if (!pane || typingInside(pane)) return;
+    const gone = closedEditorsOf(old, r.list, openManagerEditors);
+    managerCache.nurses = r.list;
+    managerNursesEtag = r.etag;
+    captureManagerDrafts();
+    pane.innerHTML = managerNursesHtml();
+    applyManagerDrafts();
+    refreshManagerLists(false, false);   // رقم «المتاحون» في الأعلى
+    for (const id of openManagerEditors) if (!nurseLinkCache[id]) ensureNurseLink(id, 'mgr');
+    for (const n of gone) await customAlert(tFormat('nurse_deleted_elsewhere', { name: n.name }), 'info');
+  } catch (err) {
+    if (err && err.sessionExpired && session === managerSessionId) managerSessionExpired();
+  }
+}
+
+// العودة إلى الصفحة: فحص فوري للممرضين. ولوحة الإدارة كلها تُحدَّث بصمت إن مرّ على آخر
+// تحميل كامل دقيقتان، ما لم يكن المستخدم يكتب فيها
+function onStaffReturn() {
+  if (document.hidden || Date.now() - lastStaffReturn < 3000) return;
+  lastStaffReturn = Date.now();
+  // الفحص المستعجل أولاً، فلا يكرره الفحص الدوري الذي يليه
+  if (managerPassword) syncManagerNurses(true);
+  if (managerPassword && managerLoadedOnce) pollManager();
+  if (adminPassword && adminPanelLoadedOnce && document.body.dataset.view === 'admin') {
+    const panel = document.getElementById('admin-panel');
+    if (Date.now() - lastAdminFullLoadAt > 120000 && !typingInside(panel)) {
+      lastAdminNursesSync = Date.now();
+      renderAdminPanel();
+    } else syncAdminNurses(true);
+  }
+}
+
 // ---------- إدارة خدمات التمريض (لوحة الإدارة) ----------
 
 function addNurseAdmin() { return runGuarded('addNurseAdmin', 'add-nurse-btn', addNurseAdminNow); }
@@ -9239,6 +9357,7 @@ let lastPendingRatingsSnapshot = null;
 function startAdminRatingsPolling() {
   stopAdminRatingsPolling();
   adminRatingsPollInterval = setInterval(whenVisible(loadPendingRatingsForAdmin), POLL_ADMIN_RATINGS_MS);
+  adminNursesSyncTimer = setInterval(whenVisible(() => syncAdminNurses()), SYNC_NURSES_MS);
 }
 
 function stopAdminRatingsPolling() {
@@ -9246,6 +9365,7 @@ function stopAdminRatingsPolling() {
     clearInterval(adminRatingsPollInterval);
     adminRatingsPollInterval = null;
   }
+  if (adminNursesSyncTimer) { clearInterval(adminNursesSyncTimer); adminNursesSyncTimer = null; }
 }
 
 async function loadPendingRatingsForAdmin() {
