@@ -207,6 +207,29 @@ const translations = {
     danger_delete_cert: 'احذف الشهادة', danger_clear_duty: 'ألغِ كل المناوبات', danger_delete_pharmacy: 'احذف الصيدلية',
     danger_delete_medicine: 'احذف الدواء', danger_delete_nurse: 'احذف الممرض', danger_reject_rating: 'ارفض التقييم',
     danger_delete_rating: 'احذف التقييم',
+    // ---- صفحة الممرض ورابطه (أكتوبر 2026) ----
+    nurse_page_title: 'زياراتك 🩺', nurse_banner_plain: 'صفحة الممرض', nurse_banner_hello: 'أهلاً، {name}',
+    nurse_page_requests_title: 'الطلبات ({count})',
+    nurse_page_empty_title: 'لا طلبات بعد', nurse_page_empty_sub: 'حين يطلبك مريض يصلك إشعار، ويظهر طلبه هنا ببياناته.',
+    nurse_page_unavailable: 'أنت الآن «غير متاح»، فلا تصلك طلبات جديدة. أخبر مدير التمريض حين تصير متاحاً.',
+    nurse_page_mark_contacted: '✓ تواصلت مع المريض', nurse_page_contacted_badge: '✓ تواصلت',
+    nurse_page_wa_msg: 'مرحباً {name}، معك الممرض/ة {nurse} من منصة دوائي جاهز بخصوص طلب الزيارة التمريضية.',
+    nurse_page_privacy: 'بيانات المرضى هنا لترتيب الزيارة فقط، ولا تُشارك مع أحد. تُحذف الطلبات تلقائياً بعد 30 يوماً.',
+    nurse_page_invalid_title: 'هذا الرابط لم يعد صالحاً',
+    nurse_page_invalid_text: 'ربما أُلغي وأُنشئ رابط جديد. اطلب رابطك الجديد من مدير التمريض.',
+    nurse_page_home_btn: 'الصفحة الرئيسية',
+    push_desc_nurse: 'يصلك إشعار على هذا الهاتف عند كل طلب زيارة لك، حتى والموقع مغلق.',
+    nurse_notify_on_pill: '🔔 الإشعارات مفعّلة', nurse_notify_off_pill: '🔕 لم تُفعَّل بعد',
+    nurse_contacted_by_nurse_badge: '✓ تواصل الممرض',
+    nurse_link_title: '🔔 إشعارات الممرض',
+    nurse_link_desc: 'أرسل إلى الممرض رابطه الخاص، فيفتحه على هاتفه ويفعّل الإشعارات. يصله كل طلب له، ويرى فيه بيانات المريض ليتصل به.',
+    nurse_link_wa_btn: 'أرسل الرابط عبر واتساب', nurse_link_copy_btn: '📋 نسخ الرابط',
+    nurse_link_reset_btn: 'إلغاء الرابط وإنشاء جديد', danger_reset_nurse_link: 'ألغِ الرابط',
+    nurse_link_wa_msg: 'مرحباً {name}، هذا رابطك الخاص في منصة دوائي جاهز. افتحه على هاتفك واضغط «فعّل الإشعارات» لتصلك طلبات الزيارات التمريضية:\n{link}\nلا ترسله لأحد.',
+    nurse_link_copied: 'نُسخ الرابط. أرسله إلى الممرض وحده.',
+    nurse_link_copy_manual: 'انسخ هذا الرابط وأرسله إلى الممرض وحده:',
+    nurse_link_reset_confirm: 'إلغاء رابط {name}؟ يتوقف الرابط القديم فوراً، ولا تصل الإشعارات إلى هاتفه حتى يفتح الرابط الجديد.',
+    nurse_link_reset_done: 'أُنشئ رابط جديد. أرسله إلى الممرض.',
     // ---- إشعارات الهاتف (أكتوبر 2026) ----
     push_card_title: '🔔 إشعارات الهاتف',
     push_desc_pharmacy: 'يصلك إشعار على هذا الهاتف عند كل طلب دواء جديد لصيدليتك، حتى والموقع مغلق.',
@@ -897,6 +920,29 @@ const translations = {
     danger_delete_cert: 'Delete certificate', danger_clear_duty: 'Clear all duty', danger_delete_pharmacy: 'Delete pharmacy',
     danger_delete_medicine: 'Delete medicine', danger_delete_nurse: 'Delete nurse', danger_reject_rating: 'Reject review',
     danger_delete_rating: 'Delete review',
+    // ---- Nurse page and link (October 2026) ----
+    nurse_page_title: 'Your visits 🩺', nurse_banner_plain: 'Nurse page', nurse_banner_hello: 'Hello, {name}',
+    nurse_page_requests_title: 'Requests ({count})',
+    nurse_page_empty_title: 'No requests yet', nurse_page_empty_sub: 'When a patient requests you, you get a notification and the request appears here with their details.',
+    nurse_page_unavailable: 'You are currently "unavailable", so no new requests reach you. Tell the nursing manager when you are available.',
+    nurse_page_mark_contacted: '✓ I contacted the patient', nurse_page_contacted_badge: '✓ Contacted',
+    nurse_page_wa_msg: 'Hello {name}, this is nurse {nurse} from Dawaai Jahez about your nursing visit request.',
+    nurse_page_privacy: 'Patient details here are only for arranging the visit and are not shared with anyone. Requests are deleted automatically after 30 days.',
+    nurse_page_invalid_title: 'This link is no longer valid',
+    nurse_page_invalid_text: 'It may have been cancelled and replaced. Ask the nursing manager for your new link.',
+    nurse_page_home_btn: 'Home page',
+    push_desc_nurse: 'Get a notification on this phone for every visit request for you, even when the site is closed.',
+    nurse_notify_on_pill: '🔔 Notifications on', nurse_notify_off_pill: '🔕 Not turned on yet',
+    nurse_contacted_by_nurse_badge: '✓ Nurse contacted',
+    nurse_link_title: '🔔 Nurse notifications',
+    nurse_link_desc: "Send the nurse their private link. They open it on their phone and turn on notifications. Each request for them reaches them, with the patient's details so they can call.",
+    nurse_link_wa_btn: 'Send the link on WhatsApp', nurse_link_copy_btn: '📋 Copy link',
+    nurse_link_reset_btn: 'Cancel the link and create a new one', danger_reset_nurse_link: 'Cancel link',
+    nurse_link_wa_msg: 'Hello {name}, this is your private link on Dawaai Jahez. Open it on your phone and tap "Turn on notifications" to receive nursing visit requests:\n{link}\nDo not share it with anyone.',
+    nurse_link_copied: 'Link copied. Send it to the nurse only.',
+    nurse_link_copy_manual: 'Copy this link and send it to the nurse only:',
+    nurse_link_reset_confirm: "Cancel {name}'s link? The old link stops working immediately, and notifications stop reaching their phone until they open the new link.",
+    nurse_link_reset_done: 'A new link was created. Send it to the nurse.',
     // ---- Phone notifications (October 2026) ----
     push_card_title: '🔔 Phone notifications',
     push_desc_pharmacy: 'Get a notification on this phone for every new medicine order to your pharmacy, even when the site is closed.',
@@ -1626,6 +1672,7 @@ const BACKEND_ERROR_MAP = {
 // الإنكليزية. العربية تُعرض كما أرسلها الخادم، والإنكليزية من هنا. أي رسالة جديدة
 // تُضاف إلى الخادم ولا تُضاف هنا تظهر في الواجهة الإنكليزية برسالة عامة مفهومة.
 const BACKEND_ERROR_EN = {
+  'رابط الممرض غير صالح أو أُلغي': 'This nurse link is not valid or was cancelled.',
   'اشتراك الإشعارات غير صالح': 'The notification subscription is not valid.',
   'الإشعارات غير مفعّلة على هذا الجهاز': 'Notifications are not turned on for this device.',
   'المنطقة أو الحي مطلوب': 'The area or neighbourhood is required.',
@@ -1971,6 +2018,7 @@ function applyLanguage() {
     }
   }
   renderNursingJoin();
+  if (document.body.dataset.view === 'nurse') renderNursePage();
   refreshPushAfterLanguage();
   // نافذة طلب الزيارة مفتوحة: تُرسم باللغة الجديدة وما كُتب فيها باقٍ
   if (nreqState) {
@@ -2083,7 +2131,13 @@ function updateStaffBanner() {
   const view = document.body.dataset.view;
   const title = document.getElementById('staff-banner-title');
   const sub = document.getElementById('staff-banner-sub');
-  if (!title || !sub || (view !== 'pharmacist' && view !== 'admin')) return;
+  if (!title || !sub || (view !== 'pharmacist' && view !== 'admin' && view !== 'nurse')) return;
+  if (view === 'nurse') {
+    const name = nursePageData && nursePageData.nurse ? nursePageData.nurse.name : '';
+    title.textContent = name ? tFormat('nurse_banner_hello', { name }) : t('nurse_banner_plain');
+    sub.textContent = '';
+    return;
+  }
   if (view === 'admin' && managerPassword) {
     title.textContent = t('staff_banner_manager_title');
     sub.textContent = t('staff_banner_manager_sub');
@@ -2098,7 +2152,7 @@ function showView(view) {
   const heroOn = view === 'patient' || view === 'nursing';
   document.body.classList.toggle('has-hero', heroOn);
   // لوحتا الصيدلي والإدارة: شريط داكن أقصر بعنوان الصفحة، بدل خلفية فاتحة بلا هوية
-  document.body.classList.toggle('staff-view', view === 'pharmacist' || view === 'admin');
+  document.body.classList.toggle('staff-view', view === 'pharmacist' || view === 'admin' || view === 'nurse');
   document.body.dataset.view = view;
   updateStaffBanner();
   const heroOuter = document.querySelector('.hero-outer');
@@ -2107,6 +2161,9 @@ function showView(view) {
   document.getElementById('view-pharmacist').style.display = view === 'pharmacist' ? 'block' : 'none';
   document.getElementById('view-admin').style.display = view === 'admin' ? 'block' : 'none';
   document.getElementById('view-nursing').style.display = view === 'nursing' ? 'block' : 'none';
+  const nurseView = document.getElementById('view-nurse');
+  if (nurseView) nurseView.style.display = view === 'nurse' ? 'block' : 'none';
+  if (view !== 'nurse') stopNursePagePolling();
   if (view === 'pharmacist' && !currentPharmacy) renderPharmacyAuthForm();
   if (view === 'admin' && !adminPassword && !managerPassword) renderAdminAuthForm();
   if (view !== 'nursing') stopNursingPolling();
@@ -5099,6 +5156,7 @@ async function checkAdminPasswordNow() {
 
 function logoutAdmin() {
   adminPassword = null;
+  for (const k of Object.keys(nurseLinkCache)) delete nurseLinkCache[k];
   adminSessionId++;          // و8: أي رد يصل بعد الخروج يُهمل
   adminRowDrafts = {};       // و9: لا تبقى مسودات صفوف الجلسة السابقة
   stopAdminRatingsPolling();
@@ -5723,7 +5781,7 @@ function renderAdminPanelUI() {
           : `<div class="stock-table-header"><span>${t('nurses_table_header')}</span><span class="col-action">${t('actions_header_plural')}</span></div>
              ${nurses.map(n => `
                <div class="row">
-                 <span><bdi>${escapeHtml(n.name)}</bdi> <span class="muted" style="font-size:12px;">${escapeHtml(n.specialty || '')}</span>${nurseLocationText(n) ? `<br><span class="muted" style="font-size:12.5px;">📍 ${escapeHtml(nurseLocationText(n))}</span>` : ''}</span>
+                 <span><bdi>${escapeHtml(n.name)}</bdi> <span class="muted" style="font-size:12px;">${escapeHtml(n.specialty || '')}</span> ${nursePillsHtml(n)}${nurseLocationText(n) ? `<br><span class="muted" style="font-size:12.5px;">📍 ${escapeHtml(nurseLocationText(n))}</span>` : ''}</span>
                  <div style="display:flex; gap:8px 6px; align-items:center; flex-wrap:wrap; justify-content:flex-end;">
                    <button class="btn-outline blue small table-action-btn" onclick="toggleNurseEditor(${n.id})">${n.cert_verified ? '✓ ' : ''}${t('nurse_profile_btn')}</button>
                    <button class="toggle-btn ${n.available ? 'yes' : 'no'}" onclick="toggleNurseAvailabilityAdmin(${n.id}, ${!n.available})">${n.available ? t('nurse_available_short') : t('nurse_unavailable_short')}</button>
@@ -5784,6 +5842,7 @@ function renderAdminPanelUI() {
   setupAdEditorEvents();
   pending.push(loadAdsAdmin(), loadCertStorageUsage());
   Promise.allSettled(pending).then(() => requestAnimationFrame(releaseHeight));
+  for (const id of openNurseEditors) if (!nurseLinkCache[id]) ensureNurseLink(id, 'admin');
   setTimeout(releaseHeight, 15000);   // شبكة بطيئة جداً: لا يبقى الارتفاع مقفلاً إلى الأبد
 }
 
@@ -7127,6 +7186,7 @@ function nurseEditorHtml(n) {
       ${locationFieldsHtml(k => `nurse-${k}-${n.id}`, n)}
       <button type="button" class="primary" onclick="saveNurseProfile(${n.id})">${t('nurse_profile_save')}</button>
     </div>
+    ${nurseLinkBoxHtml(n, 'admin')}
     <div class="nurse-cert-box">
       <h4>📄 ${t('cert_section_title')}</h4>
       <p class="nurse-cert-info">${info}</p>
@@ -7158,6 +7218,7 @@ function toggleNurseEditor(id) {
   const show = box.style.display === 'none';
   box.style.display = show ? '' : 'none';
   if (show) openNurseEditors.add(id); else openNurseEditors.delete(id);
+  if (show) ensureNurseLink(id, 'admin');
 }
 
 async function saveNurseProfile(id) {
@@ -7929,6 +7990,7 @@ async function checkManagerPasswordNow() {
 
 function logoutManager() {
   managerPassword = null;
+  for (const k of Object.keys(nurseLinkCache)) delete nurseLinkCache[k];
   pushState.manager = null;
   managerSessionId++;          // أي رد يصل بعد الخروج يُهمل
   managerLoadedOnce = false;
@@ -8039,6 +8101,7 @@ function renderManagerPanelUI() {
     </div>`;
   applyManagerDrafts();
   renderPushCard('manager');
+  for (const id of openManagerEditors) if (!nurseLinkCache[id]) ensureNurseLink(id, 'mgr');
 }
 
 function setManagerTab(key) {
@@ -8171,7 +8234,9 @@ function nurseRequestCardsHtml(list, role) {
       <div class="nreq-card${done ? ' done' : ''}">
         <div class="nreq-top">
           <p class="nreq-who">👤 <bdi>${escapeHtml(r.patient_name)}</bdi></p>
-          <span class="nreq-badge ${done ? 'done' : 'new'}">${done ? t('nreq_done_badge') : t('nreq_new_badge')}</span>
+          ${r.nurse_contacted_at
+            ? `<span class="nreq-badge nurse">${t('nurse_contacted_by_nurse_badge')}</span>`
+            : `<span class="nreq-badge ${done ? 'done' : 'new'}">${done ? t('nreq_done_badge') : t('nreq_new_badge')}</span>`}
         </div>
         <p class="nreq-row">📞 <bdi dir="ltr">${escapeHtml(r.patient_phone)}</bdi></p>
         ${r.patient_area ? `<p class="nreq-row">📍 ${escapeHtml(r.patient_area)}</p>` : ''}
@@ -8246,6 +8311,7 @@ function managerNursesHtml() {
                    <bdi>${escapeHtml(n.name)}</bdi> <span class="muted" style="font-size:12px;">${escapeHtml(n.specialty || '')}</span>
                    <span style="display:flex; flex-wrap:wrap; align-items:center; gap:4px 8px; margin-top:4px;">
                      <span class="cert-pill ${n.cert_verified ? 'yes' : 'no'}">${n.cert_verified ? t('cert_pill_yes') : t('cert_pill_no')}</span>
+                     ${nursePillsHtml(n)}
                      ${loc ? `<span class="muted" style="font-size:12.5px;">📍 ${escapeHtml(loc)}</span>` : ''}
                    </span>
                  </span>
@@ -8274,7 +8340,8 @@ function managerNurseEditorHtml(n) {
       </label>
     </div>
     <div style="margin-top:12px;">${locationFieldsHtml(k => `mgr-nurse-${k}-${n.id}`, n)}</div>
-    <button type="button" class="primary" id="mgr-nurse-save-${n.id}" style="width:auto; padding:12px 28px; margin:0;" onclick="saveNurseProfileManager(${n.id})">${t('nurse_profile_save')}</button>`;
+    <button type="button" class="primary" id="mgr-nurse-save-${n.id}" style="width:auto; padding:12px 28px; margin:0;" onclick="saveNurseProfileManager(${n.id})">${t('nurse_profile_save')}</button>
+    ${nurseLinkBoxHtml(n, 'mgr')}`;
 }
 
 // هاتف الممرض داخل التعديل (للإدارة ولمدير التمريض): رابط اتصال مباشر
@@ -8290,6 +8357,7 @@ function toggleManagerEditor(id) {
   const show = box.style.display === 'none';
   box.style.display = show ? '' : 'none';
   if (show) openManagerEditors.add(id); else openManagerEditors.delete(id);
+  if (show) ensureNurseLink(id, 'mgr');
   const btn = document.querySelector(`[onclick="toggleManagerEditor(${id})"]`);
   if (btn) btn.setAttribute('aria-expanded', String(show));
 }
@@ -8514,8 +8582,8 @@ async function saveManagerContactNow() {
 // الأدوار: 'pharmacy' (لوحة الصيدلي) و'manager' (لوحة مدير التمريض). الجهاز الواحد قد يشترك
 // بالدورين، والاشتراك في المتصفح واحد، فإيقاف دور لا يلغي اشتراك المتصفح، بل سجلّه عند الخادم.
 
-const PUSH_ROLES = ['pharmacy', 'manager'];
-const pushState = { pharmacy: null, manager: null };   // null | unsupported | ios | denied | off | on
+const PUSH_ROLES = ['pharmacy', 'manager', 'nurse'];
+const pushState = { pharmacy: null, manager: null, nurse: null };   // null | unsupported | ios | denied | off | on
 
 function pushSupported() {
   return 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
@@ -8529,9 +8597,14 @@ function isStandaloneApp() {
 
 function pushHeadersFor(role) {
   if (role === 'pharmacy') return { 'Content-Type': 'application/json', ...pharmacyHeaders() };
+  if (role === 'nurse') return nurseTokenHeaders();
   return managerHeaders();
 }
-function pushRoleActive(role) { return role === 'pharmacy' ? !!currentPharmacy : !!managerPassword; }
+function pushRoleActive(role) {
+  if (role === 'pharmacy') return !!currentPharmacy;
+  if (role === 'nurse') return !!nurseToken && nursePageState === 'ok';
+  return !!managerPassword;
+}
 
 function base64UrlToBytes(s) {
   const b64 = s.replace(/-/g, '+').replace(/_/g, '/') + '='.repeat((4 - s.length % 4) % 4);
@@ -8599,7 +8672,7 @@ function pushCardHost(role) {
     }
     return host;
   }
-  return document.getElementById('push-card-manager');
+  return document.getElementById(role === 'nurse' ? 'push-card-nurse' : 'push-card-manager');
 }
 
 function renderPushCard(role) {
@@ -8621,7 +8694,7 @@ function renderPushCard(role) {
     return;
   }
   const notes = {
-    off: `<p class="muted" style="margin:0 0 12px; font-size:14.5px; line-height:1.7;">${t(role === 'pharmacy' ? 'push_desc_pharmacy' : 'push_desc_manager')}</p>
+    off: `<p class="muted" style="margin:0 0 12px; font-size:14.5px; line-height:1.7;">${t(role === 'pharmacy' ? 'push_desc_pharmacy' : role === 'nurse' ? 'push_desc_nurse' : 'push_desc_manager')}</p>
           <button type="button" class="primary" id="push-on-${role}" style="min-height:48px; margin:0;" onclick="enablePush('${role}')">${t('push_enable_btn')}</button>`,
     denied: `<p style="margin:0; font-size:14.5px; line-height:1.8; color:#7a5a00;">${t('push_denied_help')}</p>`,
     ios: `<p style="margin:0; font-size:14.5px; line-height:1.8; color:#2c3e50;">${t('push_ios_help')}</p>`,
@@ -8670,7 +8743,12 @@ async function enablePushNow(role) {
     const res = await fetchWithTimeout(`${API}/push/subscribe`, { method: 'POST', headers: pushHeadersFor(role),
       body: JSON.stringify({ role, lang: currentLang, subscription: sub.toJSON() }) }, 20000);
     const data = await res.json().catch(() => ({}));
-    if (res.status === 401) { if (role === 'manager') managerSessionExpired(); else await customAlert(translateApiError(data.error), 'error'); return; }
+    if (res.status === 401) {
+      if (role === 'manager') managerSessionExpired();
+      else if (role === 'nurse') loadNursePage();
+      else await customAlert(translateApiError(data.error), 'error');
+      return;
+    }
     if (!res.ok) { await customAlert(translateApiError(data.error), 'error'); return; }
   } catch (err) {
     await customAlert(t('server_error_title'), 'error');
@@ -8734,6 +8812,8 @@ function openFromNotificationUrl(url) {
   if (target === 'pharmacist') {
     headerGoPharmacist(document.getElementById('nav-pharmacist'));
     if (currentPharmacy) loadOrders();
+  } else if (target === 'nurse') {
+    openNurseView();
   } else if (target === 'admin') {
     headerGoAdmin(document.getElementById('nav-admin'));
     if (managerPassword) { setManagerTab('requests'); pollManager(); }
@@ -8742,16 +8822,258 @@ function openFromNotificationUrl(url) {
 }
 
 function handleOpenParamOnLoad() {
+  // رابط الممرض الخاص (#nurse=…): يُحفظ في الهاتف وتُفتح صفحته
+  if (takeNurseTokenFromHash()) { openNurseView(); return; }
   if (!/[?&]open=/.test(location.search)) return;
   openFromNotificationUrl(location.href);
   // نزيل ?open= من شريط العنوان، كي لا يعيد تحديث الصفحة فتح اللوحة نفسها
   try { history.replaceState(null, '', location.pathname + location.hash); } catch (e) { /* لا شيء */ }
 }
 
+// فتح رابط الممرض والموقع مفتوح أصلاً في التبويب نفسه
+window.addEventListener('hashchange', () => { if (takeNurseTokenFromHash()) openNurseView(); });
+
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.addEventListener('message', (event) => {
     const d = event.data;
     if (d && d.type === 'dj-open' && typeof d.url === 'string') openFromNotificationUrl(d.url);
+  });
+}
+
+// ===================== صفحة الممرض ورابطه الخاص (أكتوبر 2026) =====================
+// لكل ممرض رابط خاص: https://الموقع/#nurse=الرمز. يرسله مدير التمريض على واتساب، فيفتحه الممرض
+// على هاتفه مرة واحدة: يُحفظ الرمز في الهاتف، وتُفتح صفحته (طلباته ببيانات المرضى، وبطاقة
+// الإشعارات). بعدها يدخلها من الإشعار أو من الرابط نفسه. لا رابط لها في الشريط العلوي.
+// الرمز بعد # لا يصل إلى الخادم مع فتح الصفحة، والموقع يرسله في ترويسة x-nurse-token فقط.
+
+let nurseToken = storageGet('dj_nurse_token');
+let nursePageData = null;          // { nurse, requests }
+let nursePageState = 'idle';       // idle | loading | ok | invalid | error
+let nursePollTimer = null;
+const POLL_NURSE_PAGE_MS = 30000;
+
+function nurseTokenHeaders() {
+  return { 'Content-Type': 'application/json', 'x-nurse-token': nurseToken || '' };
+}
+
+// رابط #nurse= في العنوان: نحفظ الرمز ونزيله من شريط العنوان فوراً (كي لا يُنسخ مع لقطة شاشة
+// أو يبقى في سجل التصفح ظاهراً)، ثم نفتح الصفحة
+function takeNurseTokenFromHash() {
+  const m = /^#nurse=([A-Za-z0-9_-]{40,64})$/.exec(location.hash || '');
+  if (!m) return false;
+  nurseToken = m[1];
+  storageSet('dj_nurse_token', nurseToken);
+  try { history.replaceState(null, '', location.pathname + location.search); } catch (e) { /* لا شيء */ }
+  return true;
+}
+
+function openNurseView() {
+  if (!nurseToken) { headerGoHome(document.getElementById('nav-home')); return; }
+  showView('nurse');
+  setActiveNav(null);
+  window.scrollTo({ top: 0 });
+  renderNursePage();
+  loadNursePage();
+  stopNursePagePolling();
+  nursePollTimer = setInterval(whenVisible(() => { if (document.body.dataset.view === 'nurse') loadNursePage(true); }), POLL_NURSE_PAGE_MS);
+}
+function stopNursePagePolling() {
+  if (nursePollTimer) { clearInterval(nursePollTimer); nursePollTimer = null; }
+}
+
+async function loadNursePage(quiet) {
+  if (!nurseToken) return;
+  if (!quiet && !nursePageData) { nursePageState = 'loading'; renderNursePage(); }
+  try {
+    const res = await fetchWithTimeout(`${API}/nurses/me/page`, { headers: nurseTokenHeaders(), cache: 'no-store' }, 20000);
+    if (res.status === 401) {
+      // أُلغي الرابط أو حُذف الممرض: يُنسى الرمز من الهاتف
+      nurseToken = null; nursePageData = null; nursePageState = 'invalid';
+      try { localStorage.removeItem('dj_nurse_token'); } catch (e) { /* لا شيء */ }
+      pushState.nurse = null;
+      renderNursePage();
+      return;
+    }
+    const data = await readJsonOk(res, 'object');
+    const changed = JSON.stringify(data) !== JSON.stringify(nursePageData);
+    nursePageData = data;
+    const first = nursePageState !== 'ok';
+    nursePageState = 'ok';
+    if (changed || first) renderNursePage();
+    if (first || pushState.nurse === null) checkPushState('nurse');
+  } catch (err) {
+    if (!nursePageData) { nursePageState = 'error'; renderNursePage(); }
+  }
+}
+
+function nurseRequestCardHtml(r) {
+  const handled = !!r.nurse_contacted_at || r.status === 'contacted';
+  const badge = r.nurse_contacted_at ? `<span class="nreq-badge nurse">${t('nurse_page_contacted_badge')}</span>`
+    : r.status === 'contacted' ? `<span class="nreq-badge done">${t('nreq_done_badge')}</span>`
+    : `<span class="nreq-badge new">${t('nreq_new_badge')}</span>`;
+  const rel = relativeTime(r.created_at);
+  const nurseName = nursePageData && nursePageData.nurse ? nursePageData.nurse.name : '';
+  return `
+    <div class="nreq-card${handled ? ' done' : ''}">
+      <div class="nreq-top">
+        <p class="nreq-who">👤 <bdi>${escapeHtml(r.patient_name)}</bdi></p>
+        ${badge}
+      </div>
+      <p class="nreq-row">📞 <bdi dir="ltr">${escapeHtml(r.patient_phone)}</bdi></p>
+      ${r.patient_area ? `<p class="nreq-row">📍 ${escapeHtml(r.patient_area)}</p>` : ''}
+      ${r.notes ? `<p class="nreq-notes">${escapeHtml(r.notes)}</p>` : ''}
+      <p class="nreq-time">🕐 <bdi>${formatOrderTime(r.created_at)}</bdi>${rel ? ` · ${escapeHtml(rel)}` : ''}</p>
+      <div class="nreq-actions">
+        ${callBtnHtml(r.patient_phone)}
+        ${waAnchorHtml(r.patient_phone, tFormat('nurse_page_wa_msg', { name: r.patient_name, nurse: nurseName }))}
+        ${r.nurse_contacted_at ? '' : `<button type="button" class="nreq-done-btn" id="nurse-done-${r.id}" onclick="markContactedByNurse(${r.id})">${t('nurse_page_mark_contacted')}</button>`}
+      </div>
+    </div>`;
+}
+
+function renderNursePage() {
+  const view = document.getElementById('view-nurse');
+  if (!view) return;
+  updateStaffBanner();
+  if (nursePageState === 'invalid') {
+    view.innerHTML = `
+      <div class="nurse-page-invalid">
+        <div class="empty-icon">🔗</div>
+        <p class="empty-title">${t('nurse_page_invalid_title')}</p>
+        <p>${t('nurse_page_invalid_text')}</p>
+        <button type="button" class="btn-outline blue" style="margin-top:16px; min-height:48px;" onclick="headerGoHome(document.getElementById('nav-home'))">${t('nurse_page_home_btn')}</button>
+      </div>`;
+    return;
+  }
+  if (nursePageState === 'error' && !nursePageData) {
+    view.innerHTML = `<div class="nurse-page-invalid"><div class="empty-icon">⚠️</div><p class="empty-title">${t('server_error_title')}</p><p>${t('server_error_subtitle')}</p></div>`;
+    return;
+  }
+  if (!nursePageData) { view.innerHTML = skeletonHtml(2); return; }
+  const { nurse, requests } = nursePageData;
+  view.innerHTML = `
+    <div class="nurse-page-head"><h2 class="dash-title">${t('nurse_page_title')}</h2></div>
+    <div id="push-card-nurse"></div>
+    ${nurse.available ? '' : `<p class="nurse-page-note off">${t('nurse_page_unavailable')}</p>`}
+    <h3 class="nurse-page-section">${tFormat('nurse_page_requests_title', { count: requests.length })}</h3>
+    ${requests.length === 0
+      ? `<div class="empty-state"><div class="empty-icon">🩺</div><p class="empty-title">${t('nurse_page_empty_title')}</p><p class="empty-subtitle">${t('nurse_page_empty_sub')}</p></div>`
+      : `<div class="nreq-list">${[...requests.filter(r => !r.nurse_contacted_at && r.status !== 'contacted'), ...requests.filter(r => r.nurse_contacted_at || r.status === 'contacted')].map(nurseRequestCardHtml).join('')}</div>`}
+    <p class="muted" style="margin:16px 0 0; font-size:13.5px; line-height:1.7;">${t('nurse_page_privacy')}</p>`;
+  renderPushCard('nurse');
+}
+
+function markContactedByNurse(id) {
+  return runGuarded('nurseContacted:' + id, `nurse-done-${id}`, async () => {
+    if (!(await runAction(`${API}/nurses/me/requests/${id}/contacted`, { method: 'PUT', headers: nurseTokenHeaders() }))) return;
+    await loadNursePage(true);
+  });
+}
+
+// ---------- رابط الممرض في لوحة المدير والإدارة ----------
+// يُجلب الرابط حين يُفتح «تعديل» الممرض، فيصير زر واتساب رابطاً جاهزاً يفتح مباشرة (المتصفح
+// يمنع فتح نافذة بعد انتظار رد الخادم).
+const nurseLinkCache = {};   // id → token
+
+function nurseLinkUrl(token) { return `${location.origin}/#nurse=${token}`; }
+
+function nursePillsHtml(n) {
+  if (n.notify_enabled) return `<span class="notify-pill">${t('nurse_notify_on_pill')}</span>`;
+  if (n.has_notify_link) return `<span class="notify-pill off">${t('nurse_notify_off_pill')}</span>`;
+  return '';
+}
+
+function nurseLinkBoxHtml(n, role) {
+  const token = nurseLinkCache[n.id];
+  const box = `nurse-link-${role}-${n.id}`;
+  if (!token) {
+    return `<div class="nurse-link-box" id="${box}"><h4>${t('nurse_link_title')}</h4><p>${t('loading_text')}</p></div>`;
+  }
+  const link = nurseLinkUrl(token);
+  const msg = tFormat('nurse_link_wa_msg', { name: n.name, link });
+  const wa = waLink(syWaNumber(n.phone), msg) || `https://wa.me/?text=${encodeURIComponent(msg)}`;
+  return `
+    <div class="nurse-link-box" id="${box}">
+      <h4>${t('nurse_link_title')}</h4>
+      <p>${t('nurse_link_desc')}</p>
+      <div class="nurse-link-actions">
+        <a class="wa-result-btn" href="${escapeHtml(wa)}" target="_blank" rel="noopener noreferrer" onclick="this.blur()"><span class="wa-icon">💬</span> ${t('nurse_link_wa_btn')}</a>
+        <button type="button" class="nurse-link-copy" onclick="copyNurseLink(${n.id})">${t('nurse_link_copy_btn')}</button>
+        <button type="button" class="nurse-link-reset" id="nurse-link-reset-${role}-${n.id}" onclick="resetNurseLink(${n.id}, '${role}')">${t('nurse_link_reset_btn')}</button>
+      </div>
+    </div>`;
+}
+
+function nurseLinkHeaders(role) { return role === 'admin' ? adminHeaders() : managerHeaders(); }
+function nurseFor(id, role) {
+  return role === 'admin' ? nurseFromCache(id) : managerCache.nurses.find(x => x.id === id);
+}
+function refreshNurseLinkBox(id, role) {
+  const el = document.getElementById(`nurse-link-${role}-${id}`);
+  const n = nurseFor(id, role);
+  if (el && n) el.outerHTML = nurseLinkBoxHtml(n, role);
+}
+
+async function ensureNurseLink(id, role) {
+  if (nurseLinkCache[id]) { refreshNurseLinkBox(id, role); return; }
+  try {
+    const res = await fetchWithTimeout(`${API}/nurses/${id}/notify-link`, { method: 'POST', headers: nurseLinkHeaders(role) }, 20000);
+    if (res.status === 401) { if (role === 'admin') adminSessionExpired(); else managerSessionExpired(); return; }
+    const data = await readJsonOk(res, 'object');
+    nurseLinkCache[id] = data.token;
+    const n = nurseFor(id, role);
+    if (n) n.has_notify_link = true;
+    refreshNurseLinkBox(id, role);
+  } catch (err) {
+    const el = document.getElementById(`nurse-link-${role}-${id}`);
+    if (el) el.querySelector('p').textContent = t('server_error_title');
+  }
+}
+
+// نسخ بالطريقة القديمة حين تُمنع الحافظة الحديثة (بعض متصفحات الهواتف القديمة)
+function copyTextFallback(text) {
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  ta.setAttribute('readonly', '');
+  ta.style.position = 'fixed';
+  ta.style.top = '-1000px';
+  ta.style.opacity = '0';
+  document.body.appendChild(ta);
+  let ok = false;
+  try { ta.select(); ok = document.execCommand('copy'); } catch (e) { ok = false; }
+  ta.remove();
+  return ok;
+}
+
+async function copyNurseLink(id) {
+  const token = nurseLinkCache[id];
+  if (!token) return;
+  const link = nurseLinkUrl(token);
+  let copied = false;
+  try { await navigator.clipboard.writeText(link); copied = true; } catch (e) { copied = false; }
+  if (!copied) copied = copyTextFallback(link);
+  if (copied) { await customAlert(t('nurse_link_copied'), 'success'); return; }
+  // الحافظة ممنوعة (متصفح قديم أو صفحة غير آمنة): نعرض الرابط ليُنسخ باليد
+  await customAlert(`${t('nurse_link_copy_manual')}\n${link}`, 'info');
+}
+
+function resetNurseLink(id, role) {
+  return runGuarded('resetNurseLink:' + id, `nurse-link-reset-${role}-${id}`, async () => {
+    const n = nurseFor(id, role);
+    const confirmed = await customConfirm(tFormat('nurse_link_reset_confirm', { name: n ? n.name : '' }), 'warning', 'danger_reset_nurse_link');
+    if (!confirmed) return;
+    try {
+      const res = await fetchWithTimeout(`${API}/nurses/${id}/notify-link/reset`, { method: 'POST', headers: nurseLinkHeaders(role) }, 20000);
+      if (res.status === 401) { if (role === 'admin') adminSessionExpired(); else managerSessionExpired(); return; }
+      const data = await readJsonOk(res, 'object');
+      nurseLinkCache[id] = data.token;
+      if (n) n.notify_enabled = false;
+    } catch (err) {
+      await customAlert(t('server_error_title'), 'error');
+      return;
+    }
+    if (role === 'admin') renderAdminPanelUI(); else renderManagerPanelUI();
+    await customAlert(t('nurse_link_reset_done'), 'success');
   });
 }
 
