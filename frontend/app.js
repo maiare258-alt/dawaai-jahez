@@ -2000,7 +2000,7 @@ function applyLanguage() {
   // تُعاد رسم لوحة الإدارة فقط إن كانت ظاهرة: كان تبديل اللغة من صفحة المريض يعيد تشغيل
   // فحوصاتها الدورية وتقاريرها وهي مخفية. وعند فتحها لاحقاً تُرسم من جديد على أي حال.
   if (adminPassword && document.getElementById('view-admin').style.display !== 'none') {
-    renderAdminPanelUI();
+    renderAdminPanelUI({ refresh: false });
   } else if (managerPassword && document.getElementById('view-admin').style.display !== 'none') {
     renderManagerPanelUI();
   } else if (document.getElementById('admin-auth-section').innerHTML.trim()) {
@@ -5164,6 +5164,11 @@ function logoutAdmin() {
   // ن10: لا يبقى شيء من جلسة الإدارة في الذاكرة بعد الخروج
   adminDataCache = { pharmacies: [], medicines: [], nurses: [], pendingRatings: [], stats: null, nurseRequests: null, managerSettings: null };
   adsAdminCache = [];
+  adsAdminLoaded = false;
+  lastDemandReport = null; lastDemandReportDays = null;
+  lastVisitsReport = null; lastVisitsReportDays = null;
+  lastSystemStatus = null;
+  lastCertStorage = null;
   editingPharmacyId = null;
   editingPharmacyNameDraft = '';
   lastPendingRatingsSnapshot = null;
@@ -5488,7 +5493,9 @@ function renderStatsSection(stats) {
 // كما كان حتى تمتلئ تلك الأقسام، ثم نحرره.
 let adminHeightLock = 0;
 
-function renderAdminPanelUI() {
+// refresh=false: رسم سريع من البيانات المحفوظة فقط (بعد إجراء نعرف نتيجته، أو تبديل اللغة)،
+// بلا أي طلب للأقسام البطيئة. الافتراضي يعيد جلبها بصمت، وتبقى معروضة بمحتواها السابق حتى تصل.
+function renderAdminPanelUI({ refresh = true } = {}) {
   const adminDraft = readAdminDraft();
   const panelEl = document.getElementById('admin-panel');
   const lockToken = ++adminHeightLock;
@@ -5836,11 +5843,11 @@ function renderAdminPanelUI() {
   renderAdminUsernameList();
   renderAdminAddressList();
   renderBackupInfo();
-  const pending = [checkSystemStatus(), loadDemandReport(), loadVisitsReport()];
+  const pending = [checkSystemStatus(refresh), loadDemandReport(0, refresh), loadVisitsReport(0, refresh)];
   restoreAdminDraft(adminDraft);
   restoreAdEditorView();   // كان هنا adEditor = null، فتضيع الصورة المجهّزة مع أي إعادة رسم
   setupAdEditorEvents();
-  pending.push(loadAdsAdmin(), loadCertStorageUsage());
+  pending.push(loadAdsAdmin(refresh), loadCertStorageUsage(refresh));
   Promise.allSettled(pending).then(() => requestAnimationFrame(releaseHeight));
   for (const id of openNurseEditors) if (!nurseLinkCache[id]) ensureNurseLink(id, 'admin');
   setTimeout(releaseHeight, 15000);   // شبكة بطيئة جداً: لا يبقى الارتفاع مقفلاً إلى الأبد
@@ -5953,7 +5960,7 @@ function startEditPharmacyName(id) {
   const pharmacy = adminDataCache.pharmacies.find(p => p.id === id);
   editingPharmacyNameDraft = pharmacy ? pharmacy.name : '';
   editingPharmacyId = id;
-  renderAdminPanelUI();
+  renderAdminPanelUI({ refresh: false });
   // تركيز الحقل وتحديد النص كله ليقدر يكتب فوقه مباشرة بدون مسح يدوي
   const input = document.getElementById(`edit-ph-name-${id}`);
   if (input) { input.focus(); input.select(); }
@@ -5967,7 +5974,7 @@ function onEditPharmacyNameInput(el) {
 function cancelEditPharmacyName() {
   editingPharmacyId = null;
   editingPharmacyNameDraft = '';
-  renderAdminPanelUI();
+  renderAdminPanelUI({ refresh: false });
 }
 
 // Enter بيحفظ، Escape بيلغي — نفس المتوقع بأي حقل تعديل سريع
@@ -6187,6 +6194,7 @@ function scheduleSearchLog(q, category, city) {
 // ================= تقرير الطلب (لوحة الإدارة) =================
 let demandDays = 30;
 let lastDemandReport = null;
+let lastDemandReportDays = null;   // المدة التي يخص التقرير المحفوظ
 
 function demandListHtml(rows, labelKey, emptyText) {
   if (!rows || !rows.length) return `<p class="muted" style="margin:6px 0;">${emptyText}</p>`;
@@ -6390,6 +6398,7 @@ function recordAdEvent(id, type) {
 // إعلانات مباشرة يبيعها صاحب المنصة. الصورة تُضغط في المتصفح قبل الرفع (عرض 1200 بكسل
 // كحد أقصى)، فتبقى نحو 100 كيلوبايت ولا تُثقل الموقع على الإنترنت الضعيف.
 let adsAdminCache = [];
+let adsAdminLoaded = false;   // وصلت القائمة مرة على الأقل في هذه الجلسة
 
 // ===== محرر صورة الإعلان =====
 // الصورة تُعرض داخل إطار بنسبة ٣:١، فيسحبها المدير ويكبّرها، وما يراه في الإطار هو بالضبط
@@ -6678,20 +6687,25 @@ function renderAdsAdmin() {
     </div>`).join('');
 }
 
-async function loadAdsAdmin() {
+async function loadAdsAdmin(refresh = true) {
   const box = document.getElementById('ads-list');
   if (!box) return;
-  box.innerHTML = skeletonHtml(1);
+  // القائمة السابقة تبقى ظاهرة أثناء التحديث؛ الهيكل الرمادي أول مرة فقط
+  if (adsAdminLoaded) renderAdsAdmin(); else box.innerHTML = skeletonHtml(1);
+  if (adsAdminLoaded && !refresh) return;
   const session = adminSessionId;
   try {
     const res = await fetchWithTimeout(`${API}/ads/admin`, { headers: adminHeaders(), cache: 'no-store' }, 20000);
     const ads = await readJsonOk(res);
     if (adminSessionGone(session)) return;
     adsAdminCache = ads;
+    adsAdminLoaded = true;
     renderAdsAdmin();
   } catch (err) {
     if (adminSessionGone(session)) return;
-    box.innerHTML = `<p class="muted">${t('ads_load_error')}</p>`;
+    if (adsAdminLoaded) return;
+    const listBox = document.getElementById('ads-list');
+    if (listBox) listBox.innerHTML = `<p class="muted">${t('ads_load_error')}</p>`;
   }
 }
 
@@ -6706,6 +6720,8 @@ async function deleteAdAdmin(id) {
   if (!ad) return;
   if (!(await customConfirm(tFormat('ads_delete_confirm', { name: ad.advertiser }), 'warning', 'danger_delete_ad'))) return;
   if (!(await runAction(`${API}/ads/${id}`, { method: 'DELETE', headers: adminHeaders() }))) return;
+  adsAdminCache = adsAdminCache.filter(x => x.id !== id);   // يختفي فوراً، ثم تُحدَّث القائمة بصمت
+  renderAdsAdmin();
   await loadAdsAdmin();
   refreshAdSlotNow();
   await customAlert(t('ads_deleted'), 'success');
@@ -6731,6 +6747,7 @@ function recordVisitOnce() {
 
 let visitsDays = 30;
 let lastVisitsReport = null;
+let lastVisitsReportDays = null;
 
 function formatShortDay(day) {
   return new Date(day + 'T00:00:00Z').toLocaleDateString(dateLocale(), { day: 'numeric', month: 'short', timeZone: 'UTC' });
@@ -6757,43 +6774,56 @@ function renderVisitsReport() {
     <p class="demand-hint" style="margin-top:12px;">${t('visits_note')}</p>`;
 }
 
-async function loadVisitsReport(days) {
+async function loadVisitsReport(days, refresh = true) {
   if (days) visitsDays = days;
   document.querySelectorAll('.visits-period-btn').forEach(b =>
     b.classList.toggle('active', Number(b.getAttribute('data-days')) === visitsDays));
-  lastVisitsReport = null;
+  const wantDays = visitsDays;
+  const haveCached = !!lastVisitsReport && lastVisitsReportDays === wantDays;
+  if (!haveCached) lastVisitsReport = null;
   renderVisitsReport();
+  if (haveCached && !refresh) return;
   const session = adminSessionId;
   try {
-    const res = await fetchWithTimeout(`${API}/stats/visits?days=${visitsDays}`, { headers: adminHeaders(), cache: 'no-store' }, 20000);
+    const res = await fetchWithTimeout(`${API}/stats/visits?days=${wantDays}`, { headers: adminHeaders(), cache: 'no-store' }, 20000);
     const report = await readJsonOk(res, 'object');
-    if (adminSessionGone(session)) return;
+    if (adminSessionGone(session) || wantDays !== visitsDays) return;
     lastVisitsReport = report;
+    lastVisitsReportDays = wantDays;
     renderVisitsReport();
   } catch (err) {
-    if (adminSessionGone(session)) return;
+    if (adminSessionGone(session) || wantDays !== visitsDays) return;
+    if (haveCached) return;
     const box = document.getElementById('visits-report');
     if (box) box.innerHTML = `<p class="muted">${t('visits_load_error')}</p>`;
   }
 }
 
-async function loadDemandReport(days) {
+// التقرير المحفوظ للمدة نفسها يُعرض فوراً، ثم يُستبدل بصمت حين يصل الجديد.
+// «جارٍ التحميل» تظهر فقط أول مرة أو عند اختيار مدة أخرى.
+async function loadDemandReport(days, refresh = true) {
   if (days) demandDays = days;
   document.querySelectorAll('.demand-period-btn').forEach(b =>
     b.classList.toggle('active', Number(b.getAttribute('data-days')) === demandDays));
-  lastDemandReport = null;
+  const wantDays = demandDays;
+  const haveCached = !!lastDemandReport && lastDemandReportDays === wantDays;
+  if (!haveCached) lastDemandReport = null;
   renderDemandReport();
+  if (haveCached) renderLaunchZone(lastDemandReport.launchedAt || null);
+  if (haveCached && !refresh) return;
   const session = adminSessionId;
   try {
-    const res = await fetchWithTimeout(`${API}/stats/demand?days=${demandDays}`, { headers: adminHeaders(), cache: 'no-store' }, 20000);
+    const res = await fetchWithTimeout(`${API}/stats/demand?days=${wantDays}`, { headers: adminHeaders(), cache: 'no-store' }, 20000);
     if (!res.ok) throw new Error('status ' + res.status);
     const report = await res.json();
-    if (adminSessionGone(session)) return;
+    if (adminSessionGone(session) || wantDays !== demandDays) return;
     lastDemandReport = report;
+    lastDemandReportDays = wantDays;
     renderDemandReport();
     renderLaunchZone(lastDemandReport.launchedAt || null);
   } catch (err) {
-    if (adminSessionGone(session)) return;
+    if (adminSessionGone(session) || wantDays !== demandDays) return;
+    if (haveCached) return;   // فشل تحديث صامت: يبقى التقرير السابق ظاهراً
     const box = document.getElementById('demand-report');
     if (box) box.innerHTML = `<p class="muted">${t('demand_load_error')}</p>`;
   }
@@ -6983,20 +7013,33 @@ async function downloadBackup() {
 
 // فحص حالة النظام عبر /health. الفحص لا يحتاج مصادقة لأن المسار عام،
 // لكن عرضه محصور بلوحة الإدارة إذ لا يعني المريض شيئاً.
-async function checkSystemStatus() {
+// آخر حالة معروفة ('ok' أو 'bad'): تُعرض فوراً عند إعادة رسم اللوحة بدل «جارٍ الفحص»،
+// ثم تُحدَّث بصمت حين يصل الفحص الجديد
+let lastSystemStatus = null;
+
+function renderSystemStatus() {
   const box = document.getElementById('system-status');
   if (!box) return;
-  box.innerHTML = `<span class="muted">${t('system_status_checking')}</span>`;
+  if (!lastSystemStatus) { box.innerHTML = `<span class="muted">${t('system_status_checking')}</span>`; return; }
+  box.innerHTML = lastSystemStatus === 'ok'
+    ? `<span class="status-dot ok"></span><span class="status-ok">${t('system_status_ok')}</span>`
+    : `<span class="status-dot bad"></span><span class="status-bad">${t('system_status_degraded')}</span>`;
+}
+
+async function checkSystemStatus(refresh = true) {
+  if (!document.getElementById('system-status')) return;
+  renderSystemStatus();
+  if (!refresh && lastSystemStatus) return;
+  const session = adminSessionId;
+  let state = 'bad';
   try {
     const res = await fetchWithTimeout('/health', { cache: 'no-store' }, 15000);
     const data = await res.json().catch(() => null);
-    const okState = res.ok && data && data.db === 'ok';
-    box.innerHTML = okState
-      ? `<span class="status-dot ok"></span><span class="status-ok">${t('system_status_ok')}</span>`
-      : `<span class="status-dot bad"></span><span class="status-bad">${t('system_status_degraded')}</span>`;
-  } catch (err) {
-    box.innerHTML = `<span class="status-dot bad"></span><span class="status-bad">${t('system_status_degraded')}</span>`;
-  }
+    if (res.ok && data && data.db === 'ok') state = 'ok';
+  } catch (err) { state = 'bad'; }
+  if (adminSessionGone(session)) return;
+  lastSystemStatus = state;
+  renderSystemStatus();
 }
 
 // ================= عنوان الصيدلية وموقعها (لوحة الإدارة) =================
@@ -7329,20 +7372,35 @@ async function fetchStorageCheck() {
   return readJsonOk(res, 'object');
 }
 
-async function loadCertStorageUsage() {
+let lastCertStorage = null;   // آخر قراءة لحجم التخزين، تُعرض فوراً عند إعادة الرسم
+
+function renderCertStorageUsage() {
   const el = document.getElementById('cert-storage-usage');
-  if (!el) return;
+  if (el && lastCertStorage) el.textContent = tFormat('cert_storage_usage', { used: formatBytes(lastCertStorage.usedBytes), count: lastCertStorage.count || 0 });
+}
+
+async function loadCertStorageUsage(refresh = true) {
+  if (!document.getElementById('cert-storage-usage')) return;
+  renderCertStorageUsage();
+  if (lastCertStorage && !refresh) return;
+  const session = adminSessionId;
   try {
     const d = await fetchStorageCheck();
-    el.textContent = tFormat('cert_storage_usage', { used: formatBytes(d.usedBytes), count: d.count || 0 });
-  } catch (e) { el.textContent = '—'; }
+    if (adminSessionGone(session)) return;
+    lastCertStorage = d;
+    renderCertStorageUsage();
+  } catch (e) {
+    if (adminSessionGone(session) || lastCertStorage) return;
+    const el = document.getElementById('cert-storage-usage');
+    if (el) el.textContent = '—';
+  }
 }
 
 async function checkCertStorage() {
   try {
     const d = await fetchStorageCheck();
-    const el = document.getElementById('cert-storage-usage');
-    if (el) el.textContent = tFormat('cert_storage_usage', { used: formatBytes(d.usedBytes), count: d.count || 0 });
+    lastCertStorage = d;
+    renderCertStorageUsage();
     await customAlert(d.ok ? t('storage_ok') : t('storage_' + (d.code || 'UNAVAILABLE')), d.ok ? 'success' : (d.code === 'PUBLIC' ? 'warning' : 'error'));
   } catch (err) { await customAlert(t('storage_UNAVAILABLE'), 'error'); }
 }
@@ -9072,7 +9130,7 @@ function resetNurseLink(id, role) {
       await customAlert(t('server_error_title'), 'error');
       return;
     }
-    if (role === 'admin') renderAdminPanelUI(); else renderManagerPanelUI();
+    if (role === 'admin') renderAdminPanelUI({ refresh: false }); else renderManagerPanelUI();
     await customAlert(t('nurse_link_reset_done'), 'success');
   });
 }
@@ -9115,6 +9173,11 @@ async function deleteNurseAdminNow(id) {
   const confirmed = await customConfirm(tFormat('delete_nurse_confirm', { name }), 'warning', 'danger_delete_nurse');
   if (!confirmed) return;
   if (!(await runAction(`${API}/nurses/${id}`, { method: 'DELETE', headers: adminHeaders() }))) return;
+  // يختفي الصف فوراً من البيانات المحفوظة، ثم تُزامَن اللوحة مع الخادم بصمت
+  adminDataCache.nurses = (adminDataCache.nurses || []).filter(n => n.id !== id);
+  openNurseEditors.delete(id);
+  delete nurseLinkCache[id];
+  renderAdminPanelUI({ refresh: false });
   renderAdminPanel();
 }
 
@@ -9123,13 +9186,23 @@ async function toggleNurseAvailabilityAdminNow(id, newAvailable) {
   if (!(await runAction(`${API}/nurses/${id}/availability`, {
     method: 'PUT', headers: adminHeaders(), body: JSON.stringify({ available: newAvailable })
   }))) return;
+  const n = (adminDataCache.nurses || []).find(x => x.id === id);
+  if (n) n.available = newAvailable;
+  renderAdminPanelUI({ refresh: false });
   renderAdminPanel();
 }
 
 function approveRatingAdmin(id) { return runGuarded('approveRatingAdmin:' + id, null, () => approveRatingAdminNow(id)); }
 async function approveRatingAdminNow(id) {
   if (!(await runAction(`${API}/nurses/ratings/${id}/approve`, { method: 'PUT', headers: adminHeaders() }))) return;
+  dropPendingRatingLocally(id);
   renderAdminPanel();
+}
+
+// التقييم الذي قُبل أو رُفض يختفي من قائمة الانتظار فوراً، ثم تُزامَن اللوحة بصمت
+function dropPendingRatingLocally(id) {
+  adminDataCache.pendingRatings = (adminDataCache.pendingRatings || []).filter(r => r.id !== id);
+  renderAdminPanelUI({ refresh: false });
 }
 
 function rejectRatingAdmin(id) { return runGuarded('rejectRatingAdmin:' + id, null, () => rejectRatingAdminNow(id)); }
@@ -9137,6 +9210,7 @@ async function rejectRatingAdminNow(id) {
   const confirmed = await customConfirm(t('reject_rating_confirm'), 'warning', 'danger_reject_rating');
   if (!confirmed) return;
   if (!(await runAction(`${API}/nurses/ratings/${id}`, { method: 'DELETE', headers: adminHeaders() }))) return;
+  dropPendingRatingLocally(id);
   renderAdminPanel();
 }
 
