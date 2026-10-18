@@ -1,8969 +1,1776 @@
-// ===== قراءة وكتابة آمنتان للتخزين المحلي =====
-// كانت السلة والطلبات تُقرأ في أول سطور الملف بـJSON.parse دون حماية. فلو تلفت القيمة
-// المحفوظة، أو منع المتصفح التخزين (بعض أوضاع الخصوصية ترمي خطأً عند مجرد القراءة)،
-// توقف الملف كله عند السطر الأول: لا بحث ولا مناوبة ولا أي شيء حتى يمسح المستخدم بياناته.
-function storageGet(key) {
-  try { return localStorage.getItem(key); } catch (e) { return null; }
-}
-function storageSet(key, value) {
-  try { localStorage.setItem(key, value); } catch (e) { /* تخزين ممتلئ أو ممنوع: نكمل بلا حفظ */ }
-}
-function readJsonArray(key) {
-  try {
-    const v = JSON.parse(storageGet(key) || '[]');
-    return Array.isArray(v) ? v : [];
-  } catch (e) { return []; }
-}
+// طبقة تخزين تعتمد على قاعدة بيانات PostgreSQL حقيقية
+// البيانات هون دائمة ولا تُفقد عند إعادة تشغيل الخادم
 
-const API = '/api';
-let currentPharmacy = null;
-let adminPassword = null;
-// مدير التمريض: كلمة مروره الخاصة تفتح التمريض وحده (الطلبات والممرضين والتقييمات)
-let managerPassword = null;
-let managerSessionId = 0;
-let managerLoadedOnce = false;
-let managerTab = 'requests';
-let managerCache = { nurses: [], requests: [], pendingRatings: [] };
-let cart = readJsonArray('cart');
-// التصنيف الحالي لصفحة البحث: 'medicine' (الرئيسية) أو 'cosmetic' (مستحضرات تجميل)
-let currentCategory = 'medicine';
-// فلتر المدينة بواجهة المريض. '' = كل المدن (السلوك الافتراضي، مطابق لما قبل الميزة).
-// حالة واجهة فقط: لا تُحفظ ولا تؤثر على أي بيانات مخزّنة.
-let currentCity = '';
-// طلبات المريض المرسلة من هذا المتصفح (لتتبع رد الصيدلية عليها)
-let myOrders = readJsonArray('myOrders');
+const { Pool } = require('pg');
 
-// ---------- نظام تعدد اللغات (عربي/إنكليزي) — المرحلة 1: الصفحة الرئيسية ----------
-
-let currentLang = storageGet('lang') || 'ar';
-
-// المدن المدعومة — مراكز المحافظات السورية + سلمية.
-// المفتاح هو ما يُخزَّن بقاعدة البيانات، والقيمة هي الاسم المعروض بكل لغة.
-// ⚠️ يجب أن تبقى المفاتيح مطابقة تماماً لـALLOWED_CITIES في routes/pharmacies.js
-const CITIES = {
-  damascus:    { ar: 'دمشق',      en: 'Damascus' },
-  rif_dimashq: { ar: 'ريف دمشق',  en: 'Rif Dimashq' },
-  aleppo:      { ar: 'حلب',       en: 'Aleppo' },
-  homs:        { ar: 'حمص',       en: 'Homs' },
-  hama:        { ar: 'حماة',      en: 'Hama' },
-  salamiyah:   { ar: 'سلمية',     en: 'Salamiyah' },
-  latakia:     { ar: 'اللاذقية',  en: 'Latakia' },
-  tartus:      { ar: 'طرطوس',     en: 'Tartus' },
-  idlib:       { ar: 'إدلب',      en: 'Idlib' },
-  deir_ez_zor: { ar: 'دير الزور', en: 'Deir ez-Zor' },
-  hasakah:     { ar: 'الحسكة',    en: 'Al-Hasakah' },
-  raqqa:       { ar: 'الرقة',     en: 'Raqqa' },
-  daraa:       { ar: 'درعا',      en: 'Daraa' },
-  suwayda:     { ar: 'السويداء',  en: 'As-Suwayda' },
-  quneitra:    { ar: 'القنيطرة',  en: 'Quneitra' }
-};
-
-// اسم المدينة باللغة الحالية. المفتاح غير المعروف يُعاد كما هو بدل ما يختفي —
-// أفضل من عرض فراغ لو أُضيفت مدينة بالخلفية ونُسيت ترجمتها هنا.
-// يستدعيها عنصر <select> بالهيرو. إعادة البحث فوراً لو كان المستخدم كاتباً شيئاً أصلاً.
-function onCityFilterChange(el) {
-  currentCity = el.value;
-  const q = document.getElementById('search').value.trim();
-  if (q) submitSearch();
-  // قائمة المناوبة تتبع المدينة المختارة أيضاً (الخادم يدعم التصفية)
-  lastOnDutySnapshot = null;
-  loadOnDuty();
-}
-
-// تعبئة قائمة المدن بالهيرو — تُستدعى عند الإقلاع وعند تبديل اللغة (لتترجم الأسماء)
-function renderCityFilter() {
-  const sel = document.getElementById('city-filter');
-  if (!sel) return;
-  sel.innerHTML = `<option value="">${t('all_cities')}</option>` + cityOptionsHtml(currentCity);
-  sel.value = currentCity;
-  sel.setAttribute('aria-label', t('filter_by_city_aria'));
-  const lbl = document.getElementById('city-filter-label');
-  if (lbl) lbl.textContent = `📍 ${t('city_label')}`;
-}
-
-// ---------- وقت آخر تحديث للمخزون ----------
-// نعرض الوقت نسبياً ("قبل ساعتين") لا تاريخاً مطلقاً: المريض يريد أن يعرف
-// هل المعلومة طازجة، لا متى حُدّثت بالضبط. والنسبي مفهوم فوراً بلا حساب ذهني.
-//
-// الحساب على جهاز المستخدم بمقارنة التوقيتين، فيصح مهما كانت منطقته الزمنية.
-function relativeTime(iso) {
-  if (!iso) return null;
-  const then = new Date(iso);
-  if (isNaN(then.getTime())) return null;
-  const mins = Math.floor((Date.now() - then.getTime()) / 60000);
-  // توقيت مستقبلي (انحراف ساعة الجهاز مثلاً) يُعامل كـ"قبل لحظات" بدل رقم سالب مربك
-  if (mins < 2) return t('time_just_now');
-  if (mins < 60) return tPlural('time_minutes', mins);
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return tPlural('time_hours', hours);
-  const days = Math.floor(hours / 24);
-  if (days < 7) return tPlural('time_days', days);
-  const weeks = Math.floor(days / 7);
-  if (weeks <= 4) return tPlural('time_weeks', weeks);
-  return t('time_long_ago');
-}
-
-// معلومة قديمة أخطر من غياب المعلومة: بعد 3 أيام ننبّه المريض بدل أن نتركه يثق برقم بائت
-const STOCK_STALE_HOURS = 72;
-function isStockStale(iso) {
-  if (!iso) return true;
-  const then = new Date(iso);
-  if (isNaN(then.getTime())) return true;
-  return (Date.now() - then.getTime()) > STOCK_STALE_HOURS * 3600000;
-}
-
-// سطر "آخر تحديث" ببطاقة نتيجة البحث. يُعرض فقط حين يكون للسجل وقت فعلي —
-// السجلات القديمة (قبل إضافة العمود) لا نعرف وقتها، وادعاء وقت لم يحدث تضليل.
-function stockFreshnessHtml(iso) {
-  const rel = relativeTime(iso);
-  if (!rel) return '';
-  const stale = isStockStale(iso);
-  return `<div class="stock-freshness${stale ? ' stale' : ''}">
-    <span class="result-icon">${stale ? '⚠️' : '🕒'}</span> ${t('stock_updated_prefix')} ${escapeHtml(rel)}
-    ${stale ? `<div class="stock-stale-note">${t('stock_stale_warning')}</div>` : ''}
-  </div>`;
-}
-
-// شارة التوثيق. تُعرض فقط لمن verified = true فعلاً، فتبقى معلومة حقيقية لا زينة.
-function verifiedBadgeHtml(isVerified) {
-  if (!isVerified) return '';
-  return `<span class="verified-badge" title="${t('verified_badge_title')}">✓ ${t('verified_badge')}</span>`;
-}
-
-// الأرقام في الموقع كله لاتينية (0-9)، بالعربية كما بالإنجليزية: أرقام الهواتف وما يكتبه
-// الناس على لوحات المفاتيح لاتيني، فكان التاريخ ٢٠٢٦/١٠/١١ يظهر بجانب الهاتف 0933… بشكلين.
-// الوسم u-nu-latn يُبقي أسماء الأشهر والصيغة عربية ويجعل الأرقام وحدها لاتينية.
-function dateLocale() {
-  return currentLang === 'ar' ? 'ar-SY-u-nu-latn' : 'en-GB';
-}
-
-function cityName(key) {
-  if (!key) return '';
-  return (CITIES[key] && CITIES[key][currentLang]) || key;
-}
-
-// خيارات <option> لقائمة المدن، مرتبة أبجدياً حسب اللغة المعروضة
-function cityOptionsHtml(selected) {
-  return Object.keys(CITIES)
-    .map(k => ({ k, label: cityName(k) }))
-    .sort((a, b) => a.label.localeCompare(b.label, currentLang === 'ar' ? 'ar' : 'en'))
-    .map(c => `<option value="${c.k}"${c.k === selected ? ' selected' : ''}>${escapeHtml(c.label)}</option>`)
-    .join('');
-}
-
-const translations = {
-  ar: {
-    nav_home: 'الرئيسية', nav_onduty: 'الصيدليات المناوبة', nav_pharmacist: 'لوحة الصيدلي',
-    nav_cosmetics: 'مستحضرات تجميل', nav_nursing: 'خدمات تمريض', nav_admin: 'الإدارة',
-    hero_title_medicine: 'اعرف أين يتوفر دواؤك قبل أن تخرج من المنزل',
-    hero_desc_medicine: 'ابحث باسم الدواء أو مادته الفعالة، فتعرف أي صيدلية يتوفر فيها وتتواصل معها مباشرة.',
-    search_placeholder_medicine: 'اسم الدواء أو مادته الفعالة',
-    search_hint_medicine: 'اكتب اسم الدواء للبحث عن توفره في صيدليات سلمية.',
-    hero_title_cosmetic: 'اعرف أين يتوفر مستحضرك قبل أن تخرج من المنزل',
-    hero_desc_cosmetic: 'ابحث باسم مستحضر التجميل، فتعرف أي صيدلية يتوفر فيها وتتواصل معها مباشرة.',
-    search_placeholder_cosmetic: 'اسم مستحضر التجميل',
-    search_hint_cosmetic: 'اكتب اسم المستحضر للبحث عن توفره في صيدليات سلمية.',
-    hero_title_nursing: 'رعاية تمريضية في بيتك، من ممرضين تُعرف خبرتهم مسبقاً',
-    hero_desc_nursing: 'ممرضون يأتونك إلى البيت، وتتواصل معهم مباشرة.',
-    search_hint_nursing: 'تصفّح الممرضين أدناه، واطّلع على خبرة كل منهم وتقييمات المرضى قبل التواصل معه.',
-    search_btn: 'بحث', cart_btn: 'عربة المشتريات',
-    feature1_title: 'البحث عن الدواء', feature1_desc: 'اعرف الصيدليات التي توفر الدواء.',
-    feature2_title: 'الصيدليات المناوبة', feature2_desc: 'اعرض الصيدليات المناوبة اليوم.',
-    feature3_title: 'عربة المشتريات', feature3_desc: 'اجمع الأدوية قبل زيارة الصيدلية.',
-    about_desc: 'دوائي جاهز منصة سورية محلية انطلقت من مدينة سلمية، هدفها مساعدتك على معرفة توفر دوائك في الصيدليات القريبة فوراً، بدل التنقل من صيدلية إلى أخرى بحثاً عن دواء قد لا يكون متوفراً.',
-    footer_home: 'الرئيسية', footer_onduty: 'الصيدليات المناوبة', footer_contact: 'تواصل معنا',
-    footer_center: 'منصة سورية للبحث عن توفر الأدوية في الصيدليات.',
-    footer_copy: 'دوائي جاهز، جميع الحقوق محفوظة © {year}',
-    cart_empty_title: 'عربة المشتريات فارغة', cart_empty_subtitle: 'ابدأ بإضافة الأدوية من نتائج البحث.',
-    lang_toggle: 'English', brand_name: 'دوائي جاهز',
-    not_found_title_medicine: 'لم يُعثر على الدواء', not_found_title_cosmetic: 'لم يُعثر على المستحضر',
-    not_found_subtitle: 'يمكنك تجربة اسم آخر، أو البحث بالمادة الفعالة.',
-    did_you_mean_results: 'هل تقصد أحد هذه النتائج؟',
-    suggest_did_you_mean: 'هل تقصد', q_mark: '؟',
-    available_badge: '🟢 متوفر', unavailable_badge: '🔴 غير متوفر',
-    active_ingredient_label: 'المادة الفعالة:', add_to_cart_btn: '🛒 أضف إلى العربة', added_feedback: '✓ تمت الإضافة',
-    alt_unavailable_but: 'غير متوفر حالياً، غير أنّ هناك بديلاً بالمادة الفعالة نفسها', alt_view_btn: 'عرض',
-    server_error_title: 'تعذّر الاتصال بالخادم', server_error_subtitle: 'تحقق من اتصالك بالإنترنت وحاول مرة أخرى.',
-    cart_panel_title: 'عربة المشتريات', cart_panel_subtitle: 'راجع الأدوية قبل إتمام الطلب.',
-    cart_items_count_label: 'عدد الأدوية', checkout_name_placeholder: 'الاسم الكامل',
-    checkout_phone_placeholder: 'رقم الهاتف', checkout_notes_placeholder: 'ملاحظات إضافية (اختياري)', checkout_btn: 'إتمام الطلب', remove_aria: 'حذف',
-    checkout_missing_fields: 'الرجاء إدخال الاسم ورقم الهاتف لإتمام الطلب.',
-    order_success_msg: 'أُرسل طلبك بنجاح. ستتواصل معك الصيدلية قريباً على الرقم الذي أدخلته.',
-    modal_ok: 'حسناً', modal_cancel: 'إلغاء', modal_yes: 'نعم',
-    onduty_title: '🟢 الصيدليات المناوبة اليوم', onduty_now_badge: '🟢 مناوبة الآن',
-    onduty_empty_title: 'لا توجد صيدليات مناوبة حالياً',
-    onduty_empty_subtitle: 'يمكنك المحاولة لاحقاً، أو التواصل مباشرة مع الصيدلية التي تفضّلها.',
-    bell_empty: 'لا توجد إشعارات حالياً', bell_aria_label: 'إشعارات الطلبات', bell_dismiss_aria: 'إخفاء', bell_clear_all: '🗑️ مسح الكل',
-    bell_confirmed_text: 'استجابت الصيدلية لطلبك',
-    bell_pending_prefix: 'طلبك عند صيدلية', bell_pending_suffix: 'قيد المراجعة...',
-    bell_declined_prefix: 'تعذّر على الصيدلية', bell_declined_suffix: 'تجهيز طلبك. يمكنك الاتصال بها أو البحث في صيدلية أخرى.',
-    excess_quantity_confirm: 'أضفت {qty} من {name} من {pharmacy} إلى عربتك. هل ترغب في إضافة المزيد؟',
-    pharm_login_title: 'دخول الصيدلي',
-    staff_note_pharmacist: 'هذه الصفحة للصيادلة المسجّلين في المنصة. إن كنت تبحث عن دواء فابدأ من الصفحة الرئيسية.',
-    staff_note_admin: 'هذه الصفحة لإدارة المنصة فقط. إن كنت تبحث عن دواء فابدأ من الصفحة الرئيسية.',
-    staff_note_search_btn: '🔍 ابحث عن دواء',
-    danger_delete_order: 'احذف الطلب', danger_delete_account: 'احذف حسابي', danger_reset_password: 'أعد تعيين كلمة المرور',
-    danger_delete_ad: 'احذف الإعلان', danger_start_launch: 'ابدأ الإطلاق', danger_clear_location: 'امسح الموقع',
-    danger_delete_cert: 'احذف الشهادة', danger_clear_duty: 'ألغِ كل المناوبات', danger_delete_pharmacy: 'احذف الصيدلية',
-    danger_delete_medicine: 'احذف الدواء', danger_delete_nurse: 'احذف الممرض', danger_reject_rating: 'ارفض التقييم',
-    danger_delete_rating: 'احذف التقييم',
-    // ---- إشعارات الهاتف (أكتوبر 2026) ----
-    push_card_title: '🔔 إشعارات الهاتف',
-    push_desc_pharmacy: 'يصلك إشعار على هذا الهاتف عند كل طلب دواء جديد لصيدليتك، حتى والموقع مغلق.',
-    push_desc_manager: 'يصلك إشعار على هذا الهاتف عند كل طلب زيارة تمريضية جديد، حتى والموقع مغلق.',
-    push_enable_btn: '🔔 فعّل الإشعارات', push_on_status: '✓ الإشعارات مفعّلة على هذا الجهاز',
-    push_test_btn: 'أرسل إشعاراً تجريبياً', push_off_btn: 'أوقفها',
-    push_enabled_done: 'فُعّلت الإشعارات على هذا الجهاز. اضغط «أرسل إشعاراً تجريبياً» لتتأكد أنها تصل.',
-    push_test_sent: 'أُرسل إشعار تجريبي. إن لم يظهر على هاتفك خلال دقيقة، فإشعارات هذا الهاتف لا تصل: قد تكون موقوفة في إعدادات الهاتف، أو محجوبة في شبكتك.',
-    push_test_failed: 'رفضت خدمة الإشعارات الإرسال الآن. حاول بعد قليل.',
-    push_gone: 'انتهى اشتراك هذا الجهاز بالإشعارات. اضغط «فعّل الإشعارات» من جديد.',
-    push_subscribe_failed: 'تعذّر تفعيل الإشعارات: خدمة الإشعارات في هذا الهاتف لم تستجب. قد تكون محجوبة في شبكتك. جرّب شبكة أخرى، أو أعد المحاولة لاحقاً.',
-    push_denied_help: 'الإشعارات محظورة لهذا الموقع. للسماح بها في Chrome: اضغط رمز القفل 🔒 بجانب عنوان الموقع، ثم «الأذونات» أو «إعدادات الموقع»، واختر «السماح» للإشعارات، ثم أعد تحميل الصفحة. وفي تطبيق دوائي جاهز: إعدادات الهاتف ← التطبيقات ← دوائي جاهز ← الإشعارات.',
-    push_ios_help: 'على iPhone تعمل الإشعارات بعد إضافة الموقع إلى الشاشة الرئيسية: اضغط زر المشاركة في Safari، ثم «إضافة إلى الشاشة الرئيسية»، وافتح الموقع من أيقونته الجديدة.',
-    push_unsupported: 'هذا المتصفح لا يدعم إشعارات الهاتف. افتح الموقع في Chrome.',
-    // ---- التمريض: طلب زيارة، وبطاقة الانضمام، ولوحة مدير التمريض (أكتوبر 2026) ----
-    nurse_request_btn: '🩺 اطلب زيارة تمريضية', nurse_unavailable_note: 'هذا الممرض غير متاح حالياً',
-    nreq_title: 'طلب زيارة من {name}',
-    nreq_sub: 'يصل طلبك إلى مدير التمريض، فيتصل بك ليرتّب الزيارة مع الممرض.',
-    nreq_name_label: 'الاسم', nreq_phone_label: 'رقم الهاتف', nreq_area_label: 'المنطقة أو الحي',
-    nreq_notes_label: 'الخدمة المطلوبة', nreq_optional: '(اختياري)',
-    nreq_notes_placeholder: 'مثل: تبديل ضماد، أو حقنة، أو قياس ضغط',
-    nreq_submit: 'أرسل الطلب',
-    nreq_privacy: 'رقمك يصل إلى مدير التمريض وحده، ويُحذف بعد 30 يوماً.',
-    nreq_success: 'وصل طلبك. سيتصل بك مدير التمريض قريباً',
-    nreq_name_required: 'اكتب اسمك.', nreq_phone_invalid: 'اكتب رقم هاتف صحيحاً من 7 إلى 15 رقماً.',
-    nreq_area_required: 'اكتب منطقتك أو حيّك، كي يعرف مدير التمريض أي ممرض أقرب إليك.',
-    nursing_join_title: 'هل أنت ممرض أو ممرضة؟', nursing_join_text: 'انضم إلى المنصة: تواصل مع مدير التمريض.',
-    nursing_join_wa_msg: 'مرحباً، أعمل في التمريض وأرغب بالانضمام إلى منصة دوائي جاهز.',
-    mgr_login_title: '🩺 دخول مدير التمريض', mgr_login_sub: 'لإدارة الممرضين وطلبات الزيارات فقط.',
-    mgr_password_placeholder: 'كلمة مرور مدير التمريض', mgr_login_btn: 'دخول مدير التمريض',
-    mgr_wrong_password: 'كلمة مرور مدير التمريض غير صحيحة',
-    mgr_session_expired: 'انتهت جلسة مدير التمريض: تغيّرت كلمة المرور أو أُوقف الدخول. سجّل الدخول من جديد.',
-    staff_banner_manager_title: 'لوحة مدير التمريض',
-    staff_banner_manager_sub: 'تابع طلبات الزيارات، ونظّم الممرضين وتقييماتهم.',
-    mgr_panel_title: 'لوحة مدير التمريض 🩺', mgr_tabs_aria: 'أقسام لوحة مدير التمريض',
-    mgr_stat_new: 'طلبات جديدة', mgr_stat_available: 'ممرضون متاحون', mgr_stat_pending: 'تقييمات تنتظر',
-    mgr_tab_requests: 'الطلبات', mgr_tab_nurses: 'الممرضون', mgr_tab_ratings: 'التقييمات',
-    nreq_empty_title: 'لا طلبات بعد', nreq_empty_sub: 'حين يطلب مريض زيارة تمريضية يظهر طلبه هنا.',
-    nreq_new_badge: 'جديد', nreq_done_badge: '✓ تم التواصل', nreq_mark_done: '✓ تم التواصل',
-    nreq_nurse_label: 'الممرض المطلوب', nreq_nurse_deleted: '(حُذف من القائمة)',
-    nreq_delete_btn: 'حذف الطلب', nreq_delete_confirm: 'حذف طلب {name}؟ لا يمكن التراجع عن الحذف.',
-    nreq_wa_msg: 'مرحباً {name}، معك مدير التمريض في منصة دوائي جاهز بخصوص طلب الزيارة التمريضية.',
-    nreq_auto_delete_note: 'تُحذف الطلبات تلقائياً بعد 30 يوماً، لأنها تحمل أرقام هواتف المرضى.',
-    mgr_no_delete_hint: 'لإخفاء ممرض عن المرضى اجعله «غير متاح». حذف الممرضين للإدارة وحدها.',
-    mgr_edit_btn: 'تعديل', mgr_no_pending_ratings: 'لا تقييمات تنتظر الموافقة.',
-    cert_pill_yes: '✓ شهادة موثّقة', cert_pill_no: 'لا شهادة',
-    nurse_phone_label: 'هاتف الممرض',
-    loc_city_placeholder: 'مدينة العمل', loc_area_placeholder: 'الحي أو المنطقة',
-    loc_street_placeholder: 'الشارع أو أقرب علامة (لا يراه المرضى)',
-    loc_hint: 'المريض يرى المدينة والحي فقط. الشارع يراه مدير التمريض والإدارة وحدهما.',
-    mgr_settings_title: '🩺 مدير التمريض', mgr_status_on: '● الدخول مفعّل', mgr_status_off: '● الدخول موقوف',
-    mgr_settings_desc: 'مدير التمريض يدخل من صفحة الإدارة نفسها بكلمة مروره، ولا يرى إلا التمريض: الطلبات والممرضين والتقييمات. لا يحذف ممرضاً ولا يرى ملفات الشهادات.',
-    mgr_pw_label: 'كلمة مرور مدير التمريض', mgr_pw_change_label: 'كلمة مرور جديدة لمدير التمريض',
-    mgr_pw_placeholder: '8 أحرف على الأقل', mgr_pw_save: 'احفظ كلمة المرور',
-    mgr_pw_hint: 'أعطها لمدير التمريض وحده، ولا تستعمل كلمة مرور الإدارة. حفظ كلمة جديدة يُخرج من يستعمل القديمة.',
-    mgr_pw_too_short: 'كلمة المرور يجب أن تكون 8 أحرف على الأقل.',
-    mgr_pw_same_as_admin: 'لا تستعمل كلمة مرور الإدارة لمدير التمريض، وإلا صار قادراً على دخول الإدارة كلها.',
-    mgr_pw_saved: 'حُفظت كلمة مرور مدير التمريض.',
-    mgr_disable_btn: 'أوقف الدخول', danger_disable_manager: 'أوقف الدخول',
-    mgr_disable_confirm: 'إيقاف دخول مدير التمريض؟ تُرفض كلمة مروره فوراً، ويمكنك وضع كلمة جديدة متى شئت.',
-    mgr_disabled_done: 'أُوقف دخول مدير التمريض.',
-    mgr_contact_label: 'رقم مدير التمريض للانضمام', mgr_contact_save: 'احفظ الرقم',
-    mgr_contact_hint: 'يظهر في صفحة التمريض في بطاقة «هل أنت ممرض أو ممرضة؟». اتركه فارغاً لإخفاء البطاقة.',
-    mgr_contact_saved: 'حُفظ الرقم، وظهرت البطاقة في صفحة التمريض.', mgr_contact_cleared: 'حُذف الرقم وأُخفيت البطاقة.',
-    admin_requests_title: '🩺 طلبات الزيارات التمريضية',
-    pharm_login_no_account: 'إن لم يكن لديك حساب بعد، فتواصل مع فريق دوائي جاهز لتسجيل صيدليتك من البطاقة أدناه.',
-    username_placeholder: 'اسم المستخدم', password_placeholder: 'كلمة المرور', login_btn: 'دخول',
-    pharm_dashboard_title: 'لوحة الصيدلي', pharmacy_label_prefix: 'صيدلية:', logout_btn: '🚪 تسجيل الخروج',
-    new_orders_title: '🛎️ طلبات جديدة من المرضى',
-    duty_status_title: '🕐 حالة المناوبة', duty_checkbox_label: 'صيدليتي مناوبة اليوم',
-    save_duty_btn: 'حفظ حالة المناوبة',
-    duty_hours_title: '⏱️ تحديد ساعات المناوبة (اختياري)',
-    duty_hours_desc: 'حدِّد التوقيت ليظهر إلى جانب يوم المناوبة.',
-    duty_start_label: 'من الساعة', duty_end_label: 'إلى الساعة',
-    add_med_title: '💊 إضافة دواء غير موجود بالقائمة',
-    add_med_desc: 'إن كان لديك دواء في مخزون صيدليتك ولا يظهر ضمن القائمة، فيمكنك إضافته عبر الحقول أدناه.',
-    med_name_placeholder: 'اسم الدواء', med_name_placeholder_cosmetic: 'اسم المستحضر',
-    generic_name_placeholder: 'المادة الفعالة (اختياري)', alt_names_placeholder: 'أسماء بديلة، افصل بينها بفاصلة (اختياري)',
-    cat_medicine: 'دواء', cat_cosmetic: 'مستحضر تجميل', add_med_btn: 'إضافة الدواء',
-    stock_table_medicine: 'الدواء', stock_table_status: 'الحالة', delete_account_btn: '🗑️ حذف حسابي نهائياً',
-    manufacture_date_label: 'تاريخ الصنع', expiry_date_label: 'تاريخ الانتهاء', save_dates_btn: 'حفظ التواريخ',
-    edit_dates_aria: 'تعديل تاريخي الصنع والانتهاء', expiry_expired_badge: 'منتهية الصلاحية', expiry_soon_badge: 'صلاحية الدواء شارفت على الانتهاء',
-    day_sunday: 'الأحد', day_monday: 'الاثنين', day_tuesday: 'الثلاثاء', day_wednesday: 'الأربعاء',
-    day_thursday: 'الخميس', day_friday: 'الجمعة', day_saturday: 'السبت',
-    shift_allday: 'طوال اليوم', shift_morning: 'صباحاً فقط', shift_evening: 'مساءً فقط',
-    stat_total_meds: 'عدد الأدوية', stat_available_meds: 'أدوية متوفرة', stat_unavailable_meds: 'غير المتوفرة',
-    stat_cosmetics_short: 'مستحضرات', stat_onduty_today: 'المناوبة اليوم', yes_word: 'نعم', no_word: 'لا',
-    med_name_required: 'اسم الدواء مطلوب', med_added_success: 'أُضيف الدواء بنجاح. فعّل حالة توفره من القائمة أدناه.',
-    duty_saved_success: 'تم حفظ حالة المناوبة بنجاح',
-    assistant_phone_title: '📱 رقم صيدلي مساعد (اختياري)', assistant_phone_desc: 'رقم تواصل إضافي يظهر للمرضى إلى جانب رقمك الأساسي، ويفيد عند ازدحام العمل.',
-    assistant_phone_input_placeholder: 'رقم الهاتف المساعد', save_assistant_phone_btn: 'حفظ الرقم المساعد',
-    assistant_phone_saved_success: 'تم حفظ الرقم المساعد بنجاح', assistant_phone_label: 'مساعد',
-    order_new_badge: '🆕 جديد', order_confirmed_badge: '✅ تم الحجز',
-    order_dismiss_btn: 'تم الاطلاع', order_confirm_btn: '✅ تأكيد الحجز', order_delete_btn: '🗑️ حذف الطلب',
-    order_delete_confirm: 'هل أنجزت هذا الطلب وترغب في حذفه نهائياً؟',
-    delete_account_confirm: 'هل ترغب في حذف حسابك نهائياً؟ لا يمكن التراجع عن هذا الإجراء.',
-    account_deleted_success: 'تم حذف حسابك بنجاح',
-    admin_dashboard_title: 'لوحة الإدارة', admin_password_placeholder: 'كلمة مرور الإدارة', wrong_password: 'كلمة المرور غير صحيحة',
-    stat_pharmacies_count: 'عدد الصيدليات', stat_onduty_pharmacies: 'الصيدليات المناوبة اليوم',
-    add_pharmacy_title: '🏥 إضافة صيدلية جديدة', pharmacy_name_placeholder: 'اسم الصيدلية',
-    address_placeholder: 'العنوان', phone_placeholder: 'رقم الهاتف', add_pharmacy_btn: 'إضافة الصيدلية',
-    registered_pharmacies_title: 'الصيدليات المسجّلة', no_pharmacies_yet: 'لا توجد صيدليات مسجّلة بعد.',
-    pharmacies_table_header: 'الصيدلية', action_col_header: 'إجراء', delete_btn: 'حذف', onduty_badge_short: '🟢 مناوبة',
-    delete_pharmacy_confirm: 'هل ترغب في حذف صيدلية "{name}" نهائياً؟', pharmacy_added_success: 'تمت إضافة صيدلية "{name}" بنجاح',
-    edit_name_btn: 'تعديل الاسم', save_name_btn: 'حفظ', cancel_edit_btn: 'إلغاء',
-    edit_name_aria: 'تعديل اسم الصيدلية',
-    change_password_title: '🔑 تغيير كلمة المرور',
-    change_password_desc: 'يمكنك تغيير كلمة المرور في أي وقت، وستحتاج إلى كلمتك الحالية للتأكيد.',
-    current_password_placeholder: 'كلمة المرور الحالية',
-    new_password_placeholder: 'كلمة المرور الجديدة',
-    confirm_new_password_placeholder: 'تأكيد كلمة المرور الجديدة',
-    change_password_btn: 'تغيير كلمة المرور',
-    password_changed_success: 'تم تغيير كلمة المرور بنجاح',
-    passwords_not_matching: 'كلمتا المرور الجديدتان غير متطابقتين',
-    new_password_required_error: 'كلمة المرور الجديدة مطلوبة',
-    new_password_too_short_error: 'كلمة المرور الجديدة قصيرة جداً، والحد الأدنى ثمانية محارف',
-    new_password_same_error: 'كلمة المرور الجديدة مطابقة للحالية',
-    reset_password_btn: 'إعادة تعيين كلمة المرور', reset_password_btn_short: '🔑 كلمة المرور',
-    reset_password_confirm: 'هل ترغب في إعادة تعيين كلمة مرور "{name}"؟ ستُولَّد كلمة جديدة، ولن يتمكن الصيدلي من الدخول بالقديمة. ولن يتأثر المخزون ولا الطلبات.',
-    reset_password_done_title: 'كلمة المرور الجديدة لـ"{name}"',
-    reset_password_done_hint: 'انسخ كلمة المرور الآن وسلّمها إلى الصيدلي، فلن تظهر مرة أخرى.',
-    reset_password_error: 'تعذّرت إعادة تعيين كلمة المرور',
-    stats_title: '📊 نظرة عامة على المنصة',
-    stat_on_duty: 'صيدليات مناوبة الآن',
-    stat_cosmetics: 'مستحضرات التجميل',
-    stat_nurses: 'الممرضون', stat_available_stock: 'أدوية متوفرة في الصيدليات',
-    stat_orders_total: 'إجمالي الطلبات', stat_orders_24h: 'طلبات آخر 24 ساعة',
-    stat_orders_7d: 'طلبات آخر 7 أيام', stat_orders_30d: 'طلبات آخر 30 يوماً',
-    stats_top_medicines: 'أكثر الأدوية طلباً', stats_top_pharmacies: 'أنشط الصيدليات',
-    stats_by_city: 'الصيدليات حسب المدينة',
-    stats_orders_count_unit: 'طلب واحد|طلبان|{n} طلبات|{n} طلباً|{n} طلب|لا طلبات', stats_times_unit: 'مرة واحدة|مرتان|{n} مرات|{n} مرة|{n} مرة', stats_pharmacy_unit: 'صيدلية واحدة|صيدليتان|{n} صيدليات|{n} صيدلية|{n} صيدلية',
-    stats_no_orders_yet: 'لا توجد طلبات بعد، ستظهر هنا فور وصول أول طلب.',
-    stats_refresh_btn: 'تحديث',
-    page_title: 'دوائي جاهز | ابحث عن توفر الدواء في صيدليات سلمية وسوريا',
-    page_description: 'ابحث عن توفر الدواء في الصيدليات القريبة منك في سلمية وسوريا لحظياً، واعرف الصيدليات المناوبة الليلة، واطلب دواءك مباشرة من الصيدلية. منصة سورية مجانية.',
-    refresh_results_btn: '↻ تحديث النتائج', refreshing_results: '⏳ جارٍ التحديث...',
-    verified_badge: 'موثَّقة', verified_badge_title: 'صيدلية سجّلتها إدارة المنصة بعد التحقق من بياناتها',
-    stock_updated_prefix: 'آخر تحديث للمخزون:',
-    time_just_now: 'قبل لحظات', time_minutes: 'قبل دقيقة|قبل دقيقتين|قبل {n} دقائق|قبل {n} دقيقة|قبل {n} دقيقة', time_hours: 'قبل ساعة|قبل ساعتين|قبل {n} ساعات|قبل {n} ساعة|قبل {n} ساعة',
-    time_days: 'قبل يوم|قبل يومين|قبل {n} أيام|قبل {n} يوماً|قبل {n} يوم', time_weeks: 'قبل أسبوع|قبل أسبوعين|قبل {n} أسابيع|قبل {n} أسبوعاً|قبل {n} أسبوع', time_long_ago: 'منذ أكثر من شهر',
-    stock_never_updated: 'لم يُحدَّث بعد',
-    stock_stale_warning: 'قد لا تكون هذه المعلومة محدَّثة، ويُنصح بالاتصال بالصيدلية للتأكد',
-    city_placeholder: 'المدينة', city_label: 'المدينة', all_cities: 'كل المدن',
-    filter_by_city_aria: 'تصفية النتائج حسب المدينة',
-    city_required_error: 'المدينة مطلوبة', invalid_city_error: 'مدينة غير صالحة',
-    pharmacy_name_required: 'اسم الصيدلية مطلوب',
-    duplicate_pharmacy_name_confirm: 'يوجد اسم مطابق مسبقاً: "{name}" (اسم المستخدم: {username}). هل ترغب في المتابعة؟',
-    pharmacy_name_updated: 'تم تحديث اسم الصيدلية إلى "{name}"',
-    pharmacy_name_update_error: 'تعذّر تعديل اسم الصيدلية. حاول مرة أخرى.',
-    add_medicine_title_admin: '💊 إضافة دواء جديد', registered_medicines_title: 'الأدوية المسجّلة',
-    item_added_success: 'تمت إضافة "{name}" بنجاح', delete_medicine_confirm: 'هل ترغب في حذف دواء "{name}" نهائياً؟',
-    add_nurse_title: '🩺 إضافة ممرض جديد', nurse_name_placeholder: 'اسم الممرض', specialty_placeholder: 'التخصص',
-    university_placeholder: 'الجامعة', grad_year_placeholder: 'سنة التخرج',
-    add_nurse_btn: 'إضافة الممرض', registered_nurses_title: 'الممرضون المسجّلون', no_nurses_yet: 'لا يوجد ممرضون مسجّلون بعد.',
-    nurses_table_header: 'الممرض', actions_header_plural: 'إجراءات',
-    nurse_available_short: '🟢 متاح', nurse_unavailable_short: '🔴 غير متاح',
-    delete_nurse_confirm: 'هل ترغب في حذف الممرض "{name}" نهائياً؟',
-    pending_ratings_title: '⭐ تقييمات قيد المراجعة', approve_btn: '✅ موافقة', reject_btn: '🗑️ رفض',
-    reject_rating_confirm: 'هل ترغب في رفض هذا التقييم؟ سيُحذف نهائياً.',
-    published_ratings_title: '💬 التقييمات المنشورة', show_ratings_btn: 'عرض التقييمات', hide_ratings_btn: 'إخفاء التقييمات',
-    loading_text: 'جارٍ التحميل...', no_published_ratings: 'لا توجد تقييمات منشورة بعد.',
-    delete_final_btn: '🗑️ حذف نهائي', failed_load_ratings: 'تعذّر تحميل التقييمات.',
-    delete_rating_final_confirm: 'هل ترغب في حذف هذا التقييم نهائياً؟ لا يمكن التراجع عن هذا الإجراء.',
-    nursing_empty_title: 'لا يوجد ممرضون مسجّلون حالياً', nursing_empty_subtitle: 'سيُضاف ممرضون موثوقون قريباً.',
-    nurse_available_full: '🟢 متاح للعمل', nurse_unavailable_full: '🔴 غير متاح حالياً',
-    general_nurse_label: 'ممرض عام', rating_summary_suffix: 'من تقييم واحد|من تقييمين|من {n} تقييمات|من {n} تقييماً|من {n} تقييم',
-    no_ratings_yet_short: 'لا توجد تقييمات بعد', view_profile_btn: 'لمحة عنه',
-    grad_year_label: 'تخرج', patient_reviews_title: 'آراء المرضى ({count})',
-    no_published_reviews: 'لا توجد آراء منشورة بعد.', rate_this_nurse_title: 'قيّم هذا الممرض',
-    already_rated_msg: 'شكراً لك، فقد أُرسل تقييمك مسبقاً وهو الآن قيد مراجعة الإدارة.',
-    comment_placeholder: 'اكتب رأيك (اختياري)', your_name_placeholder: 'اسمك', your_phone_placeholder: 'رقم هاتفك',
-    submit_rating_btn: 'إرسال التقييم',
-    star_rate_one: 'قيّم نجمة واحدة من 5', star_rate_two: 'قيّم نجمتين من 5', star_rate_n: 'قيّم {n} نجوم من 5',
-    select_stars_first: 'الرجاء اختيار عدد النجوم أولاً', name_phone_required: 'الاسم ورقم الهاتف مطلوبان',
-    rating_submitted_success: 'أُرسل تقييمك بنجاح. سيظهر للعموم بعد موافقة الإدارة عليه.',
-    nursing_page_title: 'خدمات تمريض 🩺', nursing_page_desc: 'تواصل مع ممرضين موثوقين لتلقّي الرعاية التمريضية في منزلك.',
-    show_password_aria: 'إظهار كلمة المرور', hide_password_aria: 'إخفاء كلمة المرور',
-    invalid_value_error: 'قيمة غير صالحة',
-    admin_duty_title: '🕐 جدول المناوبة',
-    admin_duty_desc: 'يمكنك من هنا ضبط مناوبة أي صيدلية دون الحاجة إلى تسجيل الدخول بحسابها، كما يستطيع الصيدلي تعديل مناوبته بنفسه.',
-    admin_duty_clear_all: 'إيقاف كل المناوبات',
-    admin_duty_clear_confirm: 'هل ترغب في إيقاف مناوبة جميع الصيدليات؟ عدد الصيدليات المناوبة حالياً: {n}. يُستخدم هذا الإجراء عادةً عند بدء أسبوع جديد.',
-    admin_duty_cleared: 'أُوقفت المناوبات. عدد الصيدليات التي أُوقفت مناوبتها: {n}',
-    admin_duty_none_active: 'لا توجد صيدليات مناوبة حالياً',
-    admin_duty_on: 'مناوبة',
-    admin_duty_off: 'غير مناوبة',
-    admin_duty_save: 'حفظ',
-    admin_duty_saved: 'تم حفظ المناوبة',
-    admin_duty_by_pharmacy: 'عدّلها الصيدلي',
-    admin_duty_by_admin: 'عدّلتها الإدارة',
-    admin_duty_never: 'لم تُعدَّل بعد',
-    admin_duty_search: 'ابحث باسم الصيدلية...',
-    admin_duty_no_match: 'لا توجد صيدلية بهذا الاسم',
-    admin_duty_active_count: 'مناوبة الآن: {n}',
-    stock_unmanaged_badge: 'لم تُسجّل مخزونها',
-    stock_unmanaged_note: 'هذه الصيدلية مُدرجة ضمن جدول المناوبة فحسب، ولا تُحدِّث مخزونها على المنصة. يُرجى الاتصال بها للاستفسار عن الدواء.',
-    manages_stock_on: 'تُحدّث مخزونها',
-    manages_stock_off: 'مناوبة فقط',
-    manages_stock_toggle_on: 'تفعيل المخزون',
-    manages_stock_toggle_off: 'إيقاف المخزون',
-    manages_stock_confirm_on: 'هل ترغب في تفعيل إدارة المخزون لصيدلية "{name}"؟ ستظهر عندئذٍ حالات توفر أدويتها للمرضى في نتائج البحث.',
-    manages_stock_confirm_off: 'هل ترغب في إيقاف إدارة المخزون لصيدلية "{name}"؟ ستبقى مُدرجة في جدول المناوبة، ولن تُعرض حالات التوفر، بل ملاحظة تفيد بأنها لم تُسجّل مخزونها.',
-    manages_stock_updated: 'تم تحديث حالة الصيدلية',
-    name_too_long_error: 'الاسم طويل جداً',
-    notes_too_long_error: 'الملاحظات طويلة جداً',
-    too_many_items_error: 'عدد الأدوية في الطلب كبير جداً',
-    invalid_order_error: 'بيانات الطلب غير صالحة',
-    comment_too_long_error: 'التعليق طويل جداً',
-    open_now_badge: 'مفتوحة الآن',
-    closed_opens_at: 'مغلقة الآن، وتفتح الساعة {time}',
-    closed_today_badge: 'مغلقة اليوم',
-    cart_closed_btn: 'الصيدلية مغلقة، أرسل الطلب',
-    cart_closed_notice: 'الصيدلية مغلقة الآن. سيصلك الرد بعد فتحها الساعة {time}.',
-    cart_closed_notice_today: 'الصيدلية مغلقة اليوم. سيصلك الرد بعد فتحها.',
-    hours_section_title: '🕒 ساعات دوام الصيدلية',
-    hours_section_desc: 'حدِّد ساعات الدوام مرة واحدة، لتُحسب حالة الفتح والإغلاق تلقائياً كل يوم. يمنع هذا وصول طلبات في ساعات متأخرة دون أن يعرف المريض أنك مغلق.',
-    hours_opens_label: 'وقت الفتح',
-    hours_closes_label: 'وقت الإغلاق',
-    hours_save: 'حفظ ساعات الدوام',
-    hours_clear: 'مسح الساعات',
-    hours_saved: 'حُفظت ساعات الدوام بنجاح',
-    hours_cleared: 'مُسحت ساعات الدوام',
-    hours_none: 'لم تُحدَّد ساعات الدوام بعد',
-    hours_current: 'الدوام الحالي:',
-    hours_to: 'حتى',
-    hours_overnight_note: 'دوام ممتد بعد منتصف الليل',
-    hours_both_required: 'يلزم تحديد وقتي الفتح والإغلاق معاً',
-    hours_same_time: 'وقت الفتح مطابق لوقت الإغلاق',
-    invalid_time_error: 'وقت غير صالح. استخدم الصيغة ساعة:دقيقة مثل 08:30',
-    closed_today_title: 'إغلاق استثنائي لليوم',
-    closed_today_desc: 'يُستخدم عند الإغلاق لظرف طارئ أو عطلة. يعود الدوام إلى جدوله المعتاد تلقائياً غداً.',
-    closed_today_on: 'إعلان الإغلاق اليوم',
-    closed_today_off: 'التراجع عن الإغلاق',
-    closed_today_active: 'صيدليتك معلنة مغلقة اليوم.',
-    closed_today_saved: 'أُعلن إغلاق الصيدلية اليوم',
-    closed_today_removed: 'عاد الدوام إلى جدوله المعتاد',
-    duty_overrides_hours: 'صيدليتك مناوبة، لذا تظهر مفتوحة بصرف النظر عن ساعات الدوام.',
-    a11y_duty_day: 'يوم المناوبة',
-    a11y_duty_shift: 'وردية المناوبة',
-    a11y_med_category: 'تصنيف المنتج',
-    nav_menu_aria: 'القائمة',
-    search_aria_medicine: 'البحث عن دواء أو مادة فعالة',
-    search_aria_cosmetic: 'البحث عن مستحضر تجميل',
-    suggestions_aria: 'اقتراحات البحث',
-    close_aria: 'إغلاق',
-    err_offline: 'لا يوجد اتصال بالإنترنت. تحقق من الشبكة ثم أعد المحاولة.',
-    retry_btn: 'إعادة المحاولة',
-    err_timeout_search: 'استغرق الخادم وقتاً أطول من المعتاد. أعد المحاولة بعد قليل.',
-    err_timeout_order: 'لم يصل رد الخادم في الوقت المحدد. يمكنك إعادة الإرسال بأمان، فلن يتكرر طلبك.',
-    err_network: 'تعذّر الوصول إلى الخادم. تحقق من اتصالك وأعد المحاولة.',
-    err_network_order: 'تعذّر إتمام الإرسال. يمكنك إعادة الإرسال بأمان، فلن يتكرر طلبك.',
-    err_server: 'حدث خلل في الخادم. أعد المحاولة بعد قليل.',
-    offline_banner: 'لا يوجد اتصال بالإنترنت',
-    sending_order: 'جارٍ إرسال الطلب...',
-    rate_limited_error: 'محاولات كثيرة جداً. حاول بعد قليل.',
-    admin_session_expired: 'انتهت جلسة الإدارة. أدخل كلمة المرور من جديد.',
-    launch_saved_check: 'هل حُفظ ملف النسخة الاحتياطية في جهازك؟\nتحقق من مجلد التنزيلات قبل المتابعة. لن يُحذف شيء قبل تأكيدك.',
-    launch_saved_yes: 'نعم، حُفظ — تابع',
-    launch_saved_no: 'لا، أعد التنزيل',
-    launch_not_confirmed: 'لم يُحذف شيء. نزّل النسخة الاحتياطية من زر «تنزيل نسخة احتياطية» وتأكد من حفظها، ثم أعد المحاولة.',
-    duty_day_invalid_error: 'يوم المناوبة غير صالح.',
-    duty_shift_invalid_error: 'فترة المناوبة غير صالحة.',
-    duty_time_invalid_error: 'وقت المناوبة غير صالح. اختر الساعة من القائمة.',
-    med_name_too_long_error: 'اسم الدواء طويل جداً، والحد 120 حرفاً.',
-    forbidden_error: 'غير مصرح لك بالوصول إلى هذه البيانات.',
-    orders_load_error: 'تعذّر تحميل الطلبات. تحقق من اتصالك بالإنترنت، وستُحدَّث القائمة تلقائياً.',
-    session_expired_error: 'تغيّرت بيانات الدخول لهذا الحساب، فتوقف تحديث الطلبات. يرجى تسجيل الخروج ثم الدخول من جديد.',
-    ip_protection_label: 'حماية المحاولات:',
-    ip_protection_ok: 'تعمل عبر Cloudflare ✅',
-    ip_protection_fallback: 'تعمل بمصدر احتياطي ⚠️',
-    admin_address_title: '📍 عنوان الصيدلية وموقعها',
-    admin_address_desc: 'عدّل العنوان المكتوب الذي يراه المريض، وموقع الصيدلية على الخريطة. يظهر للمريض آخر موقع حُفظ، سواء حفظته الإدارة من هنا أو الصيدلي من لوحته.',
-    admin_address_search: 'ابحث باسم الصيدلية أو عنوانها',
-    admin_address_no_match: 'لا توجد صيدلية مطابقة',
-    admin_address_label: 'العنوان المكتوب',
-    admin_address_placeholder: 'مثال: سلمية، شارع حماة، قرب دوار الساعة',
-    admin_coords_label: 'الموقع على الخريطة',
-    admin_coords_placeholder: '35.0101, 37.0505',
-    admin_coords_hint: 'في خرائط جوجل، اضغط مطوّلاً على مكان الصيدلية وانسخ الأرقام التي تظهر. واترك الحقل فارغاً إن لم ترد تغيير الموقع.',
-    admin_location_set: 'الموقع محدد',
-    admin_location_unset: 'الموقع غير محدد',
-    admin_view_on_map: 'عرض على الخريطة',
-    admin_address_save: 'حفظ',
-    admin_location_clear: 'إزالة الموقع',
-    admin_address_saved: 'حُفظت التعديلات',
-    admin_address_nothing: 'لم يتغير شيء، فلا حاجة للحفظ.',
-    admin_location_clear_confirm: 'هل ترغب في إزالة موقع صيدلية "{name}" عن الخريطة؟ سيختفي زر "الموقع على الخريطة" من بطاقتها حتى يُحدَّد موقع جديد.',
-    admin_location_cleared: 'أُزيل الموقع',
-    address_too_long_error: 'العنوان طويل جداً',
-    invalid_address_error: 'العنوان غير صالح',
-    main_phone_title: '☎️ الهاتف الأرضي للصيدلية',
-    main_phone_desc: 'الرقم الأساسي الذي يظهر للمرضى بجانب الرمز 📞. اكتبه مع رمز المنطقة إن أمكن.',
-    main_phone_placeholder: 'رقم الهاتف الأرضي',
-    main_phone_save: 'حفظ الرقم',
-    main_phone_saved: 'حُفظ رقم الهاتف',
-    phone_required_error: 'رقم الهاتف مطلوب',
-    phone_invalid_error: 'رقم الهاتف غير صالح. اكتب أرقاماً فقط، من 6 إلى 15 رقماً.',
-    phone_too_short_error: 'رقم الهاتف قصير. اكتب الرقم كاملاً (7 أرقام على الأقل).',
-    meters_count: 'متر واحد|مترين|{n} أمتار|{n} متراً|{n} متر',
-    exp_years_invalid: 'سنوات الخبرة يجب أن تكون رقماً بين 0 و60.',
-    nurse_experience_label: 'سنوات الخبرة',
-    nurse_services_label: 'الخدمات',
-    nurse_verified_badge: 'شهادة موثّقة',
-    exp_years_placeholder: 'سنوات الخبرة (رقم، اختياري)',
-    services_placeholder: 'الخدمات، مثل: تضميد الجروح، الحقن، رعاية كبار السن (اختياري)',
-    nurse_cert_after_add_hint: 'بعد إضافة الممرض، ارفع شهادته من زر «الخبرة والشهادة» بجانب اسمه في القائمة أدناه.',
-    nurse_profile_btn: 'الخبرة والشهادة',
-    nurse_profile_save: 'حفظ الخبرة',
-    nurse_profile_saved: 'حُفظت بيانات الخبرة',
-    cert_section_title: 'الشهادة (خاصة بالإدارة، لا يراها المرضى)',
-    cert_none: 'لا توجد شهادة مرفوعة.',
-    cert_uploaded_info: 'شهادة مرفوعة: {type} · {size} · بتاريخ {date}',
-    cert_upload_btn: 'رفع شهادة (PDF أو صورة)',
-    cert_replace_btn: 'استبدال الشهادة',
-    cert_view_btn: 'عرض الشهادة',
-    cert_delete_btn: 'حذف الشهادة',
-    cert_verify_btn: 'تحققت منها ✓',
-    cert_unverify_btn: 'إلغاء التوثيق',
-    cert_verified_state: '✓ موثّقة: تظهر للمرضى شارة «شهادة موثّقة».',
-    cert_unverified_state: 'لم تُوثَّق بعد: راجع الشهادة ثم اضغط «تحققت منها».',
-    cert_preparing: 'جارٍ تجهيز الصورة...',
-    cert_uploading: 'جارٍ الرفع...',
-    cert_uploaded_ok: 'رُفعت الشهادة. راجعها ثم وثّقها ليظهر للمرضى أنها موثّقة.',
-    cert_delete_confirm: 'هل ترغب في حذف شهادة «{name}»؟ ستزول شارة التوثيق من بطاقته.',
-    cert_deleted: 'حُذفت الشهادة',
-    cert_bad_type: 'نوع الملف غير مقبول. ارفع ملف PDF أو صورة (JPG أو PNG).',
-    cert_too_big: 'حجم الملف أكبر من 3 ميغابايت. احفظه بحجم أصغر، أو صوّر الشهادة بالهاتف وارفع الصورة، فالموقع يصغّر الصور تلقائياً.',
-    cert_popup_blocked: 'منع المتصفح فتح نافذة جديدة. اسمح بالنوافذ المنبثقة لهذا الموقع ثم أعد المحاولة.',
-    cert_storage_label: 'تخزين الشهادات:',
-    cert_storage_usage: '{used} من 1 جيجابايت · عدد الشهادات: {count}',
-    cert_storage_check_btn: 'فحص التخزين',
-    storage_ok: 'التخزين يعمل: المجلد موجود وخاص، والمفتاح صحيح.',
-    storage_PUBLIC: 'تنبيه: مجلد الشهادات عام! في Supabase افتح Storage ثم nurse-certificates، وأطفئ خيار Public.',
-    storage_NOCFG: 'التخزين غير مُعدّ: تأكد من إضافة SUPABASE_URL وSUPABASE_SECRET_KEY في إعدادات Render.',
-    storage_NOBUCKET: 'لم يُعثر على مجلد nurse-certificates في Supabase. تأكد من اسمه حرفياً.',
-    storage_AUTH: 'رفض Supabase المفتاح. تأكد أنك نسخت المفتاح السري كاملاً دون مسافات.',
-    storage_NOFETCH: 'إصدار الخادم قديم لا يدعم الاتصال بالتخزين.',
-    storage_UNAVAILABLE: 'تعذّر الوصول إلى التخزين الآن. حاول بعد قليل.',
-    unit_kb: 'كيلوبايت',
-    unit_mb: 'ميغابايت',
-    cert_type_pdf: 'PDF',
-    cert_type_image: 'صورة',
-    join_title: '🤝 هل أنت صيدلي ولم تنضم بعد؟',
-    join_count_none: 'كن أول صيدلية تنضم إلى المنصة.',
-    join_count_prefix: 'انضمّت إلى المنصة',
-    join_show_list: 'عرض الصيدليات المنضمة',
-    join_hide_list: 'إخفاء القائمة',
-    join_hint: 'أرسل لنا اسم صيدليتك وعنوانها ورقم هاتفها، وسنتواصل معك لإضافتها.',
-    join_email_btn: '✉️ راسلنا بالبريد للانضمام',
-    join_email_subject: 'طلب انضمام صيدلية إلى دوائي جاهز',
-    join_email_body: 'اسم الصيدلية:\nاسم الصيدلي المسؤول:\nالمدينة والعنوان:\nرقم الهاتف:\n',
-    join_load_error: 'تعذّر تحميل القائمة الآن.',
-    staff_banner_pharmacist_title: 'لوحة الصيدلي',
-    staff_banner_pharmacist_sub: 'حدِّث توفر أدويتك ومناوبتك وساعات دوامك، واستقبل طلبات المرضى من مكان واحد.',
-    staff_banner_admin_title: 'لوحة الإدارة',
-    staff_banner_admin_sub: 'أدِر الصيدليات والمناوبة والأدوية، وتابع بيانات الطلب وحالة المنصة.',
-    ad_label: 'إعلان',
-    ads_title: '📢 الإعلانات',
-    ads_desc: 'إعلانات مباشرة تبيعها لمعلنين محليين. لا تظهر أبداً في قائمة المناوبة، ولا مع رسالة «غير متوفر».',
-    ads_new: 'إعلان جديد',
-    ads_advertiser_ph: 'اسم المعلن',
-    ads_advertiser_en_ph: 'اسم المعلن بالإنكليزية (اختياري)',
-    ads_desc_ph: 'شرح قصير (اختياري، حتى 60 حرفاً)',
-    ads_desc_en_ph: 'الشرح بالإنكليزية (اختياري)',
-    ads_editor_hint: 'اسحب الصورة أو استعمل الأسهم لتحريكها، والشريط للتكبير. الفراغ حول الصورة يُملأ بامتداد ناعم لألوان أطرافها. ما تراه في الإطار هو بالضبط ما سيراه الزائر.',
-    ads_move_left: 'تحريك الصورة إلى اليسار',
-    ads_move_right: 'تحريك الصورة إلى اليمين',
-    ads_move_up: 'تحريك الصورة إلى الأعلى',
-    ads_move_down: 'تحريك الصورة إلى الأسفل',
-    ads_center: 'توسيط',
-    ads_center_aria: 'توسيط الصورة في الإطار',
-    ads_zoom_label: 'التكبير',
-    ads_fit_fill: 'ملء الإطار',
-    ads_fit_whole: 'الصورة كاملة',
-    ads_en_too_long: 'اسم المعلن بالإنكليزية طويل جداً (حتى 80 حرفاً).',
-    ads_desc_too_long: 'الشرح طويل جداً.',
-    ads_pick_image: '📷 اختيار صورة',
-    ads_preview_empty: 'اختر صورة لتظهر هنا، ثم اضبط موضعها وحجمها داخل الإطار.',
-    ads_link_ph: 'الرابط (اختياري)',
-    ads_link_hint: 'موقع يبدأ بـ https://، أو رابط واتساب wa.me، أو رقم هاتف.',
-    ads_placement: 'المكان:',
-    ads_place_home: 'الرئيسية',
-    ads_place_cosmetic: 'مستحضرات التجميل',
-    ads_place_results: 'بعد نتائج البحث',
-    ads_results_hint: '«بعد نتائج البحث»: يظهر تحت نتائج البحث عن الأدوية بدل إعلان الرئيسية. لا تبع هذا المكان لصيدلية أو لشركة أدوية، كي لا تبدو المنصة منحازة إلى أحد؛ ويناسب المخابر والعيادات والأجهزة الطبية.',
-    ads_from: 'من',
-    ads_to: 'إلى',
-    ads_submit: 'إضافة الإعلان',
-    ads_uploading: 'جارٍ الرفع...',
-    ads_added: 'أُضيف الإعلان.',
-    ads_need_advertiser: 'اكتب اسم المعلن (حتى 80 حرفاً).',
-    ads_need_image: 'اختر صورة الإعلان.',
-    ads_bad_type: 'نوع الصورة غير مقبول. اختر صورة JPG أو PNG أو WEBP.',
-    ads_too_big: 'الصورة كبيرة جداً حتى بعد ضغطها. جرّب صورة أصغر.',
-    ads_bad_link: 'الرابط غير مقبول: يجب أن يبدأ بـ https:// أو أن يكون رقم هاتف.',
-    ads_bad_date: 'تاريخ غير صالح.',
-    ads_bad_place: 'مكان الإعلان غير صالح.',
-    ads_dates_order: 'تاريخ النهاية قبل تاريخ البداية.',
-    ads_not_found: 'الإعلان غير موجود.',
-    ads_empty: 'لا إعلانات بعد.',
-    ads_load_error: 'تعذّر تحميل الإعلانات الآن.',
-    ads_status_running: '🟢 يعمل',
-    ads_status_paused: '⏸️ متوقف',
-    ads_status_scheduled: '⏳ لم يبدأ',
-    ads_status_ended: '⌛ انتهى',
-    ads_in_home: 'في الرئيسية',
-    ads_in_cosmetic: 'في مستحضرات التجميل',
-    ads_in_results: 'بعد نتائج البحث',
-    ads_counts: 'الظهور: {i} · النقرات: {c}',
-    ads_range_both: 'من {a} حتى {b}',
-    ads_range_from: 'من {a}، بلا تاريخ انتهاء',
-    ads_range_to: 'حتى {b}',
-    ads_range_none: 'بلا مدة محددة',
-    ads_pause: 'إيقاف',
-    ads_resume: 'استئناف',
-    ads_delete: 'حذف',
-    ads_delete_confirm: 'هل ترغب في حذف إعلان «{name}» نهائياً؟ ستُحذف أرقامه أيضاً.',
-    ads_deleted: 'حُذف الإعلان.',
-    visits_title: '📈 الزيارات',
-    visits_desc: 'عدد زيارات الموقع، لتعرف حجم جمهورك وتعرضه على المعلنين والشركاء.',
-    visits_today: 'زيارات اليوم',
-    visits_period: 'زيارات الفترة',
-    visits_mobile_share: 'من الهاتف',
-    visits_chart_label: 'الزيارات اليومية خلال الفترة المختارة',
-    visits_empty: 'لا زيارات مسجّلة بعد. يبدأ العدّ من لحظة رفع هذا التحديث.',
-    visits_note: 'زيارة واحدة لكل جلسة تصفّح، فمن يزور مرتين يُحسب مرتين. لا تُحفظ أي بيانات عن الزائر، ولا تُحسب زيارات الأجهزة التي دخلت لوحة الإدارة أو لوحة الصيدلي.',
-    visits_load_error: 'تعذّر تحميل الزيارات الآن.',
-    launch_title: 'بدء الإطلاق الرسمي',
-    launch_desc: 'يمسح بيانات التجربة: عمليات البحث، والطلبات، وتقييمات الممرضين، وإحصاءات الزيارات. ولا يمس الصيدليات ولا الأدوية ولا المخزون ولا الممرضين.',
-    launch_warning: 'يُستخدم مرة واحدة فقط، ثم يختفي هذا القسم نهائياً. وتُنزَّل نسخة احتياطية كاملة تلقائياً قبل المسح.',
-    launch_confirm_placeholder: 'اكتب كلمة: حذف',
-    launch_btn: 'مسح بيانات التجربة وبدء الإطلاق',
-    launch_final_confirm: 'ستُمسح كل عمليات البحث والطلبات وتقييمات الممرضين وإحصاءات الزيارات نهائياً، ولا يمكن التراجع. هل تريد المتابعة؟',
-    launch_backing_up: 'جارٍ تنزيل النسخة الاحتياطية...',
-    launch_resetting: 'جارٍ المسح...',
-    launch_backup_failed: 'تعذّر تنزيل النسخة الاحتياطية، فلم يُحذف أي شيء.',
-    launch_done: 'بدأ الإطلاق الرسمي. المحذوف: عمليات البحث {s} · الطلبات {o} · التقييمات {r}. احفظ ملف النسخة الاحتياطية في مكان آمن.',
-    launch_already: 'بدأ الإطلاق الرسمي مسبقاً.',
-    launch_failed: 'تعذّر بدء الإطلاق، ولم يُحذف أي شيء.',
-    launch_since: 'بيانات حقيقية منذ الإطلاق الرسمي في {date}',
-    demand_title: '📊 تحليل الطلب',
-    demand_desc: 'ما يبحث عنه المرضى فعلاً، مجمَّعاً ومجهَّلاً. لا يحوي أي بيانات تكشف هوية أحد.',
-    demand_period: 'الفترة:',
-    demand_days_7: 'آخر 7 أيام',
-    demand_days_30: 'آخر 30 يوماً',
-    demand_days_90: 'آخر 90 يوماً',
-    demand_total: 'عمليات بحث مسجَّلة',
-    demand_top: 'الأكثر طلباً',
-    demand_not_found: 'بحث بلا نتيجة',
-    demand_not_found_hint: 'أدوية لا تعرفها المنصة بعد، فرصة لإضافتها',
-    demand_shortages: 'إشارات النقص',
-    demand_shortages_hint: 'دواء معروف ولا يتوفر في أي صيدلية تُحدِّث مخزونها',
-    demand_by_city: 'حسب المدينة',
-    demand_all_cities: 'كل المدن',
-    demand_empty: 'لا توجد بيانات بعد',
-    demand_times: 'مرة واحدة|مرتان|{n} مرات|{n} مرة|{n} مرة',
-    demand_export: 'تنزيل التقرير (Excel)',
-    demand_load_error: 'تعذّر تحميل تقرير الطلب',
-    demand_col_section: 'القسم',
-    demand_col_item: 'البند',
-    demand_col_count: 'العدد',
-    backup_title: '💾 النسخ الاحتياطي وحالة النظام',
-    backup_desc: 'خطة الاستضافة المجانية لا توفر نسخاً احتياطياً تلقائياً. نزِّل نسخة دورياً واحفظها في مكان آمن.',
-    backup_btn: 'تنزيل نسخة احتياطية',
-    backup_preparing: 'جارٍ التحضير...',
-    backup_done: 'نُزّلت النسخة الاحتياطية بنجاح',
-    backup_failed: 'تعذّر إنشاء النسخة الاحتياطية',
-    backup_warning: 'الملف حساس: يتضمن بيانات الحسابات والطلبات. احفظه في مكان آمن ولا تشاركه.',
-    backup_last: 'آخر نسخة نزَّلتها من هذا المتصفح:',
-    backup_never: 'لم تُنزَّل أي نسخة من هذا المتصفح بعد',
-    backup_overdue: 'مضى أكثر من أسبوع على آخر نسخة.',
-    system_status_title: 'حالة النظام',
-    system_status_ok: 'يعمل بصورة سليمة',
-    system_status_degraded: 'قاعدة البيانات لا تستجيب',
-    system_status_checking: 'جارٍ الفحص...',
-    admin_username_title: '👤 تعديل أسماء المستخدمين',
-    admin_username_desc: 'اسم المستخدم هو ما يدخل به الصيدلي إلى لوحته. لا يؤثر تعديله على كلمة المرور ولا المخزون ولا الطلبات ولا المناوبة.',
-    admin_username_search: 'ابحث باسم الصيدلية أو اسم المستخدم',
-    admin_username_no_match: 'لا توجد صيدلية مطابقة',
-    admin_username_current: 'اسم المستخدم الحالي:',
-    admin_username_new_placeholder: 'اسم المستخدم الجديد',
-    admin_username_save: 'حفظ',
-    admin_username_saved: 'عُدِّل اسم المستخدم بنجاح',
-    admin_username_confirm: 'هل ترغب في تعديل اسم المستخدم لصيدلية "{name}" من "{old}" إلى "{new}"؟ سيدخل الصيدلي بالاسم الجديد، ولن تتغير كلمة مروره.',
-    admin_username_required: 'اسم المستخدم مطلوب',
-    admin_username_no_spaces: 'اسم المستخدم لا يقبل المسافات',
-    admin_username_too_short: 'اسم المستخدم قصير جداً، والحد الأدنى ثلاثة محارف',
-    admin_username_taken: 'اسم المستخدم مستخدم مسبقاً',
-    register_listing_type_title: 'نوع الإدراج',
-    register_type_full_label: 'صيدلية كاملة',
-    register_type_full_desc: 'تدير مخزونها على المنصة، فتظهر حالات توفر أدويتها للمرضى في نتائج البحث.',
-    register_type_duty_label: 'مناوبة فقط',
-    register_type_duty_desc: 'تظهر في جدول المناوبة دون عرض حالات توفر الأدوية. يمكن تغيير النوع لاحقاً في أي وقت.',
-    directions_btn: 'الموقع على الخريطة',
-    directions_btn_title: 'افتح موقع الصيدلية في خرائط جوجل',
-    location_section_title: '📍 موقع الصيدلية على الخريطة',
-    location_section_desc: 'يكفي تحديد موقع الصيدلية مرة واحدة، ليظهر للمريض زرٌّ يفتح له مسار الوصول إليها في خرائط جوجل.',
-    detect_location_btn: '📍 تحديد موقعي الحالي',
-    detecting_location: '⏳ جارٍ تحديد الموقع...',
-    location_paste_placeholder: 'أو الصق الإحداثيات هنا: 35.011667, 37.053056',
-    location_paste_hint: 'من خرائط جوجل: اضغط مطوّلاً على موقع الصيدلية، ثم انسخ السطر الذي يتضمن الحرفين N و E (مثل 35°00\'57.8"N 37°03\'25.3"E) والصقه هنا، فهذه الصيغة لا يقع فيها لبس.',
-    save_location_btn: 'حفظ الموقع',
-    clear_location_btn: 'مسح الموقع',
-    location_saved_success: 'تم حفظ موقع الصيدلية بنجاح',
-    location_cleared_success: 'تم مسح موقع الصيدلية',
-    location_current_label: 'الموقع المحفوظ حالياً:',
-    location_preview_btn: 'معاينة على الخريطة',
-    location_none: 'لم يُحدَّد الموقع بعد',
-    invalid_location_error: 'الإحداثيات غير صالحة. يُرجى التحقق من الأرقام وإعادة المحاولة.',
-    geo_unsupported: 'لا يدعم متصفحك تحديد الموقع. يمكنك إدخال الإحداثيات يدوياً بدلاً من ذلك.',
-    geo_denied: 'رُفض إذن الوصول إلى الموقع. يمكنك تفعيله من إعدادات المتصفح، أو إدخال الإحداثيات يدوياً.',
-    geo_unavailable: 'تعذّر تحديد الموقع. يُرجى التأكد من تفعيل خدمة تحديد المواقع (GPS) والمحاولة في مكان مكشوف.',
-    geo_timeout: 'انقضت مهلة تحديد الموقع. يُرجى إعادة المحاولة.',
-    geo_low_accuracy: 'دقة التحديد منخفضة (في حدود {n}). يُنصح بإعادة المحاولة في مكان مكشوف، أو بالحفظ إن كان الموقع صحيحاً.',
-    location_confirm_detected: 'حُدِّد موقعك بدقة في حدود {n}. هل تعتمده موقعاً للصيدلية؟',
-    location_outside_syria: 'تقع هذه الإحداثيات خارج سوريا. يُرجى التأكد من عدم عكس الرقمين. هل ترغب في حفظها رغم ذلك؟',
-    location_swap_suggest: 'يبدو أن الرقمين معكوسان. الموقع الصحيح على الأرجح: {coords}\n\nهل ترغب في اعتماده بهذه الصيغة؟',
-    location_admin_label: 'موقع',
-    duty_now_btn_label: 'الصيدليات المناوبة الآن',
-    wa_consult_btn_label: 'استشر صيدلياً عبر واتساب',
-    duty_row_default: 'اعرف الصيدلية المناوبة الآن',
-    duty_row_count: 'صيدلية مناوبة واحدة الآن|صيدليتان مناوبتان الآن|{n} صيدليات مناوبة الآن|{n} صيدلية مناوبة الآن|{n} صيدلية مناوبة الآن|لا صيدليات مناوبة مسجّلة الآن',
-    duty_row_in_city: '{count} في {city}',
-    wa_row_sub: 'عن جرعة أو بديل أو وصفة غير واضحة',
-    cart_row_sub: 'احجز الأدوية من نتائج البحث',
-    hero_trust: 'كل صيدلية تظهر هنا أضافها فريق دوائي جاهز بنفسه.',
-    pharmacy_count_gen: 'صيدلية واحدة|صيدليتين|{n} صيدليات|{n} صيدلية|{n} صيدلية',
-    res_summary_yes: 'متوفر في {a} من {m}',
-    res_summary_yes_all: 'متوفر في {a}',
-    res_summary_no: 'غير متوفر حسب آخر تحديث من الصيدليات التي تسجّل مخزونها',
-    res_summary_wait: 'مخزون {w} غير مسجّل هنا: اتصل لتسأل.',
-    res_status_yes: 'متوفر', res_status_wait: 'اتصل للتأكد من توفره', res_status_no: 'غير متوفر حسب آخر تحديث',
-    call_btn: '📞 اتصال', directions_btn_short: '🗺️ الخريطة',
-    wa_consult_title: '💬 استشر صيدلياً عبر واتساب',
-    wa_consult_desc: 'وصفة طبية غير واضحة، أو استفسار عن جرعة أو بديل دوائي؟ تواصل مباشرة مع أحد الصيادلة.',
-    wa_consult_empty: 'لا توجد حتى الآن صيدليات مفعّلة على واتساب.',
-    wa_consult_empty_city: 'لا توجد صيدليات مفعّلة على واتساب في هذه المدينة. يمكنك اختيار "كل المدن" لعرض الجميع.',
-    wa_consult_loading: 'جارٍ تحميل الصيدليات...',
-    wa_consult_error: 'تعذّر تحميل قائمة الصيدليات. يُرجى إعادة المحاولة.',
-    wa_chat_btn: 'مراسلة عبر واتساب',
-    wa_close_btn: 'إغلاق',
-    wa_disclaimer: 'المنصة وسيط معلوماتي فحسب، والمحادثة تجري مباشرة بينك وبين الصيدلية، وهي لا تُغني عن استشارة الطبيب.',
-    wa_result_btn: 'واتساب',
-    wa_msg_consult: 'مرحباً، أود استشارتكم بخصوص دواء. وجدتكم عبر موقع دوائي جاهز.',
-    wa_msg_medicine: 'مرحباً، أودّ شراء دواء "{medicine}" من صيدليتكم. وجدتكم عبر موقع دوائي جاهز.',
-    wa_onduty_now: 'مناوبة الآن',
-    whatsapp_phone_section_title: '💬 رقم واتساب الصيدلية',
-    whatsapp_phone_input_placeholder: 'رقم واتساب (مثال: 0932985852)',
-    save_whatsapp_btn: 'حفظ رقم واتساب',
-    whatsapp_saved_success: 'تم حفظ رقم واتساب بنجاح',
-    whatsapp_cleared_success: 'تم مسح رقم واتساب',
-    invalid_whatsapp_error: 'رقم واتساب غير صالح. يُرجى إدخال رقم هاتف محمول سوري، مثل 0932985852',
-    whatsapp_phone_hint: 'لن يظهر زر المراسلة للمرضى إلا إذا أدخلت رقماً. اترك الحقل فارغاً لإخفائه.',
-    whatsapp_admin_label: 'واتساب',
-    contact_title: 'تواصل معنا',
-    contact_intro: 'يسعدنا تواصلكم بأي استفسار أو اقتراح، ولتسجيل صيدلية أو ممرض على المنصة.',
-    contact_email_btn: '✉️ راسلنا بالبريد',
-    contact_email_subject: 'استفسار عبر موقع دوائي جاهز',
-    contact_or_write: 'أو راسلنا على العنوان:',
-    contact_copy_btn: 'نسخ العنوان',
-    contact_copied: 'نُسخ العنوان',
-    contact_facebook_btn: 'فيسبوك',
-    contact_instagram_btn: 'إنستغرام',
-    contact_medical_note: 'للاستفسار عن دواء، استشر صيدلياً مباشرة من زر «استشر صيدلياً» في الصفحة الرئيسية. وفي الحالات الطارئة، اتصل بالإسعاف فوراً.',
-    footer_faq: 'الأسئلة الشائعة', footer_about: 'حول الموقع',
-    faq_title: 'الأسئلة الشائعة',
-    faq_section_patient: 'للمرضى والزوار', faq_section_pharmacist: 'للصيادلة',
-    faq_q1: 'ما هو موقع "دوائي جاهز"؟',
-    faq_a1: 'منصة إلكترونية سورية تساعدك على معرفة مدى توفر دواء معيّن في الصيدليات القريبة منك، والتعرّف على الصيدليات المناوبة، والتواصل مع ممرضين لتقديم خدمات التمريض المنزلي.',
-    faq_q2: 'كيف أبحث عن دواء؟',
-    faq_a2: 'اكتب اسم الدواء أو المادة الفعالة في خانة البحث الموجودة في الصفحة الرئيسية، فتظهر لك جميع الصيدليات التي يتوفر لديها الدواء حالياً، مع عنوانها ورقم هاتفها.',
-    faq_q3: 'هل المعلومات المعروضة محدّثة في كل لحظة؟',
-    faq_a3: 'يقوم أصحاب الصيدليات بتحديث المعلومات بأنفسهم كلّما تغيّر مخزونهم. وننصحك دائماً بالتأكد من توفر الدواء مباشرة لدى الصيدلية قبل التوجّه إليها، لا سيما إن كنت بحاجة ماسّة إليه.',
-    faq_q4: 'ما الفرق بين "متوفر" و"غير متوفر"؟',
-    faq_a4: 'تعني كلمة "متوفر" أنّ الصيدلية قد أشارت إلى وجود هذا الدواء لديها حالياً في المخزون، بينما تعني "غير متوفر" أنها إمّا لا تملكه أصلاً، أو لم تحدّث حالته بعد.',
-    faq_q5: 'كيف أعرف الصيدليات المناوبة اليوم؟',
-    faq_a5: 'من خلال قائمة "الصيدليات المناوبة" في أعلى الصفحة، حيث تظهر جميع الصيدليات المناوبة حالياً، مع أوقات مناوبتها وأرقام التواصل معها.',
-    faq_q6: 'هل يمكنني طلب الدواء وتوصيله لي من الصيدلية؟',
-    faq_a6: 'يتيح لك الموقع إرسال طلب بأسماء الأدوية التي تحتاجها مباشرةً إلى الصيدلية، وهي التي تتواصل معك لتأكيد الطلب وتحديد طريقة الاستلام. أمّا الموقع نفسه فلا يبيع أي دواء ولا يتولّى توصيله.',
-    faq_q7: 'هل خدمات التمريض المعروضة في الموقع مجانية؟',
-    faq_a7: 'يقتصر دور الموقع على تعريفك بالممرضين المتاحين وبيانات التواصل معهم، وأي اتفاق على الخدمة وأجرتها يتمّ مباشرة بينك وبين الممرض.',
-    faq_q8: 'كيف أسجّل صيدليتي في الموقع؟',
-    faq_a8: 'يتم التسجيل حالياً من خلال التواصل مع فريق إدارة الموقع مباشرة، وبعد ذلك يُنشأ حساب خاص بصيدليتك يمكنك تسجيل الدخول إليه في أي وقت.',
-    faq_q9: 'كيف أحدّث حالة توفر دواء معيّن في مخزوني؟',
-    faq_a9: 'يوجد بجانب كل دواء في لوحة الصيدلي زر يبيّن حالته (متوفر أو غير متوفر)، وبضغطة واحدة يمكنك تبديل هذه الحالة فوراً.',
-    faq_q10: 'كيف أضيف عدداً كبيراً من الأدوية دفعة واحدة؟',
-    faq_a10: 'يوفّر لك الموقع خيار "استيراد ملف CSV" من لوحة الصيدلي. حمّل النموذج الفارغ أولاً، وستجد فيه أربعة أعمدة: اسم الدواء، والمادة الفعالة، والأسماء البديلة (يُفصل بينها بفاصلة منقوطة ";" إن وُجد أكثر من اسم)، والتصنيف (دواء أو مستحضر تجميل). املأ هذه الأعمدة لكل دواء في صف جديد، ثم احفظ الملف وارفعه من الصفحة نفسها. والحدّ الأقصى المسموح به لكل عملية استيراد هو خمسمئة دواء.',
-    faq_q11: 'ماذا أفعل إن ظهرت الحروف العربية مشوّهة بعد حفظ ملف الـCSV؟',
-    faq_a11: 'هذه مشكلة شائعة في برنامج إكسل. حاول حفظ الملف بصيغة "Unicode Text" بدلاً من صيغة "CSV" الاعتيادية، من نافذة "حفظ باسم" نفسها.',
-    faq_q12: 'كيف أضيف رقم صيدلي مساعد؟',
-    faq_a12: 'من لوحة الصيدلي، في قسم "رقم صيدلي مساعد"، أدخل الرقم ثم اضغط زر الحفظ. وسيظهر هذا الرقم للمريض إلى جانب رقمك الأساسي، وهو مفيد في أوقات ضغط العمل.',
-    faq_q13: 'هل يمكنني تسجيل تاريخ صنع الدواء وتاريخ انتهائه؟',
-    faq_a13: 'نعم، يوجد بجانب كل دواء في مخزونك زر تقويم صغير يفتح لك خانتين لتاريخ الصنع وتاريخ الانتهاء. وهذه المعلومة داخلية خاصة بك وحدك، ولا تظهر للمريض أبداً، وتساعد الموقع على تنبيهك عندما تقترب صلاحية أحد الأدوية من الانتهاء.',
-    faq_q14: 'هل استخدام الموقع مجاني للصيدليات؟',
-    faq_a14: 'نعم، استخدام الموقع مجاني بالكامل في الوقت الحالي.',
-    about_title: 'حول الموقع',
-    about_content_html: `
-      <h3>عن دوائي جاهز</h3>
-      <p>"دوائي جاهز" منصة إلكترونية سورية تُعنى بتيسير وصول المريض إلى المعلومة الصيدلانية التي يحتاج إليها في وقتها، من معرفة توفر دواء معيّن في الصيدليات القريبة، إلى التعرّف على الصيدليات المناوبة في أي لحظة، وصولاً إلى التواصل مع ممرضين موثوقين لتقديم خدمات التمريض المنزلي.</p>
-      <p>نشأ هذا الموقع من حاجة حقيقية يعيشها كثير من الناس في سورية اليوم، تتمثّل في صعوبة معرفة أي صيدلية تملك الدواء المطلوب، وأي صيدلية مناوبة في ساعة متأخرة من الليل. وهدفنا الوحيد هو تقريب المسافة بين المريض والمعلومة، لا أكثر ولا أقل.</p>
-      <h3>طبيعة المعلومات المعروضة</h3>
-      <p>إنّ جميع المعلومات الظاهرة في الموقع، من توفر الأدوية وحالة المناوبة وبيانات الصيدليات والممرضين، يُدخلها ويحدّثها أصحاب الصيدليات والممرضون أنفسهم، كلّ فيما يخصّه. ولا يتحقق "دوائي جاهز" بنفسه من دقة هذه المعلومات في كل لحظة، ولا يضمن استمرار صحتها في كل وقت.</p>
-      <p>لذلك، ننصح كلّ مستخدم بألّا يعتمد اعتماداً كاملاً على أي معلومة تخصّ توفر دواء أو حالة صيدلية، قبل التأكد منها مباشرة عبر التواصل مع الصيدلية المعنية. كما لا يُعد الموقع بديلاً عن استشارة الطبيب أو المختص الصحي عند الحاجة.</p>
-      <h3>إخلاء المسؤولية</h3>
-      <p>"دوائي جاهز" منصة وسيطة لعرض المعلومات فقط، وليست صيدلية، ولا جهة طبية، ولا جهة رقابية أو تنظيمية. فلا يقوم الموقع ببيع أي دواء أو صرفه، ولا يتدخّل في أي قرار طبي أو صيدلاني، وتبقى كل عملية صرف أو استشارة مسؤولية الصيدلية أو الكادر المختص وحده.</p>
-      <p>وبناءً على ذلك، لا يتحمّل القائمون على هذا الموقع أي مسؤولية عن أي ضرر أو خطأ أو سوء فهم قد ينشأ عن استخدام المعلومات المعروضة فيه، سواء تعلّق الأمر بتوفر دواء، أو دقة بيانات صيدلية أو ممرض، أو أي تفاعل يحصل خارج نطاق الموقع بين مستخدميه.</p>
-    `,
-    invalid_credentials: 'بيانات الدخول غير صحيحة',
-    expiry_before_manufacture_error: 'تاريخ الانتهاء لا يمكن أن يكون قبل تاريخ الصنع', invalid_date_format_error: 'صيغة التاريخ غير صالحة',
-    order_submit_error: 'حدث خطأ أثناء إرسال الطلب. حاول مرة أخرى، أو تواصل مع الصيدلية مباشرة إذا استمرت المشكلة.',
-    phone_digits_only_error: 'رقم الهاتف غير صالح. اكتب أرقاماً فقط، من 7 إلى 15 رقماً.',
-    order_missing_fields_error: 'الاسم ورقم الهاتف والأدوية مطلوبة لإتمام الطلب',
-    medicine_already_exists_error: 'هذا الدواء موجود مسبقاً في القائمة العامة',
-    bulk_import_title: '📥 استيراد أدوية من ملف',
-    bulk_import_desc: 'نزِّل نموذجاً فارغاً، وانسخ فيه بيانات أدوية الشركة، ثم ارفعه هنا لإضافتها دفعة واحدة إلى مخزون صيدليتك.',
-    bulk_import_hint_alt_format: 'إن ظهرت الحروف العربية مشوّهة بعد الحفظ بصيغة CSV، فجرّب حفظ الملف بصيغة "Unicode Text" من نافذة الحفظ نفسها في إكسل.',
-    download_template_btn: '⬇️ تحميل نموذج فارغ (CSV)',
-    choose_file_btn: 'اختيار ملف CSV',
-    no_file_chosen: 'لم يُختر أي ملف',
-    bulk_import_preview_title: 'معاينة قبل الاستيراد',
-    bulk_import_valid_count: 'عدد الأصناف الجاهزة للاستيراد: {count}',
-    bulk_import_invalid_count: 'عدد الصفوف التي فيها مشكلة: {count} (ستُتجاهل)',
-    bulk_import_confirm_btn: 'تأكيد الاستيراد',
-    bulk_import_cancel_btn: 'إلغاء',
-    bulk_import_empty_name_issue: 'اسم الدواء مفقود',
-    bulk_import_invalid_category_issue: 'تصنيف غير معروف (استخدم دواء أو مستحضر تجميل)',
-    bulk_import_parse_error: 'تعذّرت قراءة الملف. تأكد أنه بصيغة CSV وبتنسيق النموذج نفسه.',
-    bulk_import_too_many: 'عدد الأصناف في الملف: {count}، والحد 500 في المرة الواحدة. قسّمه إلى ملفات أصغر واستوردها واحداً بعد آخر.',
-    bulk_import_errors_title: 'لم تُستورد هذه الأسطر:',
-    orders_sync_paused: 'تعذّر تحديث الطلبات، ونعيد المحاولة تلقائياً…',
-    bulk_import_no_valid_rows: 'لا يوجد في الملف أي صف صالح للاستيراد.',
-    bulk_import_success: 'تم الاستيراد، وأُضيف كل ما استُورد إلى مخزونك متوفراً.\nأصناف جديدة على المنصة: {added}\nأصناف كانت مسجّلة على المنصة: {linked}\nلم تُستورد: {skipped}',
-    bulk_import_col_name: 'الاسم',
-    bulk_import_col_category: 'التصنيف'
-  },
-  en: {
-    nav_home: 'Home', nav_onduty: 'On-Duty Pharmacies', nav_pharmacist: 'Pharmacist Panel',
-    nav_cosmetics: 'Cosmetics', nav_nursing: 'Nursing Services', nav_admin: 'Admin',
-    hero_title_medicine: 'Know where your medicine is before you leave home',
-    hero_desc_medicine: 'Search by medicine name or active ingredient to see which pharmacy has it, and contact them directly.',
-    search_placeholder_medicine: 'Medicine or ingredient',
-    search_hint_medicine: 'Type the medicine name to check its availability in Salamiyah pharmacies.',
-    hero_title_cosmetic: 'Know where your cosmetic product is before you leave home',
-    hero_desc_cosmetic: 'Search by product name to see which pharmacy has it, and contact them directly.',
-    search_placeholder_cosmetic: 'Cosmetic product name',
-    search_hint_cosmetic: 'Type the product name to check its availability in Salamiyah pharmacies.',
-    hero_title_nursing: 'Nursing care at home, from nurses whose experience is known in advance',
-    hero_desc_nursing: 'Nurses who come to your home, and you contact them directly.',
-    search_hint_nursing: 'Browse the nurses below and check each one\'s experience and patient reviews before contacting them.',
-    search_btn: 'Search', cart_btn: 'Cart',
-    feature1_title: 'Medicine Search', feature1_desc: 'Find pharmacies that have your medicine.',
-    feature2_title: 'On-Duty Pharmacies', feature2_desc: "See today's on-duty pharmacies.",
-    feature3_title: 'Shopping Cart', feature3_desc: 'Collect medicines before visiting the pharmacy.',
-    about_desc: 'Dawaai Jahez is a local Syrian platform launched in Salamiyah, aiming to help you instantly know your medicine availability at nearby pharmacies, instead of going from pharmacy to pharmacy looking for a medicine that might not be available.',
-    footer_home: 'Home', footer_onduty: 'On-Duty Pharmacies', footer_contact: 'Contact Us',
-    footer_center: 'A Syrian platform for medicine availability search at pharmacies.',
-    footer_copy: '© {year} Dawaai Jahez. All rights reserved.',
-    cart_empty_title: 'Your cart is empty', cart_empty_subtitle: 'Start adding medicines from the search results.',
-    lang_toggle: 'عربي', brand_name: 'Dawaai Jahez',
-    not_found_title_medicine: 'Medicine not found', not_found_title_cosmetic: 'Product not found',
-    not_found_subtitle: 'You can try another name or search by active ingredient.',
-    did_you_mean_results: 'Did you mean one of these?',
-    suggest_did_you_mean: 'Did you mean', q_mark: '?',
-    available_badge: '🟢 Available', unavailable_badge: '🔴 Unavailable',
-    active_ingredient_label: 'Active ingredient:', add_to_cart_btn: '🛒 Add to cart', added_feedback: '✓ Added',
-    alt_unavailable_but: 'is currently unavailable, but there is an alternative with the same active ingredient', alt_view_btn: 'View',
-    server_error_title: 'Could not connect to the server', server_error_subtitle: 'Check your internet connection and try again.',
-    cart_panel_title: 'Shopping Cart', cart_panel_subtitle: 'Review the items before checkout.',
-    cart_items_count_label: 'Number of items', checkout_name_placeholder: 'Full name',
-    checkout_phone_placeholder: 'Phone number', checkout_notes_placeholder: 'Additional notes (optional)', checkout_btn: 'Checkout', remove_aria: 'Remove',
-    checkout_missing_fields: 'Please enter your name and phone number to complete the order.',
-    order_success_msg: 'Your order has been sent successfully! The pharmacy will contact you soon on the number you entered.',
-    modal_ok: 'OK', modal_cancel: 'Cancel', modal_yes: 'Yes',
-    onduty_title: '🟢 Pharmacies on duty today', onduty_now_badge: '🟢 On duty now',
-    onduty_empty_title: 'No pharmacies on duty right now',
-    onduty_empty_subtitle: 'Check back later, or contact your usual pharmacy directly.',
-    bell_empty: 'No notifications yet', bell_aria_label: 'Order notifications', bell_dismiss_aria: 'Dismiss', bell_clear_all: '🗑️ Clear all',
-    bell_confirmed_text: 'Your order was confirmed by the pharmacy',
-    bell_pending_prefix: 'Your order at', bell_pending_suffix: 'is under review...',
-    bell_declined_prefix: 'The pharmacy', bell_declined_suffix: 'could not prepare your order. You can call it or search another pharmacy.',
-    excess_quantity_confirm: "You've added {qty} of {name} from {pharmacy} to your cart. Add more?",
-    pharm_login_title: 'Pharmacist Login',
-    staff_note_pharmacist: 'This page is for pharmacists registered on the platform. Looking for a medicine? Start from the home page.',
-    staff_note_admin: 'This page is for platform administration only. Looking for a medicine? Start from the home page.',
-    staff_note_search_btn: '🔍 Search for a medicine',
-    danger_delete_order: 'Delete order', danger_delete_account: 'Delete my account', danger_reset_password: 'Reset password',
-    danger_delete_ad: 'Delete ad', danger_start_launch: 'Start launch', danger_clear_location: 'Clear location',
-    danger_delete_cert: 'Delete certificate', danger_clear_duty: 'Clear all duty', danger_delete_pharmacy: 'Delete pharmacy',
-    danger_delete_medicine: 'Delete medicine', danger_delete_nurse: 'Delete nurse', danger_reject_rating: 'Reject review',
-    danger_delete_rating: 'Delete review',
-    // ---- Phone notifications (October 2026) ----
-    push_card_title: '🔔 Phone notifications',
-    push_desc_pharmacy: 'Get a notification on this phone for every new medicine order to your pharmacy, even when the site is closed.',
-    push_desc_manager: 'Get a notification on this phone for every new nursing visit request, even when the site is closed.',
-    push_enable_btn: '🔔 Turn on notifications', push_on_status: '✓ Notifications are on for this device',
-    push_test_btn: 'Send a test notification', push_off_btn: 'Turn off',
-    push_enabled_done: 'Notifications are on for this device. Tap "Send a test notification" to make sure they arrive.',
-    push_test_sent: 'A test notification was sent. If it does not appear on your phone within a minute, notifications are not reaching this phone: they may be turned off in the phone settings, or blocked on your network.',
-    push_test_failed: 'The notification service refused to send right now. Please try again shortly.',
-    push_gone: 'This device is no longer subscribed. Tap "Turn on notifications" again.',
-    push_subscribe_failed: 'Notifications could not be turned on: the notification service on this phone did not respond. It may be blocked on your network. Try another network, or try again later.',
-    push_denied_help: 'Notifications are blocked for this site. To allow them in Chrome: tap the lock icon 🔒 next to the address, then "Permissions" or "Site settings", choose "Allow" for notifications, and reload the page. In the Dawaai Jahez app: phone Settings → Apps → Dawaai Jahez → Notifications.',
-    push_ios_help: 'On iPhone, notifications work after adding the site to the home screen: tap Share in Safari, then "Add to Home Screen", and open the site from its new icon.',
-    push_unsupported: 'This browser does not support phone notifications. Open the site in Chrome.',
-    // ---- Nursing: visit request, join card, nursing manager panel (October 2026) ----
-    nurse_request_btn: '🩺 Request a home nursing visit', nurse_unavailable_note: 'This nurse is currently unavailable',
-    nreq_title: 'Visit request: {name}',
-    nreq_sub: 'Your request goes to the nursing manager, who will call you to arrange the visit with the nurse.',
-    nreq_name_label: 'Your name', nreq_phone_label: 'Phone number', nreq_area_label: 'Area or neighbourhood',
-    nreq_notes_label: 'Service needed', nreq_optional: '(optional)',
-    nreq_notes_placeholder: 'e.g. dressing change, injection, blood pressure check',
-    nreq_submit: 'Send request',
-    nreq_privacy: 'Your number goes only to the nursing manager and is deleted after 30 days.',
-    nreq_success: 'Your request has arrived. The nursing manager will call you soon',
-    nreq_name_required: 'Please enter your name.', nreq_phone_invalid: 'Enter a valid phone number of 7 to 15 digits.',
-    nreq_area_required: 'Enter your area or neighbourhood, so the nursing manager knows which nurse is closest to you.',
-    nursing_join_title: 'Are you a nurse?', nursing_join_text: 'Join the platform: contact the nursing manager.',
-    nursing_join_wa_msg: 'Hello, I work in nursing and would like to join the Dawaai Jahez platform.',
-    mgr_login_title: '🩺 Nursing manager sign-in', mgr_login_sub: 'For managing nurses and visit requests only.',
-    mgr_password_placeholder: 'Nursing manager password', mgr_login_btn: 'Sign in as nursing manager',
-    mgr_wrong_password: 'Incorrect nursing manager password',
-    mgr_session_expired: 'The nursing manager session has ended: the password was changed or sign-in was disabled. Please sign in again.',
-    staff_banner_manager_title: 'Nursing manager panel',
-    staff_banner_manager_sub: 'Follow visit requests, and manage nurses and their reviews.',
-    mgr_panel_title: 'Nursing manager panel 🩺', mgr_tabs_aria: 'Nursing manager panel sections',
-    mgr_stat_new: 'New requests', mgr_stat_available: 'Available nurses', mgr_stat_pending: 'Reviews waiting',
-    mgr_tab_requests: 'Requests', mgr_tab_nurses: 'Nurses', mgr_tab_ratings: 'Reviews',
-    nreq_empty_title: 'No requests yet', nreq_empty_sub: 'When a patient requests a nursing visit, it appears here.',
-    nreq_new_badge: 'New', nreq_done_badge: '✓ Contacted', nreq_mark_done: '✓ Contacted',
-    nreq_nurse_label: 'Requested nurse', nreq_nurse_deleted: '(removed from the list)',
-    nreq_delete_btn: 'Delete request', nreq_delete_confirm: 'Delete the request from {name}? This cannot be undone.',
-    nreq_wa_msg: 'Hello {name}, this is the nursing manager at Dawaai Jahez about your nursing visit request.',
-    nreq_auto_delete_note: 'Requests are deleted automatically after 30 days, because they carry patients\' phone numbers.',
-    mgr_no_delete_hint: 'To hide a nurse from patients, set them as "unavailable". Only the admin can delete nurses.',
-    mgr_edit_btn: 'Edit', mgr_no_pending_ratings: 'No reviews are waiting for approval.',
-    cert_pill_yes: '✓ Verified certificate', cert_pill_no: 'No certificate',
-    nurse_phone_label: 'Nurse phone',
-    loc_city_placeholder: 'City of work', loc_area_placeholder: 'Area or neighbourhood',
-    loc_street_placeholder: 'Street or nearest landmark (hidden from patients)',
-    loc_hint: 'Patients see the city and area only. The street is visible to the nursing manager and the admin only.',
-    mgr_settings_title: '🩺 Nursing manager', mgr_status_on: '● Sign-in enabled', mgr_status_off: '● Sign-in disabled',
-    mgr_settings_desc: 'The nursing manager signs in from this same admin page with their own password, and sees nursing only: requests, nurses and reviews. They cannot delete nurses or open certificate files.',
-    mgr_pw_label: 'Nursing manager password', mgr_pw_change_label: 'New nursing manager password',
-    mgr_pw_placeholder: 'At least 8 characters', mgr_pw_save: 'Save password',
-    mgr_pw_hint: 'Give it to the nursing manager only, and do not reuse the admin password. Saving a new password signs out anyone using the old one.',
-    mgr_pw_too_short: 'The password must be at least 8 characters.',
-    mgr_pw_same_as_admin: 'Do not use the admin password for the nursing manager, or they could open the whole admin panel.',
-    mgr_pw_saved: 'The nursing manager password has been saved.',
-    mgr_disable_btn: 'Disable sign-in', danger_disable_manager: 'Disable sign-in',
-    mgr_disable_confirm: 'Disable nursing manager sign-in? Their password stops working immediately, and you can set a new one at any time.',
-    mgr_disabled_done: 'Nursing manager sign-in has been disabled.',
-    mgr_contact_label: 'Nursing manager number for joining', mgr_contact_save: 'Save number',
-    mgr_contact_hint: 'Shown on the nursing page in the "Are you a nurse?" card. Leave it empty to hide the card.',
-    mgr_contact_saved: 'The number has been saved, and the card now appears on the nursing page.', mgr_contact_cleared: 'The number was removed and the card is hidden.',
-    admin_requests_title: '🩺 Nursing visit requests',
-    pharm_login_no_account: "If you don't have an account yet, contact the Dawaai Jahez team to register your pharmacy using the card below.",
-    username_placeholder: 'Username', password_placeholder: 'Password', login_btn: 'Login',
-    pharm_dashboard_title: 'Pharmacist Panel', pharmacy_label_prefix: 'Pharmacy:', logout_btn: '🚪 Logout',
-    new_orders_title: '🛎️ New patient orders',
-    duty_status_title: '🕐 Duty status', duty_checkbox_label: 'My pharmacy is on duty today',
-    save_duty_btn: 'Save duty status',
-    duty_hours_title: '⏱️ Set duty hours (optional)',
-    duty_hours_desc: 'Set a custom time to show alongside the duty day.',
-    duty_start_label: 'From', duty_end_label: 'To',
-    add_med_title: '💊 Add a medicine not in the list',
-    add_med_desc: 'If you have a medicine in stock that is not listed, you can add it in the fields below.',
-    med_name_placeholder: 'Medicine name', med_name_placeholder_cosmetic: 'Product name',
-    generic_name_placeholder: 'Active ingredient (optional)', alt_names_placeholder: 'Alternative names, separate with commas (optional)',
-    cat_medicine: 'Medicine', cat_cosmetic: 'Cosmetic product', add_med_btn: 'Add medicine',
-    stock_table_medicine: 'Medicine', stock_table_status: 'Status', delete_account_btn: '🗑️ Delete my account permanently',
-    manufacture_date_label: 'Manufacture date', expiry_date_label: 'Expiry date', save_dates_btn: 'Save dates',
-    edit_dates_aria: 'Edit manufacture and expiry dates', expiry_expired_badge: 'Expired', expiry_soon_badge: 'Medicine is nearing its expiry date',
-    day_sunday: 'Sunday', day_monday: 'Monday', day_tuesday: 'Tuesday', day_wednesday: 'Wednesday',
-    day_thursday: 'Thursday', day_friday: 'Friday', day_saturday: 'Saturday',
-    shift_allday: 'All day', shift_morning: 'Morning only', shift_evening: 'Evening only',
-    stat_total_meds: 'Total medicines', stat_available_meds: 'Available medicines', stat_unavailable_meds: 'Unavailable',
-    stat_cosmetics_short: 'Cosmetics', stat_onduty_today: 'On duty today', yes_word: 'Yes', no_word: 'No',
-    med_name_required: 'Medicine name is required', med_added_success: 'Added successfully. Enable its availability from the list below.',
-    duty_saved_success: 'Duty status saved successfully',
-    assistant_phone_title: '📱 Assistant Pharmacist Phone (optional)', assistant_phone_desc: 'An additional contact number shown to patients alongside your main number — useful during busy hours.',
-    assistant_phone_input_placeholder: 'Assistant phone number', save_assistant_phone_btn: 'Save assistant phone',
-    assistant_phone_saved_success: 'Assistant phone saved successfully', assistant_phone_label: 'assistant',
-    order_new_badge: '🆕 New', order_confirmed_badge: '✅ Reserved',
-    order_dismiss_btn: 'Mark as seen', order_confirm_btn: '✅ Confirm reservation', order_delete_btn: '🗑️ Delete order',
-    order_delete_confirm: "Confirm you've handled this order and want to delete it permanently?",
-    delete_account_confirm: 'Are you sure you want to permanently delete your account? This action cannot be undone.',
-    account_deleted_success: 'Your account has been deleted successfully',
-    admin_dashboard_title: 'Admin Panel', admin_password_placeholder: 'Admin password', wrong_password: 'Incorrect password',
-    stat_pharmacies_count: 'Pharmacies count', stat_onduty_pharmacies: 'Pharmacies on duty today',
-    add_pharmacy_title: '🏥 Add new pharmacy', pharmacy_name_placeholder: 'Pharmacy name',
-    address_placeholder: 'Address', phone_placeholder: 'Phone number', add_pharmacy_btn: 'Add pharmacy',
-    registered_pharmacies_title: 'Registered pharmacies', no_pharmacies_yet: 'No pharmacies registered yet.',
-    pharmacies_table_header: 'Pharmacy', action_col_header: 'Action', delete_btn: 'Delete', onduty_badge_short: '🟢 On duty',
-    delete_pharmacy_confirm: 'Are you sure you want to delete pharmacy "{name}"?', pharmacy_added_success: 'Pharmacy "{name}" added successfully',
-    edit_name_btn: 'Edit name', save_name_btn: 'Save', cancel_edit_btn: 'Cancel',
-    edit_name_aria: 'Edit pharmacy name',
-    change_password_title: '🔑 Change password',
-    change_password_desc: 'Change your password any time. You will need your current password to confirm.',
-    current_password_placeholder: 'Current password',
-    new_password_placeholder: 'New password',
-    confirm_new_password_placeholder: 'Confirm new password',
-    change_password_btn: 'Change password',
-    password_changed_success: 'Password changed successfully',
-    passwords_not_matching: 'The two new passwords do not match',
-    new_password_required_error: 'New password is required',
-    new_password_too_short_error: 'New password is too short, minimum 8 characters',
-    new_password_same_error: 'New password is the same as the current one',
-    reset_password_btn: 'Reset password', reset_password_btn_short: '🔑 Password',
-    reset_password_confirm: 'Reset the password for "{name}"? A new password will be generated and the pharmacist will no longer be able to log in with the old one. Stock and orders are not affected.',
-    reset_password_done_title: 'New password for "{name}"',
-    reset_password_done_hint: 'Copy it now and hand it to the pharmacist, it will not be shown again.',
-    reset_password_error: 'Could not reset the password',
-    stats_title: '📊 Platform overview',
-    stat_on_duty: 'on duty now',
-    stat_cosmetics: 'cosmetic products',
-    stat_nurses: 'nurses', stat_available_stock: 'medicines in stock',
-    stat_orders_total: 'total orders', stat_orders_24h: 'orders in last 24h',
-    stat_orders_7d: 'orders in last 7 days', stat_orders_30d: 'orders in last 30 days',
-    stats_top_medicines: 'Most requested medicines', stats_top_pharmacies: 'Most active pharmacies',
-    stats_by_city: 'Pharmacies by city',
-    stats_orders_count_unit: '1 order|{n} orders', stats_times_unit: '1 time|{n} times', stats_pharmacy_unit: '1 pharmacy|{n} pharmacies',
-    stats_no_orders_yet: 'No orders yet, they will appear here as soon as the first one arrives.',
-    stats_refresh_btn: 'Refresh',
-    page_title: 'Dawaai Jahez | Find medicine availability in Syrian pharmacies',
-    page_description: 'Instantly check which nearby pharmacy in Salamiyah and across Syria has your medicine, see tonight\'s on-duty pharmacies, and order directly. Free Syrian platform.',
-    refresh_results_btn: '↻ Refresh results', refreshing_results: '⏳ Refreshing...',
-    verified_badge: 'Verified', verified_badge_title: 'A pharmacy registered by the platform admin after verifying its details',
-    stock_updated_prefix: 'Stock last updated:',
-    time_just_now: 'just now', time_minutes: '{n} min ago', time_hours: '{n} h ago',
-    time_days: 'a day ago|{n} days ago', time_weeks: 'a week ago|{n} weeks ago', time_long_ago: 'over a month ago',
-    stock_never_updated: 'not updated yet',
-    stock_stale_warning: 'This may not be current, so calling the pharmacy to confirm is recommended',
-    city_placeholder: 'City', city_label: 'City', all_cities: 'All cities',
-    filter_by_city_aria: 'Filter results by city',
-    city_required_error: 'City is required', invalid_city_error: 'Invalid city',
-    pharmacy_name_required: 'Pharmacy name is required',
-    duplicate_pharmacy_name_confirm: 'A matching name already exists: "{name}" (username: {username}). Do you want to continue?',
-    pharmacy_name_updated: 'Pharmacy name updated to "{name}"',
-    pharmacy_name_update_error: 'Could not update the pharmacy name. Please try again.',
-    add_medicine_title_admin: '💊 Add new medicine', registered_medicines_title: 'Registered medicines',
-    item_added_success: '"{name}" added successfully', delete_medicine_confirm: 'Are you sure you want to permanently delete medicine "{name}"?',
-    add_nurse_title: '🩺 Add new nurse', nurse_name_placeholder: 'Nurse name', specialty_placeholder: 'Specialty',
-    university_placeholder: 'University', grad_year_placeholder: 'Graduation year',
-    add_nurse_btn: 'Add nurse', registered_nurses_title: 'Registered nurses', no_nurses_yet: 'No nurses registered yet.',
-    nurses_table_header: 'Nurse', actions_header_plural: 'Actions',
-    nurse_available_short: '🟢 Available', nurse_unavailable_short: '🔴 Unavailable',
-    delete_nurse_confirm: 'Are you sure you want to delete nurse "{name}"?',
-    pending_ratings_title: '⭐ Ratings pending review', approve_btn: '✅ Approve', reject_btn: '🗑️ Reject',
-    reject_rating_confirm: 'Are you sure you want to reject this rating? It will be permanently deleted.',
-    published_ratings_title: '💬 Published ratings', show_ratings_btn: 'Show ratings', hide_ratings_btn: 'Hide ratings',
-    loading_text: 'Loading...', no_published_ratings: 'No published ratings yet.',
-    delete_final_btn: '🗑️ Delete permanently', failed_load_ratings: 'Could not load ratings.',
-    delete_rating_final_confirm: 'Are you sure you want to permanently delete this rating? This action cannot be undone.',
-    nursing_empty_title: 'No nurses registered right now', nursing_empty_subtitle: 'Trusted nurses will be added soon.',
-    nurse_available_full: '🟢 Available for work', nurse_unavailable_full: '🔴 Currently unavailable',
-    general_nurse_label: 'General nurse', rating_summary_suffix: 'from 1 review|from {n} reviews',
-    no_ratings_yet_short: 'No ratings yet', view_profile_btn: 'View profile',
-    grad_year_label: 'graduated', patient_reviews_title: 'Patient reviews ({count})',
-    no_published_reviews: 'No published reviews yet.', rate_this_nurse_title: 'Rate this nurse',
-    already_rated_msg: 'Thanks, your rating was already submitted and is now under admin review.',
-    comment_placeholder: 'Write your review (optional)', your_name_placeholder: 'Your name', your_phone_placeholder: 'Your phone number',
-    submit_rating_btn: 'Submit rating',
-    star_rate_one: 'Rate 1 star out of 5', star_rate_two: 'Rate 2 stars out of 5', star_rate_n: 'Rate {n} stars out of 5',
-    select_stars_first: 'Please select a star rating first', name_phone_required: 'Name and phone number are required',
-    rating_submitted_success: 'Your rating was submitted successfully! It will appear publicly after admin approval.',
-    nursing_page_title: 'Nursing Services 🩺', nursing_page_desc: 'Connect with trusted nurses for home nursing care.',
-    show_password_aria: 'Show password', hide_password_aria: 'Hide password',
-    invalid_value_error: 'Invalid value',
-    admin_duty_title: '🕐 On-duty schedule',
-    admin_duty_desc: 'Set any pharmacy\'s duty from here without logging into its account. Pharmacists can also set their own.',
-    admin_duty_clear_all: 'Clear all duties',
-    admin_duty_clear_confirm: 'Clear duty for every pharmacy? Pharmacies on duty now: {n}. Normally used to start a new week.',
-    admin_duty_cleared: 'Duty cleared. Pharmacies affected: {n}',
-    admin_duty_none_active: 'No pharmacies are on duty right now',
-    admin_duty_on: 'On duty',
-    admin_duty_off: 'Off duty',
-    admin_duty_save: 'Save',
-    admin_duty_saved: 'Duty saved',
-    admin_duty_by_pharmacy: 'set by pharmacist',
-    admin_duty_by_admin: 'set by admin',
-    admin_duty_never: 'never set',
-    admin_duty_search: 'Search by pharmacy name...',
-    admin_duty_no_match: 'No pharmacy matches that name',
-    admin_duty_active_count: 'On duty now: {n}',
-    stock_unmanaged_badge: 'Stock not listed',
-    stock_unmanaged_note: 'This pharmacy is listed for the on-duty schedule only and does not update its stock here. Call them to ask about the medicine.',
-    manages_stock_on: 'Updates stock',
-    manages_stock_off: 'On-duty only',
-    manages_stock_toggle_on: 'Enable stock',
-    manages_stock_toggle_off: 'Disable stock',
-    manages_stock_confirm_on: 'Enable stock management for "{name}"? Its medicine availability will be shown to patients in search results.',
-    manages_stock_confirm_off: 'Disable stock management for "{name}"? It stays in the on-duty schedule, and instead of availability patients will see a note that its stock is not listed.',
-    manages_stock_updated: 'Pharmacy status updated',
-    name_too_long_error: 'The name is too long',
-    notes_too_long_error: 'The notes are too long',
-    too_many_items_error: 'Too many medicines in this order',
-    invalid_order_error: 'The order data is not valid',
-    comment_too_long_error: 'The comment is too long',
-    open_now_badge: 'Open now',
-    closed_opens_at: 'Closed now, opens at {time}',
-    closed_today_badge: 'Closed today',
-    cart_closed_btn: 'Pharmacy closed, send order',
-    cart_closed_notice: 'This pharmacy is closed now. You will get a reply after it opens at {time}.',
-    cart_closed_notice_today: 'This pharmacy is closed today. You will get a reply after it opens.',
-    hours_section_title: '🕒 Pharmacy opening hours',
-    hours_section_desc: 'Set your hours once, and the open or closed status is calculated automatically every day. This prevents late-night orders arriving without the patient knowing you are closed.',
-    hours_opens_label: 'Opens at',
-    hours_closes_label: 'Closes at',
-    hours_save: 'Save opening hours',
-    hours_clear: 'Clear hours',
-    hours_saved: 'Opening hours saved successfully',
-    hours_cleared: 'Opening hours cleared',
-    hours_none: 'Opening hours have not been set yet',
-    hours_current: 'Current hours:',
-    hours_to: 'to',
-    hours_overnight_note: 'Hours extend past midnight',
-    hours_both_required: 'Both opening and closing times are required',
-    hours_same_time: 'Opening time is the same as closing time',
-    invalid_time_error: 'Invalid time. Use the HH:MM format, for example 08:30',
-    closed_today_title: 'Exceptional closure for today',
-    closed_today_desc: 'Use this when closing for an emergency or a holiday. Hours return to the usual schedule automatically tomorrow.',
-    closed_today_on: 'Mark as closed today',
-    closed_today_off: 'Undo closure',
-    closed_today_active: 'Your pharmacy is marked closed today.',
-    closed_today_saved: 'The pharmacy is marked closed today',
-    closed_today_removed: 'Hours returned to the usual schedule',
-    duty_overrides_hours: 'Your pharmacy is on duty, so it shows as open regardless of opening hours.',
-    a11y_duty_day: 'Duty day',
-    a11y_duty_shift: 'Duty shift',
-    a11y_med_category: 'Product category',
-    nav_menu_aria: 'Menu',
-    search_aria_medicine: 'Search for a medicine or active ingredient',
-    search_aria_cosmetic: 'Search for a cosmetic product',
-    suggestions_aria: 'Search suggestions',
-    close_aria: 'Close',
-    err_offline: 'No internet connection. Check your network and try again.',
-    retry_btn: 'Try again',
-    err_timeout_search: 'The server took longer than usual. Please try again shortly.',
-    err_timeout_order: 'The server did not respond in time. You can safely send again; your order will not be duplicated.',
-    err_network: 'Could not reach the server. Check your connection and try again.',
-    err_network_order: 'The order could not be sent. You can safely send again; your order will not be duplicated.',
-    err_server: 'A server error occurred. Please try again shortly.',
-    offline_banner: 'No internet connection',
-    sending_order: 'Sending order...',
-    rate_limited_error: 'Too many attempts. Please try again shortly.',
-    admin_session_expired: 'Your admin session has ended. Please enter the password again.',
-    launch_saved_check: 'Was the backup file saved on your device?\nCheck your Downloads folder before continuing. Nothing is deleted until you confirm.',
-    launch_saved_yes: 'Yes, it is saved — continue',
-    launch_saved_no: 'No, download it again',
-    launch_not_confirmed: 'Nothing was deleted. Download a backup with the “Download backup” button, make sure it is saved, then try again.',
-    duty_day_invalid_error: 'Invalid duty day.',
-    duty_shift_invalid_error: 'Invalid duty shift.',
-    duty_time_invalid_error: 'Invalid duty time. Pick the time from the list.',
-    med_name_too_long_error: 'The medicine name is too long (120 characters max).',
-    forbidden_error: 'You are not allowed to access this data.',
-    orders_load_error: 'Could not load orders. Check your internet connection; the list will refresh automatically.',
-    session_expired_error: 'The login details for this account have changed, so order updates stopped. Please log out and log in again.',
-    ip_protection_label: 'Attempt protection:',
-    ip_protection_ok: 'Active via Cloudflare ✅',
-    ip_protection_fallback: 'Using a fallback source ⚠️',
-    admin_address_title: '📍 Pharmacy address and location',
-    admin_address_desc: 'Edit the written address patients see, and the pharmacy location on the map. Patients see the last saved location, whether saved here by the admin or by the pharmacist from their panel.',
-    admin_address_search: 'Search by pharmacy name or address',
-    admin_address_no_match: 'No matching pharmacy',
-    admin_address_label: 'Written address',
-    admin_address_placeholder: 'Example: Salamiyah, Hama Street, near the clock roundabout',
-    admin_coords_label: 'Location on the map',
-    admin_coords_placeholder: '35.0101, 37.0505',
-    admin_coords_hint: 'In Google Maps, long-press the pharmacy location and copy the numbers that appear. Leave empty to keep the current location.',
-    admin_location_set: 'Location set',
-    admin_location_unset: 'Location not set',
-    admin_view_on_map: 'View on map',
-    admin_address_save: 'Save',
-    admin_location_clear: 'Remove location',
-    admin_address_saved: 'Changes saved',
-    admin_address_nothing: 'Nothing changed, so there is nothing to save.',
-    admin_location_clear_confirm: 'Remove the map location of "{name}"? The "View on map" button will disappear from its card until a new location is set.',
-    admin_location_cleared: 'Location removed',
-    address_too_long_error: 'The address is too long',
-    invalid_address_error: 'The address is not valid',
-    main_phone_title: '☎️ Pharmacy landline',
-    main_phone_desc: 'The main number patients see next to the 📞 symbol. Include the area code if possible.',
-    main_phone_placeholder: 'Landline number',
-    main_phone_save: 'Save number',
-    main_phone_saved: 'Phone number saved',
-    phone_required_error: 'A phone number is required',
-    phone_invalid_error: 'Invalid phone number. Use digits only, 6 to 15 digits.',
-    phone_too_short_error: 'The phone number is too short. Enter the full number (at least 7 digits).',
-    meters_count: '1 m|{n} m',
-    exp_years_invalid: 'Years of experience must be a number from 0 to 60.',
-    nurse_experience_label: 'Years of experience',
-    nurse_services_label: 'Services',
-    nurse_verified_badge: 'Verified certificate',
-    exp_years_placeholder: 'Years of experience (number, optional)',
-    services_placeholder: 'Services, e.g. wound dressing, injections, elderly care (optional)',
-    nurse_cert_after_add_hint: 'After adding the nurse, upload their certificate from the «Experience and certificate» button next to their name in the list below.',
-    nurse_profile_btn: 'Experience and certificate',
-    nurse_profile_save: 'Save experience',
-    nurse_profile_saved: 'Experience details saved',
-    cert_section_title: 'Certificate (admin only, patients never see it)',
-    cert_none: 'No certificate uploaded.',
-    cert_uploaded_info: 'Certificate uploaded: {type} · {size} · on {date}',
-    cert_upload_btn: 'Upload certificate (PDF or photo)',
-    cert_replace_btn: 'Replace certificate',
-    cert_view_btn: 'View certificate',
-    cert_delete_btn: 'Delete certificate',
-    cert_verify_btn: 'I verified it ✓',
-    cert_unverify_btn: 'Remove verification',
-    cert_verified_state: '✓ Verified: patients see a «Verified certificate» badge.',
-    cert_unverified_state: 'Not verified yet: review the certificate, then press «I verified it».',
-    cert_preparing: 'Preparing the photo...',
-    cert_uploading: 'Uploading...',
-    cert_uploaded_ok: 'Certificate uploaded. Review it, then verify it so patients see it is verified.',
-    cert_delete_confirm: 'Delete the certificate of «{name}»? The verified badge will disappear from their card.',
-    cert_deleted: 'Certificate deleted',
-    cert_bad_type: 'File type not accepted. Upload a PDF or a photo (JPG or PNG).',
-    cert_too_big: 'The file is larger than 3 MB. Save it smaller, or photograph the certificate and upload the photo; the site shrinks photos automatically.',
-    cert_popup_blocked: 'The browser blocked the new window. Allow pop-ups for this site and try again.',
-    cert_storage_label: 'Certificate storage:',
-    cert_storage_usage: '{used} of 1 GB · certificates: {count}',
-    cert_storage_check_btn: 'Check storage',
-    storage_ok: 'Storage works: the folder exists and is private, and the key is valid.',
-    storage_PUBLIC: 'Warning: the certificate folder is public! In Supabase open Storage, then nurse-certificates, and switch off Public.',
-    storage_NOCFG: 'Storage is not configured: make sure SUPABASE_URL and SUPABASE_SECRET_KEY are set in Render.',
-    storage_NOBUCKET: 'The nurse-certificates folder was not found in Supabase. Check its exact name.',
-    storage_AUTH: 'Supabase rejected the key. Make sure you copied the full secret key with no spaces.',
-    storage_NOFETCH: 'The server version is too old to reach storage.',
-    storage_UNAVAILABLE: 'Storage cannot be reached right now. Try again shortly.',
-    unit_kb: 'KB',
-    unit_mb: 'MB',
-    cert_type_pdf: 'PDF',
-    cert_type_image: 'photo',
-    join_title: '🤝 Are you a pharmacist who has not joined yet?',
-    join_count_none: 'Be the first pharmacy to join the platform.',
-    join_count_prefix: 'Pharmacies that have joined:',
-    join_show_list: 'Show joined pharmacies',
-    join_hide_list: 'Hide the list',
-    join_hint: 'Send us your pharmacy name, address and phone number, and we will contact you to add it.',
-    join_email_btn: '✉️ Email us to join',
-    join_email_subject: 'Pharmacy request to join Dawaai Jahez',
-    join_email_body: 'Pharmacy name:\nPharmacist in charge:\nCity and address:\nPhone number:\n',
-    join_load_error: 'The list could not be loaded right now.',
-    staff_banner_pharmacist_title: 'Pharmacist dashboard',
-    staff_banner_pharmacist_sub: 'Update your stock, duty and opening hours, and receive patient orders in one place.',
-    staff_banner_admin_title: 'Admin dashboard',
-    staff_banner_admin_sub: 'Manage pharmacies, duty and medicines, and follow demand data and platform health.',
-    ad_label: 'Ad',
-    ads_title: '📢 Ads',
-    ads_desc: 'Direct ads you sell to local advertisers. They never appear in the on-duty list or next to a “not available” message.',
-    ads_new: 'New ad',
-    ads_advertiser_ph: 'Advertiser name',
-    ads_advertiser_en_ph: 'Advertiser name in English (optional)',
-    ads_desc_ph: 'Short description in Arabic (optional, up to 60 characters)',
-    ads_desc_en_ph: 'Description in English (optional)',
-    ads_editor_hint: 'Drag the image or use the arrows to move it, and the slider to zoom. Empty space around the image is filled with a soft extension of its edge colours. What you see in the frame is exactly what visitors will see.',
-    ads_move_left: 'Move the image left',
-    ads_move_right: 'Move the image right',
-    ads_move_up: 'Move the image up',
-    ads_move_down: 'Move the image down',
-    ads_center: 'Center',
-    ads_center_aria: 'Center the image in the frame',
-    ads_zoom_label: 'Zoom',
-    ads_fit_fill: 'Fill the frame',
-    ads_fit_whole: 'Whole image',
-    ads_en_too_long: 'The English advertiser name is too long (up to 80 characters).',
-    ads_desc_too_long: 'The description is too long.',
-    ads_pick_image: '📷 Choose image',
-    ads_preview_empty: 'Choose an image to show it here, then adjust its position and size inside the frame.',
-    ads_link_ph: 'Link (optional)',
-    ads_link_hint: 'A site starting with https://, a WhatsApp wa.me link, or a phone number.',
-    ads_placement: 'Placement:',
-    ads_place_home: 'Home',
-    ads_place_cosmetic: 'Cosmetics',
-    ads_place_results: 'After search results',
-    ads_results_hint: '“After search results”: shown below medicine search results instead of the home ad. Do not sell this spot to a pharmacy or a drug company, so the platform never looks biased; it suits labs, clinics and medical equipment.',
-    ads_from: 'From',
-    ads_to: 'To',
-    ads_submit: 'Add ad',
-    ads_uploading: 'Uploading...',
-    ads_added: 'Ad added.',
-    ads_need_advertiser: 'Enter the advertiser name (up to 80 characters).',
-    ads_need_image: 'Choose the ad image.',
-    ads_bad_type: 'Image type not accepted. Choose a JPG, PNG or WEBP image.',
-    ads_too_big: 'The image is too large even after compression. Try a smaller one.',
-    ads_bad_link: 'Link not accepted: it must start with https:// or be a phone number.',
-    ads_bad_date: 'Invalid date.',
-    ads_bad_place: 'Invalid ad placement.',
-    ads_dates_order: 'The end date is before the start date.',
-    ads_not_found: 'Ad not found.',
-    ads_empty: 'No ads yet.',
-    ads_load_error: 'Ads could not be loaded right now.',
-    ads_status_running: '🟢 Running',
-    ads_status_paused: '⏸️ Paused',
-    ads_status_scheduled: '⏳ Not started',
-    ads_status_ended: '⌛ Ended',
-    ads_in_home: 'On the home page',
-    ads_in_cosmetic: 'In cosmetics',
-    ads_in_results: 'After search results',
-    ads_counts: 'Impressions: {i} · Clicks: {c}',
-    ads_range_both: 'From {a} to {b}',
-    ads_range_from: 'From {a}, no end date',
-    ads_range_to: 'Until {b}',
-    ads_range_none: 'No set period',
-    ads_pause: 'Pause',
-    ads_resume: 'Resume',
-    ads_delete: 'Delete',
-    ads_delete_confirm: 'Delete the ad «{name}» permanently? Its numbers will be deleted too.',
-    ads_deleted: 'Ad deleted.',
-    visits_title: '📈 Visits',
-    visits_desc: 'How many visits the site receives, so you know your audience and can show it to advertisers and partners.',
-    visits_today: 'Visits today',
-    visits_period: 'Visits in period',
-    visits_mobile_share: 'From phones',
-    visits_chart_label: 'Daily visits over the selected period',
-    visits_empty: 'No visits recorded yet. Counting starts the moment this update is uploaded.',
-    visits_note: 'One visit per browsing session, so someone who visits twice counts twice. Nothing about the visitor is stored, and devices that signed in to the admin or pharmacist panel are not counted.',
-    visits_load_error: 'Visits could not be loaded right now.',
-    launch_title: 'Official launch',
-    launch_desc: 'Clears test data: searches, orders, nurse ratings and visit statistics. It does not touch pharmacies, medicines, stock or nurses.',
-    launch_warning: 'This can be used only once, then this section disappears permanently. A full backup is downloaded automatically before anything is cleared.',
-    launch_confirm_placeholder: 'Type the word: حذف',
-    launch_btn: 'Clear test data and launch',
-    launch_final_confirm: 'All searches, orders, nurse ratings and visit statistics will be deleted permanently, with no undo. Do you want to continue?',
-    launch_backing_up: 'Downloading backup...',
-    launch_resetting: 'Clearing...',
-    launch_backup_failed: 'The backup could not be downloaded, so nothing was deleted.',
-    launch_done: 'The official launch has started. Deleted: searches {s} · orders {o} · ratings {r}. Keep the backup file somewhere safe.',
-    launch_already: 'The official launch has already started.',
-    launch_failed: 'The launch could not be started, and nothing was deleted.',
-    launch_since: 'Real data since the official launch on {date}',
-    demand_title: '📊 Demand insights',
-    demand_desc: 'What patients actually search for, aggregated and anonymized. It contains no data that identifies anyone.',
-    demand_period: 'Period:',
-    demand_days_7: 'Last 7 days',
-    demand_days_30: 'Last 30 days',
-    demand_days_90: 'Last 90 days',
-    demand_total: 'searches recorded',
-    demand_top: 'Most searched',
-    demand_not_found: 'Searches with no result',
-    demand_not_found_hint: 'Medicines the platform does not know yet, a chance to add them',
-    demand_shortages: 'Shortage signals',
-    demand_shortages_hint: 'A known medicine unavailable at every pharmacy that updates its stock',
-    demand_by_city: 'By city',
-    demand_all_cities: 'All cities',
-    demand_empty: 'No data yet',
-    demand_times: '1 time|{n} times',
-    demand_export: 'Download report (Excel)',
-    demand_load_error: 'Could not load the demand report',
-    demand_col_section: 'Section',
-    demand_col_item: 'Item',
-    demand_col_count: 'Count',
-    backup_title: '💾 Backup and system status',
-    backup_desc: 'The free hosting plan provides no automatic backups. Download a copy regularly and keep it somewhere safe.',
-    backup_btn: 'Download backup',
-    backup_preparing: 'Preparing...',
-    backup_done: 'Backup downloaded successfully',
-    backup_failed: 'Could not create the backup',
-    backup_warning: 'This file is sensitive: it contains account and order data. Keep it safe and do not share it.',
-    backup_last: 'Last backup downloaded from this browser:',
-    backup_never: 'No backup has been downloaded from this browser yet',
-    backup_overdue: 'More than a week has passed since the last backup.',
-    system_status_title: 'System status',
-    system_status_ok: 'Running normally',
-    system_status_degraded: 'The database is not responding',
-    system_status_checking: 'Checking...',
-    admin_username_title: '👤 Edit usernames',
-    admin_username_desc: 'The username is what the pharmacist signs in with. Changing it does not affect the password, stock, orders or duty schedule.',
-    admin_username_search: 'Search by pharmacy or username',
-    admin_username_no_match: 'No matching pharmacy',
-    admin_username_current: 'Current username:',
-    admin_username_new_placeholder: 'New username',
-    admin_username_save: 'Save',
-    admin_username_saved: 'Username updated successfully',
-    admin_username_confirm: 'Change the username for "{name}" from "{old}" to "{new}"? The pharmacist will sign in with the new name, and their password will not change.',
-    admin_username_required: 'Username is required',
-    admin_username_no_spaces: 'The username cannot contain spaces',
-    admin_username_too_short: 'Username is too short, minimum three characters',
-    admin_username_taken: 'That username is already taken',
-    register_listing_type_title: 'Listing type',
-    register_type_full_label: 'Full pharmacy',
-    register_type_full_desc: 'Manages its stock on the platform, so medicine availability is shown to patients in search results.',
-    register_type_duty_label: 'On-duty only',
-    register_type_duty_desc: 'Appears in the on-duty schedule without showing medicine availability. The type can be changed later at any time.',
-    directions_btn: 'View on map',
-    directions_btn_title: 'Open this pharmacy\'s location in Google Maps',
-    location_section_title: '📍 Pharmacy location on the map',
-    location_section_desc: 'Set your location once, and patients get a button that opens directions straight to you.',
-    detect_location_btn: '📍 Detect my current location',
-    detecting_location: '⏳ Detecting location...',
-    location_paste_placeholder: 'Or paste coordinates here: 35.011667, 37.053056',
-    location_paste_hint: 'From Google Maps: long-press your pharmacy location, then copy the line containing N and E (e.g. 35°00\'57.8"N 37°03\'25.3"E) and paste it here. That format is unambiguous.',
-    save_location_btn: 'Save location',
-    clear_location_btn: 'Clear location',
-    location_saved_success: 'Pharmacy location saved successfully',
-    location_cleared_success: 'Pharmacy location cleared',
-    location_current_label: 'Currently saved location:',
-    location_preview_btn: 'Preview on map',
-    location_none: 'No location set yet',
-    invalid_location_error: 'Invalid coordinates. Check the numbers and try again.',
-    geo_unsupported: 'Your browser does not support location detection. Use manual paste instead.',
-    geo_denied: 'Location permission denied. Enable it in your browser settings, or use manual paste.',
-    geo_unavailable: 'Could not determine your location. Make sure GPS is on and try in an open area.',
-    geo_timeout: 'Location request timed out. Please try again.',
-    geo_low_accuracy: 'Accuracy is low (within {n}). Try in an open area, or save if the location looks right.',
-    location_confirm_detected: 'Your location was detected within {n}. Save it as the pharmacy location?',
-    location_outside_syria: 'These coordinates are outside Syria. Make sure you did not swap the two numbers. Save anyway?',
-    location_swap_suggest: 'The two numbers look swapped. The correct location is most likely: {coords}\n\nSave it that way?',
-    location_admin_label: 'location',
-    duty_now_btn_label: 'Pharmacies on duty now',
-    wa_consult_btn_label: 'Ask a pharmacist on WhatsApp',
-    duty_row_default: 'Find the pharmacy on duty now',
-    duty_row_count: '1 pharmacy on duty now|{n} pharmacies on duty now',
-    duty_row_in_city: '{count} in {city}',
-    wa_row_sub: 'About a dose, an alternative or an unclear prescription',
-    cart_row_sub: 'Reserve medicines from the search results',
-    hero_trust: 'Every pharmacy shown here was added by the Dawaai Jahez team itself.',
-    pharmacy_count_gen: '1 pharmacy|{n} pharmacies',
-    res_summary_yes: 'Available at {a} of {m}',
-    res_summary_yes_all: 'Available at {a}',
-    res_summary_no: 'Not available, according to the latest update from pharmacies that list their stock',
-    res_summary_wait: 'Stock is not listed here for {w}: call to ask.',
-    res_status_yes: 'Available', res_status_wait: 'Call to check availability', res_status_no: 'Not available as of the last update',
-    call_btn: '📞 Call', directions_btn_short: '🗺️ Map',
-    wa_consult_title: '💬 Ask a pharmacist on WhatsApp',
-    wa_consult_desc: 'Unclear prescription? A question about a dose or an alternative? Message a pharmacist directly.',
-    wa_consult_empty: 'No pharmacies have WhatsApp enabled yet.',
-    wa_consult_empty_city: 'No pharmacies with WhatsApp in this city. Try selecting "All cities".',
-    wa_consult_loading: 'Loading pharmacies...',
-    wa_consult_error: 'Could not load pharmacies. Please try again.',
-    wa_chat_btn: 'Message on WhatsApp',
-    wa_close_btn: 'Close',
-    wa_disclaimer: 'This platform is an information service only. The conversation is directly between you and the pharmacy, and does not replace a doctor consultation.',
-    wa_result_btn: 'WhatsApp',
-    wa_msg_consult: 'Hello, I would like to ask you about a medicine. I found you on Dawaai Jahez.',
-    wa_msg_medicine: 'Hello, I would like to buy "{medicine}" from your pharmacy. I found you on Dawaai Jahez.',
-    wa_onduty_now: 'On duty now',
-    whatsapp_phone_section_title: '💬 Pharmacy WhatsApp number',
-    whatsapp_phone_input_placeholder: 'WhatsApp number (e.g. 0932985852)',
-    save_whatsapp_btn: 'Save WhatsApp number',
-    whatsapp_saved_success: 'WhatsApp number saved successfully',
-    whatsapp_cleared_success: 'WhatsApp number cleared',
-    invalid_whatsapp_error: 'Invalid WhatsApp number. Enter a Syrian mobile number such as 0932985852',
-    whatsapp_phone_hint: 'The message button appears to patients only if you enter a number. Leave it empty to hide it.',
-    whatsapp_admin_label: 'WhatsApp',
-    contact_title: 'Contact us',
-    contact_intro: 'We are happy to hear from you with any question or suggestion, or to register a pharmacy or a nurse on the platform.',
-    contact_email_btn: '✉️ Email us',
-    contact_email_subject: 'Inquiry from the Dawaai Jahez website',
-    contact_or_write: 'Or write to us at:',
-    contact_copy_btn: 'Copy address',
-    contact_copied: 'Address copied',
-    contact_facebook_btn: 'Facebook',
-    contact_instagram_btn: 'Instagram',
-    contact_medical_note: 'For questions about a medicine, consult a pharmacist directly with the «Consult a pharmacist» button on the home page. In an emergency, call an ambulance immediately.',
-    footer_faq: 'FAQ', footer_about: 'About Us',
-    faq_title: 'Frequently Asked Questions',
-    faq_section_patient: 'For Patients & Visitors', faq_section_pharmacist: 'For Pharmacists',
-    faq_q1: 'What is "Dawaai Jahez"?',
-    faq_a1: 'A Syrian online platform that helps you check medicine availability at nearby pharmacies, find pharmacies currently on duty, and connect with nurses for home nursing services.',
-    faq_q2: 'How do I search for a medicine?',
-    faq_a2: 'Type the medicine name or its active ingredient in the search box on the homepage, and you\'ll see every pharmacy that currently has it in stock, along with its address and phone number.',
-    faq_q3: 'Is the displayed information updated in real time?',
-    faq_a3: 'Pharmacy owners update the information themselves whenever their stock changes. We always recommend confirming availability directly with the pharmacy before heading there, especially if you need the medicine urgently.',
-    faq_q4: 'What\'s the difference between "available" and "unavailable"?',
-    faq_a4: '"Available" means the pharmacy has marked this medicine as currently in stock. "Unavailable" means either they don\'t have it, or they simply haven\'t updated its status yet.',
-    faq_q5: 'How do I find today\'s on-duty pharmacies?',
-    faq_a5: 'From the "On-Duty Pharmacies" section at the top of the page — you\'ll see every pharmacy currently on duty, along with their duty hours and contact numbers.',
-    faq_q6: 'Can I order a medicine and have the pharmacy deliver it?',
-    faq_a6: 'The site lets you send a request with the medicines you need directly to the pharmacy, and they will contact you to confirm the order and pickup/delivery arrangement. The site itself does not sell or deliver any medicine.',
-    faq_q7: 'Are the nursing services shown on the site free?',
-    faq_a7: 'The site only introduces you to available nurses and their contact details. Any agreement on the service and its fee happens directly between you and the nurse.',
-    faq_q8: 'How do I register my pharmacy on the site?',
-    faq_a8: 'Registration is currently done by contacting the site\'s admin team directly, after which a dedicated account is created for your pharmacy that you can log into anytime.',
-    faq_q9: 'How do I update a medicine\'s availability in my stock?',
-    faq_a9: 'From the pharmacist dashboard, each medicine has a button showing its status (available/unavailable) — one click toggles it instantly.',
-    faq_q10: 'How do I add a large number of medicines at once?',
-    faq_a10: 'From the pharmacist dashboard, use the "Import CSV file" option. Download the blank template first — it has 4 columns: medicine name, active ingredient, alternative names (separate multiple names with a semicolon ;), and category (medicine or cosmetic). Fill in a new row per medicine, save the file, and upload it from the same page. The maximum allowed per upload is 500 medicines.',
-    faq_q11: 'What if the Arabic text looks corrupted after saving my CSV file?',
-    faq_a11: 'This is a common Excel issue. Try saving the file as "Unicode Text" instead of regular "CSV", from the same "Save As" window.',
-    faq_q12: 'How do I add an assistant pharmacist phone number?',
-    faq_a12: 'From the pharmacist dashboard, in the "Assistant Pharmacist Phone" section — enter the number and click save. It will appear to patients alongside your main number, useful during busy hours.',
-    faq_q13: 'Can I record manufacture and expiry dates for medicines?',
-    faq_a13: 'Yes, each medicine in your stock has a small calendar button (📅) that opens two fields for manufacture and expiry dates. This information is internal to you only, never shown to patients, and helps the site warn you as a medicine nears its expiry.',
-    faq_q14: 'Is using the site free for pharmacies?',
-    faq_a14: 'Yes, using the site is currently completely free.',
-    about_title: 'About Us',
-    about_content_html: `
-      <h3>About Dawaai Jahez</h3>
-      <p>"Dawaai Jahez" is a Syrian online platform dedicated to making it easier for patients to reach the pharmaceutical information they need, exactly when they need it: checking whether a specific medicine is available at nearby pharmacies, finding which pharmacies are currently on duty, and connecting with trusted nurses for home nursing services.</p>
-      <p>This site was born out of a real need many people in Syria face today: the difficulty of knowing which pharmacy has the medicine they're looking for, or which pharmacy is on duty late at night. Our only goal is to close the distance between the patient and the information — nothing more, nothing less.</p>
-      <h3>Nature of the Displayed Information</h3>
-      <p>All information shown on the site — medicine availability, duty status, and pharmacy and nurse details — is entered and updated by the pharmacy owners and nurses themselves, each for their own listing. Dawaai Jahez does not independently verify the accuracy of this information at any given moment, nor does it guarantee it remains accurate at all times.</p>
-      <p>We therefore recommend that every user, before fully relying on any information about medicine availability or a pharmacy's status, confirm it directly by contacting the pharmacy in question. The site is also not a substitute for consulting a doctor or a qualified health professional when needed.</p>
-      <h3>Disclaimer</h3>
-      <p>Dawaai Jahez is solely an intermediary platform for displaying information. It is not a pharmacy, not a medical entity, and not a regulatory or governmental body. The site does not sell or dispense any medicine, and does not take part in any medical or pharmaceutical decision; every act of dispensing or consultation remains the sole responsibility of the pharmacy or the qualified professional involved.</p>
-      <p>Accordingly, those who operate this site bear no responsibility for any harm, error, or misunderstanding that may arise from the use of the information displayed on it — whether related to medicine availability, the accuracy of a pharmacy's or nurse's details, or any interaction that takes place outside the site between its users.</p>
-    `,
-    invalid_credentials: 'Invalid login credentials',
-    expiry_before_manufacture_error: 'Expiry date cannot be before manufacture date', invalid_date_format_error: 'Invalid date format',
-    order_submit_error: 'An error occurred while sending the order. Please try again, or contact the pharmacy directly if the issue persists.',
-    phone_digits_only_error: 'Invalid phone number. Use digits only, 7 to 15 digits.',
-    order_missing_fields_error: 'Name, phone number, and medicines are required to complete the order',
-    medicine_already_exists_error: 'This medicine already exists in the general list',
-    bulk_import_title: '📥 Import medicines from file',
-    bulk_import_desc: "Download a blank template, copy your company's medicine data into it, then upload it here to add them all at once to your stock.",
-    bulk_import_hint_alt_format: 'If the Arabic text looks corrupted after saving as CSV, try saving the file as "Unicode Text" instead, from the same Save As window in Excel.',
-    download_template_btn: '⬇️ Download blank template (CSV)',
-    choose_file_btn: 'Choose CSV file',
-    no_file_chosen: 'No file chosen',
-    bulk_import_preview_title: 'Preview before import',
-    bulk_import_valid_count: 'Ready to import: {count}',
-    bulk_import_invalid_count: 'Rows with an issue (will be skipped): {count}',
-    bulk_import_confirm_btn: 'Confirm import',
-    bulk_import_cancel_btn: 'Cancel',
-    bulk_import_empty_name_issue: 'Medicine name is missing',
-    bulk_import_invalid_category_issue: 'Unknown category (use "دواء" or "مستحضر تجميل")',
-    bulk_import_parse_error: "Couldn't read the file. Make sure it's a CSV matching the template format.",
-    bulk_import_too_many: 'The file has {count} items; the limit is 500 at a time. Split it into smaller files and import them one by one.',
-    bulk_import_errors_title: 'These rows were not imported:',
-    orders_sync_paused: 'Could not refresh orders. Retrying automatically…',
-    bulk_import_no_valid_rows: 'No valid rows found in the file.',
-    bulk_import_success: 'Import complete. Everything imported was added to your stock as available.\nNew to the platform: {added}\nAlready on the platform: {linked}\nNot imported: {skipped}',
-    bulk_import_col_name: 'Name',
-    bulk_import_col_category: 'Category'
-  }
-};
-
-function t(key) {
-  return (translations[currentLang] && translations[currentLang][key]) || translations.ar[key] || key;
-}
-
-// تعبئة قالب ترجمة فيه عناصر نائبة {مثل هذه}
-function tFormat(key, values) {
-  let str = t(key);
-  // و10: split/join بدل replace: كان replace يفسّر $& و$' في القيمة (اسم صيدلية فيه $ يظهر
-  // مشوّهاً)، ويستبدل أول موضع للمتغير فقط
-  for (const [k, v] of Object.entries(values)) str = str.split(`{${k}}`).join(String(v));
-  return str;
-}
-
-// م14: العدد مع المعدود. كان النص ثابتاً فظهر «قبل 1 ساعة» و«من 3 تقييم».
-// قيمة الترجمة صيغ يفصل بينها |، و{n} فيها يُستبدل بالعدد:
-//   العربية: واحد | اثنان | من 3 إلى 10 | من 11 إلى 99 | 100 فما فوق وصفر | صفر (اختيارية: «لا طلبات»)
-//   (يُحسب ما بعد المئة بباقيها: 103 كـ3، و115 كـ15، و101 و102 كالمئة)
-//   الإنكليزية: مفرد | جمع
-// numText اختياري: نص العدد كما يُعرض (مثلاً داخل <bdi> كي لا ينقلب اتجاهه).
-function pluralIndex(n, lang) {
-  if (lang !== 'ar') return n === 1 ? 0 : 1;
-  if (n === 1) return 0;
-  if (n === 2) return 1;
-  const r = n % 100;
-  if (r >= 3 && r <= 10) return 2;
-  if (r >= 11 && r <= 99) return 3;
-  return 4;
-}
-function tPlural(key, n, numText) {
-  const count = Number(n) || 0;
-  const forms = t(key).split('|');
-  const form = (count === 0 && currentLang === 'ar' && forms.length > 5) ? forms[5]
-    : forms[Math.min(pluralIndex(count, currentLang), forms.length - 1)];
-  return form.split('{n}').join(numText === undefined ? String(count) : numText);
-}
-
-// بعض رسائل الخطأ جاية جاهزة عربي من الباك إند (ملفات routes) — نترجم عرضها هون بدون لمس الباك إند نفسه
-const BACKEND_ERROR_MAP = {
-  'بيانات الدخول غير صحيحة': 'invalid_credentials',
-  'تاريخ الانتهاء لا يمكن أن يكون قبل تاريخ الصنع': 'expiry_before_manufacture_error',
-  'صيغة التاريخ غير صالحة': 'invalid_date_format_error',
-  'حدث خطأ أثناء إرسال الطلب': 'order_submit_error',
-  'رقم الهاتف يجب أن يتكون من أرقام فقط': 'phone_digits_only_error',
-  'الاسم ورقم الهاتف والأدوية مطلوبة لإتمام الطلب': 'order_missing_fields_error',
-  'هذا الدواء موجود مسبقاً في القائمة العامة': 'medicine_already_exists_error',
-  'المدينة مطلوبة': 'city_required_error',
-  'مدينة غير صالحة': 'invalid_city_error',
-  'كلمة المرور الجديدة مطلوبة': 'new_password_required_error',
-  'كلمة المرور الجديدة قصيرة جداً': 'new_password_too_short_error',
-  'كلمة المرور الجديدة مطابقة للحالية': 'new_password_same_error',
-  'رقم واتساب غير صالح': 'invalid_whatsapp_error',
-  'إحداثيات غير صالحة': 'invalid_location_error',
-  'قيمة غير صالحة': 'invalid_value_error',
-  'اسم المستخدم مطلوب': 'admin_username_required',
-  'اسم المستخدم لا يقبل المسافات': 'admin_username_no_spaces',
-  'اسم المستخدم قصير جداً': 'admin_username_too_short',
-  'اسم المستخدم مستخدم مسبقاً': 'admin_username_taken',
-  'وقت غير صالح': 'invalid_time_error',
-  'يلزم تحديد وقتي الفتح والإغلاق معاً': 'hours_both_required',
-  'وقت الفتح مطابق لوقت الإغلاق': 'hours_same_time',
-  'الاسم طويل جداً': 'name_too_long_error',
-  'الملاحظات طويلة جداً': 'notes_too_long_error',
-  'عدد الأدوية في الطلب كبير جداً': 'too_many_items_error',
-  'بيانات الطلب غير صالحة': 'invalid_order_error',
-  'التعليق طويل جداً': 'comment_too_long_error',
-  'كلمة التأكيد غير صحيحة': 'launch_failed',
-  'سنوات الخبرة يجب أن تكون رقماً بين 0 و60': 'exp_years_invalid',
-  'اسم المعلن مطلوب (حتى 80 حرفاً)': 'ads_need_advertiser',
-  'مكان الإعلان غير صالح': 'ads_bad_place',
-  'الرابط غير مقبول: يجب أن يبدأ بـ https:// أو أن يكون رقم هاتف': 'ads_bad_link',
-  'الرابط طويل جداً': 'ads_bad_link',
-  'تاريخ غير صالح': 'ads_bad_date',
-  'تاريخ النهاية قبل تاريخ البداية': 'ads_dates_order',
-  'اسم المعلن بالإنكليزية طويل جداً (حتى 80 حرفاً)': 'ads_en_too_long',
-  'الشرح طويل جداً': 'ads_desc_too_long',
-  'الإعلان غير موجود': 'ads_not_found',
-  'رقم الهاتف مطلوب': 'phone_required_error',
-  'رقم الهاتف غير صالح': 'phone_invalid_error',
-  'العنوان طويل جداً': 'address_too_long_error',
-  'العنوان غير صالح': 'invalid_address_error',
-  'محاولات كثيرة جداً. حاول بعد قليل.': 'rate_limited_error',
-  'يوم المناوبة غير صالح': 'duty_day_invalid_error',
-  'فترة المناوبة غير صالحة': 'duty_shift_invalid_error',
-  'وقت المناوبة غير صالح': 'duty_time_invalid_error',
-  'اسم الدواء طويل جداً (الحد 120 حرفاً)': 'med_name_too_long_error',
-  'غير مصرح بالوصول لهذه البيانات': 'forbidden_error'
-};
-
-// م11: رسائل الخادم التي ليس لها مفتاح ترجمة خاص. كانت تظهر بالعربية في الواجهة
-// الإنكليزية. العربية تُعرض كما أرسلها الخادم، والإنكليزية من هنا. أي رسالة جديدة
-// تُضاف إلى الخادم ولا تُضاف هنا تظهر في الواجهة الإنكليزية برسالة عامة مفهومة.
-const BACKEND_ERROR_EN = {
-  'اشتراك الإشعارات غير صالح': 'The notification subscription is not valid.',
-  'الإشعارات غير مفعّلة على هذا الجهاز': 'Notifications are not turned on for this device.',
-  'المنطقة أو الحي مطلوب': 'The area or neighbourhood is required.',
-  'اسم المنطقة طويل جداً': 'The area name is too long.',
-  'الملاحظة طويلة جداً': 'The note is too long.',
-  'الممرض غير متاح حالياً': 'This nurse is currently unavailable.',
-  'كلمة المرور يجب أن تكون 8 أحرف على الأقل': 'The password must be at least 8 characters.',
-  'كلمة المرور طويلة جداً': 'The password is too long.',
-  'لا تستعمل كلمة مرور الإدارة لمدير التمريض': 'Do not use the admin password for the nursing manager.',
-  'حدث خطأ أثناء حفظ كلمة المرور': 'An error occurred while saving the password. Please try again shortly.',
-  'حدث خطأ أثناء إيقاف الدخول': 'An error occurred while disabling sign-in. Please try again shortly.',
-  'كلمة مرور مدير التمريض غير صحيحة': 'Incorrect nursing manager password.',
-  'بيانات الدخول غير صالحة': 'Invalid login details.',
-  'حدث خطأ في الخادم': 'A server error occurred. Please try again shortly.',
-  'كلمة مرور الإدارة غير صحيحة': 'Incorrect admin password.',
-  'خطأ في إعداد الخادم': 'Server configuration error.',
-  'معرّف غير صالح': 'Invalid identifier.',
-  'حدث خطأ أثناء جلب الإعلانات': 'An error occurred while loading the ads. Please try again shortly.',
-  'حجم الصورة كبير جداً': 'The image is too large.',
-  'تعذّرت قراءة الصورة': 'The image could not be read.',
-  'الصورة غير مقبولة': 'This image type is not accepted.',
-  'حدث خطأ أثناء حفظ الإعلان': 'An error occurred while saving the ad. Please try again shortly.',
-  'حدث خطأ أثناء تحديث الإعلان': 'An error occurred while updating the ad. Please try again shortly.',
-  'حدث خطأ أثناء حذف الإعلان': 'An error occurred while deleting the ad. Please try again shortly.',
-  'تصنيف غير صالح. القيم المسموحة: دواء أو مستحضر تجميل فقط': 'Invalid category. Allowed values: medicine or cosmetic only.',
-  'حدث خطأ أثناء البحث': 'An error occurred while searching. Please try again shortly.',
-  'حدث خطأ أثناء جلب الاقتراحات': 'An error occurred while loading suggestions. Please try again shortly.',
-  'حدث خطأ أثناء جلب الأدوية': 'An error occurred while loading the medicines. Please try again shortly.',
-  'الاسم مطلوب': 'The name is required.',
-  'حدث خطأ أثناء الإضافة': 'An error occurred while adding. Please try again shortly.',
-  'تعذّرت الإضافة': 'Could not be added.',
-  'بيانات الدخول مطلوبة': 'Login details are required.',
-  'لا توجد أدوية للاستيراد': 'There are no medicines to import.',
-  'الحد الأقصى 500 دواء بالمرة الواحدة': 'The maximum is 500 items at a time.',
-  'حدث خطأ أثناء الاستيراد': 'An error occurred while importing. Please try again shortly.',
-  'حدث خطأ أثناء حذف الدواء': 'An error occurred while deleting the medicine. Please try again shortly.',
-  'الخدمات غير صالحة': 'Invalid services.',
-  'نص الخدمات طويل جداً': 'The services text is too long.',
-  'حدث خطأ أثناء جلب قائمة الممرضين': 'An error occurred while loading the nurses. Please try again shortly.',
-  'حدث خطأ أثناء جلب التقييمات': 'An error occurred while loading the reviews. Please try again shortly.',
-  'الاسم ورقم الهاتف مطلوبان': 'Name and phone number are required.',
-  'التقييم يجب أن يكون عدد نجوم صحيح من 1 إلى 5': 'The rating must be a whole number of stars from 1 to 5.',
-  'الممرض غير موجود': 'Nurse not found.',
-  'حدث خطأ أثناء إرسال التقييم': 'An error occurred while sending your review. Please try again shortly.',
-  'اسم الممرض مطلوب': 'The nurse name is required.',
-  'حدث خطأ أثناء إضافة الممرض': 'An error occurred while adding the nurse. Please try again shortly.',
-  'حدث خطأ أثناء جلب التقييمات قيد المراجعة': 'An error occurred while loading reviews awaiting approval. Please try again shortly.',
-  'حدث خطأ أثناء جلب التقييمات المنشورة': 'An error occurred while loading published reviews. Please try again shortly.',
-  'حدث خطأ أثناء الموافقة على التقييم': 'An error occurred while approving the review. Please try again shortly.',
-  'حدث خطأ أثناء رفض التقييم': 'An error occurred while rejecting the review. Please try again shortly.',
-  'حدث خطأ أثناء تحديث حالة التوفر': 'An error occurred while updating availability. Please try again shortly.',
-  'حدث خطأ أثناء حذف الممرض': 'An error occurred while deleting the nurse. Please try again shortly.',
-  'حدث خطأ أثناء جلب الممرضين': 'An error occurred while loading the nurses. Please try again shortly.',
-  'حدث خطأ أثناء حفظ بيانات الخبرة': 'An error occurred while saving the experience details. Please try again shortly.',
-  'حجم الملف أكبر من 3 ميغابايت': 'The file is larger than 3 MB.',
-  'تعذّرت قراءة الملف': 'The file could not be read.',
-  'نوع الملف غير مقبول': 'This file type is not accepted.',
-  'تعذّر رفع الشهادة إلى التخزين': 'The certificate could not be uploaded to storage.',
-  'التخزين غير متاح': 'Storage is not available.',
-  'حدث خطأ أثناء رفع الشهادة': 'An error occurred while uploading the certificate. Please try again shortly.',
-  'لا توجد شهادة لهذا الممرض': 'This nurse has no certificate.',
-  'تعذّر إنشاء رابط العرض': 'Could not create the viewing link.',
-  'حدث خطأ أثناء إنشاء رابط العرض': 'An error occurred while creating the viewing link. Please try again shortly.',
-  'حدث خطأ أثناء حذف الشهادة': 'An error occurred while deleting the certificate. Please try again shortly.',
-  'حدث خطأ أثناء تحديث التوثيق': 'An error occurred while updating verification. Please try again shortly.',
-  'الطلب غير موجود': 'Order not found.',
-  'حدث خطأ أثناء التحقق من الصلاحية': 'An error occurred while checking permissions. Please try again shortly.',
-  'الصيدلية غير موجودة': 'Pharmacy not found.',
-  'حدث خطأ أثناء جلب حالة الطلبات': 'An error occurred while loading order status. Please try again shortly.',
-  'حدث خطأ أثناء جلب الطلبات': 'An error occurred while loading the orders. Please try again shortly.',
-  'حدث خطأ أثناء تحديث الطلب': 'An error occurred while updating the order. Please try again shortly.',
-  'حدث خطأ أثناء تأكيد الطلب': 'An error occurred while confirming the order. Please try again shortly.',
-  'حدث خطأ أثناء حذف الطلب': 'An error occurred while deleting the order. Please try again shortly.',
-  'حدث خطأ أثناء جلب الصيدليات المناوبة': 'An error occurred while loading on-duty pharmacies. Please try again shortly.',
-  'حدث خطأ أثناء جلب الصيدليات': 'An error occurred while loading the pharmacies. Please try again shortly.',
-  'الاسم واسم المستخدم وكلمة المرور مطلوبة': 'Name, username and password are required.',
-  'حدث خطأ أثناء التسجيل': 'An error occurred during registration. Please try again shortly.',
-  'اسم المستخدم وكلمة المرور مطلوبان': 'Username and password are required.',
-  'حدث خطأ أثناء تسجيل الدخول': 'An error occurred while logging in. Please try again shortly.',
-  'بيانات الدخول مطلوبة لتأكيد الحذف': 'Login details are required to confirm deletion.',
-  'حدث خطأ أثناء حذف الحساب': 'An error occurred while deleting the account. Please try again shortly.',
-  'حدث خطأ أثناء تحديث حالة المناوبة': 'An error occurred while updating duty status. Please try again shortly.',
-  'حدث خطأ أثناء تحديث رقم الهاتف': 'An error occurred while updating the phone number. Please try again shortly.',
-  'حدث خطأ أثناء تحديث الرقم المساعد': 'An error occurred while updating the assistant number. Please try again shortly.',
-  'حدث خطأ أثناء تغيير كلمة المرور': 'An error occurred while changing the password. Please try again shortly.',
-  'حدث خطأ أثناء إعادة تعيين كلمة المرور': 'An error occurred while resetting the password. Please try again shortly.',
-  'حدث خطأ أثناء تحديث رقم واتساب': 'An error occurred while updating the WhatsApp number. Please try again shortly.',
-  'حدث خطأ أثناء تحديث الموقع': 'An error occurred while updating the location. Please try again shortly.',
-  'حدث خطأ أثناء تحديث العنوان': 'An error occurred while updating the address. Please try again shortly.',
-  'حدث خطأ أثناء إيقاف المناوبات': 'An error occurred while clearing duty. Please try again shortly.',
-  'حدث خطأ أثناء تحديث حالة الصيدلية': 'An error occurred while updating the pharmacy status. Please try again shortly.',
-  'حدث خطأ أثناء حفظ ساعات الدوام': 'An error occurred while saving opening hours. Please try again shortly.',
-  'حدث خطأ أثناء تحديث حالة الإغلاق': 'An error occurred while updating the closure status. Please try again shortly.',
-  'حدث خطأ أثناء تعديل اسم المستخدم': 'An error occurred while changing the username. Please try again shortly.',
-  'اسم الصيدلية مطلوب': 'The pharmacy name is required.',
-  'حدث خطأ أثناء تعديل اسم الصيدلية': 'An error occurred while renaming the pharmacy. Please try again shortly.',
-  'حدث خطأ أثناء حذف الصيدلية': 'An error occurred while deleting the pharmacy. Please try again shortly.',
-  'حدث خطأ أثناء جلب الزيارات': 'An error occurred while loading visits. Please try again shortly.',
-  'حدث خطأ أثناء جلب الإحصاءات': 'An error occurred while loading statistics. Please try again shortly.',
-  'حدث خطأ أثناء إنشاء النسخة الاحتياطية': 'An error occurred while creating the backup. Please try again shortly.',
-  'حدث خطأ أثناء إعداد تقرير الطلب': 'An error occurred while preparing the demand report. Please try again shortly.',
-  'بدأ الإطلاق الرسمي مسبقاً': 'The official launch has already started.',
-  'حدث خطأ أثناء بدء الإطلاق، ولم يُحذف شيء': 'An error occurred while starting the launch. Nothing was deleted.',
-  'حدث خطأ أثناء جلب المخزون': 'An error occurred while loading the stock. Please try again shortly.',
-  'الدواء أو الصيدلية غير موجودة': 'Medicine or pharmacy not found.',
-  'حدث خطأ أثناء تحديث المخزون': 'An error occurred while updating the stock. Please try again shortly.'
-};
-
-function translateApiError(rawError) {
-  // رد بلا رسالة (صفحة خطأ من الخادم الوسيط أثناء إعادة النشر مثلاً): وصل الطلب إلى
-  // الخادم فلا يصح القول «تعذّر الاتصال»، والأصدق «حدث خلل في الخادم، أعد المحاولة»
-  if (!rawError || typeof rawError !== 'string') return t('err_server');
-  const key = BACKEND_ERROR_MAP[rawError];
-  if (key) return t(key);
-  // أسطر الاستيراد المرفوضة تصل بصيغة «اسم الصنف: السبب»، فنترجم السبب وحده
-  const sep = rawError.lastIndexOf(': ');
-  if (sep > 0) {
-    const reason = rawError.slice(sep + 2);
-    if (BACKEND_ERROR_MAP[reason] || BACKEND_ERROR_EN[reason]) return rawError.slice(0, sep) + ': ' + translateApiError(reason);
-  }
-  if (currentLang !== 'ar') return BACKEND_ERROR_EN[rawError] || t('err_server');
-  // نص غير عربي في الواجهة العربية ليس من رسائلنا (رد تقني من وسيط): رسالة عامة
-  if (!/[\u0600-\u06FF]/.test(rawError)) return t('err_server');
-  // أعطال الخادم الداخلية: نضيف ما يفعله المستخدم بعدها
-  if (/^حدث خطأ أثناء/.test(rawError) && !/[.،]/.test(rawError)) return rawError + '. أعد المحاولة بعد قليل.';
-  return rawError;
-}
-
-// يحدد أي نص Hero فعّال حالياً (دواء/تجميل/تمريض) ويعيد تطبيقه باللغة الجديدة
-function refreshCurrentHeroText() {
-  const nursingActive = document.getElementById('view-nursing').style.display !== 'none';
-  if (nursingActive) applyNursingHeroText();
-  else if (currentCategory === 'cosmetic') applyCosmeticHeroText();
-  else applyMedicineHeroText();
-}
-
-function applyLanguage() {
-  document.documentElement.lang = currentLang;
-  document.documentElement.dir = currentLang === 'ar' ? 'rtl' : 'ltr';
-  document.title = t('page_title');
-
-  document.getElementById('nav-home').textContent = t('nav_home');
-  document.getElementById('nav-onduty').textContent = t('nav_onduty');
-  document.getElementById('nav-pharmacist').textContent = t('nav_pharmacist');
-  document.getElementById('nav-cosmetics').textContent = t('nav_cosmetics');
-  document.getElementById('nav-nursing').textContent = t('nav_nursing');
-  document.getElementById('nav-admin').textContent = t('nav_admin');
-
-  refreshCurrentHeroText();
-  document.getElementById('search-btn').textContent = t('search_btn');
-  document.getElementById('cart-btn-label').textContent = t('cart_btn');
-  document.getElementById('whatsapp-btn-label').textContent = t('wa_consult_btn_label');
-  document.getElementById('duty-now-btn-label').textContent = t('duty_now_btn_label');
-  renderHeroRowSubs();
-  // ---------- لوحة استشارة واتساب ----------
-  document.getElementById('wa-panel-title').textContent = t('wa_consult_title');
-  document.getElementById('wa-panel-desc').textContent = t('wa_consult_desc');
-  document.getElementById('wa-panel-disclaimer').textContent = t('wa_disclaimer');
-  document.getElementById('wa-panel-close').textContent = t('wa_close_btn');
-  // إعادة بناء القائمة بلغتها الجديدة لو كانت اللوحة مفتوحة وقت التبديل
-  if (waPanelOpen) loadWhatsappPharmacies();
-  // ---------- حقل رقم واتساب بلوحة الصيدلي ----------
-  document.getElementById('whatsapp-phone-section-title').textContent = t('whatsapp_phone_section_title');
-  document.getElementById('whatsapp-phone-input').placeholder = t('whatsapp_phone_input_placeholder');
-  document.getElementById('whatsapp-phone-hint').textContent = t('whatsapp_phone_hint');
-  document.getElementById('save-whatsapp-btn').textContent = t('save_whatsapp_btn');
-  // ---------- قسم موقع الصيدلية ----------
-  document.getElementById('location-section-title').textContent = t('location_section_title');
-  document.getElementById('location-section-desc').textContent = t('location_section_desc');
-  document.getElementById('location-paste-input').placeholder = t('location_paste_placeholder');
-  document.getElementById('location-paste-hint').textContent = t('location_paste_hint');
-  document.getElementById('save-location-btn').textContent = t('save_location_btn');
-  document.getElementById('clear-location-btn').textContent = t('clear_location_btn');
-  const detectBtn = document.getElementById('detect-location-btn');
-  if (detectBtn && !detectBtn.disabled) detectBtn.textContent = t('detect_location_btn');
-  renderSavedLocation();
-
-  // ---------- شريط انقطاع الإنترنت ----------
-  updateOfflineBanner();
-  updateStaffBanner();
-
-  // ---------- أسماء مقروءة للقوائم المنسدلة ----------
-  // كانت هذه القوائم بلا أي اسم، فيعلنها قارئ الشاشة "قائمة منسدلة" فقط دون أن
-  // يعرف المستخدم ماذا يختار. نضبطها هنا لا في HTML، لتتبع لغة الواجهة.
-  [['duty-day', 'a11y_duty_day'], ['duty-shift', 'a11y_duty_shift'], ['pharm-med-category', 'a11y_med_category']]
-    .forEach(([id, key]) => { const el = document.getElementById(id); if (el) el.setAttribute('aria-label', t(key)); });
-
-  // ---------- ساعات الدوام ----------
-  document.getElementById('hours-section-title').textContent = t('hours_section_title');
-  document.getElementById('hours-section-desc').textContent = t('hours_section_desc');
-  document.getElementById('hours-opens-label').textContent = t('hours_opens_label');
-  document.getElementById('hours-closes-label').textContent = t('hours_closes_label');
-  document.getElementById('save-hours-btn').textContent = t('hours_save');
-  document.getElementById('clear-hours-btn').textContent = t('hours_clear');
-  document.getElementById('closed-today-title').textContent = t('closed_today_title');
-  document.getElementById('closed-today-desc').textContent = t('closed_today_desc');
-  renderPharmacyHours();
-
-  document.getElementById('feature1-title').textContent = t('feature1_title');
-  document.getElementById('feature1-desc').textContent = t('feature1_desc');
-  document.getElementById('feature2-title').textContent = t('feature2_title');
-  document.getElementById('feature2-desc').textContent = t('feature2_desc');
-  document.getElementById('feature3-title').textContent = t('feature3_title');
-  document.getElementById('feature3-desc').textContent = t('feature3_desc');
-  document.getElementById('about-title').textContent = t('about_title');
-  document.getElementById('about-desc').textContent = t('about_desc');
-
-  document.getElementById('footer-home').textContent = t('footer_home');
-  document.getElementById('footer-onduty').textContent = t('footer_onduty');
-  document.getElementById('footer-contact').textContent = t('footer_contact');
-  document.getElementById('footer-faq').textContent = t('footer_faq');
-  document.getElementById('footer-about').textContent = t('footer_about');
-  document.getElementById('footer-center').textContent = t('footer_center');
-  // السنة الحالية تلقائياً: سنة قديمة في التذييل تجعل الموقع يبدو متروكاً
-  document.getElementById('footer-copy').textContent = tFormat('footer_copy', { year: new Date().getFullYear() });
-  renderAdSlot();   // وسم "إعلان" بلغة الواجهة
-
-  document.getElementById('lang-toggle-btn').textContent = t('lang_toggle');
-  document.getElementById('brand-name').textContent = t('brand_name');
-
-  renderCart(); // لتحديث نص حالة الفراغ لو العربة مفتوحة وفاضية
-  if (document.getElementById('search').value.trim()) runSearch(); // تحديث نتائج البحث الحالية لو موجودة
-
-  const bellBtnEl = document.getElementById('bell-btn');
-  if (bellBtnEl) bellBtnEl.setAttribute('aria-label', t('bell_aria_label'));
-  // ن1: أسماء مقروءة كانت مكتوبة بالعربية في index.html فتبقى عربية في الواجهة الإنكليزية
-  const ariaSet = (id, key) => { const el = document.getElementById(id); if (el) el.setAttribute('aria-label', t(key)); };
-  ariaSet('nav-toggle-btn', 'nav_menu_aria');
-  ariaSet('suggestions', 'suggestions_aria');
-  ariaSet('info-modal-close', 'close_aria');
-  document.querySelectorAll('.toggle-password').forEach(btn => {
-    const input = btn.parentElement && btn.parentElement.querySelector('input');
-    btn.setAttribute('aria-label', t(input && input.type === 'text' ? 'hide_password_aria' : 'show_password_aria'));
-  });
-  const bellPanelEl = document.getElementById('bell-panel');
-  if (bellPanelEl && bellPanelEl.style.display !== 'none') renderBellPanel();
-  lastOnDutySnapshot = null; // نجبر إعادة رسم الصيدليات المناوبة حتى لو البيانات نفسها ما تغيّرت
-  loadOnDuty();
-
-  // ---------- لوحة الصيدلي ----------
-  document.getElementById('pharm-dash-title').textContent = t('pharm_dashboard_title');
-  document.getElementById('new-orders-title').textContent = t('new_orders_title');
-  const syncNote = document.getElementById('orders-sync-note');
-  if (syncNote && syncNote.style.display !== 'none') syncNote.textContent = t('orders_sync_paused');
-  document.getElementById('duty-status-title').textContent = t('duty_status_title');
-  document.getElementById('duty-checkbox-label').textContent = t('duty_checkbox_label');
-  document.getElementById('save-duty-btn').textContent = t('save_duty_btn');
-  document.getElementById('duty-hours-title').textContent = t('duty_hours_title');
-  document.getElementById('duty-hours-desc').textContent = t('duty_hours_desc');
-  document.getElementById('duty-start-label').textContent = t('duty_start_label');
-  document.getElementById('duty-end-label').textContent = t('duty_end_label');
-  document.getElementById('main-phone-title').textContent = t('main_phone_title');
-  document.getElementById('main-phone-desc').textContent = t('main_phone_desc');
-  document.getElementById('main-phone-input').placeholder = t('main_phone_placeholder');
-  document.getElementById('save-main-phone-btn').textContent = t('main_phone_save');
-  document.getElementById('assistant-phone-title').textContent = t('assistant_phone_title');
-  document.getElementById('assistant-phone-desc').textContent = t('assistant_phone_desc');
-  document.getElementById('assistant-phone-input').placeholder = t('assistant_phone_input_placeholder');
-  document.getElementById('save-assistant-phone-btn').textContent = t('save_assistant_phone_btn');
-  document.getElementById('opt-day-sun').textContent = t('day_sunday');
-  document.getElementById('opt-day-mon').textContent = t('day_monday');
-  document.getElementById('opt-day-tue').textContent = t('day_tuesday');
-  document.getElementById('opt-day-wed').textContent = t('day_wednesday');
-  document.getElementById('opt-day-thu').textContent = t('day_thursday');
-  document.getElementById('opt-day-fri').textContent = t('day_friday');
-  document.getElementById('opt-day-sat').textContent = t('day_saturday');
-  document.getElementById('opt-shift-allday').textContent = t('shift_allday');
-  document.getElementById('opt-shift-morning').textContent = t('shift_morning');
-  document.getElementById('opt-shift-evening').textContent = t('shift_evening');
-  document.getElementById('add-med-title').textContent = t('add_med_title');
-  document.getElementById('add-med-desc').textContent = t('add_med_desc');
-  document.getElementById('pharm-med-name').placeholder =
-    document.getElementById('pharm-med-category').value === 'cosmetic' ? t('med_name_placeholder_cosmetic') : t('med_name_placeholder');
-  document.getElementById('pharm-med-generic').placeholder = t('generic_name_placeholder');
-  document.getElementById('pharm-med-alt').placeholder = t('alt_names_placeholder');
-  document.getElementById('opt-cat-medicine').textContent = t('cat_medicine');
-  document.getElementById('opt-cat-cosmetic').textContent = t('cat_cosmetic');
-  document.getElementById('add-med-btn').textContent = t('add_med_btn');
-  document.getElementById('bulk-import-title').textContent = t('bulk_import_title');
-  document.getElementById('bulk-import-desc').textContent = t('bulk_import_desc');
-  document.getElementById('bulk-import-hint-alt').textContent = '💡 ' + t('bulk_import_hint_alt_format');
-  document.getElementById('download-template-btn').textContent = t('download_template_btn');
-  document.getElementById('choose-file-label').textContent = t('choose_file_btn');
-  if (!document.getElementById('bulk-import-file').files.length) {
-    document.getElementById('bulk-import-filename').textContent = t('no_file_chosen');
-  }
-  if (bulkImportParsedRows.length > 0) renderBulkImportPreview();
-  document.getElementById('stock-table-medicine').textContent = t('stock_table_medicine');
-  document.getElementById('stock-table-status').textContent = t('stock_table_status');
-  document.getElementById('delete-account-btn').textContent = t('delete_account_btn');
-  if (currentPharmacy) {
-    document.getElementById('pharmacy-label').innerHTML = `
-      <span style="font-weight:500; font-size:16px;">${t('pharmacy_label_prefix')} ${escapeHtml(currentPharmacy.name)}</span>
-      <button class="action-pill-btn blue" onclick="logout()">${t('logout_btn')}</button>
-    `;
-    renderStockUI();
-    renderOrdersUI();
-  } else if (document.getElementById('pharmacist-auth-section').innerHTML.trim()) {
-    renderPharmacyAuthForm();
-  }
-
-  // ---------- نموذج تغيير كلمة المرور بلوحة الصيدلي ----------
-  document.getElementById('change-password-title').textContent = t('change_password_title');
-  document.getElementById('change-password-desc').textContent = t('change_password_desc');
-  document.getElementById('current-password-input').placeholder = t('current_password_placeholder');
-  document.getElementById('new-password-input').placeholder = t('new_password_placeholder');
-  document.getElementById('confirm-password-input').placeholder = t('confirm_new_password_placeholder');
-  document.getElementById('change-password-btn').textContent = t('change_password_btn');
-
-  // ---------- زر تحديث النتائج ----------
-  const refreshBtn = document.getElementById('refresh-results-btn');
-  if (refreshBtn && !refreshBtn.disabled) refreshBtn.textContent = t('refresh_results_btn');
-
-  // ---------- وسوم محركات البحث ----------
-  // تحديث عنوان الصفحة ووصفها مع اللغة: يفيد المستخدم (اسم التبويب) ومحركات البحث معاً.
-  document.title = t('page_title');
-  const metaDesc = document.querySelector('meta[name="description"]');
-  if (metaDesc) metaDesc.setAttribute('content', t('page_description'));
-
-  // ---------- فلتر المدينة بالهيرو ----------
-  // إعادة تعبئة القائمة عند تبديل اللغة حتى تُترجم أسماء المدن، مع الحفاظ على الاختيار الحالي
-  renderCityFilter();
-
-  // ---------- لوحة الإدارة ----------
-  // تُعاد رسم لوحة الإدارة فقط إن كانت ظاهرة: كان تبديل اللغة من صفحة المريض يعيد تشغيل
-  // فحوصاتها الدورية وتقاريرها وهي مخفية. وعند فتحها لاحقاً تُرسم من جديد على أي حال.
-  if (adminPassword && document.getElementById('view-admin').style.display !== 'none') {
-    renderAdminPanelUI();
-  } else if (managerPassword && document.getElementById('view-admin').style.display !== 'none') {
-    renderManagerPanelUI();
-  } else if (document.getElementById('admin-auth-section').innerHTML.trim()) {
-    renderAdminAuthForm();
-  }
-
-  // ---------- خدمات التمريض ----------
-  document.getElementById('nursing-page-title').textContent = t('nursing_page_title');
-  document.getElementById('nursing-page-desc').textContent = t('nursing_page_desc');
-  if (document.getElementById('nurses-list').innerHTML.trim()) {
-    document.getElementById('nurses-list').innerHTML = renderNursesList(nursesCache);
-    for (const id of openNurseDetailIds) {
-      const panel = document.getElementById(`nurse-detail-${id}`);
-      if (panel) { panel.style.display = 'block'; renderNurseDetail(id); }
-    }
-  }
-  renderNursingJoin();
-  refreshPushAfterLanguage();
-  // نافذة طلب الزيارة مفتوحة: تُرسم باللغة الجديدة وما كُتب فيها باقٍ
-  if (nreqState) {
-    if (!nreqState.sent) saveNreqDraft();
-    renderNurseRequestSheet();
-  }
-}
-
-function toggleLanguage() {
-  currentLang = currentLang === 'ar' ? 'en' : 'ar';
-  storageSet('lang', currentLang);
-  applyLanguage();
-}
-
-// ---------- التركيز في النوافذ المنبثقة (ن1) ----------
-// كانت النافذة تظهر والتركيز باقٍ خلفها: قارئ الشاشة لا يعلن الرسالة، ومن يستعمل لوحة
-// المفاتيح يتنقل بين عناصر الصفحة المغطاة. الآن ينتقل التركيز إلى النافذة عند فتحها، ويبقى
-// Tab داخلها، ويعود عند إغلاقها إلى العنصر الذي كان عليه.
-const dialogFocusStack = [];
-function dialogOpened(container, focusEl) {
-  if (!dialogFocusStack.some(d => d.container === container)) {
-    dialogFocusStack.push({ container, returnTo: document.activeElement });
-  }
-  if (focusEl) focusEl.focus({ preventScroll: true });
-}
-function dialogClosed(container) {
-  const i = dialogFocusStack.findIndex(d => d.container === container);
-  if (i === -1) return;
-  const { returnTo } = dialogFocusStack.splice(i, 1)[0];
-  if (dialogFocusStack.length) return;   // ما زالت نافذة أخرى مفتوحة تحتها
-  if (returnTo && returnTo !== document.body && document.contains(returnTo) && typeof returnTo.focus === 'function') {
-    returnTo.focus({ preventScroll: true });
-  }
-}
-document.addEventListener('keydown', e => {
-  if (e.key !== 'Tab' || !dialogFocusStack.length) return;
-  const { container } = dialogFocusStack[dialogFocusStack.length - 1];
-  const items = [...container.querySelectorAll('button, [href], input, select, textarea, summary, [tabindex]:not([tabindex="-1"])')]
-    .filter(el => !el.disabled && el.offsetParent !== null);
-  if (!items.length) return;
-  const first = items[0], last = items[items.length - 1];
-  if (!container.contains(document.activeElement)) { e.preventDefault(); first.focus(); }
-  else if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
-  else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: process.env.DATABASE_URL && process.env.DATABASE_URL.includes('localhost')
+    ? false
+    : { rejectUnauthorized: false },
+  // إن تعذّر الوصول إلى Supabase يفشل الطلب بعد 10 ثوانٍ برسالة، بدل أن يبقى معلّقاً بلا نهاية
+  connectionTimeoutMillis: 10000
 });
 
-// ---------- نافذة تنبيه مخصصة (بديل alert وconfirm الافتراضيين) ----------
-
-// و12: للنافذة عنصر واحد في الصفحة. إن فُتحت نافذة وأخرى ما زالت مفتوحة (انتهت جلسة الإدارة
-// وسؤال «هل تريد الحذف؟» ظاهر مثلاً) كانت الثانية تحل محل الأولى ويبقى سؤال الأولى بلا جواب إلى
-// الأبد، فيبقى زرها معطّلاً حتى إعادة تحميل الصفحة. الآن تُغلق الأولى أولاً كأن المستخدم ضغط
-// «إلغاء»، وهو الجواب الآمن دائماً: لا حذف ولا تنفيذ.
-let closeActiveModal = null;
-
-function showModal({ message, type = 'info', showCancel = false, okText, cancelText, danger = false }) {
-  okText = okText || t('modal_ok');
-  cancelText = cancelText || t('modal_cancel');
-  if (closeActiveModal) closeActiveModal(false);
-  return new Promise(resolve => {
-    const icons = { success: '✅', error: '❌', warning: '⚠️', question: '❓', info: 'ℹ️' };
-    document.getElementById('modal-icon').textContent = icons[type] || icons.info;
-    document.getElementById('modal-message').textContent = message;
-    const okBtn = document.getElementById('modal-btn-ok');
-    const cancelBtn = document.getElementById('modal-btn-cancel');
-    okBtn.textContent = okText;
-    cancelBtn.textContent = cancelText;
-    // زر الإجراء الخطِر (حذف، مسح، إطلاق) أحمر، فلا يُضغط بالعادة كأي «نعم» زرقاء.
-    // اللون يُضبط هنا مباشرة ويُمحى لكل نافذة عادية، فلا يبقى أحمر في النافذة التالية.
-    okBtn.style.background = danger ? '#c62f2f' : '';
-    okBtn.style.boxShadow = danger ? '0 6px 16px rgba(198,47,47,0.28)' : '';
-    cancelBtn.style.display = showCancel ? 'inline-block' : 'none';
-    const overlay = document.getElementById('custom-modal-overlay');
-    overlay.style.display = 'flex';
-    document.body.classList.add('modal-open');
-    // سؤال تحذيري (حذف، إطلاق...): التركيز على «إلغاء» كي لا يؤكده Enter بالخطأ
-    dialogOpened(overlay.querySelector('.modal-box'), showCancel && type === 'warning' ? cancelBtn : okBtn);
-
-    // Escape بينفّذ نفس سلوك زر الإلغاء بالضبط — نضيف المستمع وقت الفتح، ونشيله جوا cleanup عشان ما يتراكم أبداً
-    const escHandler = (e) => { if (e.key === 'Escape') cleanup(false); };
-    document.addEventListener('keydown', escHandler);
-
-    const cleanup = (result) => {
-      if (closeActiveModal === cleanup) closeActiveModal = null;
-      overlay.style.display = 'none';
-      document.body.classList.remove('modal-open');
-      okBtn.onclick = null;
-      cancelBtn.onclick = null;
-      document.removeEventListener('keydown', escHandler);
-      dialogClosed(overlay.querySelector('.modal-box'));
-      resolve(result);
-    };
-    okBtn.onclick = () => cleanup(true);
-    cancelBtn.onclick = () => cleanup(false);
-    closeActiveModal = cleanup;
-  });
-}
-
-function customAlert(message, type = 'info') {
-  return showModal({ message, type, showCancel: false });
-}
-
-// danger: مفتاح ترجمة لفعل الإجراء الخطِر («احذف الطلب»...). يحل محل «نعم» ويصير الزر أحمر،
-// فيقرأ المستخدم ما سيحدث على الزر نفسه. «إلغاء» يبقى الزر المركَّز عليه كما كان.
-function customConfirm(message, type = 'question', danger = null) {
-  return showModal({ message, type, showCancel: true, okText: danger ? t(danger) : t('modal_yes'), cancelText: t('modal_cancel'), danger: !!danger });
-}
-
-// نص شريط اللوحة حسب الصفحة المعروضة. يُستدعى أيضاً عند تبديل اللغة.
-function updateStaffBanner() {
-  const view = document.body.dataset.view;
-  const title = document.getElementById('staff-banner-title');
-  const sub = document.getElementById('staff-banner-sub');
-  if (!title || !sub || (view !== 'pharmacist' && view !== 'admin')) return;
-  if (view === 'admin' && managerPassword) {
-    title.textContent = t('staff_banner_manager_title');
-    sub.textContent = t('staff_banner_manager_sub');
-    return;
-  }
-  title.textContent = t(view === 'admin' ? 'staff_banner_admin_title' : 'staff_banner_pharmacist_title');
-  sub.textContent = t(view === 'admin' ? 'staff_banner_admin_sub' : 'staff_banner_pharmacist_sub');
-}
-
-function showView(view) {
-  // القسم العلوي الكبير للمرضى فقط: الصيدلي والمدير لا يحتاجان التمرير فوقه في كل مرة
-  const heroOn = view === 'patient' || view === 'nursing';
-  document.body.classList.toggle('has-hero', heroOn);
-  // لوحتا الصيدلي والإدارة: شريط داكن أقصر بعنوان الصفحة، بدل خلفية فاتحة بلا هوية
-  document.body.classList.toggle('staff-view', view === 'pharmacist' || view === 'admin');
-  document.body.dataset.view = view;
-  updateStaffBanner();
-  const heroOuter = document.querySelector('.hero-outer');
-  if (heroOuter) heroOuter.style.display = heroOn ? '' : 'none';
-  document.getElementById('view-patient').style.display = view === 'patient' ? 'block' : 'none';
-  document.getElementById('view-pharmacist').style.display = view === 'pharmacist' ? 'block' : 'none';
-  document.getElementById('view-admin').style.display = view === 'admin' ? 'block' : 'none';
-  document.getElementById('view-nursing').style.display = view === 'nursing' ? 'block' : 'none';
-  if (view === 'pharmacist' && !currentPharmacy) renderPharmacyAuthForm();
-  if (view === 'admin' && !adminPassword && !managerPassword) renderAdminAuthForm();
-  if (view !== 'nursing') stopNursingPolling();
-  if (view !== 'admin') { stopAdminRatingsPolling(); stopManagerPolling(); }
-  updateCartVisibility();
-}
-
-// تُظهر زر العربة بس بالصفحة الرئيسية (المريض)، وتخفيه بلوحة الصيدلي/الإدارة/قسم المناوبة
-function updateCartVisibility() {
-  const patientActive = document.getElementById('view-patient').style.display !== 'none';
-  const onDutyActive = document.getElementById('on-duty-section').style.display !== 'none';
-  const cartBtn = document.getElementById('cart-toggle-btn');
-  const cartSection = document.getElementById('cart-section');
-  if (patientActive && !onDutyActive) {
-    cartBtn.style.display = 'inline-flex';
-  } else {
-    cartBtn.style.display = 'none';
-    cartSection.style.display = 'none';
-  }
-}
-
-// ---------- روابط الهيدر (المتحكم الوحيد بالتنقل بالموقع) ----------
-
-function setActiveNav(link) {
-  document.querySelectorAll('.site-nav .nav-link').forEach(a => a.classList.remove('active'));
-  if (link) link.classList.add('active');
-  closeNav();
-}
-
-function toggleNav() {
-  const open = document.getElementById('site-nav').classList.toggle('open');
-  const btn = document.getElementById('nav-toggle-btn');
-  if (btn) btn.setAttribute('aria-expanded', open ? 'true' : 'false');
-}
-
-function closeNav() {
-  document.getElementById('site-nav').classList.remove('open');
-  const btn = document.getElementById('nav-toggle-btn');
-  if (btn) btn.setAttribute('aria-expanded', 'false');
-}
-
-// ن1: روابط القائمة والتذييل تعمل بالنقر فقط (بلا href)، فكانت لوحة المفاتيح تتخطاها.
-// صارت قابلة للتركيز (tabindex في index.html)، وEnter أو المسافة عليها تعمل كالنقر.
-document.addEventListener('keydown', e => {
-  if (e.key !== 'Enter' && e.key !== ' ') return;
-  const el = e.target;
-  if (el && el.matches && el.matches('a[role="link"][onclick]:not([href])')) { e.preventDefault(); el.click(); }
+// خاد1: اتصال خامل في المجمّع قد ينقطع (صيانة Supabase، أو انقطاع شبكة). المكتبة تُطلق حينها
+// حدث خطأ على المجمّع نفسه، وبلا مستمع له كانت Node تُنهي الخادم كله فيتوقف الموقع حتى يعيد
+// Render تشغيله. الآن نسجّل الخطأ فقط، والمكتبة تستبدل الاتصال المقطوع تلقائياً عند الطلب التالي.
+pool.on('error', (err) => {
+  console.error('[قاعدة البيانات] انقطع اتصال خامل (تُستبدل تلقائياً):', err && err.message);
 });
 
-function applyMedicineHeroText() {
-  document.getElementById('hero-title').innerHTML = t('hero_title_medicine');
-  document.getElementById('hero-description').textContent = t('hero_desc_medicine');
-  document.getElementById('search').placeholder = t('search_placeholder_medicine');
-  document.getElementById('search').setAttribute('aria-label', t('search_aria_medicine'));
-  document.getElementById('hero-search-hint').textContent = t('search_hint_medicine');
-}
+// ينشئ الجداول تلقائياً إذا لم تكن موجودة، ويضيف الأدوية الافتراضية أول مرة فقط
+async function initDb() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS medicines (
+      id SERIAL PRIMARY KEY,
+      name TEXT NOT NULL,
+      generic_name TEXT,
+      alt_names TEXT[] DEFAULT '{}',
+      category TEXT DEFAULT 'medicine'
+    );
+  `);
+  await pool.query(`ALTER TABLE medicines ADD COLUMN IF NOT EXISTS category TEXT DEFAULT 'medicine';`);
 
-function applyCosmeticHeroText() {
-  document.getElementById('hero-title').innerHTML = t('hero_title_cosmetic');
-  document.getElementById('hero-description').textContent = t('hero_desc_cosmetic');
-  document.getElementById('search').placeholder = t('search_placeholder_cosmetic');
-  document.getElementById('search').setAttribute('aria-label', t('search_aria_cosmetic'));
-  document.getElementById('hero-search-hint').textContent = t('search_hint_cosmetic');
-}
-
-// مربع البحث واختيار المدينة يظهران معاً ويختفيان معاً. ن3: في صفحة التمريض كان مربع البحث
-// يختفي ويبقى اختيار المدينة، مع أن قائمة الممرضين لا تُصفّى بالمدينة أصلاً، فيظن الزائر أنه معطّل
-function setHeroSearchVisible(visible) {
-  document.getElementById('hero-search-wrap').style.display = visible ? '' : 'none';
-  const cityRow = document.querySelector('.hero-city-row');
-  if (cityRow) cityRow.style.display = visible ? '' : 'none';
-}
-
-function applyNursingHeroText() {
-  document.getElementById('hero-title').innerHTML = t('hero_title_nursing');
-  document.getElementById('hero-description').textContent = t('hero_desc_nursing');
-  document.getElementById('hero-search-hint').textContent = t('search_hint_nursing');
-}
-
-function headerGoHome(link) {
-  if (currentCategory !== 'medicine') {
-    currentCategory = 'medicine';
-    applyMedicineHeroText();
-    document.getElementById('search').value = '';
-    document.getElementById('results').innerHTML = '';
-    // كل مسح للنتائج يُخفي زر "تحديث النتائج" معه: بلا نتائج لا معنى له
-    setResultsToolbar(false);
-  }
-  setHeroSearchVisible(true);
-  showView('patient');
-  // صفحة التمريض تغيّر نصوص القسم العلوي دون أن تغيّر نوع البحث (يبقى "دواء")، فكان
-  // الشرط أعلاه يظن أن لا شيء تغيّر ويترك عنوان التمريض ووصفه وتلميحه ظاهرة. بعد
-  // إظهار الصفحة الرئيسية نطلب النص الصحيح دائماً حسب الصفحة ونوع البحث.
-  refreshCurrentHeroText();
-  document.getElementById('on-duty-section').style.display = 'none';
-  updateCartVisibility();
-  window.scrollTo({ top: 0, behavior: 'smooth' });
-  loadAdSlot();   // إعلانات القسم الجديد (الرئيسية أو التجميل)
-  setActiveNav(link);
-}
-
-function headerGoCosmetics(link) {
-  currentCategory = 'cosmetic';
-  applyCosmeticHeroText();
-  document.getElementById('search').value = '';
-  document.getElementById('results').innerHTML = '';
-  // كل مسح للنتائج يُخفي زر "تحديث النتائج" معه: بلا نتائج لا معنى له
-  setResultsToolbar(false);
-  setHeroSearchVisible(true);
-  showView('patient');
-  document.getElementById('on-duty-section').style.display = 'none';
-  updateCartVisibility();
-  window.scrollTo({ top: 0, behavior: 'smooth' });
-  loadAdSlot();   // إعلانات القسم الجديد (الرئيسية أو التجميل)
-  setActiveNav(link);
-}
-
-
-// زر "المناوبة الآن" في الصفحة الرئيسية. على الهاتف رابط "الصيدليات المناوبة" مخفي
-// داخل قائمة ☰، والمريض ليلاً يريد غالباً "من المفتوح الآن" لا دواءً بعينه. الزر يفعل
-// ما يفعله الرابط تماماً، ومنه تمييز الرابط في القائمة، فيبقى التنقل متسقاً.
-function heroGoOnDuty() {
-  headerGoOnDuty(document.querySelector('[onclick="headerGoOnDuty(this)"]'));
-}
-
-function headerGoOnDuty(link) {
-  showView('patient');
-  // القدوم من صفحة التمريض: كانت نصوص التمريض تبقى، ومربع البحث مخفياً لأنها تخفيه
-  setHeroSearchVisible(true);
-  refreshCurrentHeroText();
-  const section = document.getElementById('on-duty-section');
-  section.style.display = 'block';
-  placeAdSlot();   // في قسم التجميل يعود الإعلان إلى مكانه الأصلي، لا فوق قائمة المناوبة
-  updateCartVisibility();
-  section.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  setActiveNav(link);
-}
-
-function headerGoPharmacist(link) {
-  showView('pharmacist');
-  document.getElementById('view-pharmacist').scrollIntoView({ behavior: 'smooth', block: 'start' });
-  setActiveNav(link);
-}
-
-function headerGoAdmin(link) {
-  // لو كنا أصلاً بلوحة الإدارة (مثلاً ضغط نفس الرابط مرتين)، ما منعيد الجلب — الفحص الدوري أصلاً شغال ومستمر
-  const wasOnAdmin = document.getElementById('view-admin').style.display !== 'none';
-  showView('admin');
-  if (adminPassword && !wasOnAdmin) renderAdminPanel();
-  if (managerPassword && !wasOnAdmin) { loadManagerPanel(); startManagerPolling(); }
-  document.getElementById('view-admin').scrollIntoView({ behavior: 'smooth', block: 'start' });
-  setActiveNav(link);
-}
-
-// ---------- عربة المشتريات ----------
-
-function saveCart() {
-  storageSet('cart', JSON.stringify(cart));
-  updateCartCount();
-  // أي تعديل على السلة يجعلها طلباً مختلفاً، فتأخذ مفتاح تفرّد جديداً.
-  // بدون هذا، لو فشل إرسال ثم أضاف المريض دواءً وأعاد الإرسال، لأعاد الخادم
-  // الطلب القديم بمفتاحه القديم وضاع الدواء المضاف.
-  pendingOrderKey = null;
-}
-
-function updateCartCount() {
-  const el = document.getElementById('cart-count');
-  if (el) el.textContent = cart.reduce((sum, item) => sum + item.quantity, 0);
-}
-
-async function addToCart(medicineId, pharmacyId, btn) {
-  const item = lastSearchResultsCache.find(it => it.medicine.id === medicineId);
-  if (!item) return;
-  const avail = item.availability.find(a => a.pharmacy_id === pharmacyId);
-  if (!avail) return;
-
-  // الصيدلية مغلقة: نضبط توقع المريض قبل الإضافة بدل منعه.
-  // المنع يحرمه من إرسال طلب ليلي ليُجهَّز صباحاً، وهو سلوك مفيد. والإشعار
-  // يمنع ما أردنا منعه فعلاً: أن ينتظر رداً فورياً أو يتصل في ساعة متأخرة.
-  const notice = btn && btn.getAttribute('data-closed-notice');
-  if (notice) {
-    const proceed = await customConfirm(notice, 'warning');
-    if (!proceed) return;
-  }
-  const medicineName = item.medicine.name;
-  const genericName = item.medicine.generic_name;
-  const pharmacyName = avail.pharmacy_name;
-  const existing = cart.find(c => c.medicineName === medicineName && c.pharmacyId === pharmacyId);
-  if (existing) {
-    if (existing.quantity >= 3 && !existing.confirmedExcess) {
-      const wantsMore = await customConfirm(tFormat('excess_quantity_confirm', { qty: existing.quantity, name: medicineName, pharmacy: pharmacyName }), 'question');
-      if (!wantsMore) return;
-      existing.confirmedExcess = true;
-    }
-    existing.quantity += 1;
-  } else {
-    cart.push({ medicineName, genericName, pharmacyName, pharmacyId, quantity: 1, confirmedExcess: false });
-  }
-  saveCart();
-  renderCart();
-  showAddedFeedback(btn);
-}
-
-// تغيير مؤقت لشكل زر الإضافة نفسه كتأكيد فوري، بدون أي نافذة أو تنبيه منفصل
-function showAddedFeedback(btn) {
-  if (!btn || btn.dataset.feedbackActive === '1') return;
-  const originalText = btn.textContent;
-  btn.dataset.feedbackActive = '1';
-  btn.disabled = true;
-  btn.classList.add('added-success');
-  btn.textContent = t('added_feedback');
-  setTimeout(() => {
-    btn.textContent = originalText;
-    btn.classList.remove('added-success');
-    btn.disabled = false;
-    btn.dataset.feedbackActive = '0';
-  }, 1100);
-}
-
-async function increaseQuantity(index) {
-  const item = cart[index];
-  if (item.quantity >= 3 && !item.confirmedExcess) {
-    const wantsMore = await customConfirm(tFormat('excess_quantity_confirm', { qty: item.quantity, name: item.medicineName, pharmacy: item.pharmacyName }), 'question');
-    if (!wantsMore) return;
-    item.confirmedExcess = true;
-  }
-  item.quantity += 1;
-  saveCart();
-  renderCart();
-}
-
-function decreaseQuantity(index) {
-  cart[index].quantity -= 1;
-  if (cart[index].quantity <= 0) {
-    cart.splice(index, 1);
-  }
-  saveCart();
-  renderCart();
-}
-
-function removeFromCart(index) {
-  cart.splice(index, 1);
-  saveCart();
-  renderCart();
-}
-
-function toggleCart() {
-  const section = document.getElementById('cart-section');
-  if (section.style.display === 'none') {
-    renderCart();
-    section.style.display = 'block';
-    // على الهاتف القسم العلوي طويل، فكانت العربة تنفتح تحت حافة الشاشة ويظن المريض أن
-    // الزر لا يعمل. ننزل إليها فقط إن لم يكن أعلاها ظاهراً، مع ترك مكان للشريط العلوي الثابت.
-    const header = document.querySelector('.site-header');
-    const offset = header ? header.getBoundingClientRect().bottom + 10 : 10;
-    const top = section.getBoundingClientRect().top;
-    if (top < offset || top > window.innerHeight - 120) {
-      window.scrollTo({ top: Math.max(0, top + window.scrollY - offset), behavior: 'smooth' });
-    }
-  } else {
-    section.style.display = 'none';
-  }
-}
-
-// ما كتبه المريض في نموذج الطلب. renderCart يعيد بناء النموذج كاملاً، ويُستدعى عند + و −
-// وتبديل اللغة ووصول تحديث لطلب سابق كل بضع ثوانٍ، فكان الاسم والهاتف والملاحظات تُمحى
-// أثناء الكتابة. نحفظها قبل إعادة البناء ونعيدها بعده، ومعها موضع المؤشر إن كان المريض يكتب،
-// كي لا تُغلق لوحة المفاتيح على الهاتف.
-const CHECKOUT_FIELDS = ['checkout-name', 'checkout-phone', 'checkout-notes'];
-
-function readCheckoutDraft() {
-  const draft = { values: {}, focus: null };
-  for (const id of CHECKOUT_FIELDS) {
-    const el = document.getElementById(id);
-    if (!el) continue;
-    draft.values[id] = el.value;
-    if (document.activeElement === el) {
-      let start = null, end = null;
-      try { start = el.selectionStart; end = el.selectionEnd; } catch (e) { /* بعض الحقول لا تدعم التحديد */ }
-      draft.focus = { id, start, end };
-    }
-  }
-  return draft;
-}
-
-function restoreCheckoutDraft(draft) {
-  for (const id of CHECKOUT_FIELDS) {
-    const el = document.getElementById(id);
-    if (el && draft.values[id]) el.value = draft.values[id];
-  }
-  if (draft.focus) {
-    const el = document.getElementById(draft.focus.id);
-    if (el) {
-      el.focus({ preventScroll: true });
-      try { if (draft.focus.start !== null) el.setSelectionRange(draft.focus.start, draft.focus.end); } catch (e) { /* لا شيء */ }
-    }
-  }
-}
-
-function renderCart() {
-  const container = document.getElementById('cart-section');
-  const draft = readCheckoutDraft();
-  const bellRow = renderBellRow();
-  if (cart.length === 0) {
-    // السلة فاضية: هون بس بيظهر الجرس (بزاوية البطاقة العلوية اليمنى)
-    container.innerHTML = `
-      <div class="box cart-empty">
-        ${bellRow}
-        <div class="cart-empty-icon">🛒</div>
-        <p class="cart-empty-title">${t('cart_empty_title')}</p>
-        <p class="cart-empty-subtitle">${t('cart_empty_subtitle')}</p>
-      </div>
-    `;
-    return;
-  }
-  // السلة فيها أدوية: صفر جرس إطلاقاً
-  container.innerHTML = `
-    <div class="cart-header">
-      <h3 class="cart-title">${t('cart_panel_title')}</h3>
-      <p class="cart-subtitle">${t('cart_panel_subtitle')}</p>
-    </div>
-    ${cart.map((item, i) => `
-      <div class="cart-item-card">
-        <div class="cart-item-top">
-          <div>
-            <div class="cart-item-name"><span>💊</span> ${escapeHtml(item.medicineName)}</div>
-            ${item.genericName ? `<div class="cart-item-generic">${escapeHtml(item.genericName)}</div>` : ''}
-            <div class="cart-item-pharmacy">${escapeHtml(item.pharmacyName)}</div>
-          </div>
-          <button class="cart-remove-btn" onclick="removeFromCart(${i})" aria-label="${t('remove_aria')}">🗑️</button>
-        </div>
-        <div class="cart-item-bottom">
-          <div class="qty-control">
-            <button class="qty-btn" onclick="decreaseQuantity(${i})">-</button>
-            <span class="qty-value">${item.quantity}</span>
-            <button class="qty-btn" onclick="increaseQuantity(${i})">+</button>
-          </div>
-        </div>
-      </div>
-    `).join('')}
-    <div class="cart-summary">
-      <div class="cart-summary-row"><span>${t('cart_items_count_label')}</span><span>${cart.length}</span></div>
-      <input id="checkout-name" maxlength="80" autocomplete="name" placeholder="${t('checkout_name_placeholder')}" aria-label="${t('checkout_name_placeholder')}">
-      <input id="checkout-phone" maxlength="15" autocomplete="tel" placeholder="${t('checkout_phone_placeholder')}" aria-label="${t('checkout_phone_placeholder')}" type="tel" inputmode="numeric" oninput="digitsOnly(this)">
-      <textarea id="checkout-notes" maxlength="500" placeholder="${t('checkout_notes_placeholder')}" aria-label="${t('checkout_notes_placeholder')}" rows="2" style="width:100%; padding:10px 14px; border:1px solid #cfe0ef; border-radius:14px; font-family:inherit; font-size:15px; resize:vertical; margin-bottom:10px;"></textarea>
-      <button class="checkout-btn" onclick="submitOrder()">${t('checkout_btn')}</button>
-    </div>
-  `;
-  restoreCheckoutDraft(draft);
-}
-
-let orderSubmitInProgress = false;
-
-async function submitOrder() {
-  if (orderSubmitInProgress) return; // منع إرسال مكرر لو الطلب السابق لسا قيد التنفيذ (مثلاً وقت تأخر استيقاظ سيرفر Render)
-  const name = document.getElementById('checkout-name').value.trim();
-  const phone = document.getElementById('checkout-phone').value.trim();
-  const notes = document.getElementById('checkout-notes').value.trim();
-  if (!name || !phone) {
-    customAlert(t('checkout_missing_fields'), 'warning');
-    return;
-  }
-  // م11: الخادم يرفض الرقم الأقصر من 7 أرقام، وكانت رسالته «أرقام فقط» تحيّر من كتب أرقاماً فعلاً
-  if (phone.length < 7) { customAlert(t('phone_too_short_error'), 'warning'); return; }
-  const btn = document.querySelector('.checkout-btn');
-  const originalLabel = btn ? btn.textContent : '';
-  orderSubmitInProgress = true;
-  // نص تحميل صريح: على الشبكة البطيئة كان الزر يخفت فقط، فلا يعرف المريض
-  // إن كان شيء يحدث أم أن ضغطته لم تُسجَّل.
-  if (btn) { btn.disabled = true; btn.style.opacity = '0.6'; btn.textContent = t('sending_order'); }
-  // المفتاح نفسه عبر كل إعادات المحاولة لهذه السلة
-  if (!pendingOrderKey) pendingOrderKey = newRequestKey();
+  // حماية جذرية من تكرار الدواء الواحد بالقائمة العامة، على مستوى قاعدة البيانات نفسها.
+  // بدون هذا الفهرس، فحص "هل الدواء موجود؟" بالكود ممكن ينخدع لو وصل طلبان بنفس اللحظة
+  // تماماً (مثلاً ضغط زر الرفع مرتين وقت بطء الشبكة): الاثنان بيفحصوا فيلاقوا الدواء غير
+  // موجود، فيضيفوه مرتين. الفهرس الفريد بيمنع هذا نهائياً لأن القاعدة نفسها بترفض الصف الثاني.
+  // ملاحظة: لو كانت القاعدة تحتوي مكررات قديمة، إنشاء الفهرس بيفشل — لهذا هو داخل try/catch
+  // حتى لا يتعطل إقلاع السيرفر بالكامل، مع طباعة تحذير واضح بالسجل (والكود يتعامل مع الحالتين).
   try {
-    // 30 ثانية للإرسال لا 20: عملية كتابة قد تتأخر أكثر، وإنهاؤها مبكراً يدفع
-    // المريض لإعادة المحاولة دون داعٍ (وإن كان المفتاح يحميه من التكرار).
-    const res = await fetchWithTimeout(`${API}/orders`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        patient_name: name,
-        patient_phone: phone,
-        notes: notes || null,
-        request_key: pendingOrderKey,
-        items: cart.map(item => ({
-          pharmacyId: item.pharmacyId,
-          medicineName: item.medicineName,
-          genericName: item.genericName,
-          quantity: item.quantity
-        }))
-      })
-    }, 30000);
-    // الرد قد لا يكون JSON (صفحة خطأ من الوسيط أثناء إعادة النشر مثلاً)،
-    // فنقرؤه بحذر بدل أن يُطلق استثناءً يُفسَّر خطأً في الشبكة.
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) {
-      const msg = res.status >= 500 ? t('err_server') : translateApiError(data.error);
-      customAlert(msg, 'error');
-      return;
-    }
-
-    // نجح الإرسال: المفتاح انتهى دوره، والسلة التالية تأخذ مفتاحاً جديداً
-    pendingOrderKey = null;
-
-    // نربط كل طلب باسم صيدليته (من العربة) ونحفظه محلياً لمتابعة رد الصيدلية عليه
-    data.orders.forEach(o => {
-      const item = cart.find(it => it.pharmacyId === o.pharmacy_id);
-      myOrders.push({ id: o.id, pharmacyName: item ? item.pharmacyName : '', status: 'pending', at: Date.now() });
-    });
-    saveMyOrders();
-    updateBellBadge();
-    startMyOrdersPolling();
-
-    // و2: العربة تُفرَّغ قبل رسالة النجاح لا بعدها. كان إغلاق التطبيق والرسالة ظاهرة يُبقي
-    // العربة ممتلئة، فيرسلها المريض ثانية ظاناً أنها لم تُرسل، فيصل الطلب مرتين
-    cart = [];
-    saveCart();
-    renderCart();
-    await customAlert(t('order_success_msg'), 'success');
+    await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS medicines_name_category_unique ON medicines (name, category);`);
   } catch (err) {
-    // لا نمسح المفتاح هنا عن قصد: الفشل قد يكون ملتبساً (وصل الطلب وضاع الرد)،
-    // فإعادة المحاولة بالمفتاح نفسه تعيد الطلب الموجود بدل تكراره.
-    const kind = classifyFetchError(err);
-    const msg = kind === 'offline' ? t('err_offline')
-              : kind === 'timeout' ? t('err_timeout_order')
-              : t('err_network_order');
-    customAlert(msg, 'error');
-  } finally {
-    orderSubmitInProgress = false;
-    // لو نجح الطلب، renderCart() أصلاً بتعيد بناء الزر من جديد (مفعّل تلقائياً)
-    // ولو فشل، الزر نفسه لسا موجود بالـDOM فلازم نرجعه يشتغل يدوياً
-    const stillThere = document.querySelector('.checkout-btn');
-    if (stillThere) {
-      stillThere.disabled = false;
-      stillThere.style.opacity = '';
-      if (originalLabel) stillThere.textContent = originalLabel;
-    }
+    console.error('[تحذير] تعذّر إنشاء فهرس منع تكرار الأدوية — على الأرجح توجد أدوية مكررة بالقائمة العامة. نظّفها ثم أعد تشغيل الخادم.', err.message);
   }
-}
 
-// ---------- تتبع حالة طلبات المريض (هل استجابت الصيدلية؟) — عبر أيقونة الجرس ----------
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS pharmacies (
+      id SERIAL PRIMARY KEY,
+      name TEXT NOT NULL,
+      address TEXT,
+      phone TEXT,
+      owner_username TEXT UNIQUE NOT NULL,
+      owner_password_hash TEXT NOT NULL,
+      on_duty BOOLEAN DEFAULT false,
+      on_duty_day TEXT,
+      on_duty_shift TEXT,
+      on_duty_start_time TEXT,
+      on_duty_end_time TEXT
+    );
+  `);
+  // رقم هاتف مساعد اختياري، يظهر جنب الرقم الأساسي — لتخفيف ضغط العمل على رقم واحد بس
+  await pool.query(`ALTER TABLE pharmacies ADD COLUMN IF NOT EXISTS assistant_phone TEXT;`);
 
-// و1: الطلبات المُجابة تتراكم في الجرس إن لم يمسحها المريض. نُبقي آخر 50 منها فقط (مع
-// كل طلب لم يُجب بعد)، فلا تكبر الذاكرة بلا حد
-const MAX_ANSWERED_ORDERS_KEPT = 50;
-function saveMyOrders() {
-  const answered = myOrders.filter(isOrderAnswered);
-  if (answered.length > MAX_ANSWERED_ORDERS_KEPT) {
-    const drop = new Set(answered.slice(0, answered.length - MAX_ANSWERED_ORDERS_KEPT));
-    myOrders = myOrders.filter(o => !drop.has(o));
-  }
-  storageSet('myOrders', JSON.stringify(myOrders));
-}
+  // عمود المدينة — أساس التوسع خارج سلمية.
+  // يُخزَّن كمفتاح إنكليزي ثابت (مثل 'salamiyah') وليس كاسم عربي، لسببين:
+  // (1) الترجمة: نفس السجل يُعرض "سلمية" بالعربي و"Salamiyah" بالإنكليزي.
+  // (2) منع تعدد الإملاء: "سلمية" و"سلميه" و"السلمية" كانت ستصبح ثلاث مدن مختلفة
+  //     فينكسر أي تجميع أو فلترة — نفس الدرس المستفاد من تكرار أسماء الأدوية.
+  // العمود اختياري (صفر NOT NULL) حفاظاً على توافق السجلات القديمة، تماماً كباقي
+  // الأعمدة المضافة لاحقاً (assistant_phone, on_duty_shift...).
+  await pool.query(`ALTER TABLE pharmacies ADD COLUMN IF NOT EXISTS city TEXT;`);
+  // شارة التوثيق: كل صيدلية على المنصة سجّلتها الإدارة يدوياً بعد تحقق بشري، لا تسجيل ذاتي.
+  // العمود يجعل هذه الحقيقة قابلة للعرض للمريض، ويترك الباب مفتوحاً لسحب التوثيق
+  // من صيدلية بعينها مستقبلاً دون حذف حسابها.
+  await pool.query(`ALTER TABLE pharmacies ADD COLUMN IF NOT EXISTS verified BOOLEAN DEFAULT true;`);
 
-// الطلب "انتهى" حين تردّ الصيدلية عليه: بالتأكيد أو بتعذّر التجهيز. كلاهما خبر يستحق
-// أن يراه المريض، فكلاهما يُحسب في عدّاد الجرس، وعند انتهاء كل الطلبات يتوقف الفحص الدوري.
-function isOrderAnswered(o) { return o.status === 'confirmed' || o.status === 'declined'; }
+  // رقم واتساب الصيدلية — عمود منفصل عن phone عن قصد وليس اختصاراً كسولاً:
+  // كثير من الصيدليات السورية تسجّل رقماً أرضياً لا واتساب له، ورابط wa.me على رقم
+  // أرضي يفتح واتساب برسالة "هذا الرقم غير مسجّل" — فيقرأها المريض كعطل في المنصة
+  // لا كخطأ في الرقم. بعمود منفصل يظهر زر واتساب فقط لمن أدخل رقماً فعلياً،
+  // فلا يوجد رابط ميت إطلاقاً. يُخزَّن بصيغة دولية منسّقة (مثال: 963932985852).
+  await pool.query(`ALTER TABLE pharmacies ADD COLUMN IF NOT EXISTS whatsapp_phone TEXT;`);
 
-function updateBellBadge() {
-  const confirmedCount = myOrders.filter(isOrderAnswered).length;
-  const badge = document.getElementById('bell-badge');
-  if (badge) {
-    badge.textContent = confirmedCount;
-    badge.style.display = confirmedCount > 0 ? 'flex' : 'none';
-  }
-  const cartBadge = document.getElementById('cart-notify-badge');
-  if (cartBadge) {
-    cartBadge.textContent = confirmedCount;
-    cartBadge.style.display = confirmedCount > 0 ? 'flex' : 'none';
-  }
-}
+  // إحداثيات الصيدلية على الخريطة — تُمكّن زر "الاتجاهات" الذي يفتح ملاحة جوجل للمريض.
+  // DOUBLE PRECISION لا NUMERIC: الحسابات الجغرافية عشرية بطبعها، والدقة أكثر من كافية
+  // (ست خانات عشرية ≈ 11 سم على الأرض).
+  // العمودان اختياريان: صيدلية بلا موقع تبقى تعمل بالكامل، ولا يظهر لها زر اتجاهات
+  // بدل أن يظهر زر يقود المريض إلى لا مكان — نفس مبدأ زر واتساب.
+  // هل تُحدّث هذه الصيدلية مخزونها على المنصة؟
+  //
+  // السبب: getAvailability تستخدم LEFT JOIN على كل الصيدليات مع COALESCE(available,false)،
+  // فصيدلية بلا سجل مخزون كانت تظهر "غير متوفر" — وهذا ادعاء خبري كاذب عن صيدلية
+  // لم تُسأل أصلاً: يضلّل المريض فيتجاوز صيدلية عندها دواؤه، ويضر بسمعة الصيدلية.
+  // بهذا العمود نفرّق بين "سألناها فقالت لا" و"لم نسألها".
+  //
+  // التعبئة الخلفية على ثلاث خطوات مقصودة: نضيف العمود بلا افتراضي أولاً فتبقى
+  // السجلات القديمة NULL، ثم نجعلها true (فهي صيدليات كاملة أُضيفت قبل هذا التقسيم)،
+  // ثم نثبّت الافتراضي false للسجلات الجديدة — لأن الإدراج للمناوبة فقط هو الحالة
+  // الأكثر توقعاً عند إضافة صيدليات المدينة دفعة واحدة، والخطأ الآمن هو عدم الادعاء.
+  // تتبّع آخر تعديل للمناوبة: من عدّل ومتى.
+  // السبب: المناوبة صار يضبطها طرفان — الصيدلي من لوحته والإدارة من لوحتها.
+  // فبدون هذا السجل لا يمكن الإجابة على "لماذا تغيّرت هذه المناوبة؟"، وقد تدهس
+  // الإدارة تعديلاً حديثاً للصيدلي دون أن تدري أنه يدير مناوبته بنفسه.
+  // NULL للسجلات القديمة عمداً: لا نعرف من عدّلها، وادعاء ذلك تضليل.
+  await pool.query(`ALTER TABLE pharmacies ADD COLUMN IF NOT EXISTS duty_updated_by TEXT;`);
+  await pool.query(`ALTER TABLE pharmacies ADD COLUMN IF NOT EXISTS duty_updated_at TIMESTAMP;`);
 
-// يبني زر الجرس من جديد مع كل استدعاء لـrenderCart — عنصر عادي بترتيب محتوى السلة (صفر
-// position:absolute على مستوى الصفحة)، فمستحيل يظهر برا صندوق السلة أو بأي صفحة تانية.
-// بيظهر بس لما يكون في طلبات مرسلة فعلاً، وبيختفي تلقائياً مع أي إعادة رسم تصفّر الطلبات.
-function renderBellRow() {
-  if (!myOrders || myOrders.length === 0) return '';
-  const confirmedCount = myOrders.filter(isOrderAnswered).length;
-  return `
-    <div class="cart-bell-row">
-      <div class="cart-bell-wrap">
-        <button id="bell-btn" class="bell-btn" onclick="toggleBellPanel()" aria-label="${t('bell_aria_label')}">
-          <span class="bell-icon">🔔</span>
-          <span class="bell-badge" id="bell-badge" style="${confirmedCount > 0 ? '' : 'display:none;'}">${confirmedCount}</span>
-        </button>
-        <div id="bell-panel" class="bell-panel" style="display:none"></div>
-      </div>
-    </div>`;
-}
+  await pool.query(`ALTER TABLE pharmacies ADD COLUMN IF NOT EXISTS manages_stock BOOLEAN;`);
+  await pool.query(`UPDATE pharmacies SET manages_stock = true WHERE manages_stock IS NULL;`);
+  await pool.query(`ALTER TABLE pharmacies ALTER COLUMN manages_stock SET DEFAULT false;`);
 
-function toggleBellPanel() {
-  const panel = document.getElementById('bell-panel');
-  if (!panel) return;
-  const willShow = panel.style.display === 'none';
-  panel.style.display = willShow ? 'block' : 'none';
-  if (willShow) renderBellPanel();
-}
+  // ساعات دوام الصيدلية.
+  //
+  // الحاجة: مريض يبحث ليلاً فيرى "متوفر"، فيرسل طلباً لا يأتيه رد عليه، ثم يتصل
+  // بالصيدلي في ساعة متأخرة فيزعجه. والحل ليس زراً يوميّاً للفتح والإغلاق، لأنه
+  // يفترض أن الصيدلي سيضغطه مرتين كل يوم طوال السنة، وأول ليلة ينساها تعيد
+  // المشكلة أسوأ مما كانت، إذ يثق المريض بعلامة "مفتوحة" الظاهرة أمامه.
+  //
+  // لذلك نخزّن ساعات الدوام مرة واحدة ونحسب الحالة آلياً، ونضيف تجاوزاً يدويّاً
+  // للطوارئ يعود تلقائياً إلى الجدول في اليوم التالي.
+  //
+  // TEXT بصيغة "HH:MM" لا TIME: نفس نمط on_duty_start_time القائم، ويتجنّب
+  // التباس المناطق الزمنية عند التخزين لأن الوقت محلي لا لحظة زمنية مطلقة.
+  await pool.query(`ALTER TABLE pharmacies ADD COLUMN IF NOT EXISTS opens_at TEXT;`);
+  await pool.query(`ALTER TABLE pharmacies ADD COLUMN IF NOT EXISTS closes_at TEXT;`);
 
-function renderBellPanel() {
-  const panel = document.getElementById('bell-panel');
-  if (!panel) return;
-  if (!myOrders || myOrders.length === 0) {
-    panel.innerHTML = `<div class="bell-panel-empty">${t('bell_empty')}</div>`;
-    return;
-  }
-  const clearAllBtn = `
-    <div class="orders-status-header">
-      <button class="orders-clear-all-btn" onclick="dismissAllMyOrders()">${t('bell_clear_all')}</button>
-    </div>`;
-  const items = myOrders.map(o => {
-    if (o.status === 'confirmed') {
-      return `
-        <div class="order-status-banner confirmed">
-          <div class="order-status-banner-text">
-            <span class="order-status-icon">✅</span>
-            <span>${t('bell_confirmed_text')} (${escapeHtml(o.pharmacyName)})</span>
-          </div>
-          <button class="order-status-dismiss" onclick="dismissMyOrder(${o.id})" aria-label="${t('bell_dismiss_aria')}">✕</button>
-        </div>`;
-    }
-    if (o.status === 'declined') {
-      return `
-        <div class="order-status-banner declined">
-          <div class="order-status-banner-text">
-            <span class="order-status-icon">ℹ️</span>
-            <span>${t('bell_declined_prefix')} (${escapeHtml(o.pharmacyName)}) ${t('bell_declined_suffix')}</span>
-          </div>
-          <button class="order-status-dismiss" onclick="dismissMyOrder(${o.id})" aria-label="${t('bell_dismiss_aria')}">✕</button>
-        </div>`;
-    }
-    return `
-      <div class="order-status-banner pending">
-        <div class="order-status-banner-text">
-          <span class="order-status-icon">⏳</span>
-          <span>${t('bell_pending_prefix')} (${escapeHtml(o.pharmacyName)}) ${t('bell_pending_suffix')}</span>
-        </div>
-        <button class="order-status-dismiss" onclick="dismissMyOrder(${o.id})" aria-label="${t('bell_dismiss_aria')}">✕</button>
-      </div>`;
-  }).join('');
-  panel.innerHTML = clearAllBtn + items;
-}
+  // تجاوز يدوي مؤقت: التاريخ الذي أعلن فيه الصيدلي إغلاقاً استثنائياً بصيغة
+  // "YYYY-MM-DD" بتوقيت دمشق. يُقارَن بتاريخ اليوم، فيسقط أثره تلقائياً غداً
+  // دون أي إجراء من الصيدلي.
+  await pool.query(`ALTER TABLE pharmacies ADD COLUMN IF NOT EXISTS closed_override_date TEXT;`);
 
-// تحديث خفيف: بيحدّث العداد دائماً، وبيعيد رسم السلة كاملة بس لو كانت مفتوحة فعلاً وقت الحذف
-// (لازم renderCart كاملة هون لأنه صف الجرس نفسه لازم يختفي لو صفرنا آخر طلب)
-function refreshBellUI() {
-  updateBellBadge();
-  const cartSection = document.getElementById('cart-section');
-  // صف الجرس لا يظهر في السلة إلا وهي فارغة. والسلة فيها أدوية تحمل نموذج الطلب: إعادة رسمه
-  // كانت تستبدل حقل الاسم بينما المريض يكتب فيه (حين يصل رد صيدلية على طلب سابق)، فيملأ الملء
-  // التلقائي الحقل القديم المحذوف ويبقى في الجديد أول حرف فقط.
-  if (cartSection && cartSection.style.display !== 'none' && cart.length === 0) renderCart();
-}
+  await pool.query(`ALTER TABLE pharmacies ADD COLUMN IF NOT EXISTS latitude DOUBLE PRECISION;`);
+  await pool.query(`ALTER TABLE pharmacies ADD COLUMN IF NOT EXISTS longitude DOUBLE PRECISION;`);
+  await pool.query(`UPDATE pharmacies SET verified = true WHERE verified IS NULL;`);
 
-function dismissMyOrder(id) {
-  myOrders = myOrders.filter(o => o.id !== id);
-  saveMyOrders();
-  refreshBellUI();
-}
+  // تعبئة السجلات القديمة بسلمية — هي الواقع الفعلي لكل الصيدليات المسجّلة حتى الآن.
+  // آمن ومتكرر: يمس الصفوف الفارغة فقط، فتشغيله مراراً لا يغيّر أي مدينة محدّدة.
+  await pool.query(`UPDATE pharmacies SET city = 'salamiyah' WHERE city IS NULL;`);
 
-// مسح كل إشعارات حالة الطلبات دفعة وحدة (مفيد لتنظيف طلبات تجريبية/مكررة قديمة بضغطة وحدة)
-function dismissAllMyOrders() {
-  myOrders = [];
-  saveMyOrders();
-  stopMyOrdersPolling();
-  refreshBellUI();
-}
+  // ترحيل آمن: يضيف الأعمدة الجديدة إذا كانت قاعدة البيانات منشأة من نسخة سابقة
+  await pool.query(`ALTER TABLE pharmacies ADD COLUMN IF NOT EXISTS on_duty_shift TEXT;`);
+  await pool.query(`ALTER TABLE pharmacies ADD COLUMN IF NOT EXISTS on_duty_start_time TEXT;`);
+  await pool.query(`ALTER TABLE pharmacies ADD COLUMN IF NOT EXISTS on_duty_end_time TEXT;`);
 
-let myOrdersPollInterval = null;
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS stock (
+      pharmacy_id INTEGER REFERENCES pharmacies(id) ON DELETE CASCADE,
+      medicine_id INTEGER REFERENCES medicines(id) ON DELETE CASCADE,
+      available BOOLEAN DEFAULT false,
+      PRIMARY KEY (pharmacy_id, medicine_id)
+    );
+  `);
+  // تاريخا الصنع والانتهاء خاصان بدفعة كل صيدلية من الدواء — أداة داخلية للصيدلي فقط، ما بتظهر للمريض إطلاقاً
+  await pool.query(`ALTER TABLE stock ADD COLUMN IF NOT EXISTS manufacture_date DATE;`);
+  await pool.query(`ALTER TABLE stock ADD COLUMN IF NOT EXISTS expiry_date DATE;`);
+  // ⚠️ يجب أن يبقى بعد CREATE TABLE stock: كان قبله فيتعطل الإقلاع على قاعدة جديدة.
+  // وقت آخر تحديث للمخزون — أهم عمود لثقة المريض.
+  // بدونه يرى "متوفر" دون أن يعرف إن كانت المعلومة عمرها ساعة أم شهر.
+  // يبقى NULL للسجلات القديمة عمداً: لا نعرف متى حُدّثت فعلاً، وادعاء وقت لم يحدث
+  // أسوأ من عدم عرض شيء. تُملأ تلقائياً عند أول تحديث يقوم به الصيدلي.
+  await pool.query(`ALTER TABLE stock ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP;`);
 
-function startMyOrdersPolling() {
-  if (myOrdersPollInterval) return;
-  checkMyOrdersStatus();
-  myOrdersPollInterval = setInterval(whenVisible(checkMyOrdersStatus), POLL_MY_ORDERS_MS);
-}
+  // طلبات المرضى: كل طلب مرتبط بصيدلية واحدة (السلة الواحدة ممكن تنقسم لعدة طلبات لو فيها صيدليات مختلفة)
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS orders (
+      id SERIAL PRIMARY KEY,
+      pharmacy_id INTEGER REFERENCES pharmacies(id) ON DELETE CASCADE,
+      patient_name TEXT NOT NULL,
+      patient_phone TEXT NOT NULL,
+      items JSONB DEFAULT '[]',
+      seen BOOLEAN DEFAULT false,
+      status TEXT DEFAULT 'pending',
+      created_at TIMESTAMP DEFAULT NOW()
+    );
+  `);
+  // ملاحظة نصية اختيارية من المريض (مثلاً توضيح إضافي لو خط الطبيب مو واضح) — بتظهر للصيدلي مع الطلب
+  await pool.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS notes TEXT;`);
+  await pool.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'pending';`);
+  // حذف ناعم للطلبات. السبب: كل إحصاءات المنصة (إجمالي الطلبات، النوافذ الزمنية،
+  // أكثر الأدوية طلباً، أنشط الصيدليات) محسوبة من جدول orders. الحذف النهائي السابق
+  // كان يمحو الصف فتضيع معه الإحصاءات — أي أن الصيدلية الأنشط (التي تنظّف قائمتها
+  // باستمرار) كانت تظهر بأقل الأرقام، وهو عكس المطلوب تماماً.
+  // الآن يُعلَّم الصف كمحذوف فيختفي عن الصيدلي، ويبقى محسوباً بالإحصاءات.
+  await pool.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP;`);
 
-function stopMyOrdersPolling() {
-  if (myOrdersPollInterval) {
-    clearInterval(myOrdersPollInterval);
-    myOrdersPollInterval = null;
-  }
-}
-
-async function checkMyOrdersStatus() {
-  if (!myOrders || myOrders.length === 0) { stopMyOrdersPolling(); return; }
+  // ⚠️ يجب أن يبقى بعد CREATE TABLE orders، وإلا تعطل الإقلاع على قاعدة جديدة.
+  // مفتاح تفرّد لكل محاولة إرسال طلب، يمنع تكرار الطلب عند الفشل الملتبس.
+  //
+  // المشكلة: المريض يرسل الطلب فيصل الخادم ويُحفظ، ثم يضيع الرد في الطريق
+  // (انقطاع لحظي، شائع على الشبكة المحمولة). يرى "تعذّر الاتصال" فيظن الطلب فشل،
+  // والسلة باقية، فيرسل مجدداً — فيتلقى الصيدلي طلبين متطابقين.
+  //
+  // الحل: الواجهة ترسل مفتاحاً ثابتاً لكل سلة، ويعيده المريض مع كل إعادة محاولة.
+  // الفهرس الفريد على (المفتاح، الصيدلية) يضمن طلباً واحداً لكل صيدلية لكل سلة،
+  // حتى لو وصل طلبان في اللحظة ذاتها — فالضمان في القاعدة لا في منطق التطبيق.
+  //
+  // جزئي (WHERE request_key IS NOT NULL) عن قصد: الطلبات القديمة بلا مفتاح،
+  // وبدون الشرط لتصادمت فيما بينها.
+  await pool.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS request_key TEXT;`);
   try {
-    // و1: نسأل عن الطلبات التي لم يُجب عليها فقط، وأحدث 100 منها (حد الخادم). كانت كل
-    // الطلبات تُرسل، فيقص الخادم الزائد عن 100، فيُحكم على الطلب الجديد الغائب من الرد
-    // بأنه «تعذّر تجهيزه» وهو ما زال قيد المراجعة
-    const asked = myOrders.filter(o => !isOrderAnswered(o)).slice(-100);
-    if (asked.length === 0) { stopMyOrdersPolling(); return; }
-    const ids = asked.map(o => o.id).join(',');
-    const res = await fetchWithTimeout(`${API}/orders/status?ids=${ids}`, {}, 15000);
-    const rows = await readJsonOk(res);
-    let newlyConfirmed = false;
-    asked.forEach(local => {
-      if (isOrderAnswered(local)) return;   // حالة نهائية: لا تتغير بعد ذلك
-      const found = rows.find(r => r.id === local.id);
-      // الخادم يعيد الطلب المحذوف بحالته الحقيقية (مؤكد، أو "تعذّر التجهيز" إن حُذف دون تأكيد).
-      // الطلب الغائب كلياً لم يعد موجوداً أصلاً (حُذفت صيدليته أو بدأ الإطلاق الرسمي)، فلن
-      // يُجهَّز: نعرضه "تعذّر التجهيز" لا "مؤكداً"، كي لا يذهب المريض ظاناً أن دواءه محجوز.
-      const next = !found ? 'declined'
-                 : (found.status === 'confirmed' || found.status === 'declined') ? found.status
-                 : null;
-      if (next) { local.status = next; newlyConfirmed = true; }
-    });
-
-    // ما منلمس أي عنصر بالصفحة إلا إذا صار تغيير فعلي — تجنباً لأي إعادة رسم بلا داعي
-    if (newlyConfirmed) {
-      saveMyOrders();
-      refreshBellUI();
-    }
-    if (myOrders.every(isOrderAnswered)) stopMyOrdersPolling();
-  } catch (err) { /* تجاهل بصمت، رح يعيد المحاولة بالجولة الجاية */ }
-}
-
-// ================= حالة الفتح والإغلاق =================
-// المشكلة التي تحلها: مريض يبحث ليلاً فيرى "متوفر"، فيرسل طلباً لا يأتيه رد،
-// ثم يتصل بالصيدلي في ساعة متأخرة فيزعجه.
-//
-// الحساب آلي من ساعات الدوام المحفوظة، لا بزر يضغطه الصيدلي يومياً. الزر اليدوي
-// يفترض التزاماً مرتين كل يوم طوال السنة، وأول ليلة يُنسى فيها تعود المشكلة أسوأ.
-
-const DAMASCUS_TZ = 'Asia/Damascus';
-
-// الوقت الحالي بدمشق بالدقائق منذ منتصف الليل.
-// نحسب بتوقيت دمشق صراحةً لا بتوقيت جهاز المريض: قد يفتح الموقع من الخليج أو
-// أوروبا، والصيدلية في سوريا. وIntl يتولى التوقيت الصيفي إن وُجد.
-function damascusNowMinutes() {
-  const parts = new Intl.DateTimeFormat('en-GB', {
-    timeZone: DAMASCUS_TZ, hour: '2-digit', minute: '2-digit', hour12: false
-  }).formatToParts(new Date());
-  const h = Number(parts.find(p => p.type === 'hour').value);
-  const m = Number(parts.find(p => p.type === 'minute').value);
-  return h * 60 + m;
-}
-
-function damascusTodayDate() {
-  return new Intl.DateTimeFormat('en-CA', {
-    timeZone: DAMASCUS_TZ, year: 'numeric', month: '2-digit', day: '2-digit'
-  }).format(new Date());
-}
-
-// "HH:MM" إلى دقائق. نُرجع null لأي قيمة تالفة بدل صفر، فالصفر وقت صحيح
-// (منتصف الليل) وخلطه بالتالف يُنتج حالة خاطئة.
-function timeToMinutes(hhmm) {
-  if (typeof hhmm !== 'string') return null;
-  const m = hhmm.trim().match(/^(\d{1,2}):(\d{2})$/);
-  if (!m) return null;
-  const h = Number(m[1]), mi = Number(m[2]);
-  if (h < 0 || h > 23 || mi < 0 || mi > 59) return null;
-  return h * 60 + mi;
-}
-
-// تنسيق الوقت للعرض. نعرضه كما هو بنظام 24 ساعة: مألوف في سوريا، ويتجنّب
-// التباس ص/م الذي قد يجعل المريض يظن أن الصيدلية تفتح الثامنة مساءً.
-function formatTime(hhmm) {
-  return typeof hhmm === 'string' ? hhmm : '';
-}
-
-// حالة الصيدلية الآن.
-// تُرجع null حين لا نعرف: صيدلية بلا ساعات محفوظة لا تُعرض لها أي حالة، فلا
-// ندّعي ما لا نعرف — نفس مبدأ زر واتساب وزر الاتجاهات.
-//
-// ترتيب الأولويات مقصود:
-//   1) المناوبة تتجاوز كل شيء: صيدلية مناوبة الليلة مفتوحة وإن قال جدولها غير ذلك.
-//   2) الإغلاق الاستثنائي لليوم يتجاوز الجدول المعتاد.
-//   3) الجدول المعتاد.
-function pharmacyOpenState(p) {
-  if (!p) return null;
-
-  if (p.on_duty === true) {
-    return { open: true, reason: 'duty', opensAt: p.opens_at || null };
-  }
-
-  const opens = timeToMinutes(p.opens_at);
-  const closes = timeToMinutes(p.closes_at);
-  const hasHours = opens !== null && closes !== null && opens !== closes;
-
-  // إغلاق استثنائي معلن لليوم نفسه. نقارن التاريخ لا نكتفي بوجود القيمة،
-  // فيسقط الإعلان تلقائياً غداً دون أي إجراء من الصيدلي.
-  if (p.closed_override_date && p.closed_override_date === damascusTodayDate()) {
-    return { open: false, reason: 'today', opensAt: hasHours ? p.opens_at : null };
-  }
-
-  if (!hasHours) return null;
-
-  const now = damascusNowMinutes();
-  // دوام ممتد بعد منتصف الليل (مثل 09:00 إلى 01:00): وقت الإغلاق أصغر من الفتح،
-  // فالفترة المفتوحة هي اتحاد المجالين لا ما بينهما.
-  const isOpen = closes > opens
-    ? (now >= opens && now < closes)
-    : (now >= opens || now < closes);
-
-  return { open: isOpen, reason: 'schedule', opensAt: p.opens_at };
-}
-
-// شارة الحالة ببطاقة النتيجة وبطاقة المناوبة
-function openStateBadgeHtml(p) {
-  const st = pharmacyOpenState(p);
-  if (!st) return '';
-  if (st.open) return `<span class="open-badge open">🟢 ${t('open_now_badge')}</span>`;
-  if (st.reason === 'today') return `<span class="open-badge closed">🔴 ${t('closed_today_badge')}</span>`;
-  return `<span class="open-badge closed">🔴 ${tFormat('closed_opens_at', { time: formatTime(st.opensAt) })}</span>`;
-}
-
-// ================= الاتجاهات على الخريطة =================
-// قرار تصميمي: رابط خرائط جوجل، لا خريطة مدمجة.
-// السبب: الخريطة المدمجة تتطلب مفتاح Google Maps API وحساب فوترة ببطاقة — غير متاح
-// من سوريا. والرابط مجاني تماماً، ويعطي المريض أكثر مما تعطيه أي خريطة مدمجة:
-// ملاحة صوتية ومساراً وزحاماً مباشرة داخل تطبيق الخرائط على هاتفه.
-//
-// قرار ثانٍ: لا يظهر الزر إلا لصيدلية لها إحداثيات محفوظة — نفس مبدأ زر واتساب.
-// البديل (بحث بالاسم والمدينة) يقود المريض غالباً إلى لا نتيجة، وزر لا يوصل
-// إلى شيء يقرأه المريض كعطل في المنصة لا كنقص في بيانات الصيدلية.
-
-// هل للصيدلية موقع صالح؟ نتحقق من الاثنين معاً: إحداثي واحد بلا الآخر بلا معنى.
-function hasLocation(lat, lng) {
-  // نرفض الفراغ صراحةً قبل التحويل: Number(null) و Number('') يعطيان صفراً،
-  // فنصف موقع (خط عرض موجود وخط طول مفقود) كان يمر كنقطة (35.01, 0) —
-  // موقع حقيقي على الخريطة لكنه ليس موقع الصيدلية إطلاقاً.
-  const blank = v => v === undefined || v === null
-    || (typeof v === 'string' && v.trim() === '')
-    || (typeof v !== 'number' && typeof v !== 'string');
-  if (blank(lat) || blank(lng)) return false;
-
-  const a = Number(lat), b = Number(lng);
-  if (!Number.isFinite(a) || !Number.isFinite(b)) return false;
-  if (a === 0 && b === 0) return false;           // خطأ شائع لا موقع حقيقي
-  return a >= -90 && a <= 90 && b >= -180 && b <= 180;
-}
-
-// رابط الاتجاهات. api=1 هي الصيغة العامة الموثَّقة من جوجل: تفتح التطبيق على
-// الهاتف والموقع على الحاسوب، وتبدأ المسار من موقع المستخدم الحالي تلقائياً.
-function directionsLink(lat, lng) {
-  if (!hasLocation(lat, lng)) return null;
-  return `https://www.google.com/maps/dir/?api=1&destination=${Number(lat)},${Number(lng)}`;
-}
-
-// رابط معاينة نقطة (يستخدمه الصيدلي للتأكد من موقعه المحفوظ)
-function mapPreviewLink(lat, lng) {
-  if (!hasLocation(lat, lng)) return null;
-  return `https://www.google.com/maps/search/?api=1&query=${Number(lat)},${Number(lng)}`;
-}
-
-// noopener/noreferrer إلزامي أمنياً مع target=_blank: بدونه تتحكم الصفحة المفتوحة
-// بصفحتنا عبر window.opener.
-function openDirections(lat, lng) {
-  const url = directionsLink(lat, lng);
-  if (!url) return;
-  window.open(url, '_blank', 'noopener,noreferrer');
-}
-
-function onDirectionsClick(btn) {
-  openDirections(btn.getAttribute('data-lat'), btn.getAttribute('data-lng'));
-}
-
-// زر الاتجاهات ببطاقة النتيجة وبطاقة المناوبة
-// short: في بطاقة النتائج الأزرار الثلاثة متساوية العرض، فيكفي «الخريطة»
-function directionsBtnHtml(lat, lng, short = false) {
-  if (!hasLocation(lat, lng)) return '';
-  return `<button type="button" class="directions-btn" data-lat="${escapeHtml(String(lat))}"
-            data-lng="${escapeHtml(String(lng))}" title="${t('directions_btn_title')}"
-            onclick="onDirectionsClick(this)">
-            ${short ? t('directions_btn_short') : `<span class="directions-icon">🗺️</span> ${t('directions_btn')}`}
-          </button>`;
-}
-
-// ================= تكامل واتساب =================
-// قرار تصميمي: روابط wa.me مباشرة، صفر WhatsApp Business API.
-// السبب: الـAPI الرسمي يتطلب حساب أعمال موثَّقاً ورقماً مخصصاً وتكلفة شهرية لكل محادثة
-// وموافقة من Meta، وخادماً يستقبل Webhooks لا ينام — وخطة Render المجانية تنام.
-// رابط wa.me يحقق الهدف نفسه للمريض بصفر تكلفة وصفر تبعية خارجية.
-//
-// قرار ثانٍ: المنصة لا تتوسط المحادثة. المريض يراسل الصيدلية مباشرة، فلا تتحول
-// المنصة (ولا مالكها) إلى مكتب دعم يتلقى أسئلة دوائية ليلاً — وهذا يجعل النموذج
-// قابلاً للتوسع فعلاً.
-
-// بناء رابط واتساب. نرجّع null لا رابطاً معطوباً حين لا يوجد رقم،
-// حتى يقرر المستدعي إخفاء الزر بدل عرض رابط ميت.
-function waLink(phone, message) {
-  const digits = String(phone || '').replace(/\D/g, '');
-  if (!digits) return null;
-  return `https://wa.me/${digits}?text=${encodeURIComponent(message || '')}`;
-}
-
-// فتح محادثة واتساب. noopener/noreferrer إلزامي أمنياً مع target=_blank:
-// بدونه تستطيع الصفحة المفتوحة التحكم بصفحتنا عبر window.opener.
-function openWhatsapp(phone, message) {
-  const url = waLink(phone, message);
-  if (!url) return;
-  window.open(url, '_blank', 'noopener,noreferrer');
-}
-
-// زر واتساب داخل بطاقة نتيجة البحث — برسالة جاهزة تذكر اسم الدواء.
-// فائدتها مزدوجة: المريض لا يكتب شيئاً، والصيدلي يعرف عمّ يُسأل فور فتح المحادثة.
-function waResultBtnHtml(phone, medicineName) {
-  if (!phone) return '';
-  const msg = tFormat('wa_msg_medicine', { medicine: medicineName });
-  // نمرّر القيم عبر data-* لا داخل onclick: أسماء الأدوية قد تحوي علامات اقتباس
-  // تكسر السمة، وescapeHtml وحده لا يكفي داخل سياق JavaScript.
-  return `<button type="button" class="wa-result-btn" data-wa-phone="${escapeHtml(phone)}"
-            data-wa-msg="${escapeHtml(msg)}" onclick="onWaResultClick(this)">
-            <span class="wa-icon">💬</span> ${t('wa_result_btn')}
-          </button>`;
-}
-
-function onWaResultClick(btn) {
-  openWhatsapp(btn.getAttribute('data-wa-phone'), btn.getAttribute('data-wa-msg'));
-}
-
-// ---------- لوحة الاستشارة الدوائية ----------
-// مدخل مستقل عن البحث عن دواء عن قصد: أسئلة الوصفة غير الواضحة والجرعة والبديل
-// الدوائي لا تبدأ باسم دواء، فلا يخدمها زر داخل نتيجة بحث.
-let waPanelOpen = false;
-
-function openWhatsappPanel() {
-  const panel = document.getElementById('wa-panel');
-  if (!panel) return;
-  waPanelOpen = true;
-  panel.style.display = 'flex';
-  document.body.classList.add('wa-panel-lock');   // منع تمرير الصفحة خلف اللوحة
-  loadWhatsappPharmacies();
-  // نقل التركيز للوحة: ضروري لمستخدمي لوحة المفاتيح وقارئات الشاشة
-  dialogOpened(panel, document.getElementById('wa-panel-close'));
-}
-
-function closeWhatsappPanel() {
-  const panel = document.getElementById('wa-panel');
-  if (!panel) return;
-  waPanelOpen = false;
-  panel.style.display = 'none';
-  document.body.classList.remove('wa-panel-lock');
-  dialogClosed(panel);
-}
-
-// إغلاق بالنقر على الخلفية فقط، لا على محتوى اللوحة نفسه
-function onWaOverlayClick(e, el) {
-  if (e.target === el) closeWhatsappPanel();
-}
-
-async function loadWhatsappPharmacies() {
-  const list = document.getElementById('wa-panel-list');
-  if (!list) return;
-  list.innerHTML = `<p class="muted" style="padding:14px 2px;">${t('wa_consult_loading')}</p>`;
-  try {
-    // نحترم فلتر المدينة المختار بالصفحة الرئيسية: المريض يريد صيدلية يمكنه زيارتها
-    const cityParam = currentCity ? `?city=${encodeURIComponent(currentCity)}` : '';
-    const res = await fetchWithTimeout(`${API}/pharmacies/whatsapp${cityParam}`, { cache: 'no-store' }, 15000);
-    if (!res.ok) throw new Error('fetch failed');
-    const data = await res.json();
-    // اللوحة قد تُغلق بينما الطلب جارٍ — نتجاهل النتيجة حينها بدل الكتابة فوق DOM مخفي
-    if (!waPanelOpen) return;
-
-    if (!Array.isArray(data) || data.length === 0) {
-      list.innerHTML = `<p class="muted" style="padding:14px 2px;">${currentCity ? t('wa_consult_empty_city') : t('wa_consult_empty')}</p>`;
-      return;
-    }
-    list.innerHTML = data.map(p => {
-      const msg = t('wa_msg_consult');
-      return `
-        <div class="wa-pharmacy-row">
-          <div class="wa-pharmacy-info">
-            <span class="wa-pharmacy-name"><bdi>${escapeHtml(p.name)}</bdi>${verifiedBadgeHtml(p.verified)}</span>
-            <span class="wa-pharmacy-meta">
-              ${p.city ? `<span>📍 <bdi>${escapeHtml(cityName(p.city))}</bdi></span>` : ''}
-              ${p.address ? `<span class="admin-ph-sep">•</span><span><bdi>${escapeHtml(p.address)}</bdi></span>` : ''}
-              ${p.on_duty ? `<span class="badge yes">${t('wa_onduty_now')}</span>` : ''}
-            </span>
-          </div>
-          <button type="button" class="wa-chat-btn" data-wa-phone="${escapeHtml(p.whatsapp_phone)}"
-                  data-wa-msg="${escapeHtml(msg)}" onclick="onWaResultClick(this)">
-            <span class="wa-icon">💬</span> ${t('wa_chat_btn')}
-          </button>
-        </div>`;
-    }).join('');
+    await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS orders_request_key_pharmacy
+                      ON orders (request_key, pharmacy_id) WHERE request_key IS NOT NULL;`);
   } catch (err) {
-    if (!waPanelOpen) return;
-    list.innerHTML = `<p class="muted" style="padding:14px 2px;">${t('wa_consult_error')}</p>`;
+    // فشل إنشاء الفهرس يجب ألا يوقف الإقلاع؛ الطلبات تعمل بدونه وإن فقدت الحماية
+    console.error('تعذّر إنشاء فهرس تفرّد الطلبات (لا يمنع الإقلاع):', err.message);
   }
-}
 
-// Escape يغلق اللوحة — متوقَّع في أي نافذة منبثقة، وضروري لمن يتنقل بلوحة المفاتيح.
-// نستخدم capture ونتحقق من فتح اللوحة أولاً حتى لا نعترض Escape الخاص بأي عنصر آخر.
-document.addEventListener('keydown', function (e) {
-  if (e.key === 'Escape' && waPanelOpen) {
-    e.preventDefault();
-    closeWhatsappPanel();
+  // خدمات التمريض
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS nurses (
+      id SERIAL PRIMARY KEY,
+      name TEXT NOT NULL,
+      specialty TEXT,
+      university TEXT,
+      graduation_year TEXT,
+      phone TEXT,
+      available BOOLEAN DEFAULT true
+    );
+  `);
+
+  // بطاقة الخبرة والشهادة (سبتمبر 2026). كلها اختيارية فلا تتأثر السجلات القديمة.
+  // مسار الشهادة ونوعها وحجمها للإدارة وحدها: مسار GET /api/nurses العام لا يُرسلها أبداً.
+  // cert_verified يعني أن المدير راجع الشهادة بنفسه، ويعود false تلقائياً عند رفع شهادة جديدة.
+  for (const col of [
+    'experience_years INTEGER', 'services TEXT', 'cert_path TEXT', 'cert_mime TEXT',
+    'cert_size INTEGER', 'cert_uploaded_at TIMESTAMP', 'cert_verified BOOLEAN DEFAULT false'
+  ]) {
+    await pool.query(`ALTER TABLE nurses ADD COLUMN IF NOT EXISTS ${col};`);
   }
-});
-
-function headerGoNursing(link) {
-  applyNursingHeroText();
-  setHeroSearchVisible(false);
-  showView('nursing');
-  document.getElementById('on-duty-section').style.display = 'none';
-  updateCartVisibility();
-  window.scrollTo({ top: 0, behavior: 'smooth' });
-  setActiveNav(link);
-  loadNurses().then(startNursingPolling);
-}
-
-// نافذة عامة لعرض محتوى طويل (الأسئلة الشائعة، حول الموقع) — منفصلة عن showModal المخصصة للتنبيهات القصيرة
-let infoModalEscHandler = null;
-
-function openInfoModal() {
-  const overlay = document.getElementById('info-modal-overlay');
-  overlay.style.display = 'flex';
-  document.body.classList.add('modal-open');
-  if (infoModalEscHandler) document.removeEventListener('keydown', infoModalEscHandler);
-  infoModalEscHandler = (e) => { if (e.key === 'Escape') closeInfoModal(); };
-  document.addEventListener('keydown', infoModalEscHandler);
-  dialogOpened(overlay.querySelector('.info-modal-box'), document.getElementById('info-modal-close'));
-}
-
-function closeInfoModal() {
-  document.getElementById('info-modal-overlay').style.display = 'none';
-  document.body.classList.remove('modal-open');
-  if (infoModalEscHandler) {
-    document.removeEventListener('keydown', infoModalEscHandler);
-    infoModalEscHandler = null;
+  // مكان عمل الممرض (أكتوبر 2026): المدينة والحي يراهما المريض، والشارع لمديري التمريض
+  // والإدارة وحدهم لتخطيط التغطية، لأنه قد يكون عنوان بيت الممرض. كلها اختيارية.
+  for (const col of ['city TEXT', 'area TEXT', 'street TEXT']) {
+    await pool.query(`ALTER TABLE nurses ADD COLUMN IF NOT EXISTS ${col};`);
   }
-  dialogClosed(document.querySelector('#info-modal-overlay .info-modal-box'));
-}
 
-// أزواج مفاتيح (سؤال، جواب) — مقسّمة لقسمين (مريض/زائر، ثم صيدلي) — النصوص كلها ثابتة من قاموس الترجمة، مش بيانات مستخدم
-const FAQ_PATIENT_KEYS = [
-  ['faq_q1', 'faq_a1'], ['faq_q2', 'faq_a2'], ['faq_q3', 'faq_a3'], ['faq_q4', 'faq_a4'],
-  ['faq_q5', 'faq_a5'], ['faq_q6', 'faq_a6'], ['faq_q7', 'faq_a7']
-];
-const FAQ_PHARMACIST_KEYS = [
-  ['faq_q8', 'faq_a8'], ['faq_q9', 'faq_a9'], ['faq_q10', 'faq_a10'],
-  ['faq_q11', 'faq_a11'], ['faq_q12', 'faq_a12'], ['faq_q13', 'faq_a13'], ['faq_q14', 'faq_a14']
-];
-
-function renderFaqItems(keys) {
-  return keys.map(([qKey, aKey]) => `
-    <details class="faq-item">
-      <summary>${escapeHtml(t(qKey))}</summary>
-      <p>${escapeHtml(t(aKey))}</p>
-    </details>
-  `).join('');
-}
-
-function showFaq() {
-  document.getElementById('info-modal-title').textContent = t('faq_title');
-  document.getElementById('info-modal-body').innerHTML = `
-    <h3>${escapeHtml(t('faq_section_patient'))}</h3>
-    ${renderFaqItems(FAQ_PATIENT_KEYS)}
-    <h3>${escapeHtml(t('faq_section_pharmacist'))}</h3>
-    ${renderFaqItems(FAQ_PHARMACIST_KEYS)}
-  `;
-  openInfoModal();
-}
-
-function showAboutUs() {
-  document.getElementById('info-modal-title').textContent = t('about_title');
-  document.getElementById('info-modal-body').innerHTML = t('about_content_html');
-  openInfoModal();
-}
-
-function formatTime12(t) {
-  if (!t) return '';
-  const [h, m] = t.split(':').map(Number);
-  let hour12 = h % 12;
-  if (hour12 === 0) hour12 = 12;
-  const mm = String(m).padStart(2, '0');
-  if (currentLang === 'en') {
-    return `${hour12}:${mm} ${h >= 12 ? 'PM' : 'AM'}`;
+  // طلبات المرضى لزيارة تمريضية (أكتوبر 2026). تصل إلى مدير التمريض فيتصل بالمريض
+  // والممرض. اسم الممرض يُحفظ مع الطلب كي يبقى مقروءاً إن حُذف الممرض لاحقاً. تحمل رقم
+  // هاتف المريض، فتُحذف تلقائياً بعد 30 يوماً (deleteOldNurseRequests).
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS nurse_requests (
+      id SERIAL PRIMARY KEY,
+      nurse_id INTEGER REFERENCES nurses(id) ON DELETE SET NULL,
+      nurse_name TEXT,
+      patient_name TEXT NOT NULL,
+      patient_phone TEXT NOT NULL,
+      patient_area TEXT,
+      notes TEXT,
+      status TEXT NOT NULL DEFAULT 'new',
+      created_at TIMESTAMP DEFAULT NOW(),
+      contacted_at TIMESTAMP
+    );
+  `);
+  await pool.query(`CREATE INDEX IF NOT EXISTS nurse_requests_created ON nurse_requests (created_at);`);
+  // إشعارات الممرض نفسه (أكتوبر 2026): هل أُرسل له إشعار بالطلب (لمنع تكراره ولإشعار الإلغاء)،
+  // ومتى قال إنه تواصل مع المريض.
+  for (const col of ['nurse_notified BOOLEAN NOT NULL DEFAULT false', 'nurse_contacted_at TIMESTAMP']) {
+    await pool.query(`ALTER TABLE nurse_requests ADD COLUMN IF NOT EXISTS ${col};`);
   }
-  return `${hour12}:${mm} ${h >= 12 ? 'م' : 'ص'}`;
-}
+  // رابط الممرض الخاص: رمز عشوائي طويل يفتح صفحته (طلباته وإشعاراته) دون كلمة مرور.
+  // ينشئه مدير التمريض أو الإدارة، وإعادة إنشائه تُبطل القديم فوراً.
+  await pool.query(`ALTER TABLE nurses ADD COLUMN IF NOT EXISTS notify_token TEXT;`);
+  await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS nurses_notify_token ON nurses (notify_token) WHERE notify_token IS NOT NULL;`);
 
-// أيام الأسبوع وفترات المناوبة قيم ثابتة معروفة (مش نص حر)، فآمن نترجم عرضها فقط
-const DUTY_DAY_EN = { 'الأحد': 'Sunday', 'الاثنين': 'Monday', 'الثلاثاء': 'Tuesday', 'الأربعاء': 'Wednesday', 'الخميس': 'Thursday', 'الجمعة': 'Friday', 'السبت': 'Saturday' };
-const DUTY_SHIFT_EN = { 'طوال اليوم': 'All day', 'صباحاً': 'Morning only', 'مساءً': 'Evening only' };
-function translateDutyDay(day) { return currentLang === 'en' ? (DUTY_DAY_EN[day] || day) : day; }
-function translateDutyShift(shift) { return currentLang === 'en' ? (DUTY_SHIFT_EN[shift] || shift) : shift; }
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS nurse_ratings (
+      id SERIAL PRIMARY KEY,
+      nurse_id INTEGER REFERENCES nurses(id) ON DELETE CASCADE,
+      patient_name TEXT NOT NULL,
+      patient_phone TEXT NOT NULL,
+      stars INTEGER NOT NULL,
+      comment TEXT,
+      status TEXT DEFAULT 'pending',
+      created_at TIMESTAMP DEFAULT NOW()
+    );
+  `);
 
-// ---------- واجهة المريض ----------
+  // سجل البحث المجهَّل — أساس "خريطة الطلب" لشركات الأدوية.
+  //
+  // ما لا يُخزَّن عمداً: عنوان IP، ومتصفح المستخدم، وأي معرّف جلسة أو حساب.
+  // والوقت مقرَّب إلى الساعة، فلا يمكن ربط سطر ببحث شخص بعينه حتى لو قورن بسجلات
+  // الخادم. النتيجة (وُجد، متوفر...) يحسبها الخادم بنفسه ولا يثق بما ترسله الواجهة،
+  // فلا يستطيع أحد تزييف إشارة "نقص" بإرسال بيانات مصطنعة.
+  //
+  // ⚠️ بعد إنشاء جدول medicines: المفتاح الأجنبي يشير إليه.
+  // ON DELETE SET NULL: حذف دواء من القائمة لا يمحو تاريخ الطلب عليه.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS search_log (
+      id SERIAL PRIMARY KEY,
+      query_norm TEXT NOT NULL,
+      category TEXT NOT NULL,
+      city TEXT,
+      matched_count INTEGER NOT NULL DEFAULT 0,
+      top_medicine_id INTEGER REFERENCES medicines(id) ON DELETE SET NULL,
+      any_tracked BOOLEAN NOT NULL DEFAULT false,
+      any_available BOOLEAN NOT NULL DEFAULT false,
+      created_hour TIMESTAMP NOT NULL DEFAULT date_trunc('hour', NOW())
+    );
+  `);
+  await pool.query(`CREATE INDEX IF NOT EXISTS search_log_created ON search_log (created_hour);`);
 
-// سطور الشرح تحت صفوف الواجهة الأولى، وسطر الثقة. عدد المناوبات حقيقي من آخر قائمة
-// مناوبة جُلبت (تُجلب أصلاً عند فتح الموقع وعند تغيير المدينة)، وقبل وصولها نص عام.
-let heroDutyCount = null;
-function renderHeroRowSubs() {
-  const duty = document.getElementById('duty-now-btn-sub');
-  if (duty) {
-    if (heroDutyCount === null) duty.textContent = t('duty_row_default');
-    else {
-      const count = tPlural('duty_row_count', heroDutyCount);
-      duty.textContent = currentCity && heroDutyCount > 0 ? tFormat('duty_row_in_city', { count, city: cityName(currentCity) }) : count;
+  // إعدادات عامة للمنصة بصيغة مفتاح وقيمة. أول استخدام: تاريخ الإطلاق الرسمي.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS app_settings (
+      key TEXT PRIMARY KEY,
+      value TEXT,
+      updated_at TIMESTAMP DEFAULT NOW()
+    );
+  `);
+
+  // حماية RLS للجدولين الأحدث، لتبقى الجداول كلها على المستوى نفسه.
+  // كانت تُفعَّل يدوياً من لوحة Supabase، فلا تُطبَّق عند الاسترجاع إلى قاعدة جديدة.
+  // آمنة للتكرار (تفعيلها مرة ثانية لا يفعل شيئاً)، والخادم يتصل بصفته مالك الجداول
+  // فلا تقيّده. ملفوفة بـtry/catch: فشلها لا يمنع الإقلاع أبداً.
+  // إحصاءات الزيارات (أكتوبر 2026): أرقام مجمّعة فقط، سطر لكل يوم ونوع جهاز.
+  // لا عنوان IP ولا هوية ولا أي أثر لزائر بعينه، فلا يمكن أصلاً معرفة من زار.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS visit_daily (
+      day DATE NOT NULL,
+      device TEXT NOT NULL,
+      visits INTEGER NOT NULL DEFAULT 0,
+      PRIMARY KEY (day, device)
+    );
+  `);
+
+  // الإعلانات المباشرة (أكتوبر 2026): يبيعها صاحب المنصة لمعلنين محليين ويديرها من لوحته.
+  // الصورة في القاعدة نفسها بعد ضغطها في المتصفح (نحو 100 كيلوبايت)، فلا تحتاج إعداد
+  // تخزين خارجي. والعدّادان (الظهور والنقر) أرقام مجمّعة فقط، لا أثر لزائر بعينه.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS ads (
+      id SERIAL PRIMARY KEY,
+      advertiser TEXT NOT NULL,
+      link TEXT,
+      placement TEXT NOT NULL DEFAULT 'home',
+      starts_on DATE,
+      ends_on DATE,
+      active BOOLEAN NOT NULL DEFAULT true,
+      image BYTEA NOT NULL,
+      image_mime TEXT NOT NULL,
+      image_size INTEGER NOT NULL,
+      impressions INTEGER NOT NULL DEFAULT 0,
+      clicks INTEGER NOT NULL DEFAULT 0,
+      created_at TIMESTAMP DEFAULT NOW()
+    );
+  `);
+  // اسم المعلن بالإنكليزية وشرح قصير بالعربية والإنكليزية (أكتوبر 2026). اختيارية كلها،
+  // فالإعلانات القديمة تبقى كما هي، وحين يُترك الحقل الإنكليزي فارغاً يُعرض العربي.
+  for (const col of ['advertiser_en TEXT', 'description TEXT', 'description_en TEXT']) {
+    await pool.query(`ALTER TABLE ads ADD COLUMN IF NOT EXISTS ${col};`);
+  }
+
+  // اشتراكات إشعارات الهاتف (أكتوبر 2026): جهاز لكل صف، ودور (admin أو manager أو pharmacy)،
+  // والصيدلية إن كان الدور صيدلية. الجهاز الواحد قد يشترك بأكثر من دور. حذف الصيدلية يحذف
+  // اشتراكاتها. لا تحمل أي بيانات مريض: عنوان خدمة الإشعارات ومفتاحا التشفير فقط.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS push_subscriptions (
+      id SERIAL PRIMARY KEY,
+      endpoint TEXT NOT NULL,
+      p256dh TEXT NOT NULL,
+      auth TEXT NOT NULL,
+      role TEXT NOT NULL,
+      pharmacy_id INTEGER REFERENCES pharmacies(id) ON DELETE CASCADE,
+      lang TEXT NOT NULL DEFAULT 'ar',
+      fail_count INTEGER NOT NULL DEFAULT 0,
+      created_at TIMESTAMP DEFAULT NOW(),
+      last_ok_at TIMESTAMP,
+      UNIQUE (endpoint, role)
+    );
+  `);
+  // اشتراك الممرض مربوط بالممرض نفسه: حذفه يحذف اشتراكاته
+  await pool.query(`ALTER TABLE push_subscriptions ADD COLUMN IF NOT EXISTS nurse_id INTEGER REFERENCES nurses(id) ON DELETE CASCADE;`);
+
+  for (const table of ['search_log', 'app_settings', 'visit_daily', 'ads', 'nurse_requests', 'push_subscriptions']) {
+    try {
+      await pool.query(`ALTER TABLE ${table} ENABLE ROW LEVEL SECURITY;`);
+    } catch (err) {
+      console.error(`تعذّر تفعيل RLS على ${table} (لا يمنع الإقلاع):`, err.message);
     }
   }
-  const wa = document.getElementById('whatsapp-btn-sub');
-  if (wa) wa.textContent = t('wa_row_sub');
-  const cartSub = document.getElementById('cart-btn-sub');
-  if (cartSub) cartSub.textContent = t('cart_row_sub');
-  const trust = document.getElementById('hero-trust-text');
-  if (trust) trust.textContent = t('hero_trust');
-}
 
-let lastOnDutySnapshot = null;
-// و5: رقم آخر طلب للمناوبة. رد متأخر لمدينة سابقة (تحديث دوري بدأ قبل تغيير المدينة)
-// كان يُعرض فوق قائمة المدينة الجديدة؛ الآن يُهمل كل رد ليس لآخر طلب
-let onDutySeq = 0;
+  const { rows } = await pool.query('SELECT COUNT(*) FROM medicines');
+  if (Number(rows[0].count) === 0) {
+    const defaults = [
+      ['بنادول', 'باراسيتامول', ['بندول', 'panadol', 'paracetamol']],
+      ['سيتامول', 'باراسيتامول', ['paracetamol', 'panadol']],
+      ['بروسبان', 'مستخلص أوراق اللبلاب', ['bruspan', 'شراب سعال']],
+      ['أوجمنتين', 'أموكسيسيلين + كلافولانيك', ['augmentin']],
+      ['فولتارين', 'ديكلوفيناك', ['voltaren']]
+    ];
+    for (const [name, generic_name, alt_names] of defaults) {
+      await pool.query(
+        'INSERT INTO medicines (name, generic_name, alt_names) VALUES ($1, $2, $3)',
+        [name, generic_name, alt_names]
+      );
+    }
+  }
 
-async function loadOnDuty() {
-  const container = document.getElementById('on-duty-section');
-  const seq = ++onDutySeq;
+  // ⚠️ في آخر initDb عن قصد: يمس جداول الصيدليات والممرضين والأدوية، فيجب أن
+  // تكون كلها منشأة قبله. كان قبل جدول الممرضين فيتخطاه بصمت على قاعدة جديدة.
+  // تنظيف لمرة واحدة للمسافات الزائدة في البيانات المحفوظة سابقاً.
+  //
+  // آمن للتكرار: الشرط WHERE يطابق فقط ما لم يُنظَّف بعد، فتشغيله مع كل إقلاع
+  // لا يمس شيئاً بعد المرة الأولى.
+  //
+  // ⚠️ استثنينا medicines.name عمداً: عليه فهرس فريد (name, category)، فلو وُجد
+  // "بنادول" و"بنادول " معاً لأدى التنظيف إلى تصادم يُفشل التحديث.
+  //
+  // ⚠️ ملفوف بـtry/catch: فشل التنظيف يجب ألا يمنع الخادم من الإقلاع أبداً.
+  // موقع يعمل ببيانات فيها مسافة زائدة أفضل بكثير من موقع متوقف.
   try {
-    const cityParam = currentCity ? `?city=${encodeURIComponent(currentCity)}` : '';
-    const res = await fetchWithTimeout(`${API}/pharmacies/on-duty${cityParam}`, {}, 15000);
-    const data = await readJsonOk(res);
-    if (seq !== onDutySeq) return;
-    heroDutyCount = data.length;
-    renderHeroRowSubs();
-
-    // ما تغيّر شي بالبيانات؟ خلص، ما في داعي نعيد رسم الشاشة ونسبب وميض
-    const snapshot = JSON.stringify(data);
-    if (snapshot === lastOnDutySnapshot) return;
-    lastOnDutySnapshot = snapshot;
-
-    if (data.length === 0) {
-      container.innerHTML = `
-        <div class="duty-wrap">
-          <div class="empty-state">
-            <div class="empty-icon">🏥</div>
-            <p class="empty-title">${t('onduty_empty_title')}</p>
-            <p class="empty-subtitle">${t('onduty_empty_subtitle')}</p>
-          </div>
-        </div>
-      `;
-      return;
-    }
-    container.innerHTML = `
-      <div class="duty-wrap">
-        <h3>${t('onduty_title')}</h3>
-        <div class="duty-grid">
-          ${data.map(p => {
-            // اليوم والفترة والساعات يكتبها الصيدلي، فتمر كلها عبر escapeHtml قبل الصفحة:
-            // بدونها كان أي حساب صيدلية يستطيع حقن شيفرة تعمل في متصفح كل زائر
-            const extras = [];
-            if (p.on_duty_shift && p.on_duty_shift !== 'طوال اليوم') extras.push(escapeHtml(translateDutyShift(p.on_duty_shift)));
-            if (p.on_duty_start_time && p.on_duty_end_time) extras.push(escapeHtml(`${formatTime12(p.on_duty_start_time)} - ${formatTime12(p.on_duty_end_time)}`));
-            const timeLine = escapeHtml(translateDutyDay(p.on_duty_day || '')) + (extras.length ? ` (${extras.join(currentLang === 'en' ? ', ' : '، ')})` : '');
-            return `
-              <div class="duty-card">
-                <div class="duty-card-top">
-                  <span class="duty-card-name"><bdi>${escapeHtml(p.name)}</bdi>${verifiedBadgeHtml(p.verified)}${openStateBadgeHtml(p)}${p.city ? ` <span class="muted" style="font-size:13px;">- <bdi>${escapeHtml(cityName(p.city))}</bdi></span>` : ''}</span>
-                  ${hasLocation(p.latitude, p.longitude) ? `<div class="duty-card-actions">${directionsBtnHtml(p.latitude, p.longitude)}</div>` : ''}
-                  <span class="duty-status-badge">${t('onduty_now_badge')}</span>
-                </div>
-                ${p.address ? `<div class="duty-card-row"><span class="duty-icon">📍</span> ${escapeHtml(p.address)}</div>` : ''}
-                ${p.phone ? `<div class="duty-card-row"><span class="duty-icon">📞</span> ${escapeHtml(p.phone)}</div>` : ''}
-                ${p.assistant_phone ? `<div class="duty-card-row"><span class="duty-icon">📱</span> ${escapeHtml(p.assistant_phone)} <span class="muted" style="font-size:12px;">(${t('assistant_phone_label')})</span></div>` : ''}
-                <div class="duty-card-row"><span class="duty-icon">🕐</span> ${timeLine}</div>
-              </div>
-            `;
-          }).join('')}
-        </div>
-      </div>
-    `;
+    const norm = col => `btrim(regexp_replace(${col}, '\\s+', ' ', 'g'))`;
+    const dirty = col => `${col} IS NOT NULL AND ${col} <> ${norm(col)}`;
+    await pool.query(`UPDATE pharmacies SET name = ${norm('name')} WHERE ${dirty('name')};`);
+    await pool.query(`UPDATE pharmacies SET address = ${norm('address')} WHERE ${dirty('address')};`);
+    await pool.query(`UPDATE nurses SET name = ${norm('name')} WHERE ${dirty('name')};`);
+    await pool.query(`UPDATE nurses SET specialty = ${norm('specialty')} WHERE ${dirty('specialty')};`);
+    await pool.query(`UPDATE nurses SET university = ${norm('university')} WHERE ${dirty('university')};`);
+    await pool.query(`UPDATE medicines SET generic_name = ${norm('generic_name')} WHERE ${dirty('generic_name')};`);
   } catch (err) {
-    // كان الفشل يُفرغ القائمة ويُبقي اللقطة القديمة، فيرى الرد التالي البيانات نفسها
-    // ولا يعيد الرسم: تختفي القائمة حتى تتغير المناوبة. الآن: آخر قائمة سليمة تبقى ظاهرة،
-    // واللقطة تُمسح كي يرسم أول رد ناجح من جديد. وإن لم تُعرض قائمة قط، تظهر رسالة واضحة.
-    if (seq !== onDutySeq) return;
-    lastOnDutySnapshot = null;
-    if (!container.querySelector('.duty-card, .empty-state')) {
-      const kind = classifyFetchError(err);
-      container.innerHTML = `
-        <div class="duty-wrap">
-          <div class="empty-state">
-            <div class="empty-icon">${kind === 'offline' ? '📡' : '⚠️'}</div>
-            <p class="empty-title">${t('server_error_title')}</p>
-            <p class="empty-subtitle">${t(kind === 'offline' ? 'err_offline' : 'err_network')}</p>
-            <button type="button" class="refresh-results-btn" style="margin-top:12px;" onclick="retryOnDuty(this)">${t('retry_btn')}</button>
-          </div>
-        </div>`;
-    }
+    console.error('تعذّر تنظيف المسافات الزائدة (لا يمنع الإقلاع):', err.message);
   }
 }
 
-function retryOnDuty(btn) {
-  if (btn) btn.disabled = true;
-  document.getElementById('on-duty-section').innerHTML = skeletonHtml(2);
-  loadOnDuty();
-}
+// ---------- أدوات مساعدة للتشابه الإملائي ----------
 
-// ---------- خدمات التمريض ----------
-
-let nursesCache = [];
-
-// آخر نتائج بحث كاملة (دواء/مستحضر تجميل) — نستخدمها لتمرير مُعرّفات رقمية بس بالـonclick بدل النص الخام (حماية من كسر السمة)
-let lastSearchResultsCache = [];
-
-// ذاكرة مؤقتة لآخر بيانات مخزون/طلبات الصيدلي — عشان تبديل اللغة يعيد الرسم بس، بدون طلبات شبكة جديدة
-let pharmacistStockCache = [];
-let pharmacistOrdersCache = [];
-
-// خانات الهاتف: أرقام فقط. الأرقام العربية (٠١٢…) والفارسية (۰۱۲…) تُحوَّل إلى 0-9 بدل
-// أن تُحذف: لوحات المفاتيح العربية على أندرويد تكتبها افتراضياً، وكان حذفها يُفرغ الخانة
-// فلا يستطيع المريض إرسال طلبه. والخادم يقبل 0-9 فقط، فالتحويل هنا يكفيه.
-function digitsOnly(input) {
-  const v = input.value
-    .replace(/[\u0660-\u0669]/g, d => String(d.charCodeAt(0) - 0x0660))
-    .replace(/[\u06F0-\u06F9]/g, d => String(d.charCodeAt(0) - 0x06F0))
-    .replace(/[^0-9]/g, '');
-  if (v !== input.value) input.value = v;
-}
-
-// حماية النص قبل وضعه في HTML.
-//
-// ⚠️ كانت تعتمد على textContent ثم innerHTML، وهذا يحمي < > & فقط ولا يحمي علامات
-// التنصيص. داخل النص كان ذلك كافياً، أما داخل خصائص HTML مثل value="..." أو
-// data-wa-msg="..." فعلامة " تكسر حدود الخاصية. وكان لذلك أثران في 13 موضعاً:
-//   - رسالة واتساب الجاهزة تنقطع عند أول علامة تنصيص في قالبها، فيستلم الصيدلي
-//     "أريد شراء دواء " بلا اسم الدواء، حتى ببيانات سليمة تماماً.
-//   - اسم دواء خبيث مثل  x" onmouseover="...  يزرع كوداً في زر كل مريض يبحث عنه.
-// الآن تُحمى علامتا التنصيص المزدوجة والمفردة أيضاً، فتصلح الدالة لكل السياقين.
-function escapeHtml(str) {
-  return String(str == null ? '' : str)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
-
-function renderStars(count) {
-  const rounded = Math.round(count);
-  let html = '';
-  for (let i = 1; i <= 5; i++) html += i <= rounded ? '★' : '☆';
-  return `<span class="star-display">${html}</span>`;
-}
-
-function getRatedNurses() {
-  return readJsonArray('ratedNurses');
-}
-
-function hasRatedNurse(nurseId) {
-  return getRatedNurses().includes(nurseId);
-}
-
-function markNurseAsRated(nurseId) {
-  const list = getRatedNurses();
-  if (!list.includes(nurseId)) {
-    list.push(nurseId);
-    storageSet('ratedNurses', JSON.stringify(list));
-  }
-}
-
-let openNurseDetailIds = new Set();
-
-function renderNursesList(nurses) {
-  if (nurses.length === 0) {
-    return `
-      <div class="empty-state">
-        <div class="empty-icon">🩺</div>
-        <p class="empty-title">${t('nursing_empty_title')}</p>
-        <p class="empty-subtitle">${t('nursing_empty_subtitle')}</p>
-      </div>`;
-  }
-  return nurses.map(n => `
-    <div class="result-card">
-      <div class="result-card-top">
-        <span class="result-med-name">👤 ${escapeHtml(n.name)}${n.cert_verified ? `<span class="nurse-verified-badge">✓ ${t('nurse_verified_badge')}</span>` : ''}</span>
-        <span class="badge ${n.available ? 'yes' : 'no'}">${n.available ? t('nurse_available_full') : t('nurse_unavailable_full')}</span>
-      </div>
-      <div class="result-row">🎓 ${escapeHtml(n.specialty || t('general_nurse_label'))}</div>
-      ${nurseLocationText(n) ? `<div class="result-row">📍 ${escapeHtml(nurseLocationText(n))}</div>` : ''}
-      ${Number.isInteger(n.experience_years) && n.experience_years > 0 ? `<div class="result-row">⏳ ${t('nurse_experience_label')}: <bdi>${n.experience_years}</bdi></div>` : ''}
-      ${n.services ? `<div class="result-row">🩺 ${t('nurse_services_label')}: ${escapeHtml(n.services)}</div>` : ''}
-      <div class="result-row">
-        ${n.rating_count > 0
-          ? `${renderStars(n.avg_rating)} ${Number(n.avg_rating).toFixed(1)} ${tPlural('rating_summary_suffix', n.rating_count)}`
-          : `<span class="muted">${t('no_ratings_yet_short')}</span>`}
-      </div>
-      <button class="btn-outline blue small" onclick="toggleNurseDetail(${n.id})">${t('view_profile_btn')}</button>
-      <div id="nurse-detail-${n.id}" style="display:none; margin-top:12px;"></div>
-    </div>
-  `).join('');
-}
-
-async function loadNurses() {
-  const container = document.getElementById('nurses-list');
-  container.innerHTML = skeletonHtml(3);
-  openNurseDetailIds.clear();
-  loadNursingContact();
-  try {
-    const res = await fetchWithTimeout(`${API}/nurses`, {}, 15000);
-    const nurses = await readJsonOk(res);
-    nursesCache = nurses;
-    lastNursesSnapshot = JSON.stringify(nurses);
-    container.innerHTML = renderNursesList(nurses);
-  } catch (err) {
-    container.innerHTML = `
-      <div class="empty-state">
-        <div class="empty-icon">⚠️</div>
-        <p class="empty-title">${t('server_error_title')}</p>
-        <p class="empty-subtitle">${t('server_error_subtitle')}</p>
-      </div>`;
-  }
-}
-
-// ---------- تحديث دوري لصفحة التمريض (عشان يظهر رأي المريض فور موافقة الإدارة عليه) ----------
-
-let nursingPollInterval = null;
-let lastNursesSnapshot = null;
-
-function startNursingPolling() {
-  stopNursingPolling();
-  nursingPollInterval = setInterval(whenVisible(pollNurses), POLL_NURSES_MS);
-}
-
-function stopNursingPolling() {
-  if (nursingPollInterval) {
-    clearInterval(nursingPollInterval);
-    nursingPollInterval = null;
-  }
-}
-
-async function pollNurses() {
-  try {
-    const res = await fetchWithTimeout(`${API}/nurses`, {}, 15000);
-    const nurses = await readJsonOk(res);
-    const snapshot = JSON.stringify(nurses);
-    if (snapshot === lastNursesSnapshot) return; // ما تغيّر شي، صفر إعادة رسم
-    lastNursesSnapshot = snapshot;
-    nursesCache = nurses;
-
-    const container = document.getElementById('nurses-list');
-    if (!container) { stopNursingPolling(); return; }
-    const drafts = {};
-    for (const id of openNurseDetailIds) drafts[id] = readRatingDraft(id);
-    container.innerHTML = renderNursesList(nurses);
-
-    // نعيد فتح أي "لمحة عنه" كانت مفتوحة عند المستخدم، بمحتواها المحدّث
-    for (const id of openNurseDetailIds) {
-      const panel = document.getElementById(`nurse-detail-${id}`);
-      if (panel) {
-        panel.style.display = 'block';
-        renderNurseDetail(id, drafts[id]);
+function levenshtein(a, b) {
+  const m = a.length, n = b.length;
+  const dp = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));
+  for (let i = 0; i <= m; i++) dp[i][0] = i;
+  for (let j = 0; j <= n; j++) dp[0][j] = j;
+  for (let i = 1; i <= m; i++) {
+    for (let j = 1; j <= n; j++) {
+      if (a[i - 1] === b[j - 1]) {
+        dp[i][j] = dp[i - 1][j - 1];
+      } else {
+        dp[i][j] = 1 + Math.min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1]);
       }
     }
-  } catch (err) { /* تجاهل بصمت، رح يعيد المحاولة بالجولة الجاية */ }
-}
-
-async function toggleNurseDetail(nurseId) {
-  const panel = document.getElementById(`nurse-detail-${nurseId}`);
-  if (panel.style.display === 'none') {
-    panel.style.display = 'block';
-    openNurseDetailIds.add(nurseId);
-    await renderNurseDetail(nurseId);
-  } else {
-    panel.style.display = 'none';
-    openNurseDetailIds.delete(nurseId);
   }
+  return dp[m][n];
 }
 
-function readRatingDraft(nurseId) {
-  const v = (id) => { const el = document.getElementById(id); return el ? el.value : ''; };
-  return { comment: v(`rating-comment-${nurseId}`), name: v(`rating-name-${nurseId}`), phone: v(`rating-phone-${nurseId}`) };
+// ---------- الأدوية ----------
+
+// خاد2: الرمزان % و_ لهما معنى خاص في LIKE (أي نص / أي حرف)، فكان البحث بـ"%%" يطابق كل
+// الأدوية ويعيدها مع توفرها في كل الصيدليات دفعة واحدة. نعاملهما الآن حرفين عاديين.
+function escapeLike(s) {
+  return s.replace(/[\\%_]/g, '\\$&');
 }
 
-async function renderNurseDetail(nurseId, draft) {
-  const panel = document.getElementById(`nurse-detail-${nurseId}`);
-  const nurse = nursesCache.find(n => n.id === nurseId);
-  // و4: التحديث الدوري لصفحة التمريض يعيد رسم هذه اللوحة، فكان يمحو تقييماً يكتبه المريض.
-  // نحفظ ما في الحقول قبل إعادة الرسم ونعيده بعدها، ومعه النجوم المختارة. (التحديث الدوري
-  // يعيد بناء القائمة كلها قبل هذه الدالة، فيمرّر المسودة التي قرأها قبل ذلك)
-  const ratingDraft = draft || readRatingDraft(nurseId);
-  panel.innerHTML = `<p class="muted">${t('loading_text')}</p>`;
-
-  let ratings = [];
-  let ratingsFailed = false;
-  try {
-    const res = await fetchWithTimeout(`${API}/nurses/${nurseId}/ratings`, {}, 15000);
-    ratings = await readJsonOk(res);
-  } catch (err) { ratingsFailed = true; /* بنكمل بعرض الملخص حتى لو فشل جلب التعليقات */ }
-
-  const alreadyRated = hasRatedNurse(nurseId);
-
-  // طلب الزيارة أول ما في التفاصيل. الممرض غير المتاح لا يُطلب، فيظهر سبب غياب الزر بدله
-  const requestHtml = !nurse ? '' : nurse.available
-    ? `<button type="button" class="primary nurse-request-btn" onclick="openNurseRequest(${nurseId})">${t('nurse_request_btn')}</button>`
-    : `<div class="nurse-unavailable-note">${t('nurse_unavailable_note')}</div>`;
-
-  panel.innerHTML = `
-    ${requestHtml}
-    <div class="box">
-      ${nurse && nurse.university ? `<div class="result-row">🎓 ${escapeHtml(nurse.university)}${nurse.graduation_year ? ` - ${t('grad_year_label')} ${escapeHtml(nurse.graduation_year)}` : ''}</div>` : ''}
-      ${nurse && nurse.phone ? `<div class="result-row">📞 ${escapeHtml(nurse.phone)}</div>` : ''}
-      <hr style="border:none; border-top:1px solid #eef2f6; margin:14px 0;">
-      <p style="font-weight:700; margin:0 0 8px;">${tFormat('patient_reviews_title', { count: ratingsFailed && nurse ? (nurse.rating_count || 0) : ratings.length })}</p>
-      ${ratingsFailed
-        ? `<p class="muted" style="margin:0 0 12px;">${t('failed_load_ratings')}</p>`
-        : ratings.length === 0
-        ? `<p class="muted" style="margin:0 0 12px;">${t('no_published_reviews')}</p>`
-        : ratings.map(r => `
-          <div style="padding:8px 0; border-bottom:1px solid #f2f5f8;">
-            <div>${renderStars(r.stars)}</div>
-            ${r.comment ? `<p style="margin:4px 0 0; font-size:14px; color:#3a4a58;">${escapeHtml(r.comment)}</p>` : ''}
-          </div>
-        `).join('')
-      }
-      <hr style="border:none; border-top:1px solid #eef2f6; margin:14px 0;">
-      <p style="font-weight:700; margin:0 0 8px;">${t('rate_this_nurse_title')}</p>
-      ${alreadyRated
-        ? `<p class="muted">${t('already_rated_msg')}</p>`
-        : `
-          <div class="star-picker" id="rating-stars-${nurseId}">
-            ${[1, 2, 3, 4, 5].map(i => `<button type="button" onclick="setRatingStars(${nurseId}, ${i})" data-i="${i}" aria-label="${starAriaLabel(i)}" aria-pressed="false">☆</button>`).join('')}
-          </div>
-          <textarea id="rating-comment-${nurseId}" placeholder="${t('comment_placeholder')}" rows="2" style="width:100%; padding:10px 14px; border:1px solid #cfe0ef; border-radius:14px; font-family:inherit; font-size:15px; resize:vertical; margin-bottom:10px;"></textarea>
-          <input id="rating-name-${nurseId}" placeholder="${t('your_name_placeholder')}" aria-label="${t('your_name_placeholder')}">
-          <input id="rating-phone-${nurseId}" maxlength="15" placeholder="${t('your_phone_placeholder')}" aria-label="${t('your_phone_placeholder')}" type="tel" inputmode="numeric" oninput="digitsOnly(this)">
-          <button class="primary" id="rating-submit-${nurseId}" onclick="submitNurseRating(${nurseId})">${t('submit_rating_btn')}</button>
-        `}
-    </div>
-  `;
-  // و4: إعادة ما كان المريض يكتبه، والنجوم التي اختارها (كانت محفوظة داخلياً وتظهر فارغة)
-  if (!alreadyRated) {
-    const put = (id, v) => { const el = document.getElementById(id); if (el && v) el.value = v; };
-    put(`rating-comment-${nurseId}`, ratingDraft.comment);
-    put(`rating-name-${nurseId}`, ratingDraft.name);
-    put(`rating-phone-${nurseId}`, ratingDraft.phone);
-    if (selectedNurseStars[nurseId]) setRatingStars(nurseId, selectedNurseStars[nurseId]);
-  }
-}
-
-const selectedNurseStars = {};
-
-// وصف عربي صحيح لكل نجمة حسب قواعد العدد (واحدة/اثنتين/3 فما فوق)
-function starAriaLabel(i) {
-  if (i === 1) return t('star_rate_one');
-  if (i === 2) return t('star_rate_two');
-  return tFormat('star_rate_n', { n: i });
-}
-
-function setRatingStars(nurseId, stars) {
-  selectedNurseStars[nurseId] = stars;
-  const container = document.getElementById(`rating-stars-${nurseId}`);
-  if (!container) return;
-  container.querySelectorAll('button').forEach(btn => {
-    const i = Number(btn.dataset.i);
-    const active = i <= stars;
-    btn.textContent = active ? '★' : '☆';
-    btn.classList.toggle('filled', active);
-    btn.setAttribute('aria-pressed', active ? 'true' : 'false');
-  });
-}
-
-// و3: نقرتان سريعتان كانتا ترسلان تقييمين؛ الزر يتعطّل الآن أثناء الإرسال
-function submitNurseRating(nurseId) { return runGuarded('submitNurseRating:' + nurseId, `rating-submit-${nurseId}`, () => submitNurseRatingNow(nurseId)); }
-async function submitNurseRatingNow(nurseId) {
-  const stars = selectedNurseStars[nurseId];
-  if (!stars) { customAlert(t('select_stars_first'), 'warning'); return; }
-  const name = document.getElementById(`rating-name-${nurseId}`).value.trim();
-  const phone = document.getElementById(`rating-phone-${nurseId}`).value.trim();
-  const comment = document.getElementById(`rating-comment-${nurseId}`).value.trim();
-  if (!name || !phone) { customAlert(t('name_phone_required'), 'warning'); return; }
-  if (phone.length < 7) { customAlert(t('phone_too_short_error'), 'warning'); return; }
-  try {
-    const res = await fetchWithTimeout(`${API}/nurses/${nurseId}/ratings`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ patient_name: name, patient_phone: phone, stars, comment })
-    }, 20000);
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) { customAlert(translateApiError(data.error), 'error'); return; }
-    markNurseAsRated(nurseId);
-    await customAlert(t('rating_submitted_success'), 'success');
-    renderNurseDetail(nurseId);
-  } catch (err) {
-    customAlert(t('server_error_title'), 'error');
-  }
-}
-
-let searchTimeout;
-let suggestionIndex = -1;
-let searchSeq = 0;    // رقم آخر بحث: أي رد لبحث أقدم يُهمل (نص أو مدينة أو قسم تغيّر)
-let suggestSeq = 0;   // رقم آخر طلب اقتراحات: يُلغى عند تنفيذ البحث فلا تنفتح القائمة فوق النتائج
-function onSearch() {
-  clearTimeout(searchTimeout);
-  searchTimeout = setTimeout(() => {
-    const q = document.getElementById('search').value.trim();
-    // حد أدنى حرفين للبحث الحي بس (البحث الصريح بزر "بحث" أو الاقتراحات غير متأثر إطلاقاً)
-    if (q.length < 2) {
-      document.getElementById('results').innerHTML = '';
-      // بلا نتائج لا معنى لزر "تحديث النتائج": كان يبقى ظاهراً بعد مسح كلمة البحث
-      setResultsToolbar(false);
-    } else {
-      runSearch();
-    }
-    loadSuggestions();
-  }, 300);
-}
-
-async function loadSuggestions() {
-  const q = document.getElementById('search').value.trim();
-  const box = document.getElementById('suggestions');
-  const seq = ++suggestSeq;
-  suggestionIndex = -1;
-  if (!q) {
-    box.classList.remove('show');
-    box.innerHTML = '';
-    return;
-  }
-  try {
-    const res = await fetchWithTimeout(`${API}/medicines/suggest?q=${encodeURIComponent(q)}&category=${currentCategory}`, {}, 10000);
-    const data = await readJsonOk(res);
-    // رد متأخر لنص أقدم، أو بحث نُفّذ أثناء الانتظار: لا نعرضه
-    if (seq !== suggestSeq || document.getElementById('search').value.trim() !== q) return;
-    if (data.length === 0) {
-      box.classList.remove('show');
-      box.innerHTML = '';
-      return;
-    }
-    box.innerHTML = data.map((m, i) => `
-      <div class="suggestion-item" role="option" id="suggestion-${i}" aria-selected="false" onclick="pickSuggestion(this)">
-        ${t('suggest_did_you_mean')} <strong class="suggestion-name-text">${escapeHtml(m.name)}</strong>${t('q_mark')}
-        ${m.generic_name ? `<span class="generic-hint"> (${escapeHtml(m.generic_name)})</span>` : ''}
-      </div>
-    `).join('');
-    box.classList.add('show');
-  } catch (err) {
-    box.classList.remove('show');
-  }
-}
-
-function onSearchKeydown(e) {
-  const box = document.getElementById('suggestions');
-  const isOpen = box.classList.contains('show');
-  const items = box.querySelectorAll('.suggestion-item');
-
-  if (e.key === 'ArrowDown') {
-    if (!isOpen || items.length === 0) return;
-    e.preventDefault();
-    suggestionIndex = (suggestionIndex + 1) % items.length;
-    highlightSuggestion(items);
-  } else if (e.key === 'ArrowUp') {
-    if (!isOpen || items.length === 0) return;
-    e.preventDefault();
-    suggestionIndex = (suggestionIndex - 1 + items.length) % items.length;
-    highlightSuggestion(items);
-  } else if (e.key === 'Enter') {
-    if (isOpen && items.length > 0 && suggestionIndex >= 0) {
-      e.preventDefault();
-      items[suggestionIndex].click();
-    } else {
-      // ما في اقتراح محدد: Enter بيبحث مباشرة، بنفس سلوك زر "بحث" بالظبط
-      e.preventDefault();
-      submitSearch();
-    }
-  } else if (e.key === 'Escape') {
-    if (isOpen) {
-      box.classList.remove('show');
-      suggestionIndex = -1;
-    }
-  }
-}
-
-function highlightSuggestion(items) {
-  items.forEach((el, i) => {
-    const active = i === suggestionIndex;
-    el.classList.toggle('active', active);
-    el.setAttribute('aria-selected', active ? 'true' : 'false');
-    if (active) el.scrollIntoView({ block: 'nearest' });
-  });
-}
-
-async function pickSuggestion(el) {
-  clearTimeout(searchTimeout); suggestSeq++;
-  const nameEl = el.querySelector('.suggestion-name-text');
-  const name = nameEl ? nameEl.textContent : '';
-  document.getElementById('search').value = name;
-  document.getElementById('suggestions').classList.remove('show');
-  suggestionIndex = -1;
-  await runSearch();
-  document.getElementById('results').scrollIntoView({ behavior: 'smooth', block: 'start' });
-}
-
-async function submitSearch() {
-  // بحث صريح الآن: نلغي البحث الحي المؤجَّل والاقتراحات المنتظرة، وإلا تكرر البحث
-  // وعادت قائمة الاقتراحات فوق النتائج
-  clearTimeout(searchTimeout); suggestSeq++;
-  document.getElementById('suggestions').classList.remove('show');
-  suggestionIndex = -1;
-  await runSearch();
-  document.getElementById('results').scrollIntoView({ behavior: 'smooth', block: 'start' });
-}
-
-// إظهار شريط "تحديث النتائج" فقط حين توجد نتائج معروضة فعلاً
-function setResultsToolbar(visible) {
-  const bar = document.getElementById('results-toolbar');
-  if (bar) bar.style.display = visible ? 'flex' : 'none';
-}
-
-// إعادة تنفيذ البحث نفسه بنقرة. السبب: نتائج البحث لقطة للحظة تنفيذها، وقد يبدّل
-// الصيدلي التوفر بينما المريض ينظر إليها — فبدل أن يمسح الكلمة ويكتبها من جديد، ينقر هنا.
-async function refreshResults(btn) {
-  if (btn) { btn.disabled = true; btn.textContent = t('refreshing_results'); }
-  try {
-    await runSearch();
-  } finally {
-    // الزر قد يكون أُعيد بناؤه أثناء التحديث، فنجلبه من جديد بدل الاعتماد على المرجع القديم
-    const b = document.getElementById('refresh-results-btn');
-    if (b) { b.disabled = false; b.textContent = t('refresh_results_btn'); }
-  }
-}
-
-// ---------- نتائج البحث (الجولة 5ب) ----------
-// لكل دواء: سطر ملخّص يعدّ ولا يرتّب («متوفر في صيدليتين من ثلاث»)، ثم بطاقة لكل صيدلية
-// عنوانها اسم الصيدلية. حالة التوفر بالكلمة واللون والخط الجانبي لا بمكان البطاقة.
-
-// ترتيب الصيدليات يتبدّل كل يوم: كان الخادم يضع المتوفر أولاً، فتُدفع الصيدلية التي لم
-// تحدّث مخزونها إلى الأسفل وإن كان الدواء عندها فعلاً، ويبدو الموقع كأنه يفضّل صيدلية على
-// أخرى. الآن تُرتَّب بأرقامها ثم تدور القائمة موضعاً واحداً كل يوم: مع n صيدليات تأخذ كل
-// منها المكان الأول مرة واحدة تماماً كل n أيام. الترتيب ثابت طوال اليوم فلا يرتبك من يعيد
-// البحث. اليوم بتوقيت دمشق لا بساعة الهاتف.
-function rotateDaily(list) {
-  const sorted = list.slice().sort((a, b) => a.pharmacy_id - b.pharmacy_id);
-  const n = sorted.length;
-  if (n < 2) return sorted;
-  const day = Math.floor(Date.parse(damascusTodayDate() + 'T00:00:00Z') / 86400000);
-  const shift = ((day % n) + n) % n;
-  return sorted.slice(shift).concat(sorted.slice(0, shift));
-}
-
-function resultSummaryHtml(item) {
-  const av = item.availability;
-  const yes = av.filter(a => a.manages_stock && a.available).length;
-  const managed = av.filter(a => a.manages_stock).length;
-  const wait = av.length - managed;
-  let lines = '';
-  if (yes > 0) {
-    lines += `<p class="s-ok">${yes === managed
-      ? tFormat('res_summary_yes_all', { a: tPlural('pharmacy_count_gen', yes) })
-      : tFormat('res_summary_yes', { a: tPlural('pharmacy_count_gen', yes), m: tPlural('pharmacy_count_gen', managed) })}</p>`;
-  } else if (managed > 0) {
-    lines += `<p class="s-no">${t('res_summary_no')}</p>`;
-  }
-  if (wait > 0) lines += `<p class="s-note">${tFormat('res_summary_wait', { w: tPlural('pharmacy_count_gen', wait) })}</p>`;
-  const generic = item.medicine.generic_name ? ` <small>(<bdi>${escapeHtml(item.medicine.generic_name)}</bdi>)</small>` : '';
-  return `<div class="res-summary"><h2><bdi>${escapeHtml(item.medicine.name)}</bdi>${generic}</h2>${lines}</div>`;
-}
-
-// زر «اتصال»: رابط tel: يفتح الاتصال مباشرة بدل نسخ الرقم. أرقام فقط، فلا يدخل الرابطَ نصٌّ آخر.
-function callBtnHtml(phone) {
-  const digits = String(phone || '').replace(/[^\d+]/g, '');
-  if (!digits) return '';
-  // onclick يزيل التحديد بعد اللمس: كان الهاتف يرسم مربعاً أزرق حول الزر عند الضغط وبعد
-  // العودة من شاشة الاتصال. ووجود onclick يطبّق عليه أيضاً قاعدة إخفاء وميض اللمس العامة
-  // ([onclick] في index.html) كباقي أزرار الموقع. لوحة المفاتيح تُبقي مؤشر تركيزها.
-  return `<a class="call-btn" href="tel:${digits}" onclick="this.blur()" style="-webkit-tap-highlight-color: transparent;">${t('call_btn')}</a>`;
-}
-
-function resultCardHtml(item, a) {
-  const kind = a.manages_stock ? (a.available ? 'yes' : 'no') : 'wait';
-  const place = [a.city ? escapeHtml(cityName(a.city)) : '', a.address ? escapeHtml(a.address) : ''].filter(Boolean)
-    .map(x => `<bdi>${x}</bdi>`).join(currentLang === 'en' ? ', ' : '، ');
-  const phones = [a.phone ? `📞 <bdi>${escapeHtml(a.phone)}</bdi>` : '',
-    a.assistant_phone ? `📱 <bdi>${escapeHtml(a.assistant_phone)}</bdi> <span class="muted">(${t('assistant_phone_label')})</span>` : '']
-    .filter(Boolean).join('&nbsp;&nbsp;');
-  let cta = '';
-  if (kind === 'yes') {
-    const st = pharmacyOpenState(a);
-    const closed = st && !st.open;
-    cta = `<button class="result-add-btn-full${closed ? ' closed' : ''}"
-              onclick="addToCart(${item.medicine.id}, ${a.pharmacy_id}, this)"
-              ${closed ? `data-closed-notice="${escapeHtml(st.reason === 'today' ? t('cart_closed_notice_today') : tFormat('cart_closed_notice', { time: formatTime(st.opensAt) }))}"` : ''}>
-              ${closed ? t('cart_closed_btn') : t('add_to_cart_btn')}
-            </button>`;
-  }
-  // اتصال في كل بطاقة، حتى «غير متوفر»: المريض يتأكد بنفسه، فقد يكون المخزون لم يُحدَّث
-  const acts = [waResultBtnHtml(a.whatsapp_phone, item.medicine.name), callBtnHtml(a.phone || a.assistant_phone),
-    directionsBtnHtml(a.latitude, a.longitude, true)].filter(Boolean).join('');
-  const openBadge = openStateBadgeHtml(a);
-  return `
-    <div class="result-card res-card is-${kind}">
-      <div class="res-status">${t('res_status_' + kind)}</div>
-      <h3 class="res-name"><span class="result-pharmacy-name"><bdi>${escapeHtml(a.pharmacy_name)}</bdi></span>${verifiedBadgeHtml(a.verified)}</h3>
-      ${place ? `<p class="res-addr">${place}</p>` : ''}
-      ${openBadge ? `<p class="res-open">${openBadge}</p>` : ''}
-      ${phones ? `<p class="res-phone">${phones}</p>` : ''}
-      ${kind === 'wait' ? `<p class="res-note">${t('stock_unmanaged_note')}</p>` : ''}
-      ${cta}
-      ${acts ? `<div class="res-acts">${acts}</div>` : ''}
-      ${kind !== 'wait' && a.stock_updated_at ? `<div class="res-foot">${stockFreshnessHtml(a.stock_updated_at)}</div>` : '<div class="res-gap"></div>'}
-    </div>`;
-}
-
-async function runSearch() {
-  const q = document.getElementById('search').value.trim();
-  const container = document.getElementById('results');
-  const seq = ++searchSeq;
-  if (!q) {
-    container.innerHTML = '';
-    setResultsToolbar(false);
-    return;
-  }
-  container.innerHTML = skeletonHtml(3);
-  // لو المستخدم غيّر أو مسح خانة البحث وقت ما كنا منتظرين رد السيرفر، نتجاهل هالرد القديم بالكامل —
-  // تفادياً لمشكلة نتيجة بحث قديمة ترجع وتطلع فوق نتيجة أحدث أو فوق خانة بحث فاضية
-  // الرد يُعرض فقط إن بقي هذا آخر بحث: كان يُقارَن النص وحده، فرد متأخر لمدينة سابقة
-  // كان يغطي نتائج المدينة الجديدة
-  const stillCurrent = () => seq === searchSeq && document.getElementById('search').value.trim() === q;
-  try {
-    const cityParam = currentCity ? `&city=${encodeURIComponent(currentCity)}` : '';
-    const res = await fetchWithTimeout(`${API}/medicines/search?q=${encodeURIComponent(q)}&category=${currentCategory}${cityParam}`, {}, 20000);
-    const data = await readJsonOk(res);
-    if (!stillCurrent()) return;
-    lastSearchResultsCache = data;
-    setResultsToolbar(true);
-    // يُسجَّل البحث فقط إن بقي على الشاشة، سواء وُجد الدواء أم لا:
-    // "لم يُوجد" بالذات يكشف الأدوية الناقصة من القائمة.
-    scheduleSearchLog(q, currentCategory, currentCity);
-
-    if (data.length === 0) {
-      const notFoundTitle = currentCategory === 'cosmetic' ? t('not_found_title_cosmetic') : t('not_found_title_medicine');
-      let html = `
-        <div class="empty-state">
-          <div class="empty-icon">🔍</div>
-          <p class="empty-title">${notFoundTitle}</p>
-          <p class="empty-subtitle">${t('not_found_subtitle')}</p>
-        </div>`;
-      try {
-        const sugRes = await fetchWithTimeout(`${API}/medicines/suggest?q=${encodeURIComponent(q)}&category=${currentCategory}`, {}, 10000);
-        const suggestions = await readJsonArrayOr(sugRes, []);
-        if (suggestions.length > 0) {
-          html += `
-            <div class="box">
-              <p class="muted" style="margin-top:0;">${t('did_you_mean_results')}</p>
-              ${suggestions.map(m => `
-                <div style="cursor:pointer; color:#185fa5; padding:6px 0;" onclick="pickSuggestion(this)">
-                  <span class="suggestion-name-text">${escapeHtml(m.name)}</span>${m.generic_name ? ' - ' + escapeHtml(m.generic_name) : ''}
-                </div>
-              `).join('')}
-            </div>`;
-        }
-      } catch (err) { /* تجاهل فشل الاقتراحات، النتيجة الأساسية أهم */ }
-      if (!stillCurrent()) return;
-      container.innerHTML = html;
-      return;
-    }
-
-    document.getElementById('suggestions').classList.remove('show');
-    // البدائل (لدواء غير متوفر في أي صيدلية) تُجلب كلها معاً وبمهلة محددة، لا واحداً بعد آخر:
-    // على الإنترنت الضعيف كان كل طلب ينتظر الذي قبله، وطلب واحد عالق يُبقي هيكل التحميل ظاهراً.
-    // والمادة الفعالة المتكررة تُجلب مرة واحدة.
-    const altCityParam = currentCity ? `&city=${encodeURIComponent(currentCity)}` : '';
-    const altByGeneric = new Map();
-    for (const item of data) {
-      const g = item.medicine.generic_name;
-      if (!g || altByGeneric.has(g) || item.availability.some(a => a.available)) continue;
-      altByGeneric.set(g, fetchWithTimeout(`${API}/medicines/search?q=${encodeURIComponent(g)}&category=${currentCategory}${altCityParam}`, {}, 10000)
-        .then(r => readJsonArrayOr(r, [])).catch(() => []));
-    }
-    const altResults = new Map();
-    await Promise.all([...altByGeneric].map(async ([g, pr]) => altResults.set(g, await pr)));
-    if (!stillCurrent()) return;
-    let cardsHtml = '';
-    for (const item of data) {
-      const anyAvailable = item.availability.some(a => a.available);
-      cardsHtml += resultSummaryHtml(item);
-      rotateDaily(item.availability).forEach(a => { cardsHtml += resultCardHtml(item, a); });
-
-      if (!anyAvailable && item.medicine.generic_name) {
-        try {
-          const altData = altResults.get(item.medicine.generic_name) || [];
-          const alternatives = altData
-            .filter(alt => alt.medicine.id !== item.medicine.id)
-            .map(alt => ({ medicine: alt.medicine, availability: alt.availability.filter(a => a.available) }))
-            .filter(alt => alt.availability.length > 0);
-
-          if (alternatives.length > 0) {
-            cardsHtml += `
-              <div class="alt-suggestion-box">
-                <p class="alt-suggestion-title">${currentCategory === 'cosmetic' ? '💄' : '💊'} "${escapeHtml(item.medicine.name)}" ${t('alt_unavailable_but')} (${escapeHtml(item.medicine.generic_name)}):</p>
-                ${alternatives.map(alt => alt.availability.map(a => `
-                  <div class="alt-suggestion-row">
-                    <span>${escapeHtml(alt.medicine.name)} <span class="muted">- ${escapeHtml(a.pharmacy_name)}</span></span>
-                    <button class="btn-outline blue small" onclick="pickSuggestion(this)"><span class="suggestion-name-text" hidden>${escapeHtml(alt.medicine.name)}</span>${t('alt_view_btn')}</button>
-                  </div>
-                `).join('')).join('')}
-              </div>
-            `;
-          }
-        } catch (err) { /* تجاهل فشل البحث عن بدائل، النتيجة الأساسية أهم */ }
-      }
-    }
-    if (!stillCurrent()) return;
-    container.innerHTML = cardsHtml;
-  } catch (err) {
-    if (!stillCurrent()) return;
-    // رسالة تذكر السبب وما يفعله المريض، مع زر إعادة محاولة مباشر بدل أن
-    // يضطر لمسح كلمة البحث وإعادة كتابتها.
-    const kind = classifyFetchError(err);
-    // و7: بلوغ حد البحث ليس انقطاعاً في الاتصال، فلا نطلب من المريض فحص شبكته
-    const subtitle = err && err.status === 429 ? t('rate_limited_error')
-                   : kind === 'offline' ? t('err_offline')
-                   : kind === 'timeout' ? t('err_timeout_search')
-                   : t('err_network');
-    const limited = err && err.status === 429;
-    container.innerHTML = `
-      <div class="empty-state">
-        <div class="empty-icon">${kind === 'offline' ? '📡' : limited ? '⏳' : '⚠️'}</div>
-        <p class="empty-title">${limited ? subtitle : t('server_error_title')}</p>
-        ${limited ? '' : `<p class="empty-subtitle">${subtitle}</p>`}
-        <button type="button" class="refresh-results-btn" style="margin-top:12px;" onclick="runSearch()">${t('refresh_results_btn')}</button>
-      </div>`;
-  }
-}
-
-// ---------- لوحة الصيدلي ----------
-
-// تنبيه أعلى صفحتي دخول الصيدلي والإدارة: المريض الذي وصل إليهما من القائمة يعرف فوراً
-// أنهما ليستا له، ويعود إلى البحث بضغطة. الخانة تُفرَّغ عند الدخول فيختفي التنبيه معها.
-function staffNoteHtml(key) {
-  return `
-    <div class="staff-note" role="note" style="display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; background:#fff; border:1px solid #cfe0ef; border-inline-start:4px solid #185fa5; border-radius:14px; padding:12px 14px; margin:0 0 16px; font-size:15px; line-height:1.6; color:#2c3e50;">
-      <span>ℹ️ ${t(key)}</span>
-      <button type="button" class="btn-outline blue" style="min-height:44px; font-weight:700;" onclick="staffNoteGoSearch()">${t('staff_note_search_btn')}</button>
-    </div>`;
-}
-
-function staffNoteGoSearch() {
-  headerGoHome(document.getElementById('nav-home'));
-  const box = document.getElementById('search');
-  if (box) setTimeout(() => box.focus({ preventScroll: true }), 350);
-}
-
-function renderPharmacyAuthForm() {
-  document.getElementById('pharmacist-dashboard').style.display = 'none';
-  document.getElementById('pharmacist-auth-section').innerHTML = `
-    ${staffNoteHtml('staff_note_pharmacist')}
-    <div class="auth-box">
-      <h3 style="margin-top:0;">${t('pharm_login_title')}</h3>
-      <p class="muted" style="margin-top:-8px;">${t('pharm_login_no_account')}</p>
-      <input id="login-username" type="text" placeholder="${t('username_placeholder')}" onkeydown="if(event.key==='Enter') login()">
-      <div class="password-field">
-        <input id="login-password" type="password" placeholder="${t('password_placeholder')}" onkeydown="if(event.key==='Enter') login()">
-        <button type="button" class="toggle-password" onclick="togglePassword('login-password', this)" aria-label="${t('show_password_aria')}">👁</button>
-      </div>
-      <button class="primary" id="login-btn" onclick="login()">${t('login_btn')}</button>
-    </div>
-    ${joinBoxHtml()}
-  `;
-  loadJoinedPharmacies();
-}
-
-// ================= بطاقة "انضم إلينا" (تحت دخول الصيدلي) =================
-// في الحاوية نفسها التي يمسحها loadDashboard عند الدخول، فتختفي تلقائياً بعده.
-// التواصل عبر حسابات المشروع لا رقم شخصي: خصوصية، ومظهر احترافي، وتنتقل الحسابات
-// كاملة مع المشروع. رابط فيسبوك فارغ إلى أن تُنشأ الصفحة، فيبقى زره مخفياً حتى ذلك.
-// روابط فيسبوك وإنستغرام فارغة إلى أن تُنشأ الصفحتان: أزرارها تبقى مخفية، وتظهر
-// تلقائياً في بطاقة الانضمام ونافذة "تواصل معنا" بمجرد تعبئة الرابط هنا.
-const PROJECT_CONTACT = {
-  email: 'dawaai.jahez@gmail.com',
-  facebook: '',
-  instagram: ''
-};
-
-// العنوان مكتوباً مع زر نسخ، لا رابط البريد وحده: على الهاتف يفتح الرابط تطبيق البريد
-// بسهولة، لكن على كثير من الحواسيب لا يحدث شيء إن لم يكن فيها برنامج بريد مضبوط.
-function emailCopyRowHtml() {
-  return `
-    <div class="contact-email-row">
-      <span class="muted">${t('contact_or_write')}</span>
-      <bdi class="contact-email">${escapeHtml(PROJECT_CONTACT.email)}</bdi>
-      <button type="button" class="btn-outline blue small" onclick="copyContactEmail()">${t('contact_copy_btn')}</button>
-    </div>`;
-}
-
-async function copyContactEmail() {
-  try {
-    await navigator.clipboard.writeText(PROJECT_CONTACT.email);
-    await customAlert(t('contact_copied'), 'success');
-  } catch (e) {
-    // متصفح لا يسمح بالنسخ التلقائي: يبقى العنوان ظاهراً ليُنسخ يدوياً
-    await customAlert(PROJECT_CONTACT.email, 'info');
-  }
-}
-
-function socialButtonsHtml() {
-  return `
-    ${PROJECT_CONTACT.facebook ? `<a class="btn-outline blue join-btn" href="${escapeHtml(PROJECT_CONTACT.facebook)}" target="_blank" rel="noopener noreferrer">${t('contact_facebook_btn')}</a>` : ''}
-    ${PROJECT_CONTACT.instagram ? `<a class="btn-outline blue join-btn" href="${escapeHtml(PROJECT_CONTACT.instagram)}" target="_blank" rel="noopener noreferrer">${t('contact_instagram_btn')}</a>` : ''}`;
-}
-
-// نافذة "تواصل معنا" في التذييل (كانت تعرض "قريباً")
-function showContactUs() {
-  const mail = `mailto:${PROJECT_CONTACT.email}?subject=${encodeURIComponent(t('contact_email_subject'))}`;
-  document.getElementById('info-modal-title').textContent = t('contact_title');
-  document.getElementById('info-modal-body').innerHTML = `
-    <p>${t('contact_intro')}</p>
-    <div class="join-actions contact-actions">
-      <a class="primary join-btn" href="${escapeHtml(mail)}">${t('contact_email_btn')}</a>
-      ${socialButtonsHtml()}
-    </div>
-    ${emailCopyRowHtml()}
-    <p class="muted contact-note">${t('contact_medical_note')}</p>`;
-  openInfoModal();
-}
-let joinedPharmacies = null;   // null: لم تُحمَّل بعد
-let joinListOpen = false;
-
-// العدد مع المعدود بالعربية: صيدلية واحدة، صيدليتان، 3 إلى 10 صيدليات، 11 إلى 99 صيدلية
-function pharmaciesCountText(n) {
-  if (currentLang !== 'ar') return String(n);
-  const r = n % 100;
-  if (n === 1) return 'صيدلية واحدة';
-  if (n === 2) return 'صيدليتان';
-  if (r >= 3 && r <= 10) return `${n} صيدليات`;
-  return `${n} صيدلية`;
-}
-
-function joinBoxHtml() {
-  const mail = `mailto:${PROJECT_CONTACT.email}?subject=${encodeURIComponent(t('join_email_subject'))}&body=${encodeURIComponent(t('join_email_body'))}`;
-  let countLine = '';
-  let listHtml = '';
-  if (Array.isArray(joinedPharmacies)) {
-    countLine = joinedPharmacies.length
-      ? `${t('join_count_prefix')} <strong>${pharmaciesCountText(joinedPharmacies.length)}</strong>`
-      : t('join_count_none');
-    if (joinedPharmacies.length) {
-      listHtml = `
-        <button type="button" class="btn-outline blue small join-toggle" onclick="toggleJoinedList()">${joinListOpen ? t('join_hide_list') : t('join_show_list')}</button>
-        <ul class="join-list" style="${joinListOpen ? '' : 'display:none;'}">
-          ${joinedPharmacies.map(p => `<li><bdi>${escapeHtml(p.name)}</bdi>${p.city ? ` <span class="muted">· ${escapeHtml(cityName(p.city))}</span>` : ''}</li>`).join('')}
-        </ul>`;
-    }
-  } else if (joinedPharmacies === false) {
-    countLine = t('join_load_error');
-  }
-  return `
-    <div class="join-box" id="join-box">
-      <h3>${t('join_title')}</h3>
-      ${countLine ? `<p class="join-count">${countLine}</p>` : ''}
-      ${listHtml}
-      <p class="muted join-hint">${t('join_hint')}</p>
-      <div class="join-actions">
-        <a class="primary join-btn" href="${escapeHtml(mail)}">${t('join_email_btn')}</a>
-        ${socialButtonsHtml()}
-      </div>
-      ${emailCopyRowHtml()}
-    </div>`;
-}
-
-function refreshJoinBox() {
-  const box = document.getElementById('join-box');
-  if (box) box.outerHTML = joinBoxHtml();
-}
-
-async function loadJoinedPharmacies() {
-  if (Array.isArray(joinedPharmacies)) return;   // تُحمَّل مرة واحدة في الجلسة
-  try {
-    const res = await fetchWithTimeout(`${API}/pharmacies/joined`, {}, 20000);
-    const data = await res.json();
-    if (!res.ok || !Array.isArray(data)) throw new Error('joined ' + res.status);
-    // ترتيب أبجدي عربي صحيح: لا تبدو أي صيدلية مقدَّمة على أخرى
-    joinedPharmacies = data.sort((x, y) => String(x.name).localeCompare(String(y.name), 'ar'));
-  } catch (err) {
-    joinedPharmacies = false;
-  }
-  refreshJoinBox();
-}
-
-function toggleJoinedList() {
-  joinListOpen = !joinListOpen;
-  refreshJoinBox();
-}
-
-function login() { return runGuarded('login', 'login-btn', loginNow); }
-async function loginNow() {
-  const username = document.getElementById('login-username').value;
-  const password = document.getElementById('login-password').value;
-  try {
-    const res = await fetchWithTimeout(`${API}/pharmacies/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username, password })
-    }, 20000);
-    const data = await res.json();
-    if (!res.ok) { customAlert(translateApiError(data.error), 'error'); return; }
-    currentPharmacy = { ...data, username, password };
-    markStaffDevice();
-    loadDashboard();
-  } catch (err) {
-    customAlert(t('server_error_title'), 'error');
-  }
-}
-
-function loadDashboard() {
-  document.getElementById('pharmacist-auth-section').innerHTML = '';
-  document.getElementById('pharmacist-dashboard').style.display = 'block';
-  document.getElementById('pharmacy-label').innerHTML = `
-    <span style="font-weight:500; font-size:16px;">${t('pharmacy_label_prefix')} ${escapeHtml(currentPharmacy.name)}</span>
-    <button class="action-pill-btn blue" onclick="logout()">${t('logout_btn')}</button>
-  `;
-  pushState.pharmacy = null;
-  renderPushCard('pharmacy');
-  checkPushState('pharmacy');
-  document.getElementById('duty-checkbox').checked = !!currentPharmacy.on_duty;
-  document.getElementById('assistant-phone-input').value = currentPharmacy.assistant_phone || '';
-  document.getElementById('main-phone-input').value = currentPharmacy.phone || '';
-  document.getElementById('whatsapp-phone-input').value = currentPharmacy.whatsapp_phone || '';
-  document.getElementById('location-paste-input').value =
-    hasLocation(currentPharmacy.latitude, currentPharmacy.longitude)
-      ? `${currentPharmacy.latitude}, ${currentPharmacy.longitude}` : '';
-  renderSavedLocation();
-  document.getElementById('hours-opens-input').value = currentPharmacy.opens_at || '';
-  document.getElementById('hours-closes-input').value = currentPharmacy.closes_at || '';
-  renderPharmacyHours();
-  document.getElementById('duty-day').disabled = !currentPharmacy.on_duty;
-  document.getElementById('duty-shift').disabled = !currentPharmacy.on_duty;
-  document.getElementById('duty-start-time').disabled = !currentPharmacy.on_duty;
-  document.getElementById('duty-end-time').disabled = !currentPharmacy.on_duty;
-  // و11: صيدلية بلا يوم أو نوبة محفوظين تبدأ من الخيار الأول، لا مما اختاره صيدلي سابق على الجهاز نفسه
-  const dutyDay = document.getElementById('duty-day');
-  const dutyShift = document.getElementById('duty-shift');
-  dutyDay.selectedIndex = 0;
-  dutyShift.selectedIndex = 0;
-  if (currentPharmacy.on_duty_day) dutyDay.value = currentPharmacy.on_duty_day;
-  if (currentPharmacy.on_duty_shift) dutyShift.value = currentPharmacy.on_duty_shift;
-  if (dutyDay.selectedIndex < 0) dutyDay.selectedIndex = 0;     // قيمة قديمة لم تعد بين الخيارات
-  if (dutyShift.selectedIndex < 0) dutyShift.selectedIndex = 0;
-  document.getElementById('duty-start-time').value = currentPharmacy.on_duty_start_time || '';
-  document.getElementById('duty-end-time').value = currentPharmacy.on_duty_end_time || '';
-  refreshStock();
-  loadOrders();
-  startOrdersPolling();
-}
-
-function onDutyToggle() {
-  const enabled = document.getElementById('duty-checkbox').checked;
-  document.getElementById('duty-day').disabled = !enabled;
-  document.getElementById('duty-shift').disabled = !enabled;
-  document.getElementById('duty-start-time').disabled = !enabled;
-  document.getElementById('duty-end-time').disabled = !enabled;
-}
-
-function saveDuty() { return runGuarded('saveDuty', 'save-duty-btn', saveDutyNow); }
-async function saveDutyNow() {
-  const on_duty = document.getElementById('duty-checkbox').checked;
-  const on_duty_day = document.getElementById('duty-day').value;
-  const on_duty_shift = document.getElementById('duty-shift').value;
-  const on_duty_start_time = document.getElementById('duty-start-time').value;
-  const on_duty_end_time = document.getElementById('duty-end-time').value;
-  try {
-    const res = await fetchWithTimeout(`${API}/pharmacies/self/duty`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        username: currentPharmacy.username,
-        password: currentPharmacy.password,
-        on_duty,
-        on_duty_day,
-        on_duty_shift,
-        on_duty_start_time,
-        on_duty_end_time
-      })
-    }, 20000);
-    const data = await res.json();
-    if (!res.ok) { customAlert(translateApiError(data.error), 'error'); return; }
-    currentPharmacy.on_duty = data.on_duty;
-    currentPharmacy.on_duty_day = data.on_duty_day;
-    currentPharmacy.on_duty_shift = data.on_duty_shift;
-    currentPharmacy.on_duty_start_time = data.on_duty_start_time;
-    currentPharmacy.on_duty_end_time = data.on_duty_end_time;
-    refreshStock();
-    customAlert(t('duty_saved_success'), 'success');
-  } catch (err) {
-    customAlert(t('server_error_title'), 'error');
-  }
-}
-
-// ---------- ساعات الدوام (لوحة الصيدلي) ----------
-
-// عرض الدوام المحفوظ وحالة الإغلاق الاستثنائي
-function renderPharmacyHours() {
-  const box = document.getElementById('hours-current');
-  if (!box) return;
-  const p = currentPharmacy || {};
-  const opens = p.opens_at, closes = p.closes_at;
-  const hasHours = timeToMinutes(opens) !== null && timeToMinutes(closes) !== null && opens !== closes;
-
-  let html = '';
-  if (!hasHours) {
-    html = `<span class="muted">${t('hours_none')}</span>`;
-  } else {
-    // ننبّه للدوام الممتد بعد منتصف الليل: الصيدلي قد يظن أنه أخطأ الإدخال
-    const overnight = timeToMinutes(closes) < timeToMinutes(opens);
-    html = `<span class="muted">${t('hours_current')}</span>
-      <bdi class="hours-value">${escapeHtml(opens)} ${t('hours_to')} ${escapeHtml(closes)}</bdi>
-      ${overnight ? `<span class="hours-overnight">${t('hours_overnight_note')}</span>` : ''}`;
-  }
-
-  const closedToday = p.closed_override_date && p.closed_override_date === damascusTodayDate();
-  if (closedToday) html += `<span class="hours-closed-today">${t('closed_today_active')}</span>`;
-  if (p.on_duty) html += `<span class="hours-duty-note">${t('duty_overrides_hours')}</span>`;
-
-  box.innerHTML = html;
-
-  const btn = document.getElementById('closed-today-btn');
-  if (btn) btn.textContent = closedToday ? t('closed_today_off') : t('closed_today_on');
-}
-
-async function savePharmacyHours() {
-  const opens = document.getElementById('hours-opens-input').value.trim();
-  const closes = document.getElementById('hours-closes-input').value.trim();
-  await submitPharmacyHours(opens, closes);
-}
-
-async function clearPharmacyHours() {
-  await submitPharmacyHours('', '');
-}
-
-async function submitPharmacyHours(opens, closes) {
-  const btn = document.getElementById('save-hours-btn');
-  if (btn) btn.disabled = true;
-  try {
-    const res = await fetchWithTimeout(`${API}/pharmacies/self/hours`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        username: currentPharmacy.username,
-        password: currentPharmacy.password,
-        opens_at: opens,
-        closes_at: closes
-      })
-    }, 20000);
-    const data = await res.json();
-    if (!res.ok) { await customAlert(translateApiError(data.error), 'error'); return; }
-
-    currentPharmacy.opens_at = data.opens_at;
-    currentPharmacy.closes_at = data.closes_at;
-    document.getElementById('hours-opens-input').value = data.opens_at || '';
-    document.getElementById('hours-closes-input').value = data.closes_at || '';
-    renderPharmacyHours();
-    await customAlert(data.opens_at ? t('hours_saved') : t('hours_cleared'), 'success');
-  } catch (err) {
-    await customAlert(t('server_error_title'), 'error');
-  } finally {
-    if (btn) btn.disabled = false;
-  }
-}
-
-async function toggleClosedToday() {
-  const closedNow = currentPharmacy.closed_override_date
-    && currentPharmacy.closed_override_date === damascusTodayDate();
-  const btn = document.getElementById('closed-today-btn');
-  if (btn) btn.disabled = true;
-  try {
-    const res = await fetchWithTimeout(`${API}/pharmacies/self/closed-today`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        username: currentPharmacy.username,
-        password: currentPharmacy.password,
-        closed: !closedNow
-      })
-    }, 20000);
-    const data = await res.json();
-    if (!res.ok) { await customAlert(translateApiError(data.error), 'error'); return; }
-
-    currentPharmacy.closed_override_date = data.closed_override_date;
-    renderPharmacyHours();
-    await customAlert(data.closed_override_date ? t('closed_today_saved') : t('closed_today_removed'), 'success');
-  } catch (err) {
-    await customAlert(t('server_error_title'), 'error');
-  } finally {
-    const b = document.getElementById('closed-today-btn');
-    if (b) b.disabled = false;
-  }
-}
-
-// ---------- تحديد موقع الصيدلية (لوحة الصيدلي) ----------
-
-// عتبة الدقة التي ننبّه عندها. GPS داخل مبنى قد يعطي دقة مئات الأمتار،
-// وحفظ نقطة كهذه يرسل المريض لشارع مجاور — فننبّه ولا نمنع، لأن الصيدلي
-// وحده يعرف إن كانت النقطة صحيحة رغم ضعف الدقة المعلَنة.
-const LOCATION_ACCURACY_WARN_METERS = 100;
-
-// حدود سوريا التقريبية — تُستخدم للتنبيه فقط لا للمنع.
-// فائدتها الحقيقية: كشف انعكاس الرقمين، وهو الخطأ الأشيع عند اللصق من خرائط
-// جوجل بواجهة عربية، حيث يعرض المتصفح السطر الرقمي معكوساً بصرياً فينسخ
-// المستخدم ما يراه لا ما هو مخزَّن — فينتهي الموقع في تركيا بدل سوريا.
-const SYRIA_BOUNDS = { minLat: 32.0, maxLat: 37.5, minLng: 35.5, maxLng: 42.5 };
-function isInsideSyria(lat, lng) {
-  return lat >= SYRIA_BOUNDS.minLat && lat <= SYRIA_BOUNDS.maxLat
-      && lng >= SYRIA_BOUNDS.minLng && lng <= SYRIA_BOUNDS.maxLng;
-}
-
-// صيغة الدرجات والدقائق والثواني: 35°00'57.8"N 37°03'25.3"E
-// نقبلها لأنها الصيغة الوحيدة غير القابلة للالتباس: حرف N/S يحدد خط العرض
-// وE/W يحدد خط الطول، فلا يهم ترتيب ظهورهما ولا اتجاه عرض الواجهة.
-function parseDmsCoordinates(text) {
-  const re = /(\d+(?:\.\d+)?)\s*°\s*(\d+(?:\.\d+)?)\s*'\s*(\d+(?:\.\d+)?)\s*"?\s*([NSEW])/gi;
-  const found = {};
-  let m;
-  while ((m = re.exec(text)) !== null) {
-    const deg = Number(m[1]), min = Number(m[2]), sec = Number(m[3]);
-    const dir = m[4].toUpperCase();
-    let val = deg + min / 60 + sec / 3600;
-    if (dir === 'S' || dir === 'W') val = -val;
-    if (dir === 'N' || dir === 'S') found.lat = Math.round(val * 1e6) / 1e6;
-    else found.lng = Math.round(val * 1e6) / 1e6;
-  }
-  if (found.lat === undefined || found.lng === undefined) return null;
-  return hasLocation(found.lat, found.lng) ? { lat: found.lat, lng: found.lng } : null;
-}
-
-// يقبل ما تنسخه خرائط جوجل مباشرة: "35.011667, 37.053056"
-// أو صيغة الدرجات: 35°00'57.8"N 37°03'25.3"E
-// ويتسامح مع الفاصلة العربية والمسافات والأقواس وعلامات الاتجاه غير المرئية.
-function parsePastedCoordinates(raw) {
-  if (!raw) return null;
-  // الدرجات أولاً: صيغة قاطعة لا تحتمل انعكاساً، فنفضّلها متى وُجدت
-  const dms = parseDmsCoordinates(String(raw));
-  if (dms) return dms;
-  const cleaned = String(raw)
-    .replace(/[\u200e\u200f\u202a-\u202e]/g, '')   // محارف اتجاه غير مرئية من اللصق
-    .replace(/[()]/g, ' ')
-    .replace(/،/g, ',')                             // الفاصلة العربية
-    .replace(/[٠-٩]/g, ch => String('٠١٢٣٤٥٦٧٨٩'.indexOf(ch)))
-    .trim();
-  const parts = cleaned.split(/[,\s]+/).filter(Boolean);
-  if (parts.length !== 2) return null;
-  const lat = Number(parts[0]), lng = Number(parts[1]);
-  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
-  if (!hasLocation(lat, lng)) return null;
-  return { lat, lng };
-}
-
-// عرض الموقع المحفوظ حالياً بلوحة الصيدلي
-function renderSavedLocation() {
-  const box = document.getElementById('location-current');
-  if (!box) return;
-  const lat = currentPharmacy && currentPharmacy.latitude;
-  const lng = currentPharmacy && currentPharmacy.longitude;
-  if (!hasLocation(lat, lng)) {
-    box.innerHTML = `<span class="muted">${t('location_none')}</span>`;
-    return;
-  }
-  const preview = mapPreviewLink(lat, lng);
-  box.innerHTML = `
-    <span class="muted">${t('location_current_label')}</span>
-    <bdi class="location-coords">${escapeHtml(String(lat))}, ${escapeHtml(String(lng))}</bdi>
-    <a class="location-preview-link" href="${preview}" target="_blank" rel="noopener noreferrer">${t('location_preview_btn')}</a>`;
-}
-
-// قراءة موقع الجهاز. enableHighAccuracy يطلب GPS لا تقدير الشبكة —
-// أبطأ قليلاً لكنه الفارق بين دقة أمتار ودقة كيلومتر.
-function detectMyLocation() {
-  const btn = document.getElementById('detect-location-btn');
-  if (!navigator.geolocation) { customAlert(t('geo_unsupported'), 'warning'); return; }
-  if (btn) { btn.disabled = true; btn.textContent = t('detecting_location'); }
-
-  const restore = () => { if (btn) { btn.disabled = false; btn.textContent = t('detect_location_btn'); } };
-
-  navigator.geolocation.getCurrentPosition(
-    async (pos) => {
-      restore();
-      const lat = Math.round(pos.coords.latitude * 1e6) / 1e6;
-      const lng = Math.round(pos.coords.longitude * 1e6) / 1e6;
-      const acc = Math.round(pos.coords.accuracy || 0);
-
-      // تأكيد قبل الحفظ: الصيدلي قد يضغط الزر وهو في بيته لا صيدليته
-      const proceed = await customConfirm(tFormat('location_confirm_detected', { n: tPlural('meters_count', acc) }), 'warning');
-      if (!proceed) return;
-      if (acc > LOCATION_ACCURACY_WARN_METERS) {
-        const anyway = await customConfirm(tFormat('geo_low_accuracy', { n: tPlural('meters_count', acc) }), 'warning');
-        if (!anyway) return;
-      }
-      document.getElementById('location-paste-input').value = `${lat}, ${lng}`;
-      await savePharmacyLocation(lat, lng);
-    },
-    (err) => {
-      restore();
-      let key = 'geo_unavailable';
-      if (err && err.code === 1) key = 'geo_denied';
-      else if (err && err.code === 3) key = 'geo_timeout';
-      customAlert(t(key), 'warning');
-    },
-    { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 }
+const SEARCH_RESULTS_LIMIT = 30;
+
+async function searchMedicines(query, category = 'medicine') {
+  const q = query.trim().toLowerCase();
+  if (!q) return [];
+  const e = escapeLike(q);
+  // النتائج محدودة بـ30، فنرتّبها كي لا يخرج المطلوب من الحد: المطابق تماماً، ثم ما يبدأ
+  // بالكلمة، ثم ما يحتويها، ثم المطابق بالمادة الفعالة أو اسم بديل
+  const { rows } = await pool.query(
+    `SELECT * FROM medicines
+     WHERE category = $2
+       AND (LOWER(name) LIKE $1
+        OR LOWER(COALESCE(generic_name, '')) LIKE $1
+        OR EXISTS (SELECT 1 FROM unnest(alt_names) a WHERE LOWER(a) LIKE $1))
+     ORDER BY CASE WHEN LOWER(name) = $3 THEN 0
+                   WHEN LOWER(name) LIKE $4 THEN 1
+                   WHEN LOWER(name) LIKE $1 THEN 2
+                   ELSE 3 END,
+              name
+     LIMIT ${SEARCH_RESULTS_LIMIT}`,
+    [`%${e}%`, category, q, `${e}%`]
   );
-}
-
-// حفظ من الحقل الملصوق
-async function saveLocationFromInput() {
-  const raw = document.getElementById('location-paste-input').value.trim();
-  if (!raw) { await customAlert(t('invalid_location_error'), 'warning'); return; }
-  const parsed = parsePastedCoordinates(raw);
-  if (!parsed) { await customAlert(t('invalid_location_error'), 'warning'); return; }
-
-  let { lat, lng } = parsed;
-
-  // كشف الانعكاس: إن كان الزوج خارج سوريا بينما عكسه داخلها، فالسبب شبه مؤكد
-  // أن المستخدم نسخ السطر الرقمي كما رآه من واجهة عربية تعرضه معكوساً.
-  // نقترح التصحيح ولا نفرضه — الصيدلي وحده يعرف موقعه.
-  if (!isInsideSyria(lat, lng) && isInsideSyria(lng, lat)) {
-    const suggested = `${lng}, ${lat}`;
-    const swap = await customConfirm(tFormat('location_swap_suggest', { coords: suggested }), 'warning');
-    if (swap) { const tmp = lat; lat = lng; lng = tmp; }
-  } else if (!isInsideSyria(lat, lng)) {
-    // خارج سوريا والعكس لا يساعد: قد يكون مقصوداً (توسع مستقبلي) فننبّه ونسمح
-    const anyway = await customConfirm(t('location_outside_syria'), 'warning');
-    if (!anyway) return;
-  }
-
-  document.getElementById('location-paste-input').value = `${lat}, ${lng}`;
-  await savePharmacyLocation(lat, lng);
-}
-
-async function clearPharmacyLocation() {
-  await savePharmacyLocation('', '');
-}
-
-// الحفظ الفعلي. الخلفية هي مصدر الحقيقة للتنسيق، فنعرض ما أعادته لا ما كُتب.
-async function savePharmacyLocation(lat, lng) {
-  const saveBtn = document.getElementById('save-location-btn');
-  if (saveBtn) saveBtn.disabled = true;
-  try {
-    const res = await fetchWithTimeout(`${API}/pharmacies/self/location`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        username: currentPharmacy.username,
-        password: currentPharmacy.password,
-        latitude: lat,
-        longitude: lng
-      })
-    }, 20000);
-    const data = await res.json();
-    if (!res.ok) { await customAlert(translateApiError(data.error), 'error'); return; }
-
-    currentPharmacy.latitude = data.latitude;
-    currentPharmacy.longitude = data.longitude;
-    document.getElementById('location-paste-input').value =
-      hasLocation(data.latitude, data.longitude) ? `${data.latitude}, ${data.longitude}` : '';
-    renderSavedLocation();
-    await customAlert(hasLocation(data.latitude, data.longitude) ? t('location_saved_success') : t('location_cleared_success'), 'success');
-  } catch (err) {
-    await customAlert(t('server_error_title'), 'error');
-  } finally {
-    if (saveBtn) saveBtn.disabled = false;
-  }
-}
-
-async function saveWhatsappPhone() {
-  const raw = document.getElementById('whatsapp-phone-input').value.trim();
-  const btn = document.getElementById('save-whatsapp-btn');
-  if (btn) btn.disabled = true;
-  try {
-    const res = await fetchWithTimeout(`${API}/pharmacies/self/whatsapp`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        username: currentPharmacy.username,
-        password: currentPharmacy.password,
-        whatsapp_phone: raw
-      })
-    }, 20000);
-    const data = await res.json();
-    if (!res.ok) { await customAlert(translateApiError(data.error), 'error'); return; }
-
-    // نحفظ الرقم المنسّق العائد من الخلفية لا ما كتبه الصيدلي:
-    // الخلفية هي مصدر الحقيقة للتنسيق، فيرى الصيدلي الصيغة المخزَّنة فعلاً.
-    currentPharmacy.whatsapp_phone = data.whatsapp_phone || null;
-    document.getElementById('whatsapp-phone-input').value = data.whatsapp_phone || '';
-    await customAlert(data.whatsapp_phone ? t('whatsapp_saved_success') : t('whatsapp_cleared_success'), 'success');
-  } catch (err) {
-    await customAlert(t('server_error_title'), 'error');
-  } finally {
-    if (btn) btn.disabled = false;
-  }
-}
-
-function saveAssistantPhone() { return runGuarded('saveAssistantPhone', 'save-assistant-phone-btn', saveAssistantPhoneNow); }
-async function saveAssistantPhoneNow() {
-  const assistant_phone = document.getElementById('assistant-phone-input').value.trim();
-  try {
-    const res = await fetchWithTimeout(`${API}/pharmacies/self/assistant-phone`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        username: currentPharmacy.username,
-        password: currentPharmacy.password,
-        assistant_phone
-      })
-    }, 20000);
-    const data = await res.json();
-    if (!res.ok) { customAlert(translateApiError(data.error), 'error'); return; }
-    currentPharmacy.assistant_phone = data.assistant_phone;
-    customAlert(t('assistant_phone_saved_success'), 'success');
-  } catch (err) {
-    customAlert(t('server_error_title'), 'error');
-  }
-}
-
-function logout() {
-  currentPharmacy = null;
-  pushState.pharmacy = null;
-  renderPushCard('pharmacy');
-  stopOrdersPolling();
-  pharmacistStockCache = [];
-  pharmacistOrdersCache = [];
-  ordersLoadedOnce = false;
-  ordersSyncFailures = 0;
-  // م8: جهاز الصيدلية قد يتشاركه أكثر من شخص. لا يبقى شيء من الجلسة السابقة: معاينة استيراد
-  // كان يمكن للصيدلي التالي إرسالها إلى حسابه هو، وكلمات مرور ربما ظاهرة، ونماذج نصف معبأة،
-  // وقوائم الطلبات والمخزون بأسماء المرضى وهواتفهم.
-  cancelBulkImport();
-  ['current-password-input', 'new-password-input', 'confirm-password-input'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) { el.value = ''; el.type = 'password'; }
-  });
-  document.querySelectorAll('#pharmacist-dashboard .toggle-password').forEach(b => { b.textContent = '👁'; });
-  ['pharm-med-name', 'pharm-med-generic', 'pharm-med-alt', 'assistant-phone-input', 'whatsapp-phone-input',
-   'main-phone-input', 'location-paste-input', 'hours-opens-input', 'hours-closes-input',
-   'duty-start-time', 'duty-end-time'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.value = '';
-  });
-  // و11: القوائم المنسدلة تعود إلى خيارها الأول، فلا يرى الصيدلي التالي يوم مناوبة من قبله
-  ['duty-day', 'duty-shift', 'pharm-med-category'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.selectedIndex = 0;
-  });
-  updateMedNamePlaceholder('pharm-med-category', 'pharm-med-name');
-  const dutyBox = document.getElementById('duty-checkbox');
-  if (dutyBox) { dutyBox.checked = false; onDutyToggle(); }
-  const list = document.getElementById('orders-list');
-  if (list) list.innerHTML = '';
-  const stockList = document.getElementById('stock-list');
-  if (stockList) stockList.innerHTML = '';
-  setOrdersSyncNote(false);
-  document.getElementById('pharmacist-dashboard').style.display = 'none';
-  renderPharmacyAuthForm();
-}
-
-function updateMedNamePlaceholder(selectId, inputId) {
-  const category = document.getElementById(selectId).value;
-  document.getElementById(inputId).placeholder = category === 'cosmetic' ? t('med_name_placeholder_cosmetic') : t('med_name_placeholder');
-}
-
-function addMedicineSelf() { return runGuarded('addMedicineSelf', 'add-med-btn', addMedicineSelfNow); }
-async function addMedicineSelfNow() {
-  const name = document.getElementById('pharm-med-name').value.trim();
-  const generic_name = document.getElementById('pharm-med-generic').value.trim();
-  const alt_names = document.getElementById('pharm-med-alt').value.split(',').map(s => s.trim()).filter(Boolean);
-  const category = document.getElementById('pharm-med-category').value;
-  if (!name) { customAlert(t('med_name_required'), 'warning'); return; }
-  try {
-    const res = await fetchWithTimeout(`${API}/medicines/self`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        username: currentPharmacy.username,
-        password: currentPharmacy.password,
-        name, generic_name, alt_names, category
-      })
-    }, 20000);
-    const data = await res.json();
-    if (!res.ok) { customAlert(translateApiError(data.error), 'error'); return; }
-    document.getElementById('pharm-med-name').value = '';
-    document.getElementById('pharm-med-generic').value = '';
-    document.getElementById('pharm-med-alt').value = '';
-    document.getElementById('pharm-med-category').value = 'medicine';
-    updateMedNamePlaceholder('pharm-med-category', 'pharm-med-name');
-    customAlert(t('med_added_success'), 'success');
-    refreshStock();
-  } catch (err) {
-    customAlert(t('server_error_title'), 'error');
-  }
-}
-
-// ---------- استيراد دفعة أدوية من ملف CSV ----------
-
-let bulkImportParsedRows = [];
-
-function downloadBulkImportTemplate() {
-  const headers = currentLang === 'en'
-    ? ['Name', 'Active ingredient', 'Alternative names', 'Category']
-    : ['اسم الدواء', 'المادة الفعالة', 'أسماء بديلة', 'التصنيف'];
-  const example = currentLang === 'en'
-    ? ['Panadol', 'Paracetamol', 'Panadol Extra;Acetaminophen', 'Medicine']
-    : ['بنادول', 'باراسيتامول', 'بندول;panadol', 'دواء'];
-  const csv = '\uFEFF' + headers.join(',') + '\n' + example.join(',') + '\n';
-  saveBlobAs(new Blob([csv], { type: 'text/csv;charset=utf-8;' }), 'dawaai-jahez-medicines-template.csv');
-}
-
-// نص خانة التصنيف بالملف ممكن يجي عربي أو إنكليزي (حسب لغة النموذج يلي استخدمها الصيدلي) — نتحقق من الاثنين
-function parseCategoryLabel(raw) {
-  const v = (raw || '').trim().toLowerCase();
-  if (!v) return { value: 'medicine', invalid: false };
-  if (v === 'دواء' || v === 'medicine') return { value: 'medicine', invalid: false };
-  if (v === 'مستحضر تجميل' || v === 'cosmetic' || v === 'cosmetic product') return { value: 'cosmetic', invalid: false };
-  return { value: null, invalid: true };
-}
-
-// قراءة CSV بقواعده الكاملة: إكسل وGoogle Sheets يضعان الخلية بين علامتي تنصيص إن احتوت
-// الفاصل نفسه أو سطراً جديداً، ويكرران علامة التنصيص داخلها (""). كان التقسيم البسيط عند كل
-// فاصلة يزيح الأعمدة في هذه الحالات (اسم بديل فيه فاصلة مثلاً).
-function parseCsv(text, delimiter) {
-  const rows = [];
-  let row = [], field = '', inQuotes = false;
-  for (let i = 0; i < text.length; i++) {
-    const c = text[i];
-    if (inQuotes) {
-      if (c === '"') {
-        if (text[i + 1] === '"') { field += '"'; i++; } else inQuotes = false;
-      } else field += c;
-    } else if (c === '"' && field.trim() === '') {
-      inQuotes = true; field = '';
-    } else if (c === delimiter) {
-      row.push(field.trim()); field = '';
-    } else if (c === '\n' || c === '\r') {
-      if (c === '\r' && text[i + 1] === '\n') i++;
-      row.push(field.trim()); field = '';
-      if (row.some(v => v !== '')) rows.push(row);
-      row = [];
-    } else field += c;
-  }
-  row.push(field.trim());
-  if (row.some(v => v !== '')) rows.push(row);
   return rows;
 }
 
-// الحد الأقصى لدفعة واحدة، مطابق لحد الخادم (routes/medicines.js)
-const BULK_IMPORT_MAX = 500;
+// إضافة دواء للقائمة العامة، بشكل آمن ضد التكرار.
+// لو كان الاسم + التصنيف موجودين أصلاً، ما بينضاف صف جديد إطلاقاً، وبترجع الدالة الدواء
+// الموجود بهدوء بدل ما ترمي خطأ — هيك المستخدم ما بيشوف رسالة خطأ سيرفر قبيحة، والنتيجة
+// النهائية صحيحة بكل الحالات (نسخة واحدة فقط بالقائمة العامة).
+// خاد5: المادة الفعالة والأسماء البديلة تصل من الصيدلي والإدارة وملفات الاستيراد. كانت
+// تُحفظ كما هي: قيمة فارغة (null) بين الأسماء البديلة عطّلت «هل تقصد» لكل الزوار، ونص
+// من 30 ألف حرف ظهر في نتائج البحث. الآن: نص فقط، حتى 120 حرفاً، وحتى 20 اسماً بديلاً.
+const MAX_MEDICINE_TEXT = 120;
+const MAX_ALT_NAMES = 20;
 
-function handleBulkImportFile(event) {
-  const file = event.target.files[0];
-  document.getElementById('bulk-import-filename').textContent = file ? file.name : t('no_file_chosen');
-  if (!file) return;
-  const reader = new FileReader();
-  reader.onload = (e) => {
-    try {
-      const bytes = new Uint8Array(e.target.result);
-      // نتعرّف على ترميز الملف من العلامة (BOM) بأوله، عشان ندعم أكتر من صيغة حفظ ممكنة بإكسل:
-      // UTF-8 (نموذجنا الأصلي أو CSV UTF-8) | UTF-16 (صيغة "Unicode Text" بإكسل) | بدون علامة (الأغلب CSV العادية بترميز الجهاز العربي)
-      let encoding, offset;
-      if (bytes.length >= 3 && bytes[0] === 0xEF && bytes[1] === 0xBB && bytes[2] === 0xBF) {
-        encoding = 'utf-8'; offset = 3;
-      } else if (bytes.length >= 2 && bytes[0] === 0xFF && bytes[1] === 0xFE) {
-        encoding = 'utf-16le'; offset = 2;
-      } else if (bytes.length >= 2 && bytes[0] === 0xFE && bytes[1] === 0xFF) {
-        encoding = 'utf-16be'; offset = 2;
-      } else {
-        // بلا علامة: نجرّب UTF-8 أولاً (Google Sheets وLibreOffice وأغلب الهواتف تحفظ به دون
-        // علامة)، فإن لم يكن نصاً صالحاً به فهو ترميز الجهاز العربي القديم. كان كل ملف بلا
-        // علامة يُقرأ بالترميز القديم، فتتحول أسماء ملف Google Sheets العربية إلى رموز مشوّهة.
-        offset = 0;
-        try { new TextDecoder('utf-8', { fatal: true }).decode(bytes); encoding = 'utf-8'; }
-        catch (e) { encoding = 'windows-1256'; }
-      }
-      const decoder = new TextDecoder(encoding);
-      const text = decoder.decode(bytes.slice(offset));
-
-      const firstLine = (text.split(/\r\n|\n|\r/).find(l => l.trim() !== '') || '');
-      if (!firstLine) { customAlert(t('bulk_import_parse_error'), 'error'); return; }
-      // الفاصل من سطر العناوين: Tab (صيغة "Unicode Text" بإكسل)، أو فاصلة منقوطة (إكسل في
-      // بعض إعدادات المنطقة)، أو فاصلة (الأغلب)
-      const counts = { '\t': firstLine.split('\t').length, ';': firstLine.split(';').length, ',': firstLine.split(',').length };
-      const delimiter = counts['\t'] > 1 ? '\t' : (counts[';'] > counts[','] ? ';' : ',');
-      const dataRows = parseCsv(text, delimiter).slice(1); // أول سطر عناوين الأعمدة، نتجاوزه
-      if (dataRows.length > BULK_IMPORT_MAX) {
-        customAlert(tFormat('bulk_import_too_many', { count: dataRows.length }), 'warning');
-        cancelBulkImport();
-        return;
-      }
-      bulkImportParsedRows = dataRows.map(cols => {
-        const [name, generic_name, altRaw, categoryRaw] = cols;
-        const alt_names = (altRaw || '').split(';').map(s => s.trim()).filter(Boolean);
-        const { value: category, invalid: invalidCategory } = parseCategoryLabel(categoryRaw);
-        const issues = [];
-        if (!name) issues.push(t('bulk_import_empty_name_issue'));
-        if (invalidCategory) issues.push(t('bulk_import_invalid_category_issue'));
-        return { name: name || '', generic_name: generic_name || '', alt_names, category: category || 'medicine', issues };
-      });
-      renderBulkImportPreview();
-    } catch (err) {
-      customAlert(t('bulk_import_parse_error'), 'error');
-    }
-  };
-  reader.readAsArrayBuffer(file);
+function sanitizeGenericName(v) {
+  if (typeof v !== 'string') return null;
+  const t = cleanText(v);
+  return t ? t.slice(0, MAX_MEDICINE_TEXT) : null;
 }
 
-function renderBulkImportPreview() {
-  const container = document.getElementById('bulk-import-preview');
-  const validRows = bulkImportParsedRows.filter(r => r.issues.length === 0);
-  const invalidRows = bulkImportParsedRows.filter(r => r.issues.length > 0);
-
-  if (bulkImportParsedRows.length === 0) {
-    container.style.display = 'block';
-    container.innerHTML = `<p class="muted">${t('bulk_import_no_valid_rows')}</p>`;
-    return;
+function sanitizeAltNames(v) {
+  if (!Array.isArray(v)) return [];
+  const out = [];
+  for (const item of v) {
+    if (typeof item !== 'string') continue;
+    const t = cleanText(item);
+    if (!t || t.length > MAX_MEDICINE_TEXT || out.includes(t)) continue;
+    out.push(t);
+    if (out.length >= MAX_ALT_NAMES) break;
   }
-
-  container.style.display = 'block';
-  container.innerHTML = `
-    <p style="font-weight:700; margin-bottom:6px;">${t('bulk_import_preview_title')}</p>
-    <p class="muted" style="margin-top:0;">
-      ${tFormat('bulk_import_valid_count', { count: validRows.length })}
-      ${invalidRows.length > 0 ? ' — ' + tFormat('bulk_import_invalid_count', { count: invalidRows.length }) : ''}
-    </p>
-    <div class="stock-table-wrap" style="margin-bottom:14px;">
-      <div class="stock-scroll" style="max-height:260px;">
-        <div class="stock-table-header">
-          <span>${t('bulk_import_col_name')}</span>
-          <span class="col-status">${t('bulk_import_col_category')}</span>
-        </div>
-        ${bulkImportParsedRows.map(r => `
-          <div class="row" style="${r.issues.length > 0 ? 'opacity:0.6;' : ''}">
-            <span>
-              ${escapeHtml(r.name || '-')}
-              ${r.generic_name ? `<span class="muted" style="font-size:12px;"> - ${escapeHtml(r.generic_name)}</span>` : ''}
-              ${r.issues.length > 0 ? `<br><span style="color:#c0392b; font-size:12px;">⚠️ ${r.issues.join(' / ')}</span>` : ''}
-            </span>
-            <span class="muted" style="font-size:13px; min-width:104px; text-align:center;">${r.category === 'cosmetic' ? t('cat_cosmetic') : t('cat_medicine')}</span>
-          </div>
-        `).join('')}
-      </div>
-    </div>
-    <div style="display:flex; gap:10px;">
-      <button class="primary" id="bulk-import-confirm-btn" onclick="confirmBulkImport()" ${validRows.length === 0 ? 'disabled' : ''}>${t('bulk_import_confirm_btn')}</button>
-      <button type="button" class="btn-outline blue small" onclick="cancelBulkImport()">${t('bulk_import_cancel_btn')}</button>
-    </div>
-  `;
+  return out;
 }
 
-function confirmBulkImport() { return runGuarded('confirmBulkImport', 'bulk-import-confirm-btn', confirmBulkImportNow); }
-async function confirmBulkImportNow() {
-  const validRows = bulkImportParsedRows.filter(r => r.issues.length === 0)
-    .map(({ name, generic_name, alt_names, category }) => ({ name, generic_name, alt_names, category }));
-  if (validRows.length === 0) return;
+async function addMedicine({ name: rawName, generic_name: rawGeneric, alt_names: rawAlt, category }) {
+  const finalCategory = category || 'medicine';
+  // تنظيف الاسم يمنع أيضاً تكراراً خفياً: "بنادول " كان سيُحفظ دواءً مستقلاً عن
+  // "بنادول" لأن الفهرس الفريد يقارن النص حرفياً. بعد التنظيف يلتقطه ON CONFLICT.
+  const name = cleanText(rawName);
+  const generic_name = sanitizeGenericName(rawGeneric);
+  const alt_names = sanitizeAltNames(rawAlt);
   try {
-    const res = await fetchWithTimeout(`${API}/medicines/bulk-import`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username: currentPharmacy.username, password: currentPharmacy.password, items: validRows })
-    }, 60000);
-    const data = await res.json();
-    if (!res.ok) { customAlert(translateApiError(data.error), 'error'); return; }
-    // الأسطر التي رفضها الخادم (اسم طويل جداً مثلاً) كانت تُهمل بصمت: نعرض أولها مع السبب
-    const errs = Array.isArray(data.errors) ? data.errors.slice(0, 5) : [];
-    const more = Array.isArray(data.errors) && data.errors.length > 5 ? `\n… (+${data.errors.length - 5})` : '';
-    await customAlert(tFormat('bulk_import_success', { added: data.added, linked: data.linked, skipped: data.skipped })
-      + (errs.length ? `\n\n${t('bulk_import_errors_title')}\n` + errs.map(e => '• ' + translateApiError(e)).join('\n') + more : ''), errs.length ? 'warning' : 'success');
-    cancelBulkImport();
-    refreshStock();
-  } catch (err) {
-    customAlert(t('server_error_title'), 'error');
-  }
-}
-
-function cancelBulkImport() {
-  bulkImportParsedRows = [];
-  document.getElementById('bulk-import-preview').style.display = 'none';
-  document.getElementById('bulk-import-preview').innerHTML = '';
-  document.getElementById('bulk-import-file').value = '';
-  document.getElementById('bulk-import-filename').textContent = t('no_file_chosen');
-}
-
-// و6: طلبان للقائمة نفسها قد يعودان بغير ترتيب إرسالهما على شبكة بطيئة (تحديث تلقائي أُرسل قبل
-// تأكيد طلب، ورده وصل بعد رد ما بعد التأكيد)، فيُرسم الأقدم فوق الأحدث ويعود الطلب «غير مؤكد».
-// لكل طلب رقم متسلسل، ولا يُرسم رد أقدم من آخر رد رُسم. لا نُهمل الرد لمجرد أن طلباً أحدث
-// أُرسل بعده: على شبكة بطيئة جداً قد يسبق كل تحديث تلقائي رد سابقه، فلا يُرسم شيء أبداً.
-let stockSeq = 0, stockShownSeq = 0;
-let ordersSeq = 0, ordersShownSeq = 0;
-
-async function refreshStock() {
-  const seq = ++stockSeq;
-  // نعرض "جاري التحميل" بس لو أول مرة (الكاش لسا فاضية) — تفادياً لأي وميض بالتحديثات اللاحقة (بعد تبديل توفر دواء مثلاً)
-  const isFirstLoad = pharmacistStockCache.length === 0;
-  if (isFirstLoad) {
-    document.getElementById('stock-list').innerHTML = skeletonHtml(4);
-  }
-  const owner = currentPharmacy;
-  try {
-    // no-store: وقت التحديث يتغيّر بالثانية، وأي تخزين مؤقت بالمتصفح يعرض وقتاً بائتاً
-    // المخزون (مع تواريخ الصلاحية) للصيدلي صاحبه فقط، فيُرسل بيانات دخوله مع الطلب
-    const res = await fetchWithTimeout(`${API}/stock/${currentPharmacy.id}`, { cache: 'no-store', headers: pharmacyHeaders() }, 20000);
-    const data = await readJsonOk(res);
-    if (currentPharmacy !== owner) return;   // خرج الصيدلي (أو دخل غيره) أثناء الانتظار
-    if (seq < stockShownSeq) return;          // رد قديم وصل بعد رد أحدث منه
-    stockShownSeq = seq;
-    pharmacistStockCache = data;
-    renderStockUI();
-  } catch (err) {
-    if (currentPharmacy !== owner || seq < stockShownSeq) return;
-    // فشل أول تحميل بس — لازم نستبدل "جاري التحميل" برسالة خطأ واضحة، عشان ما تضل عالقة للأبد
-    if (isFirstLoad) {
-      document.getElementById('stock-list').innerHTML = `<p class="muted">${t('server_error_title')}</p>`;
-    }
-  }
-}
-
-// إعادة رسم قائمة المخزون وبطاقات الإحصاء من آخر بيانات محفوظة، بدون أي طلب شبكة — تُستخدم عند تبديل اللغة
-// تحسب حالة انتهاء صلاحية دواء معين بناءً على تاريخ الانتهاء (لو محدد) — أداة داخلية للصيدلي فقط، صفر ظهور للمريض
-function expiryStatus(expiryDate) {
-  if (!expiryDate) return null;
-  const daysLeft = Math.ceil((new Date(expiryDate) - new Date()) / 86400000);
-  if (daysLeft < 0) return 'expired';
-  if (daysLeft <= 30) return 'soon';
-  return null;
-}
-
-function renderStockUI() {
-  const data = pharmacistStockCache;
-  document.getElementById('stock-list').innerHTML = data.map(m => {
-    const status = expiryStatus(m.expiry_date);
-    // نُظهر للصيدلي نفس ما يراه المريض عن عمر معلومته — حافز مباشر للتحديث
-    const rel = relativeTime(m.updated_at);
-    const freshness = rel
-      ? `<span class="muted stock-row-time${isStockStale(m.updated_at) ? ' stale' : ''}">🕒 ${escapeHtml(rel)}</span>`
-      : `<span class="muted stock-row-time stale">🕒 ${t('stock_never_updated')}</span>`;
-    const badge = status === 'expired'
-      ? `<span class="expiry-badge expired">⚠️ ${t('expiry_expired_badge')}</span>`
-      : status === 'soon'
-      ? `<span class="expiry-badge soon">⏳ ${t('expiry_soon_badge')}</span>`
-      : '';
-    return `
-    <div class="row-wrap">
-      <div class="row">
-        <span>${escapeHtml(m.name)} <span class="muted" style="font-size:12px;">${m.category === 'cosmetic' ? '💄' : '💊'}</span> ${badge}${freshness}</span>
-        <div style="display:flex; gap:6px; align-items:center;">
-          <button type="button" class="btn-outline blue small" onclick="toggleStockDates(${m.medicine_id})" aria-label="${t('edit_dates_aria')}">📅</button>
-          <button class="toggle-btn ${m.available ? 'yes' : 'no'}" onclick="toggleStock(${m.medicine_id}, ${!m.available})">
-            ${m.available ? t('available_badge') : t('unavailable_badge')}
-          </button>
-        </div>
-      </div>
-      <div id="stock-dates-${m.medicine_id}" class="stock-dates-panel" style="display:none;"></div>
-    </div>
-  `;
-  }).join('');
-  renderDashboardStats(data);
-}
-
-// فتح/إغلاق لوحة تعديل تاريخي الصنع والانتهاء لدواء معين
-function toggleStockDates(medicineId) {
-  const panel = document.getElementById(`stock-dates-${medicineId}`);
-  if (!panel) return;
-  if (panel.style.display === 'none') {
-    const m = pharmacistStockCache.find(x => x.medicine_id === medicineId);
-    panel.innerHTML = `
-      <div class="stock-dates-inputs">
-        <label>${t('manufacture_date_label')}
-          <input type="date" id="mfg-date-${medicineId}" value="${m && m.manufacture_date ? m.manufacture_date.slice(0, 10) : ''}">
-        </label>
-        <label>${t('expiry_date_label')}
-          <input type="date" id="exp-date-${medicineId}" value="${m && m.expiry_date ? m.expiry_date.slice(0, 10) : ''}">
-        </label>
-      </div>
-      <button type="button" class="btn-outline blue small" onclick="saveStockDates(${medicineId})">${t('save_dates_btn')}</button>
-    `;
-    panel.style.display = 'block';
-  } else {
-    panel.style.display = 'none';
-  }
-}
-
-function saveStockDates(medicineId) { return runGuarded('saveStockDates:' + medicineId, null, () => saveStockDatesNow(medicineId)); }
-async function saveStockDatesNow(medicineId) {
-  const m = pharmacistStockCache.find(x => x.medicine_id === medicineId);
-  if (!m) return;
-  const manufactureDate = document.getElementById(`mfg-date-${medicineId}`).value || null;
-  const expiryDate = document.getElementById(`exp-date-${medicineId}`).value || null;
-  try {
-    const res = await fetchWithTimeout(`${API}/stock/${currentPharmacy.id}/${medicineId}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        available: m.available,
-        username: currentPharmacy.username,
-        password: currentPharmacy.password,
-        manufactureDate, expiryDate
-      })
-    }, 20000);
-    if (!res.ok) {
-      const data = await res.json().catch(() => ({}));
-      await customAlert(translateApiError(data.error), 'error');
-      return;
-    }
-  } catch (err) {
-    await customAlert(t('server_error_title'), 'error');
-    return;
-  }
-  refreshStock();
-}
-
-function renderDashboardStats(data) {
-  const medicines = data.filter(m => m.category !== 'cosmetic');
-  const cosmetics = data.filter(m => m.category === 'cosmetic');
-  const total = medicines.length;
-  const available = medicines.filter(m => m.available).length;
-  const unavailable = total - available;
-  const cosmeticsTotal = cosmetics.length;
-  const cosmeticsAvailable = cosmetics.filter(m => m.available).length;
-  const onDutyText = currentPharmacy.on_duty ? t('yes_word') : t('no_word');
-  document.getElementById('stats-grid').innerHTML = `
-    <div class="stat-card">
-      <div class="stat-value">${total}</div>
-      <div class="stat-label">${t('stat_total_meds')}</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-value stat-green">${available}</div>
-      <div class="stat-label">${t('stat_available_meds')}</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-value stat-red">${unavailable}</div>
-      <div class="stat-label">${t('stat_unavailable_meds')}</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-value">${cosmeticsAvailable}/${cosmeticsTotal}</div>
-      <div class="stat-label">${t('stat_cosmetics_short')}</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-value">${onDutyText}</div>
-      <div class="stat-label">${t('stat_onduty_today')}</div>
-    </div>
-  `;
-}
-
-let ordersPollInterval = null;
-
-function startOrdersPolling() {
-  stopOrdersPolling();
-  ordersPollInterval = setInterval(whenVisible(loadOrders), POLL_PHARMACY_ORDERS_MS);
-}
-
-function stopOrdersPolling() {
-  if (ordersPollInterval) {
-    clearInterval(ordersPollInterval);
-    ordersPollInterval = null;
-  }
-}
-
-// نتتبّع أول تحميل لكل جلسة دخول فقط، عشان مؤشر "جاري التحميل" ما يتكرر مع كل polling (تفادياً للوميض)
-let ordersLoadedOnce = false;
-
-// تنبيه توقف تحديث الطلبات. كان الفشل في التحديث الدوري يُخفى تماماً (تبقى آخر قائمة
-// ظاهرة)، فيظن الصيدلي أن لا طلبات جديدة بينما الاتصال منقطع أو الخادم يرفض مؤقتاً.
-// يظهر بعد فشلين متتاليين (نحو 24 ثانية، فلا يومض لانقطاع لحظي)، ويختفي مع أول نجاح.
-let ordersSyncFailures = 0;
-function setOrdersSyncNote(show) {
-  const note = document.getElementById('orders-sync-note');
-  if (!note) return;
-  note.textContent = t('orders_sync_paused');
-  note.style.display = show ? 'block' : 'none';
-}
-
-async function loadOrders() {
-  const wasFirstLoad = !ordersLoadedOnce;
-  const owner = currentPharmacy;
-  if (!owner) return;
-  const seq = ++ordersSeq;   // و6: انظر stockSeq أعلاه
-  if (wasFirstLoad) {
-    document.getElementById('orders-wrap').style.display = 'block';
-    document.getElementById('orders-list').innerHTML = skeletonHtml(2);
-  }
-  try {
-    const res = await fetchWithTimeout(`${API}/orders/${currentPharmacy.id}`, {
-      headers: {
-        'x-pharmacy-username': encodeURIComponent(currentPharmacy.username),
-        'x-pharmacy-password': encodeURIComponent(currentPharmacy.password)
-      }
-    }, 20000);
-    // بيانات الدخول لم تعد صالحة (غُيّرت كلمة المرور من جهاز آخر أو من الإدارة):
-    // نوقف الاستطلاع فوراً. لولا ذلك لكرر المحاولة كل 12 ثانية بكلمة المرور القديمة،
-    // فتتراكم محاولات خاطئة حتى يحظر حد المحاولات جهاز الصيدلي نفسه.
-    if (res.status === 401) {
-      stopOrdersPolling();
-      document.getElementById('orders-list').innerHTML = `<p class="muted">${t('session_expired_error')}</p>`;
-      ordersLoadedOnce = true;
-      return;
-    }
-    if (!res.ok) {
-      let bodyText = '';
-      try { bodyText = await res.text(); } catch (e) { bodyText = '(تعذّرت قراءة نص الرد)'; }
-      throw new Error(`HTTP ${res.status} — ${bodyText}`);
-    }
-    const orders = await res.json();
-    if (currentPharmacy !== owner) return;   // خرج الصيدلي أثناء الانتظار: لا نعرض طلبات حساب سابق
-    if (seq < ordersShownSeq) return;         // رد قديم وصل بعد رد أحدث منه
-    ordersShownSeq = seq;
-    pharmacistOrdersCache = orders;
-    renderOrdersUI();
-    ordersSyncFailures = 0;
-    setOrdersSyncNote(false);
-  } catch (err) {
-    if (currentPharmacy !== owner || seq < ordersShownSeq) return;
-    // عند أول تحميل نعرض الرسالة. في الاستطلاع اللاحق نُبقي آخر قائمة ناجحة ظاهرة،
-    // فانقطاع لحظي لا يمسح طلبات يراها الصيدلي أمامه، وننبّه إن تكرر الفشل.
-    if (wasFirstLoad) {
-      document.getElementById('orders-list').innerHTML = `<p class="muted">${t('orders_load_error')}</p>`;
-    } else if (++ordersSyncFailures >= 2) {
-      setOrdersSyncNote(true);
-    }
-  }
-  ordersLoadedOnce = true;
-}
-
-// وقت الطلب بلا ثوانٍ: «2026/10/13، 2:19 م». الثواني لا تفيد الصيدلي وتزحم السطر.
-function formatOrderTime(iso) {
-  return new Date(iso).toLocaleString(currentLang === 'en' ? 'en-US' : dateLocale(),
-    { year: 'numeric', month: 'numeric', day: 'numeric', hour: 'numeric', minute: '2-digit' });
-}
-
-// إعادة رسم قائمة الطلبات من آخر بيانات محفوظة، بدون أي طلب شبكة — تُستخدم عند تبديل اللغة
-function renderOrdersUI() {
-  const orders = pharmacistOrdersCache;
-  const wrap = document.getElementById('orders-wrap');
-  const list = document.getElementById('orders-list');
-  if (!orders || orders.length === 0) {
-    wrap.style.display = 'none';
-    return;
-  }
-  wrap.style.display = 'block';
-  list.innerHTML = orders.map(o => `
-    <div class="order-card ${!o.seen ? 'is-new' : ''}">
-      <div class="order-card-top">
-        <span class="order-patient-name">👤 ${escapeHtml(o.patient_name)}</span>
-        ${!o.seen ? `<span class="order-new-badge">${t('order_new_badge')}</span>` : ''}
-        ${o.status === 'confirmed' ? `<span class="order-confirmed-badge">${t('order_confirmed_badge')}</span>` : ''}
-      </div>
-      <div class="order-row"><span>📞</span> ${escapeHtml(o.patient_phone)}</div>
-      <div class="order-row"><span>🕐</span> <bdi>${formatOrderTime(o.created_at)}</bdi></div>
-      <div class="order-items-list">
-        ${o.items.map(it => `<div class="order-item-line">💊 ${escapeHtml(it.medicineName)}${it.genericName ? ' - ' + escapeHtml(it.genericName) : ''} × ${it.quantity}</div>`).join('')}
-      </div>
-      ${o.notes ? `<div class="order-notes-row">📝 ${escapeHtml(o.notes)}</div>` : ''}
-      <div class="order-actions-row">
-        ${!o.seen ? `<button class="btn-outline blue small" onclick="dismissOrder(${o.id})">${t('order_dismiss_btn')}</button>` : ''}
-        ${o.status !== 'confirmed' ? `<button class="btn-outline green small" onclick="confirmOrderAction(${o.id})">${t('order_confirm_btn')}</button>` : ''}
-        <button class="btn-outline red small" onclick="removeOrder(${o.id})">${t('order_delete_btn')}</button>
-      </div>
-    </div>
-  `).join('');
-}
-
-// زر واحد = طلب واحد. على الإنترنت الضعيف لا يرى الصيدلي أثراً فورياً فيضغط مرة ثانية،
-// فكان الطلب يُرسل مرتين (دواء أو ممرض أو حساب مكرر). أثناء الإرسال يُعطَّل الزر، وأي
-// ضغطة أخرى على العملية نفسها تُتجاهل حتى يعود الرد. الزر يُجلب بمعرّفه من جديد في النهاية
-// لأن بعض العمليات تعيد رسم اللوحة فيتبدل العنصر.
-const staffBusy = new Set();
-async function runGuarded(key, btnId, fn) {
-  if (staffBusy.has(key)) return;
-  staffBusy.add(key);
-  const btn = btnId ? document.getElementById(btnId) : null;
-  if (btn) btn.disabled = true;
-  try {
-    return await fn();
-  } finally {
-    staffBusy.delete(key);
-    const b = btnId ? document.getElementById(btnId) : null;
-    if (b) b.disabled = false;
-  }
-}
-
-// ترويسات مصادقة الصيدلي. تُشفَّر لأن الترويسات لا تقبل أحرفاً غير لاتينية،
-// واسم المستخدم قد يكون عربياً. الخلفية تفكّها قبل الاستخدام.
-function pharmacyHeaders() {
-  return {
-    'x-pharmacy-username': encodeURIComponent(currentPharmacy.username),
-    'x-pharmacy-password': encodeURIComponent(currentPharmacy.password)
-  };
-}
-
-async function dismissOrder(id) {
-  if (!(await runAction(`${API}/orders/${id}/seen`, { method: 'PUT', headers: pharmacyHeaders() }))) return;
-  loadOrders();
-}
-
-async function confirmOrderAction(id) {
-  if (!(await runAction(`${API}/orders/${id}/confirm`, { method: 'PUT', headers: pharmacyHeaders() }))) return;
-  loadOrders();
-}
-
-async function removeOrder(id) {
-  const confirmed = await customConfirm(t('order_delete_confirm'), 'warning', 'danger_delete_order');
-  if (!confirmed) return;
-  if (!(await runAction(`${API}/orders/${id}`, { method: 'DELETE', headers: pharmacyHeaders() }))) return;
-  loadOrders();
-}
-
-async function toggleStock(medicineId, newValue) {
-  // تحديث فوري بالواجهة قبل انتظار رد السيرفر (Optimistic update).
-  // السبب: الخادم قد يستغرق ثوانيَ للرد (خصوصاً بعد استيقاظه على الخطة المجانية)،
-  // فكان الصيدلي يضغط الزر ولا يرى "قبل لحظات" تظهر إلا بعد تأخير أو بعد تحديث الصفحة.
-  // الآن يرى الأثر لحظة الضغط، ثم يُعاد الجلب من السيرفر ليؤكد الحالة الحقيقية.
-  const cached = pharmacistStockCache.find(x => x.medicine_id === medicineId);
-  const previous = cached ? { available: cached.available, updated_at: cached.updated_at } : null;
-  if (cached) {
-    cached.available = newValue;
-    cached.updated_at = new Date().toISOString();
-    renderStockUI();
-  }
-
-  try {
-    const res = await fetchWithTimeout(`${API}/stock/${currentPharmacy.id}/${medicineId}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ available: newValue, username: currentPharmacy.username, password: currentPharmacy.password })
-    }, 20000);
-    if (!res.ok) throw new Error('save failed');
-  } catch (err) {
-    // فشل الحفظ: نرجّع الحالة السابقة بدل ترك الصيدلي يظن أن التغيير حُفظ وهو لم يُحفظ
-    if (cached && previous) {
-      cached.available = previous.available;
-      cached.updated_at = previous.updated_at;
-      renderStockUI();
-    }
-    await customAlert(t('server_error_title'), 'error');
-    return;
-  }
-  refreshStock();
-}
-
-function deleteMyAccount() { return runGuarded('deleteMyAccount', 'delete-account-btn', deleteMyAccountNow); }
-async function deleteMyAccountNow() {
-  const confirmed = await customConfirm(t('delete_account_confirm'), 'warning', 'danger_delete_account');
-  if (!confirmed) return;
-  // كانت بلا معالجة أخطاء: انقطاع الشبكة بعد التأكيد لا يُظهر أي شيء، فلا يعرف الصيدلي
-  // هل حُذف حسابه أم لا
-  try {
-    const res = await fetchWithTimeout(`${API}/pharmacies/self`, {
-      method: 'DELETE',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username: currentPharmacy.username, password: currentPharmacy.password })
-    }, 20000);
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) { await customAlert(translateApiError(data.error), 'error'); return; }
-  } catch (err) {
-    await customAlert(t('server_error_title'), 'error');
-    return;
-  }
-  await customAlert(t('account_deleted_success'), 'success');
-  logout();
-}
-
-// ---------- لوحة الإدارة ----------
-
-function renderAdminAuthForm() {
-  document.getElementById('admin-panel').style.display = 'none';
-  if (!managerPassword) document.getElementById('manager-panel').style.display = 'none';
-  // تبديل اللغة يعيد رسم البطاقتين: ما كُتب في حقلي كلمة المرور يبقى
-  const keep = {};
-  for (const id of ['admin-password-input', 'mgr-password-input']) {
-    const el = document.getElementById(id);
-    if (el && el.value) keep[id] = el.value;
-  }
-  document.getElementById('admin-auth-section').innerHTML = `
-    ${staffNoteHtml('staff_note_admin')}
-    <div class="auth-box">
-      <div class="password-field">
-        <input id="admin-password-input" type="password" placeholder="${t('admin_password_placeholder')}" onkeydown="if(event.key==='Enter') checkAdminPassword()">
-        <button type="button" class="toggle-password" onclick="togglePassword('admin-password-input', this)" aria-label="${t('show_password_aria')}">👁</button>
-      </div>
-      <button class="primary" id="admin-login-btn" onclick="checkAdminPassword()">${t('login_btn')}</button>
-    </div>
-    ${managerLoginCardHtml()}
-  `;
-  for (const [id, v] of Object.entries(keep)) document.getElementById(id).value = v;
-}
-
-function checkAdminPassword() { return runGuarded('checkAdminPassword', 'admin-login-btn', checkAdminPasswordNow); }
-async function checkAdminPasswordNow() {
-  const password = document.getElementById('admin-password-input').value;
-  try {
-    const res = await fetchWithTimeout(`${API}/pharmacies`, { headers: { 'x-admin-password': password } }, 20000);
-    // كانت كل الحالات تُعرض "كلمة مرور خاطئة"، فيعيد المدير المحاولة وهو محظور مؤقتاً فيطول الحظر
-    if (res.status === 401) { await customAlert(t('wrong_password'), 'error'); return; }
-    if (res.status === 429) { await customAlert(t('rate_limited_error'), 'warning'); return; }
-    if (!res.ok) { await customAlert(t('server_error_title'), 'error'); return; }
-    adminPassword = password;
-    adminSessionId++;
-    markStaffDevice();
-    document.getElementById('admin-auth-section').innerHTML = '';
-    document.getElementById('admin-panel').style.display = 'block';
-    renderAdminPanel();
-  } catch (err) {
-    // ترويسات HTTP لازم تكون بترميز ASCII — أي حرف غير إنكليزي (عربي مثلاً) برقم مرور الإدارة بيخلي fetch نفسها ترمي استثناء قبل ما توصل السيرفر
-    // (فهي كلمة مرور خاطئة حتماً). غير ذلك فهو انقطاع اتصال لا كلمة مرور خاطئة.
-    await customAlert(/[^\x00-\x7F]/.test(password) ? t('wrong_password') : t('server_error_title'), 'error');
-  }
-}
-
-function logoutAdmin() {
-  adminPassword = null;
-  adminSessionId++;          // و8: أي رد يصل بعد الخروج يُهمل
-  adminRowDrafts = {};       // و9: لا تبقى مسودات صفوف الجلسة السابقة
-  stopAdminRatingsPolling();
-  adminPanelLoadedOnce = false;
-  // ن10: لا يبقى شيء من جلسة الإدارة في الذاكرة بعد الخروج
-  adminDataCache = { pharmacies: [], medicines: [], nurses: [], pendingRatings: [], stats: null, nurseRequests: null, managerSettings: null };
-  adsAdminCache = [];
-  editingPharmacyId = null;
-  editingPharmacyNameDraft = '';
-  lastPendingRatingsSnapshot = null;
-  launchZoneState = undefined;
-  adEditorReset();
-  document.getElementById('admin-panel').style.display = 'none';
-  document.getElementById('admin-panel').innerHTML = '';
-  renderAdminAuthForm();
-}
-
-function adminHeaders() {
-  return { 'Content-Type': 'application/json', 'x-admin-password': adminPassword };
-}
-
-// و8: رقم لكل جلسة دخول إلى الإدارة، يزيد عند الدخول وعند الخروج. كان الرد الذي يصل بعد
-// الخروج (المدير ضغط «خروج» واللوحة ما زالت تُحمَّل) يملأ اللوحة المخفية من جديد بأسماء
-// الصيدليات وأرقامها، فتبقى في الصفحة. كل تحميل يحفظ رقم جلسته، ويُهمل رده إن تغيّر الرقم.
-let adminSessionId = 0;
-const adminSessionGone = (session) => session !== adminSessionId || !adminPassword;
-
-// ذاكرة مؤقتة لآخر بيانات جُلبت من السيرفر — عشان تبديل اللغة يعيد الرسم بس، بدون طلبات شبكة جديدة
-let adminDataCache = { pharmacies: [], medicines: [], nurses: [], pendingRatings: [], stats: null };
-
-// نتتبّع أول تحميل لكل جلسة دخول إدارة فقط، عشان مؤشر "جاري التحميل" ما يتكرر بعد كل إجراء إداري (تفادياً للوميض)
-let adminPanelLoadedOnce = false;
-// معرّف الصيدلية التي يجري تعديل اسمها حالياً بلوحة الإدارة (null = صفر تعديل جارٍ).
-// حالة واجهة بحتة، ما بتنحفظ ولا بتنرسل للسيرفر — بس بتخلي renderAdminPanelUI ترسم
-// صف التعديل بدل الصف العادي، بنفس أسلوب باقي اللوحة (إعادة رسم من الكاش، صفر طلب شبكة).
-let editingPharmacyId = null;
-// النص المكتوب حالياً بحقل التعديل. ضروري لأن أي إعادة رسم للوحة (أبرزها تبديل اللغة،
-// الذي يستدعي renderAdminPanelUI) بتعيد بناء الحقل من الكاش، فيضيع ما كتبه المستخدم.
-// بحفظ المسودة هون، النص بيبقى سليماً عبر أي إعادة رسم مهما كان مصدرها.
-let editingPharmacyNameDraft = '';
-
-// م5: كل إجراء في لوحة الإدارة (موافقة على تقييم، تعديل، تبديل اللغة...) يعيد رسمها كاملة،
-// فكانت النماذج نصف المعبأة وصورة الإعلان المجهّزة تُمحى. الآن تُحفظ قيم النماذج قبل إعادة
-// الرسم وتُعاد بعدها، ومعها موضع المؤشر، ويبقى محرر صورة الإعلان مفتوحاً بصورته وموضعها.
-// (قوائم البيانات نفسها كالمناوبة والأسماء تُرسم من جديد من بيانات الخادم، لا من الحقول.)
-const ADMIN_DRAFT_FIELDS = ['ph-name', 'ph-address', 'ph-city', 'ph-phone', 'ph-whatsapp', 'ph-username', 'ph-password',
-  'med-name', 'med-generic', 'med-alt', 'med-category',
-  'nurse-name', 'nurse-specialty', 'nurse-university', 'nurse-grad-year', 'nurse-phone', 'nurse-exp-years', 'nurse-services',
-  'nurse-city', 'nurse-area', 'nurse-street', 'mgr-pw-new',
-  'ad-advertiser', 'ad-advertiser-en', 'ad-desc', 'ad-desc-en', 'ad-link', 'ad-starts', 'ad-ends'];
-const ADMIN_DRAFT_RADIOS = ['ph-listing-type', 'ad-placement'];
-
-// و9: حقول داخل صفوف القوائم: عنوان الصيدلية وإحداثياتها، واسم المستخدم الجديد، وخبرة الممرض
-// وخدماته، ومناوبة كل صيدلية. كانت تُمحى مع أي إعادة رسم (موافقة على تقييم، تبديل اللغة، حفظ
-// صف آخر، كتابة في مربع البحث فوق القائمة). نحفظ ما غيّره المدير ولم يحفظه بعد، أي ما يختلف
-// عن القيمة التي رُسم بها الحقل، في ذاكرة باسم الحقل، ونعيده بعد كل رسم. والذاكرة لا تُمحى
-// إن أخفى البحث الصف، فيعود ما كُتب فيه عند ظهوره. بعد الحفظ الناجح تُنسى مسودة الصف
-// (forgetRowDrafts)، فيظهر الحقل بقيمته الجديدة من الخادم.
-const ADMIN_ROW_FIELD_RE = /^(addr-input|coords-input|uname-input|nurse-exp|nurse-svc|nurse-city|nurse-area|nurse-street|duty-on|duty-day|duty-shift)-\d+$/;
-let adminRowDrafts = {};
-
-function rowFieldChanged(el) {
-  if (el.type === 'checkbox') return el.checked !== el.defaultChecked;
-  if (el.tagName === 'SELECT') {
-    const def = [...el.options].findIndex(o => o.defaultSelected);
-    return el.selectedIndex !== Math.max(0, def);
-  }
-  return el.value !== el.defaultValue;
-}
-
-// يُستدعى قبل استبدال محتوى root: يحدّث الذاكرة من الحقول الظاهرة فيه
-function captureRowDrafts(root) {
-  if (!root) return;
-  root.querySelectorAll('input[id], select[id]').forEach(el => {
-    if (!ADMIN_ROW_FIELD_RE.test(el.id)) return;
-    if (rowFieldChanged(el)) adminRowDrafts[el.id] = el.type === 'checkbox' ? el.checked : el.value;
-    else delete adminRowDrafts[el.id];
-  });
-}
-
-// يُستدعى بعد الرسم: يعيد المسودات إلى الحقول الموجودة الآن
-function applyRowDrafts() {
-  for (const [id, v] of Object.entries(adminRowDrafts)) {
-    const el = document.getElementById(id);
-    if (!el || !document.getElementById('admin-panel').contains(el)) continue;
-    if (el.type === 'checkbox') {
-      el.checked = v;
-      if (id.startsWith('duty-on-')) onAdminDutyToggle(Number(id.slice('duty-on-'.length)), el);
-    } else {
-      el.value = v;
-      if (el.tagName === 'SELECT' && el.selectedIndex < 0) el.selectedIndex = 0;
-    }
-  }
-}
-
-// بعد الحفظ الناجح: تُنسى المسودة ويعود الحقل إلى قيمته المرسومة، فلا يعيد الرسم التالي ما حُفظ
-function forgetRowDrafts(ids) {
-  for (const id of ids) {
-    delete adminRowDrafts[id];
-    const el = document.getElementById(id);
-    if (!el) continue;
-    if (el.type === 'checkbox') el.checked = el.defaultChecked;
-    else if (el.tagName === 'SELECT') el.selectedIndex = Math.max(0, [...el.options].findIndex(o => o.defaultSelected));
-    else el.value = el.defaultValue;
-  }
-}
-
-function readAdminDraft() {
-  const draft = { values: {}, radios: {}, focus: null };
-  for (const id of ADMIN_DRAFT_FIELDS) {
-    const el = document.getElementById(id);
-    if (!el) continue;
-    draft.values[id] = el.value;
-    if (document.activeElement === el) {
-      let start = null, end = null;
-      try { start = el.selectionStart; end = el.selectionEnd; } catch (e) { /* حقول بلا تحديد */ }
-      draft.focus = { id, start, end };
-    }
-  }
-  for (const name of ADMIN_DRAFT_RADIOS) {
-    const checked = document.querySelector(`input[name="${name}"]:checked`);
-    if (checked) draft.radios[name] = checked.value;
-  }
-  captureRowDrafts(document.getElementById('admin-panel'));
-  const active = document.activeElement;
-  if (!draft.focus && active && ADMIN_ROW_FIELD_RE.test(active.id || '')) {
-    let start = null, end = null;
-    try { start = active.selectionStart; end = active.selectionEnd; } catch (e) { /* حقول بلا تحديد */ }
-    draft.focus = { id: active.id, start, end };
-  }
-  return draft;
-}
-
-function restoreAdminDraft(draft) {
-  if (!draft) return;
-  for (const id of ADMIN_DRAFT_FIELDS) {
-    const el = document.getElementById(id);
-    if (el && draft.values[id] !== undefined && draft.values[id] !== '') el.value = draft.values[id];
-  }
-  for (const name of ADMIN_DRAFT_RADIOS) {
-    const v = draft.radios[name];
-    if (!v) continue;
-    const el = document.querySelector(`input[name="${name}"][value="${v}"]`);
-    if (el) el.checked = true;
-  }
-  applyRowDrafts();
-  if (draft.focus) {
-    const el = document.getElementById(draft.focus.id);
-    if (el) {
-      el.focus({ preventScroll: true });
-      try { if (draft.focus.start !== null) el.setSelectionRange(draft.focus.start, draft.focus.end); } catch (e) { /* لا شيء */ }
-    }
-  }
-}
-
-// تفريغ نموذج بعد نجاحه (القوائم المنسدلة تعود إلى خيارها الأول)
-function clearAdminFields(ids) {
-  for (const id of ids) {
-    const el = document.getElementById(id);
-    if (!el) continue;
-    if (el.tagName === 'SELECT') el.selectedIndex = 0; else el.value = '';
-  }
-}
-
-// محرر صورة الإعلان بعد إعادة رسم اللوحة: الصورة والتكبير والموضع محفوظة في adEditor،
-// فنعيد بناء الإطار حولها كما بناه onAdImageChosen
-function restoreAdEditorView() {
-  const box = document.getElementById('ad-preview');
-  const ctl = document.getElementById('ad-editor-controls');
-  if (!adEditor || !box || !ctl) return;
-  box.classList.add('editing');
-  box.setAttribute('tabindex', '0');
-  box.innerHTML = `<canvas class="ad-bg" width="${AD_OUT_W}" height="${AD_OUT_H}" aria-hidden="true"></canvas><img alt="" draggable="false" src="${adEditor.url}">`;
-  ctl.style.display = '';
-  adEditorRender();
-}
-
-// م10: كلمة مرور الإدارة لم تعد صحيحة (غُيّرت في Render واللوحة ما زالت مفتوحة). نتوقف فوراً
-// ونعود إلى شاشة الدخول: الاستمرار كان يرسل محاولات خاطئة كل 15 ثانية، فيحظر حد المحاولات
-// عنوان الشبكة كلها (كل من يستعمل شبكة الصيدلية أو المكتب) عن الموقع.
-let adminSessionEnding = false;
-async function adminSessionExpired() {
-  if (adminSessionEnding || !adminPassword) return;
-  adminSessionEnding = true;
-  logoutAdmin();
-  await customAlert(t('admin_session_expired'), 'warning');
-  adminSessionEnding = false;
-}
-
-// و6 في الإدارة: كل إجراء يعيد تحميل اللوحة، فقد يعود طلبان بغير ترتيبهما. لا يُرسم رد أقدم من آخر رد رُسم.
-let adminPanelSeq = 0, adminPanelShownSeq = 0;
-async function renderAdminPanel() {
-  const session = adminSessionId;
-  const seq = ++adminPanelSeq;
-  const wasFirstLoad = !adminPanelLoadedOnce;
-  if (wasFirstLoad) {
-    document.getElementById('admin-panel').innerHTML = skeletonHtml(3);
-  }
-  try {
-    // كل قائمة يجب أن تصل قائمةً فعلاً. كان رد الخطأ (مثل "محاولات كثيرة" أو كلمة مرور
-    // غُيّرت في Render) يُخزَّن كأنه قائمة الصيدليات، فتنهار اللوحة عند رسمه، وتبقى
-    // البيانات المخزّنة تالفة لكل إجراء بعده. الآن أي رد فاشل يُلغي التحديث كله
-    // وتبقى آخر بيانات سليمة كما هي.
-    const list = (url, opts) => fetchWithTimeout(url, opts, 20000).then(async r => {
-      if (r.status === 401) { const e = new Error('admin session expired'); e.sessionExpired = true; throw e; }
-      const data = await r.json();
-      if (!r.ok || !Array.isArray(data)) throw new Error('admin list failed: ' + r.status);
-      return data;
-    });
-    const [pharmacies, medicines, nurses, pendingRatings, stats, nurseRequests, managerSettings] = await Promise.all([
-      list(`${API}/pharmacies`, { headers: adminHeaders() }),
-      list(`${API}/medicines`, { headers: adminHeaders() }),
-      list(`${API}/nurses/admin/all`, { headers: adminHeaders(), cache: 'no-store' }),
-      list(`${API}/nurses/ratings/pending`, { headers: adminHeaders() }),
-      // فشل الإحصاءات وحدها يجب ألا يُسقط اللوحة كلها — تُعاد null فيُخفى القسم فقط
-      fetchWithTimeout(`${API}/stats`, { headers: adminHeaders() }, 20000).then(r => r.ok ? r.json() : null).catch(() => null),
-      // طلبات الزيارات وإعدادات مدير التمريض: فشلهما يُخفي قسميهما فقط، لا اللوحة كلها
-      fetchWithTimeout(`${API}/nurses/requests`, { headers: adminHeaders(), cache: 'no-store' }, 20000)
-        .then(r => r.ok ? r.json() : null).then(d => Array.isArray(d) ? d : null).catch(() => null),
-      fetchWithTimeout(`${API}/nurses/manager/settings`, { headers: adminHeaders(), cache: 'no-store' }, 20000)
-        .then(r => r.ok ? r.json() : null).catch(() => null)
-    ]);
-    if (adminSessionGone(session) || seq < adminPanelShownSeq) return;
-    adminPanelShownSeq = seq;
-    adminDataCache = { pharmacies, medicines, nurses, pendingRatings, stats, nurseRequests, managerSettings };
-    renderAdminPanelUI();
-    adminPanelLoadedOnce = true;
-  } catch (err) {
-    if (adminSessionGone(session) || seq < adminPanelShownSeq) return;
-    if (err && err.sessionExpired) { adminSessionExpired(); return; }
-    // فشل أول تحميل بس — نستبدل "جاري التحميل" برسالة خطأ واضحة، بدل ما تضل عالقة للأبد.
-    // فشل بعد إجراء إداري عادي (مش أول مرة) بيتجاهل بصمت — اللوحة بمحتواها القديم تضل ظاهرة بدل ما تُمحى
-    if (wasFirstLoad) {
-      document.getElementById('admin-panel').innerHTML = `<p class="muted" style="padding:20px;">${t('server_error_title')}</p>`;
-    }
-  }
-}
-
-// ---------- قسم الإحصاءات بلوحة الإدارة ----------
-// يُبنى من كائن stats القادم من GET /api/stats. لو كان null (فشل الطلب) يُخفى القسم
-// بالكامل بدل عرض أصفار مضلّلة — رقم خاطئ أسوأ من غياب الرقم.
-function renderStatsSection(stats) {
-  if (!stats || !stats.totals) return '';
-  const s = stats.totals;
-
-  // صف واحد من جدول ترتيب: اسم على جهة، رقم على الأخرى
-  // unitKey: مفتاح صيغ العدد والمعدود (طلب واحد، طلبان، 3 طلبات...)
-  const rankRow = (label, value, unitKey) => `
-    <div class="row">
-      <span>${escapeHtml(label)}</span>
-      <span class="muted">${escapeHtml(tPlural(unitKey, value))}</span>
-    </div>`;
-
-  const emptyNote = `<p class="muted" style="padding:8px 0; margin:0;">${t('stats_no_orders_yet')}</p>`;
-
-  const topMeds = (stats.topMedicines || []).length
-    ? stats.topMedicines.map(m => rankRow(m.name, m.count, 'stats_times_unit')).join('')
-    : emptyNote;
-
-  const topPhs = (stats.topPharmacies || []).length
-    ? stats.topPharmacies.map(p =>
-        rankRow(p.city ? `${p.name} - ${cityName(p.city)}` : p.name, p.orders_count, 'stats_orders_count_unit')
-      ).join('')
-    : emptyNote;
-
-  const byCity = (stats.byCity || []).length
-    ? stats.byCity.map(c => rankRow(cityName(c.city), c.count, 'stats_pharmacy_unit')).join('')
-    : '';
-
-  return `
-    <div class="box" style="margin-bottom:20px;">
-      <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px;">
-        <h3 style="margin:0;">${t('stats_title')}</h3>
-        <button class="btn-outline blue small" onclick="renderAdminPanel()">${t('stats_refresh_btn')}</button>
-      </div>
-
-      <div class="stats-grid" style="margin-top:14px;">
-        <div class="stat-card">
-          <div class="stat-value">${s.orders_total}</div>
-          <div class="stat-label">${t('stat_orders_total')}</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-value stat-green">${s.orders_24h}</div>
-          <div class="stat-label">${t('stat_orders_24h')}</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-value">${s.orders_7d}</div>
-          <div class="stat-label">${t('stat_orders_7d')}</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-value">${s.orders_30d}</div>
-          <div class="stat-label">${t('stat_orders_30d')}</div>
-        </div>
-      </div>
-
-      <div class="stats-grid">
-        <div class="stat-card">
-          <div class="stat-value">${s.available_stock}</div>
-          <div class="stat-label">${t('stat_available_stock')}</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-value">${s.cosmetics}</div>
-          <div class="stat-label">${t('stat_cosmetics')}</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-value">${s.nurses}</div>
-          <div class="stat-label">${t('stat_nurses')}</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-value stat-green">${s.pharmacies_on_duty}</div>
-          <div class="stat-label">${t('stat_on_duty')}</div>
-        </div>
-      </div>
-
-      <h4 style="margin:18px 0 8px;">${t('stats_top_medicines')}</h4>
-      ${topMeds}
-
-      <h4 style="margin:18px 0 8px;">${t('stats_top_pharmacies')}</h4>
-      ${topPhs}
-
-      ${byCity ? `<h4 style="margin:18px 0 8px;">${t('stats_by_city')}</h4>${byCity}` : ''}
-    </div>
-  `;
-}
-
-// إعادة رسم اللوحة من آخر بيانات محفوظة بدون أي طلب شبكة جديد (تبديل اللغة، أو بعد أي إجراء إداري)
-// أقسام في اللوحة تُملأ بعد رسمها بجزء من الثانية (الإحصاءات، والإعلانات، وحالة النظام). كانت
-// الصفحة تقصر في تلك اللحظة فتقفز إلى الأعلى ثم تعود، فتتحرك الزخارف خلفها. نُبقي ارتفاع اللوحة
-// كما كان حتى تمتلئ تلك الأقسام، ثم نحرره.
-let adminHeightLock = 0;
-
-function renderAdminPanelUI() {
-  const adminDraft = readAdminDraft();
-  const panelEl = document.getElementById('admin-panel');
-  const lockToken = ++adminHeightLock;
-  if (panelEl.offsetHeight > 0) panelEl.style.minHeight = `${panelEl.offsetHeight}px`;
-  const releaseHeight = () => { if (lockToken === adminHeightLock) panelEl.style.minHeight = ''; };
-  const { pharmacies, medicines, nurses, pendingRatings, stats, nurseRequests, managerSettings } = adminDataCache;
-
-  approvedRatingsLoaded = false;
-  lastPendingRatingsSnapshot = JSON.stringify(pendingRatings);
-
-  const onDutyCount = pharmacies.filter(p => p.on_duty).length;
-
-  document.getElementById('admin-panel').innerHTML = `
-    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:6px;">
-      <h2 class="dash-title" style="margin-bottom:0;">${t('admin_dashboard_title')}</h2>
-      <button class="action-pill-btn blue" onclick="logoutAdmin()">${t('logout_btn')}</button>
-    </div>
-    <div class="stats-grid stats-grid-3">
-      <div class="stat-card">
-        <div class="stat-value">${pharmacies.length}</div>
-        <div class="stat-label">${t('stat_pharmacies_count')}</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-value">${medicines.length}</div>
-        <div class="stat-label">${t('stat_total_meds')}</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-value stat-green">${onDutyCount}</div>
-        <div class="stat-label">${t('stat_onduty_pharmacies')}</div>
-      </div>
-    </div>
-
-    ${renderStatsSection(stats)}
-
-    <div class="box" style="margin-bottom:20px;">
-      <h3 style="margin-top:0;">${t('add_pharmacy_title')}</h3>
-      <input id="ph-name" placeholder="${t('pharmacy_name_placeholder')}">
-      <input id="ph-address" placeholder="${t('address_placeholder')}">
-      <select id="ph-city" aria-label="${t('city_label')}">
-        <option value="">${t('city_placeholder')}</option>
-        ${cityOptionsHtml('')}
-      </select>
-      <input id="ph-phone" placeholder="${t('phone_placeholder')}">
-      <input id="ph-whatsapp" type="tel" inputmode="numeric" placeholder="${t('whatsapp_phone_input_placeholder')}">
-      <fieldset class="listing-type-group">
-        <legend>${t('register_listing_type_title')}</legend>
-        <label class="listing-type-option">
-          <input type="radio" name="ph-listing-type" value="duty" checked>
-          <span class="listing-type-text">
-            <span class="listing-type-label">${t('register_type_duty_label')}</span>
-            <span class="listing-type-desc">${t('register_type_duty_desc')}</span>
-          </span>
-        </label>
-        <label class="listing-type-option">
-          <input type="radio" name="ph-listing-type" value="full">
-          <span class="listing-type-text">
-            <span class="listing-type-label">${t('register_type_full_label')}</span>
-            <span class="listing-type-desc">${t('register_type_full_desc')}</span>
-          </span>
-        </label>
-      </fieldset>
-      <input id="ph-username" placeholder="${t('username_placeholder')}">
-      <div class="password-field">
-        <input id="ph-password" type="password" placeholder="${t('password_placeholder')}">
-        <button type="button" class="toggle-password" onclick="togglePassword('ph-password', this)" aria-label="${t('show_password_aria')}">👁</button>
-      </div>
-      <button class="primary" id="add-pharmacy-btn" onclick="addPharmacy()">${t('add_pharmacy_btn')}</button>
-    </div>
-
-    <h3>${t('registered_pharmacies_title')} (${pharmacies.length})</h3>
-    <div class="stock-table-wrap" style="margin-bottom:20px;">
-      <div class="stock-scroll">
-        ${pharmacies.length === 0
-          ? `<p class="muted" style="padding:16px 18px; margin:0;">${t('no_pharmacies_yet')}</p>`
-          : `<div class="stock-table-header"><span>${t('pharmacies_table_header')}</span><span class="col-action">${t('action_col_header')}</span></div>
-             ${pharmacies.map(p => p.id === editingPharmacyId
-               ? `
-               <div class="admin-ph-row">
-                 <input id="edit-ph-name-${p.id}" class="admin-ph-edit-input" value="${escapeHtml(editingPharmacyNameDraft)}"
-                        aria-label="${t('edit_name_aria')}" oninput="onEditPharmacyNameInput(this)"
-                        onkeydown="onEditPharmacyNameKeydown(event, ${p.id})">
-                 <div class="admin-ph-actions">
-                   <button class="btn-outline blue" onclick="savePharmacyName(${p.id})">${t('save_name_btn')}</button>
-                   <button class="btn-outline" onclick="cancelEditPharmacyName()">${t('cancel_edit_btn')}</button>
-                 </div>
-               </div>
-             `
-               : `
-               <div class="admin-ph-row">
-                 <div class="admin-ph-info">
-                   <span class="admin-ph-name"><bdi>${escapeHtml(p.name)}</bdi></span>
-                   <span class="admin-ph-meta">
-                     <span>👤 ${escapeHtml(p.owner_username)}</span>
-                     ${p.verified ? `<span class="admin-ph-sep">•</span><span>✓ ${t('verified_badge')}</span>` : ''}
-                     ${p.whatsapp_phone ? `<span class="admin-ph-sep">•</span><span>💬 ${t('whatsapp_admin_label')}</span>` : ''}
-                     ${hasLocation(p.latitude, p.longitude) ? `<span class="admin-ph-sep">•</span><span>📍 ${t('location_admin_label')}</span>` : ''}
-                     <span class="admin-ph-sep">•</span><span class="${p.manages_stock ? 'tier-on' : 'tier-off'}">${p.manages_stock ? '📦 ' + t('manages_stock_on') : '🕐 ' + t('manages_stock_off')}</span>
-                     ${p.city ? `<span class="admin-ph-sep">•</span><span>📍 ${escapeHtml(cityName(p.city))}</span>` : ''}
-                     ${p.assistant_phone ? `<span class="admin-ph-sep">•</span><span>📱 ${escapeHtml(p.assistant_phone)}</span>` : ''}
-                     ${p.on_duty ? `<span class="badge yes">${t('onduty_badge_short')}</span>` : ''}
-                   </span>
-                 </div>
-                 <div class="admin-ph-actions">
-                   <button class="btn-outline ${p.manages_stock ? '' : 'green'}" onclick="togglePharmacyManagesStock(${p.id}, ${!p.manages_stock})">${p.manages_stock ? t('manages_stock_toggle_off') : t('manages_stock_toggle_on')}</button>
-                   <button class="btn-outline" onclick="startEditPharmacyName(${p.id})">${t('edit_name_btn')}</button>
-                   <button class="btn-outline blue" onclick="resetPharmacyPassword(${p.id})" title="${t('reset_password_btn')}"><span class="btn-label-full">${t('reset_password_btn')}</span><span class="btn-label-short">${t('reset_password_btn_short')}</span></button>
-                   <button class="btn-outline red" onclick="deletePharmacyAdmin(${p.id})">${t('delete_btn')}</button>
-                 </div>
-               </div>
-             `).join('')}`
-        }
-      </div>
-    </div>
-
-    <div class="box" style="margin-bottom:20px;">
-      <h3 style="margin-top:0;">${t('visits_title')}</h3>
-      <p class="muted" style="margin-top:6px;">${t('visits_desc')}</p>
-      <div class="demand-toolbar">
-        <span class="muted">${t('demand_period')}</span>
-        <button type="button" class="visits-period-btn" data-days="7" onclick="loadVisitsReport(7)">${t('demand_days_7')}</button>
-        <button type="button" class="visits-period-btn" data-days="30" onclick="loadVisitsReport(30)">${t('demand_days_30')}</button>
-        <button type="button" class="visits-period-btn" data-days="90" onclick="loadVisitsReport(90)">${t('demand_days_90')}</button>
-      </div>
-      <div id="visits-report" class="demand-report"></div>
-    </div>
-
-    <div class="box" style="margin-bottom:20px;">
-      <h3 style="margin-top:0;">${t('demand_title')}</h3>
-      <p class="muted" style="margin-top:6px;">${t('demand_desc')}</p>
-      <div class="demand-toolbar">
-        <span class="muted">${t('demand_period')}</span>
-        <button type="button" class="demand-period-btn" data-days="7" onclick="loadDemandReport(7)">${t('demand_days_7')}</button>
-        <button type="button" class="demand-period-btn" data-days="30" onclick="loadDemandReport(30)">${t('demand_days_30')}</button>
-        <button type="button" class="demand-period-btn" data-days="90" onclick="loadDemandReport(90)">${t('demand_days_90')}</button>
-        <button type="button" class="btn-outline blue demand-export-btn" onclick="exportDemandCsv()">${t('demand_export')}</button>
-      </div>
-      <div id="demand-report" class="demand-report"></div>
-      <div id="launch-zone"></div>
-    </div>
-
-    <div class="box" style="margin-bottom:20px;">
-      <h3 style="margin-top:0;">${t('ads_title')}</h3>
-      <p class="muted" style="margin-top:6px;">${t('ads_desc')}</p>
-      <div class="ad-form">
-        <h4>${t('ads_new')}</h4>
-        <input id="ad-advertiser" maxlength="80" placeholder="${t('ads_advertiser_ph')}">
-        <input id="ad-advertiser-en" maxlength="80" dir="ltr" placeholder="${t('ads_advertiser_en_ph')}">
-        <input id="ad-desc" maxlength="60" placeholder="${t('ads_desc_ph')}">
-        <input id="ad-desc-en" maxlength="80" dir="ltr" placeholder="${t('ads_desc_en_ph')}">
-        <input type="file" id="ad-image-file" accept="image/jpeg,image/png,image/webp" style="display:none" onchange="onAdImageChosen(this)">
-        <button type="button" class="btn-outline blue" id="ad-pick-btn" onclick="document.getElementById('ad-image-file').click()">${t('ads_pick_image')}</button>
-        <div class="ad-preview" id="ad-preview" aria-label="${t('ads_editor_hint')}"><span class="muted">${t('ads_preview_empty')}</span></div>
-        <div class="ad-editor-controls" id="ad-editor-controls" style="display:none">
-          <p class="demand-hint" style="margin:0;">${t('ads_editor_hint')}</p>
-          <label class="ad-zoom-row"><span>${t('ads_zoom_label')}</span>
-            <input type="range" id="ad-zoom" class="ad-zoom" min="0" max="100" step="1" value="0" oninput="onAdZoomInput(this.value)">
-          </label>
-          <div class="ad-fit-row">
-            <button type="button" class="btn-outline blue small" onclick="adEditorFit('cover')">${t('ads_fit_fill')}</button>
-            <button type="button" class="btn-outline blue small" onclick="adEditorFit('whole')">${t('ads_fit_whole')}</button>
-          </div>
-          <div class="ad-move-pad" role="group" aria-label="${t('ads_center_aria')}">
-            <button type="button" class="pad-up" onclick="adEditorNudge(0, -1)" aria-label="${t('ads_move_up')}" title="${t('ads_move_up')}">↑</button>
-            <button type="button" class="pad-left" onclick="adEditorNudge(-1, 0)" aria-label="${t('ads_move_left')}" title="${t('ads_move_left')}">←</button>
-            <button type="button" class="pad-center" onclick="adEditorCenter()" aria-label="${t('ads_center_aria')}">${t('ads_center')}</button>
-            <button type="button" class="pad-right" onclick="adEditorNudge(1, 0)" aria-label="${t('ads_move_right')}" title="${t('ads_move_right')}">→</button>
-            <button type="button" class="pad-down" onclick="adEditorNudge(0, 1)" aria-label="${t('ads_move_down')}" title="${t('ads_move_down')}">↓</button>
-          </div>
-        </div>
-        <input id="ad-link" maxlength="300" dir="ltr" placeholder="${t('ads_link_ph')}">
-        <p class="demand-hint" style="margin:-8px 0 0;">${t('ads_link_hint')}</p>
-        <div class="ad-placement">
-          <span>${t('ads_placement')}</span>
-          <label><input type="radio" name="ad-placement" value="home" checked> ${t('ads_place_home')}</label>
-          <label><input type="radio" name="ad-placement" value="cosmetic"> ${t('ads_place_cosmetic')}</label>
-          <label><input type="radio" name="ad-placement" value="results"> ${t('ads_place_results')}</label>
-        </div>
-        <p class="demand-hint" style="margin:-4px 0 0;">${t('ads_results_hint')}</p>
-        <div class="ad-dates">
-          <label>${t('ads_from')} <input type="date" id="ad-starts"></label>
-          <label>${t('ads_to')} <input type="date" id="ad-ends"></label>
-        </div>
-        <button type="button" class="primary" id="ad-submit" onclick="submitAd()">${t('ads_submit')}</button>
-      </div>
-      <div id="ads-list" class="ads-list"></div>
-    </div>
-
-    <div class="box" style="margin-bottom:20px;">
-      <h3 style="margin-top:0;">${t('backup_title')}</h3>
-      <p class="muted" style="margin-top:6px;">${t('backup_desc')}</p>
-
-      <div class="status-row">
-        <span class="muted">${t('system_status_title')}:</span>
-        <span id="system-status"></span>
-      </div>
-      ${stats && stats.clientIpSource ? `<div class="status-row">
-        <span class="muted">${t('ip_protection_label')}</span>
-        <span class="${stats.clientIpSource === 'cloudflare' ? 'status-ok' : 'backup-overdue'}">${stats.clientIpSource === 'cloudflare' ? t('ip_protection_ok') : t('ip_protection_fallback')}</span>
-      </div>` : ''}
-
-      <div id="backup-info" class="backup-info"></div>
-      <p class="backup-warning">${t('backup_warning')}</p>
-      <button class="primary" id="backup-btn" onclick="downloadBackup()">${t('backup_btn')}</button>
-    </div>
-
-    <div class="box" style="margin-bottom:20px;">
-      <h3 style="margin-top:0;">${t('admin_username_title')}</h3>
-      <p class="muted" style="margin-top:6px;">${t('admin_username_desc')}</p>
-      <input type="search" id="admin-username-search" class="admin-username-search"
-             placeholder="${t('admin_username_search')}"
-             oninput="onAdminUsernameSearch(this)" onsearch="onAdminUsernameSearch(this)"
-             onchange="onAdminUsernameSearch(this)" value="${escapeHtml(adminUsernameFilter)}">
-      <div id="admin-username-list" class="admin-username-list"></div>
-    </div>
-
-    <div class="box" style="margin-bottom:20px;">
-      <h3 style="margin-top:0;">${t('admin_address_title')}</h3>
-      <p class="muted" style="margin-top:6px;">${t('admin_address_desc')}</p>
-      <input type="search" id="admin-address-search" class="admin-username-search"
-             placeholder="${t('admin_address_search')}"
-             oninput="onAdminAddressSearch(this)" onsearch="onAdminAddressSearch(this)"
-             onchange="onAdminAddressSearch(this)" value="${escapeHtml(adminAddressFilter)}">
-      <div id="admin-address-list" class="admin-address-list"></div>
-    </div>
-
-    <div class="box" style="margin-bottom:20px;">
-      <div class="admin-duty-head">
-        <h3 style="margin:0;">${t('admin_duty_title')}</h3>
-        <span class="muted" id="admin-duty-count"></span>
-      </div>
-      <p class="muted" style="margin-top:6px;">${t('admin_duty_desc')}</p>
-      <div class="admin-duty-tools">
-        <input type="search" id="admin-duty-search" placeholder="${t('admin_duty_search')}"
-               oninput="onAdminDutySearch(this)" onsearch="onAdminDutySearch(this)"
-               onchange="onAdminDutySearch(this)" value="${escapeHtml(adminDutyFilter)}">
-        <button class="btn-outline red" onclick="clearAllDuty()">${t('admin_duty_clear_all')}</button>
-      </div>
-      <div id="admin-duty-list" class="admin-duty-list"></div>
-    </div>
-
-    <div class="box" style="margin-bottom:20px;">
-      <h3 style="margin-top:0;">${t('add_medicine_title_admin')}</h3>
-      <input id="med-name" maxlength="120" placeholder="${t('med_name_placeholder')}">
-      <input id="med-generic" placeholder="${t('generic_name_placeholder')}">
-      <input id="med-alt" placeholder="${t('alt_names_placeholder')}">
-      <select id="med-category" aria-label="${t('a11y_med_category')}" onchange="updateMedNamePlaceholder('med-category', 'med-name')">
-        <option value="medicine">${t('cat_medicine')}</option>
-        <option value="cosmetic">${t('cat_cosmetic')}</option>
-      </select>
-      <button class="primary" id="add-medicine-admin-btn" onclick="addMedicineAdmin()">${t('add_med_btn')}</button>
-    </div>
-
-    <h3>${t('registered_medicines_title')} (${medicines.length})</h3>
-    <div class="stock-table-wrap" style="margin-bottom:20px;">
-      <div class="stock-scroll">
-        <div class="stock-table-header"><span>${t('stock_table_medicine')}</span><span class="col-action">${t('action_col_header')}</span></div>
-        ${medicines.map(m => `
-          <div class="row">
-            <span>${escapeHtml(m.name)} <span class="muted" style="font-size:12px;">${m.category === 'cosmetic' ? '💄 ' + t('cat_cosmetic') : '💊 ' + t('cat_medicine')}</span></span>
-            <button class="btn-outline red small table-action-btn" onclick="deleteMedicineAdmin(${m.id})">${t('delete_btn')}</button>
-          </div>
-        `).join('')}
-      </div>
-    </div>
-
-    <div class="box" style="margin-bottom:20px;">
-      <h3 style="margin-top:0;">${t('add_nurse_title')}</h3>
-      <input id="nurse-name" placeholder="${t('nurse_name_placeholder')}">
-      <input id="nurse-specialty" placeholder="${t('specialty_placeholder')}">
-      <input id="nurse-university" placeholder="${t('university_placeholder')}">
-      <input id="nurse-grad-year" placeholder="${t('grad_year_placeholder')}">
-      <input id="nurse-phone" placeholder="${t('phone_placeholder')}">
-      <input id="nurse-exp-years" type="number" min="0" max="60" inputmode="numeric" placeholder="${t('exp_years_placeholder')}">
-      <input id="nurse-services" maxlength="200" placeholder="${t('services_placeholder')}">
-      ${locationFieldsHtml(k => `nurse-${k}`, null)}
-      <p class="muted" style="margin:-2px 0 10px; font-size:13px;">${t('nurse_cert_after_add_hint')}</p>
-      <button class="primary" id="add-nurse-btn" onclick="addNurseAdmin()">${t('add_nurse_btn')}</button>
-    </div>
-
-    <h3>${t('registered_nurses_title')} (${nurses.length})</h3>
-    <div class="cert-storage-bar">
-      <span class="muted">${t('cert_storage_label')}</span>
-      <span id="cert-storage-usage">…</span>
-      <button type="button" class="btn-outline blue small" onclick="checkCertStorage()">${t('cert_storage_check_btn')}</button>
-    </div>
-    <div class="stock-table-wrap" style="margin-bottom:20px;">
-      <div class="stock-scroll">
-        ${nurses.length === 0
-          ? `<p class="muted" style="padding:16px 18px; margin:0;">${t('no_nurses_yet')}</p>`
-          : `<div class="stock-table-header"><span>${t('nurses_table_header')}</span><span class="col-action">${t('actions_header_plural')}</span></div>
-             ${nurses.map(n => `
-               <div class="row">
-                 <span><bdi>${escapeHtml(n.name)}</bdi> <span class="muted" style="font-size:12px;">${escapeHtml(n.specialty || '')}</span>${nurseLocationText(n) ? `<br><span class="muted" style="font-size:12.5px;">📍 ${escapeHtml(nurseLocationText(n))}</span>` : ''}</span>
-                 <div style="display:flex; gap:8px 6px; align-items:center; flex-wrap:wrap; justify-content:flex-end;">
-                   <button class="btn-outline blue small table-action-btn" onclick="toggleNurseEditor(${n.id})">${n.cert_verified ? '✓ ' : ''}${t('nurse_profile_btn')}</button>
-                   <button class="toggle-btn ${n.available ? 'yes' : 'no'}" onclick="toggleNurseAvailabilityAdmin(${n.id}, ${!n.available})">${n.available ? t('nurse_available_short') : t('nurse_unavailable_short')}</button>
-                   <button class="btn-outline red small table-action-btn" onclick="deleteNurseAdmin(${n.id})">${t('delete_btn')}</button>
-                 </div>
-               </div>
-               <div class="nurse-editor" id="nurse-editor-${n.id}" style="${openNurseEditors.has(n.id) ? '' : 'display:none;'}">${nurseEditorHtml(n)}</div>
-             `).join('')}`
-        }
-      </div>
-    </div>
-
-    ${managerSettingsCardHtml(managerSettings)}
-    ${adminRequestsSectionHtml(nurseRequests)}
-
-    <div id="pending-ratings-wrap" style="${pendingRatings.length === 0 ? 'display:none;' : ''}">
-      <div class="orders-wrap">
-        <h3 style="margin-top:0;">${t('pending_ratings_title')} (<span id="pending-ratings-count">${pendingRatings.length}</span>)</h3>
-        <div id="pending-ratings-list">${renderPendingRatingsCards(pendingRatings)}</div>
-      </div>
-    </div>
-
-    <div class="box" style="margin-bottom:20px;">
-      <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px;">
-        <h3 style="margin:0;">${t('published_ratings_title')}</h3>
-        <button class="btn-outline blue small" onclick="toggleApprovedRatingsAdmin()" id="toggle-approved-ratings-btn">${t('show_ratings_btn')}</button>
-      </div>
-      <div id="approved-ratings-list" style="display:none; margin-top:14px;"></div>
-    </div>
-  `;
-
-  startAdminRatingsPolling();
-
-  // لو كان في تعديل اسم صيدلية جارٍ وقت إعادة الرسم (تبديل اللغة مثلاً)، الحقل انبنى من
-  // جديد وضاع منه التركيز. نرجّعه مع وضع المؤشر بآخر النص، حتى يكمل المستخدم كتابته
-  // بسلاسة بدل ما يضطر يضغط على الحقل من جديد.
-  if (editingPharmacyId !== null) {
-    const editInput = document.getElementById(`edit-ph-name-${editingPharmacyId}`);
-    if (editInput && document.activeElement !== editInput) {
-      editInput.focus();
-      editInput.setSelectionRange(editInput.value.length, editInput.value.length);
-    }
-  }
-
-  // حاويات المناوبة وأسماء المستخدمين والنسخ الاحتياطي وحالة النظام تُنشأ ضمن
-  // innerHTML أعلاه، فنملؤها بعد بنائها مباشرة. وبوضع الاستدعاءات هنا تُحدَّث
-  // تلقائياً مع كل إعادة رسم للوحة، بما في ذلك تبديل اللغة.
-  //
-  // ⚠️ كانت هذه الاستدعاءات بالخطأ داخل resetPharmacyPassword، فلم تُرسم القوائم
-  // إلا حين تُعاد كلمة مرور صيدلية. يجب أن تبقى هنا في نهاية هذه الدالة تحديداً.
-  renderAdminDutyList();
-  renderAdminUsernameList();
-  renderAdminAddressList();
-  renderBackupInfo();
-  const pending = [checkSystemStatus(), loadDemandReport(), loadVisitsReport()];
-  restoreAdminDraft(adminDraft);
-  restoreAdEditorView();   // كان هنا adEditor = null، فتضيع الصورة المجهّزة مع أي إعادة رسم
-  setupAdEditorEvents();
-  pending.push(loadAdsAdmin(), loadCertStorageUsage());
-  Promise.allSettled(pending).then(() => requestAnimationFrame(releaseHeight));
-  setTimeout(releaseHeight, 15000);   // شبكة بطيئة جداً: لا يبقى الارتفاع مقفلاً إلى الأبد
-}
-
-function addPharmacy() { return runGuarded('addPharmacy', 'add-pharmacy-btn', addPharmacyNow); }
-async function addPharmacyNow() {
-  const body = {
-    name: document.getElementById('ph-name').value,
-    address: document.getElementById('ph-address').value,
-    city: document.getElementById('ph-city').value,
-    phone: document.getElementById('ph-phone').value,
-    whatsapp_phone: document.getElementById('ph-whatsapp').value,
-    // "مناوبة فقط" هو الخيار الافتراضي عن قصد: الخطأ الآمن هو عدم الادعاء.
-    // نسيان اختيار "صيدلية كاملة" يعني عدم عرض حالة التوفر ويُصلح بنقرة، بينما
-    // العكس يجعل المنصة تعلن "غير متوفر" عن صيدلية لم تُسأل أصلاً.
-    manages_stock: (document.querySelector('input[name="ph-listing-type"]:checked') || {}).value === 'full',
-    username: document.getElementById('ph-username').value,
-    password: document.getElementById('ph-password').value,
-  };
-  let data;
-  try {
-    const res = await fetchWithTimeout(`${API}/pharmacies/register`, {
-      method: 'POST', headers: adminHeaders(), body: JSON.stringify(body)
-    }, 20000);
-    data = await res.json().catch(() => ({}));
-    if (!res.ok) { await customAlert(translateApiError(data.error), 'error'); return; }
-  } catch (err) {
-    await customAlert(t('server_error_title'), 'error');
-    return;
-  }
-  // النماذج تُحفظ الآن عبر إعادة رسم اللوحة، فنفرغ هذا النموذج صراحة بعد نجاحه
-  clearAdminFields(['ph-name', 'ph-address', 'ph-city', 'ph-phone', 'ph-whatsapp', 'ph-username', 'ph-password']);
-  customAlert(tFormat('pharmacy_added_success', { name: data.name }), 'success');
-  renderAdminPanel();
-}
-
-// ---------- كلمة المرور ----------
-
-// تغيير الصيدلي كلمته بنفسه
-function changeMyPassword() { return runGuarded('changeMyPassword', 'change-password-btn', changeMyPasswordNow); }
-async function changeMyPasswordNow() {
-  const current = document.getElementById('current-password-input').value;
-  const next = document.getElementById('new-password-input').value;
-  const confirm = document.getElementById('confirm-password-input').value;
-
-  if (!next) { await customAlert(t('new_password_required_error'), 'warning'); return; }
-  if (next.length < 8) { await customAlert(t('new_password_too_short_error'), 'warning'); return; }
-  if (next !== confirm) { await customAlert(t('passwords_not_matching'), 'warning'); return; }
-
-  try {
-    const res = await fetchWithTimeout(`${API}/pharmacies/self/password`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        username: currentPharmacy.username,
-        // الكلمة الحالية تُؤخذ من الحقل لا من الذاكرة: هكذا يثبت المستخدم أنه يعرفها
-        // فعلاً، ولا يكفي أن يكون تركَ الجلسة مفتوحة على جهاز مشترك.
-        password: current,
-        new_password: next
-      })
-    }, 20000);
-    const data = await res.json();
-    if (!res.ok) { await customAlert(translateApiError(data.error), 'error'); return; }
-
-    // حاسم: الواجهة تحفظ كلمة المرور بالذاكرة وترسلها مع كل طلب لاحق (مناوبة، مخزون،
-    // طلبات...). بدون تحديثها هنا كانت كل عملية بعد التغيير ستفشل بـ401 حتى يخرج
-    // الصيدلي ويدخل من جديد.
-    currentPharmacy.password = next;
-
-    document.getElementById('current-password-input').value = '';
-    document.getElementById('new-password-input').value = '';
-    document.getElementById('confirm-password-input').value = '';
-    await customAlert(t('password_changed_success'), 'success');
-  } catch (err) {
-    await customAlert(t('server_error_title'), 'error');
-  }
-}
-
-// إعادة تعيين كلمة مرور صيدلية من لوحة الإدارة
-function resetPharmacyPassword(id) { return runGuarded('resetPharmacyPassword:' + id, null, () => resetPharmacyPasswordNow(id)); }
-async function resetPharmacyPasswordNow(id) {
-  const pharmacy = adminDataCache.pharmacies.find(p => p.id === id);
-  const name = pharmacy ? pharmacy.name : '';
-
-  const proceed = await customConfirm(tFormat('reset_password_confirm', { name }), 'warning', 'danger_reset_password');
-  if (!proceed) return;
-
-  try {
-    const res = await fetchWithTimeout(`${API}/pharmacies/${id}/reset-password`, {
-      method: 'POST', headers: adminHeaders()
-    }, 20000);
-    const data = await res.json();
-    if (!res.ok) { await customAlert(translateApiError(data.error) || t('reset_password_error'), 'error'); return; }
-
-    // الكلمة تُعرض مرة واحدة فقط — غير مخزّنة بأي مكان، والمحفوظ بالقاعدة هو الهاش.
-    // نعرضها بمربع منفصل قابل للتحديد بسهولة ليسهل نسخها وإملاؤها هاتفياً.
-    await customAlert(
-      `${tFormat('reset_password_done_title', { name: data.name })}\n\n${data.new_password}\n\n${t('reset_password_done_hint')}`,
-      'success'
+    const { rows } = await pool.query(
+      `INSERT INTO medicines (name, generic_name, alt_names, category)
+       VALUES ($1, $2, $3, $4)
+       ON CONFLICT (name, category) DO NOTHING
+       RETURNING *`,
+      [name, generic_name || null, alt_names || [], finalCategory]
     );
+    if (rows[0]) return rows[0];
+    // ما رجع أي صف = القاعدة رفضت الإضافة لأن الدواء موجود مسبقاً → نجيب الموجود ونرجّعه
+    return await findMedicineByExactName(name, finalCategory);
   } catch (err) {
-    await customAlert(t('reset_password_error'), 'error');
+    // 42P10 = الفهرس الفريد غير موجود بقاعدة البيانات (حالة نادرة: فشل إنشاؤه بسبب مكررات قديمة).
+    // بهذه الحالة فقط نرجع للسلوك القديم (فحص يدوي ثم إضافة) حتى يبقى الموقع شغالاً.
+    if (err.code !== '42P10') throw err;
+    const existing = await findMedicineByExactName(name, finalCategory);
+    if (existing) return existing;
+    const { rows } = await pool.query(
+      'INSERT INTO medicines (name, generic_name, alt_names, category) VALUES ($1, $2, $3, $4) RETURNING *',
+      [name, generic_name || null, alt_names || [], finalCategory]
+    );
+    return rows[0];
   }
 }
 
-// ---------- تعديل اسم الصيدلية (الإدارة حصراً) ----------
-
-function startEditPharmacyName(id) {
-  const pharmacy = adminDataCache.pharmacies.find(p => p.id === id);
-  editingPharmacyNameDraft = pharmacy ? pharmacy.name : '';
-  editingPharmacyId = id;
-  renderAdminPanelUI();
-  // تركيز الحقل وتحديد النص كله ليقدر يكتب فوقه مباشرة بدون مسح يدوي
-  const input = document.getElementById(`edit-ph-name-${id}`);
-  if (input) { input.focus(); input.select(); }
+async function findMedicineByExactName(name, category) {
+  const { rows } = await pool.query(
+    'SELECT * FROM medicines WHERE name = $1 AND category = $2 LIMIT 1',
+    [name, category]
+  );
+  return rows[0] || null;
 }
 
-// كل حرف يُكتب يُحفظ بالمسودة فوراً، فما يضيع لو أُعيد رسم اللوحة لأي سبب
-function onEditPharmacyNameInput(el) {
-  editingPharmacyNameDraft = el.value;
+async function getAllMedicines() {
+  const { rows } = await pool.query('SELECT * FROM medicines ORDER BY id');
+  return rows;
 }
 
-function cancelEditPharmacyName() {
-  editingPharmacyId = null;
-  editingPharmacyNameDraft = '';
-  renderAdminPanelUI();
+async function suggestMedicines(query, category = 'medicine') {
+  const q = query.trim().toLowerCase();
+  if (q.length < 2) return [];
+
+  const allMedicines = await getAllMedicines();
+  const medicines = allMedicines.filter(m => m.category === category);
+  const maxDistance = q.length <= 3 ? 1 : (q.length <= 6 ? 2 : 3);
+
+  const scored = [];
+  for (const m of medicines) {
+    // نتجاهل أي اسم بديل تالف حُفظ قبل خاد5، كي لا يتعطل الاقتراح لكل الزوار بسببه
+    const candidates = [m.name, ...(m.alt_names || [])].filter(c => typeof c === 'string' && c);
+    let bestDistance = Infinity;
+    for (const candidate of candidates) {
+      const c = candidate.toLowerCase();
+      const distanceFull = levenshtein(q, c);
+      const distancePartial = levenshtein(q, c.slice(0, q.length));
+      const distance = Math.min(distanceFull, distancePartial);
+      if (distance < bestDistance) bestDistance = distance;
+    }
+    if (bestDistance <= maxDistance && bestDistance > 0) {
+      scored.push({ id: m.id, name: m.name, generic_name: m.generic_name, distance: bestDistance });
+    }
+  }
+
+  scored.sort((a, b) => a.distance - b.distance);
+  return scored.slice(0, 5).map(({ distance, ...rest }) => rest);
 }
 
-// Enter بيحفظ، Escape بيلغي — نفس المتوقع بأي حقل تعديل سريع
-function onEditPharmacyNameKeydown(e, id) {
-  if (e.key === 'Enter') { e.preventDefault(); savePharmacyName(id); }
-  else if (e.key === 'Escape') { e.preventDefault(); cancelEditPharmacyName(); }
+async function deleteMedicine(medicineId) {
+  await pool.query('DELETE FROM medicines WHERE id = $1', [medicineId]);
 }
 
-// تبديل حالة "تُحدّث مخزونها" من لوحة الإدارة.
-// نطلب تأكيداً يشرح الأثر على المريض صراحةً، لأن الإيقاف يغيّر ما يراه الناس
-// عن صيدلية حقيقية — لا مجرد إعداد داخلي.
-// ================= الاستطلاع الدوري =================
-// كانت خمسة مؤقتات تعمل بلا توقف، حتى حين يكون التبويب مخفياً أو الهاتف مقفلاً.
-// أسوأها سؤال كل زائر عن الصيدليات المناوبة كل 5 ثوانٍ مهما كانت الصفحة التي يفتحها،
-// والجدول يتغير نحو مرة في اليوم — أي 720 استعلاماً في الساعة لكل زائر بلا فائدة.
-// والثاني سؤال المريض عن حالة طلبه كل ثانيتين: 18 ألف طلب لو ترك التبويب ليلة كاملة
-// بانتظار صيدلية مغلقة.
+// ---------- الصيدليات ----------
+
+async function getAllPharmacies() {
+  const { rows } = await pool.query(
+    'SELECT id, name, address, phone, assistant_phone, city, whatsapp_phone, latitude, longitude, verified, manages_stock, opens_at, closes_at, closed_override_date, duty_updated_by, duty_updated_at, owner_username, on_duty, on_duty_day, on_duty_shift, on_duty_start_time, on_duty_end_time FROM pharmacies ORDER BY id'
+  );
+  return rows;
+}
+
+async function findPharmacyByUsername(username) {
+  const { rows } = await pool.query('SELECT * FROM pharmacies WHERE owner_username = $1', [username]);
+  return rows[0];
+}
+
+async function getPharmacyById(pharmacyId) {
+  const { rows } = await pool.query('SELECT * FROM pharmacies WHERE id = $1', [pharmacyId]);
+  return rows[0];
+}
+
+// تنظيف الحقول النصية القصيرة قبل الحفظ: قصّ المسافات من الطرفين، وتوحيد
+// المسافات المتتالية الداخلية إلى مسافة واحدة.
 //
-// الحل: كل مؤقت يتخطى جولته حين يكون التبويب مخفياً، ونحدّث فوراً عند العودة إليه،
-// فيرى المستخدم أحدث البيانات لحظة ينظر دون أن يستهلك شيئاً وهو غائب.
+// السبب: كانت حقول مثل "سلميه " و"نصر باسل عفاره " تُحفظ بمسافة زائدة بعد آخر
+// كلمة. لا تُرى بالعين لكنها تُفشل المطابقة (بحث عن "سلميه" لا يطابق "سلميه ")
+// وتُنتج تباعداً غير متناسق في العرض.
 //
-// ملاحظة: لا يوجد تنبيه صوتي أو إشعار للصيدلي يعتمد على العمل في الخلفية، فالإيقاف
-// آمن له أيضاً — والتحديث الفوري عند العودة يُظهر له الطلبات الجديدة لحظة يفتح التبويب.
-
-const POLL_ON_DUTY_MS = 60000;      // كان 5000: الجدول يتغير نادراً
-const POLL_MY_ORDERS_MS = 10000;    // كان 2000: عشر ثوانٍ تكفي لمعرفة تأكيد الصيدلي
-const POLL_NURSES_MS = 30000;       // كان 5000: تقييمات الممرضين نادرة التغيّر
-const POLL_ADMIN_RATINGS_MS = 15000; // كان 4000
-const POLL_PHARMACY_ORDERS_MS = 12000; // بلا تغيير: وظيفة الصيدلي الأساسية
-
-// يغلّف دالة الاستطلاع فتتخطى جولتها حين يكون التبويب مخفياً.
-// نغلّف عند نقطة الجدولة لا داخل الدالة نفسها، فالاستدعاء المباشر يبقى يعمل دائماً
-// (مثلاً عند فتح الصفحة في تبويب خلفي ثم الانتقال إليه).
-function whenVisible(fn) {
-  return function () {
-    if (typeof document !== 'undefined' && document.hidden) return;
-    return fn.apply(this, arguments);
-  };
+// نطبّقها هنا في طبقة القاعدة لا في المسارات، فتشمل كل طريق حفظ مهما كان مصدره.
+//
+// ⚠️ للحقول ذات السطر الواحد فقط (أسماء، عناوين، تخصصات). لا تُطبَّق على
+// الملاحظات والتعليقات، لأن توحيد المسافات يمحو أسطرها الجديدة.
+// ولا على كلمات المرور وأسماء المستخدمين، فلها تحققها الخاص.
+function cleanText(v) {
+  if (typeof v !== 'string') return v;
+  const cleaned = v.replace(/\s+/g, ' ').trim();
+  return cleaned === '' ? null : cleaned;
 }
 
-// عند العودة إلى التبويب: تحديث فوري لما هو نشط، بدل انتظار الجولة التالية
-// التي قد تكون بعد دقيقة كاملة.
-document.addEventListener('visibilitychange', () => {
-  if (document.hidden) return;
-  try { loadOnDuty(); } catch (e) {}
-  if (myOrdersPollInterval) try { checkMyOrdersStatus(); } catch (e) {}
-  if (ordersPollInterval) try { loadOrders(); } catch (e) {}
-  if (nursingPollInterval) try { pollNurses(); } catch (e) {}
-  if (adminRatingsPollInterval) try { loadPendingRatingsForAdmin(); } catch (e) {}
-});
+async function addPharmacy({ name, address, phone, city, whatsappPhone, managesStock, username, passwordHash }) {
+  const { rows } = await pool.query(
+    `INSERT INTO pharmacies (name, address, phone, city, whatsapp_phone, manages_stock, owner_username, owner_password_hash)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
+    [cleanText(name), cleanText(address), cleanText(phone), city || null, whatsappPhone || null, !!managesStock, username, passwordHash]
+  );
+  return rows[0];
+}
 
-// ================= التعامل مع الإخفاق =================
-// كانت ٥١ طلباً شبكياً بلا أي مهلة زمنية: لو علق الاتصال — وهو شائع على الشبكة
-// المحمولة — لا ينتهي الطلب أبداً. وفي إرسال الطلب تحديداً كان ذلك يترك
-// orderSubmitInProgress على true إلى الأبد، فلا يستطيع المريض الإرسال مجدداً
-// حتى يعيد تحميل الصفحة، دون أن يعرف السبب.
+async function deletePharmacy(pharmacyId) {
+  await pool.query('DELETE FROM pharmacies WHERE id = $1', [pharmacyId]);
+}
+
+// updatedBy: 'pharmacy' أو 'admin' — يُمرَّر من طبقة المسارات حيث تُعرف الهوية
+// بيقين من المصادقة نفسها، لا من جسم الطلب الذي يمكن تزويره.
+async function setDutyStatus(pharmacyId, onDuty, day, shift, startTime, endTime, updatedBy) {
+  const { rows } = await pool.query(
+    `UPDATE pharmacies
+     SET on_duty = $1, on_duty_day = $2, on_duty_shift = $3, on_duty_start_time = $4, on_duty_end_time = $5,
+         duty_updated_by = $6, duty_updated_at = NOW()
+     WHERE id = $7 RETURNING *`,
+    [
+      !!onDuty,
+      onDuty ? (day || null) : null,
+      onDuty ? (shift || 'طوال اليوم') : null,
+      onDuty ? (startTime || null) : null,
+      onDuty ? (endTime || null) : null,
+      updatedBy === 'admin' ? 'admin' : 'pharmacy',
+      pharmacyId
+    ]
+  );
+  return rows[0];
+}
+
+// إيقاف كل المناوبات دفعة واحدة — لبدء أسبوع جديد بنقرة بدل عشرات النقرات.
+// نُفرغ حقول المناوبة كلها لا العلم فقط، حتى لا تبقى بيانات أسبوع ماضٍ معلّقة
+// فتظهر للمريض لو أُعيد التفعيل دون إدخال يوم جديد.
+// نرجّع عدد الصفوف المتأثرة فعلاً ليعرف المدير ماذا تغيّر بالضبط.
+async function clearAllDuty() {
+  const { rowCount } = await pool.query(
+    `UPDATE pharmacies
+     SET on_duty = false, on_duty_day = NULL, on_duty_shift = NULL,
+         on_duty_start_time = NULL, on_duty_end_time = NULL,
+         duty_updated_by = 'admin', duty_updated_at = NOW()
+     WHERE on_duty = true`
+  );
+  return rowCount;
+}
+
+// تحديث رقم واتساب الصيدلية. يستقبل الرقم منسّقاً مسبقاً من طبقة المسارات
+// (normalizeWhatsappPhone) حتى يبقى التنسيق في مكان واحد ولا يدخل القاعدة رقم تالف.
+// الصيدليات التي لديها رقم واتساب — لقائمة الاستشارة الدوائية بالصفحة الرئيسية.
+// نُرجع الحقول العامة فقط: صفر كلمات مرور، صفر أسماء مستخدمين.
+// city اختياري: يسمح للمريض بحصر القائمة بمدينته.
+async function getWhatsappPharmacies(city) {
+  const { rows } = await pool.query(
+    `SELECT id, name, address, city, whatsapp_phone, COALESCE(verified, false) AS verified,
+            COALESCE(on_duty, false) AS on_duty
+     FROM pharmacies
+     WHERE whatsapp_phone IS NOT NULL AND whatsapp_phone <> ''
+       AND ($1::text IS NULL OR city = $1)
+     ORDER BY on_duty DESC, name`,
+    [city || null]
+  );
+  return rows;
+}
+
+// حفظ إحداثيات الصيدلية. تستقبل القيم مُتحقَّقاً منها ومقرَّبة من طبقة المسارات،
+// فلا يدخل القاعدة رقم تالف. تمرير null للاثنين يمسح الموقع — إجراء مشروع.
+// نحفظهما معاً دائماً: إحداثي واحد بلا الآخر بلا معنى، وقد يُنتج زراً معطوباً.
+// تبديل حالة "تُحدّث مخزونها" — للإدارة فقط
+async function setManagesStock(pharmacyId, managesStock) {
+  const { rows } = await pool.query(
+    `UPDATE pharmacies SET manages_stock = $1 WHERE id = $2
+     RETURNING id, name, manages_stock`,
+    [!!managesStock, pharmacyId]
+  );
+  return rows[0];
+}
+
+// حفظ ساعات الدوام. القيم مُتحقَّق منها في طبقة المسارات، وتمرير null للاثنين
+// يمسح الجدول فتتوقف المنصة عن عرض أي حالة لهذه الصيدلية.
+async function setPharmacyHours(pharmacyId, opensAt, closesAt) {
+  const { rows } = await pool.query(
+    `UPDATE pharmacies SET opens_at = $1, closes_at = $2 WHERE id = $3
+     RETURNING id, name, opens_at, closes_at, closed_override_date`,
+    [opensAt, closesAt, pharmacyId]
+  );
+  return rows[0];
+}
+
+// إعلان إغلاق استثنائي لليوم، أو التراجع عنه. التاريخ بتوقيت دمشق يُمرَّر
+// من طبقة المسارات حيث يُحسب، فلا يعتمد على توقيت الخادم.
+async function setClosedOverride(pharmacyId, dateOrNull) {
+  const { rows } = await pool.query(
+    `UPDATE pharmacies SET closed_override_date = $1 WHERE id = $2
+     RETURNING id, name, opens_at, closes_at, closed_override_date`,
+    [dateOrNull, pharmacyId]
+  );
+  return rows[0];
+}
+
+async function setPharmacyLocation(pharmacyId, latitude, longitude) {
+  const { rows } = await pool.query(
+    `UPDATE pharmacies SET latitude = $1, longitude = $2 WHERE id = $3
+     RETURNING id, name, latitude, longitude`,
+    [latitude, longitude, pharmacyId]
+  );
+  return rows[0];
+}
+
+async function setWhatsappPhone(pharmacyId, whatsappPhone) {
+  const { rows } = await pool.query(
+    `UPDATE pharmacies SET whatsapp_phone = $1 WHERE id = $2 RETURNING *`,
+    [whatsappPhone || null, pharmacyId]
+  );
+  return rows[0];
+}
+
+// العنوان المكتوب للصيدلية. كان يُكتب عند التسجيل فقط ولا يُعدَّل بعدها، فبقيت
+// عناوين عامة مثل "سلميه" لا تساعد المريض على الوصول. cleanText يقص المسافات
+// الزائدة، ونص فارغ يمسح العنوان فتختفي سطره من بطاقة الصيدلية.
+async function setPharmacyAddress(pharmacyId, address) {
+  const { rows } = await pool.query(
+    `UPDATE pharmacies SET address = $1 WHERE id = $2 RETURNING id, name, address`,
+    [cleanText(address), pharmacyId]
+  );
+  return rows[0];
+}
+
+// الرقم الأساسي للصيدلية (الأرضي غالباً)، الظاهر للمريض بجانب 📞.
+// كانت الإدارة وحدها تكتبه عند التسجيل، فالصيدلي الآن يصحّحه بنفسه.
+async function setPharmacyPhone(pharmacyId, phone) {
+  const { rows } = await pool.query(
+    `UPDATE pharmacies SET phone = $1 WHERE id = $2 RETURNING id, name, phone`,
+    [phone, pharmacyId]
+  );
+  return rows[0];
+}
+
+async function setAssistantPhone(pharmacyId, assistantPhone) {
+  const { rows } = await pool.query(
+    `UPDATE pharmacies SET assistant_phone = $1 WHERE id = $2 RETURNING *`,
+    [assistantPhone || null, pharmacyId]
+  );
+  return rows[0];
+}
+
+// تعديل اسم الصيدلية (الإدارة حصراً — يُستدعى من مسار محمي بـadminAuth).
+// عمداً لا يمس owner_username ولا owner_password_hash ولا أي بيانات أخرى: تغيير الاسم
+// تصحيح لواجهة العرض فقط، وليس نقل ملكية. لو تغيّر مالك الصيدلية فعلياً، الإجراء
+// الصحيح هو حذف الصيدلية وتسجيل واحدة جديدة، حتى لا يرث المالك الجديد بيانات غيره.
+// تحديث هاش كلمة مرور الصيدلية. تستقبل الهاش جاهزاً لا الكلمة الصريحة، حتى تبقى
+// عملية التشفير (bcrypt) في طبقة المسارات مكاناً واحداً، ولا تمر كلمة مرور صريحة
+// عبر طبقة قاعدة البيانات إطلاقاً.
+async function setPharmacyPassword(pharmacyId, passwordHash) {
+  const { rows } = await pool.query(
+    `UPDATE pharmacies SET owner_password_hash = $1 WHERE id = $2 RETURNING id, name`,
+    [passwordHash, pharmacyId]
+  );
+  return rows[0];
+}
+
+// تغيير اسم المستخدم لحساب صيدلية.
+// عمداً لا يمس كلمة المرور ولا المخزون ولا الطلبات ولا المناوبة: اسم الدخول
+// وحده هو ما يتغير، فيستمر الصيدلي بالعمل بكلمة مروره نفسها.
 //
-// نطبّق المهلة على المسارات الحرجة للمريض (البحث وإرسال الطلب). لوحتا الإدارة
-// والصيدلي يستخدمهما أشخاص يعرفون النظام، فتبقى كما هي لتقليل نطاق التغيير.
-
-// طلب بمهلة زمنية. AbortController هو الطريقة الوحيدة لإلغاء fetch فعلياً.
-async function fetchWithTimeout(url, options = {}, timeoutMs = 20000) {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
+// العمود عليه قيد UNIQUE، فمحاولة تعيين اسم محجوز تُطلق الخطأ 23505.
+// نتحقق مسبقاً في طبقة المسارات لإعطاء رسالة مفهومة، ونلتقط الخطأ هنا أيضاً
+// لأن التحقق المسبق لا يمنع تسجيل صيدلية أخرى بالاسم نفسه في اللحظة ذاتها.
+async function setPharmacyUsername(pharmacyId, username) {
   try {
-    return await fetch(url, { ...options, signal: controller.signal });
+    const { rows } = await pool.query(
+      `UPDATE pharmacies SET owner_username = $1 WHERE id = $2
+       RETURNING id, name, owner_username`,
+      [username, pharmacyId]
+    );
+    return { row: rows[0], duplicate: false };
+  } catch (err) {
+    if (err && err.code === '23505') return { row: null, duplicate: true };
+    throw err;
+  }
+}
+
+async function setPharmacyName(pharmacyId, name) {
+  const { rows } = await pool.query(
+    `UPDATE pharmacies SET name = $1 WHERE id = $2 RETURNING *`,
+    [cleanText(name), pharmacyId]
+  );
+  return rows[0];
+}
+
+// ---------- إحصاءات لوحة الإدارة ----------
+// كل الأرقام محسوبة من البيانات المخزّنة أصلاً — صفر جدول تتبّع جديد وصفر نمو بالتخزين.
+// النوافذ الزمنية متدحرجة (آخر 24 ساعة / 7 أيام) وليست تقويمية عن قصد: خادم Render
+// يعمل بتوقيت UTC، فـ"اليوم" كان سيعني يوماً مختلفاً عن يوم المستخدم في سوريا.
+// فحص حيّ لاتصال قاعدة البيانات.
+//
+// السبب: كان /health يرجّع "ok" بلا شرط، فلو توقفت قاعدة البيانات لبقي يقول
+// إن الموقع سليم — فتطمئن أداة المراقبة بينما الموقع معطّل تماماً. وهذا يُفرغ
+// المراقبة من معناها.
+//
+// المهلة ضرورية: استعلام معلّق على قاعدة بطيئة يُبقي الطلب مفتوحاً إلى الأبد
+// بدل أن يُبلغ عن الخلل، فأداة المراقبة ترى انتهاء مهلة غامضاً لا سبباً واضحاً.
+async function ping(timeoutMs = 4000) {
+  let timer;
+  const timeout = new Promise((_, reject) => {
+    timer = setTimeout(() => reject(new Error('db ping timeout')), timeoutMs);
+  });
+  try {
+    await Promise.race([pool.query('SELECT 1'), timeout]);
+    return true;
   } finally {
     clearTimeout(timer);
   }
 }
 
-// حفظ ملف من المتصفح إلى جهاز المستخدم. كانت هذه الخطوات مكررة في أربعة أماكن، واثنان منها
-// يحرّران الرابط فور النقر، وبعض متصفحات الهاتف تلغي التنزيل حينها فلا يُحفظ شيء. والرابط
-// يجب أن يكون داخل الصفحة لحظة النقر كي يعمل في Firefox. الآن مكان واحد يفعل ذلك صحيحاً.
-function saveBlobAs(blob, filename) {
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  setTimeout(() => URL.revokeObjectURL(url), 60000);
-}
-
-// هيكل تحميل: بطاقات رمادية بشكل المحتوى القادم. وقارئ الشاشة يسمع "جارٍ التحميل".
-function skeletonHtml(count = 3) {
-  const card = '<div class="skeleton-card"><div class="skeleton-line title"></div><div class="skeleton-line w-80"></div><div class="skeleton-line w-40"></div></div>';
-  return `<div class="skeleton-list" role="status" aria-label="${t('loading_text')}">${card.repeat(count)}</div>`;
-}
-
-// الظهور الناعم عند التمرير للأقسام الثابتة في الصفحة الرئيسية. لا نطبّقه على النتائج
-// والمناوبة: تُعاد رسمها بالتحديث الدوري، فكانت ستتكرر حركتها في كل مرة.
-function setupScrollReveal() {
-  const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  if (reduce || !('IntersectionObserver' in window)) return;   // كل شيء يبقى ظاهراً كما هو
-  const targets = document.querySelectorAll('.feature-card, .about-section-wrap, .site-footer');
-  const observer = new IntersectionObserver((entries) => {
-    entries.forEach(entry => {
-      if (!entry.isIntersecting) return;
-      const el = entry.target;
-      el.classList.add('revealed');
-      observer.unobserve(el);
-      // بعد انتهاء الحركة نعيد العنصر إلى حاله الأصلي تماماً، فلا يبقى تأخير الظهور
-      // ولا انتقاله معلّقين على تأثيرات المرور بالفأرة الخاصة بالبطاقة
-      setTimeout(() => { el.classList.remove('reveal', 'revealed'); el.style.transitionDelay = ''; }, 900);
-    });
-  }, { threshold: 0.12, rootMargin: '0px 0px -40px 0px' });
-  let cardIndex = 0;
-  targets.forEach((el) => {
-    // البطاقات المتجاورة واحدة بعد الأخرى. الترتيب يُحسب بين البطاقات وحدها: لو حُسب
-    // بين كل العناصر المتحركة لانزاح إن سبقها عنصر آخر، فتظهر الأولى ثانية
-    if (el.classList.contains('feature-card')) el.style.transitionDelay = `${(cardIndex++ % 3) * 90}ms`;
-    el.classList.add('reveal');
-    observer.observe(el);
-  });
-}
-
-// قراءة رد بيانات: تتحقق من نجاحه وشكله معاً، وإلا ترمي خطأً يلتقطه catch المحيط.
-// كانت القراءات تأخذ ما يصل كما هو، فإن رد الخادم بخطأ صارت رسالة الخطأ "بيانات":
-// تُخزَّن في ذاكرة البحث أو المخزون أو الممرضين، فتنكسر الشاشة وما يُبنى عليها بعدها.
-async function readJsonOk(res, shape = 'array') {
-  const data = await res.json().catch(() => null);
-  if (!res.ok || data === null) { const e = new Error('bad response ' + res.status); e.status = res.status; throw e; }
-  if (shape === 'array' && !Array.isArray(data)) throw new Error('unexpected response shape');
-  if (shape === 'object' && (typeof data !== 'object' || Array.isArray(data))) throw new Error('unexpected response shape');
-  return data;
-}
-
-// للبيانات الإضافية داخل البحث (الاقتراحات، والبدائل): فشلها يعيد قائمة فارغة، كي لا
-// يُفشل البحث كله ويخفي نتائج سليمة.
-async function readJsonArrayOr(res, fallback) {
-  try { return await readJsonOk(res, 'array'); } catch (e) { return fallback; }
-}
-
-// طلب إجراء (حذف، تأكيد، اعتماد...): يتحقق من النجاح ويشرح سبب الفشل.
-// كانت هذه الإجراءات ترسل الطلب ثم تعيد رسم الشاشة دون أن تفحص الرد: يضغط المستخدم
-// "حذف" فيفشل الطلب ولا يحدث شيء ولا يُقال له لماذا، وانقطاع الشبكة كان يضيع بصمت.
-// والصيدلي الذي يضغط "تأكيد الطلب" قد يظن أنه أكّده.
-async function runAction(url, options) {
-  try {
-    const res = await fetchWithTimeout(url, options, 20000);
-    if (res.ok) return true;
-    const data = await res.json().catch(() => ({}));
-    await customAlert(data.error ? translateApiError(data.error) : t('err_network'), 'error');
-  } catch (err) {
-    const kind = classifyFetchError(err);
-    await customAlert(t(kind === 'offline' ? 'err_offline' : kind === 'timeout' ? 'err_timeout_search' : 'err_network'), 'error');
-  }
-  return false;
-}
-
-// تصنيف سبب الفشل، ليعرف المستخدم ماذا يفعل بدل رسالة واحدة لكل الأسباب.
-// نفحص الاتصال أولاً: الطلب الفاشل أثناء الانقطاع قد يظهر كمهلة أو كخطأ شبكة.
-function classifyFetchError(err) {
-  if (typeof navigator !== 'undefined' && navigator.onLine === false) return 'offline';
-  if (err && err.name === 'AbortError') return 'timeout';
-  return 'network';
-}
-
-// مفتاح تفرّد لطلب الشراء: واحد لكل سلة، ثابت عبر إعادات المحاولة.
-// يُولَّد عند أول محاولة ويُمسح عند النجاح أو عند أي تعديل على السلة، فإعادة
-// إرسال السلة نفسها لا تكرر الطلب، وأي تغيير فيها يُعامل كطلب جديد.
-let pendingOrderKey = null;
-
-function newRequestKey() {
-  if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
-  // بديل للمتصفحات القديمة: عشوائي كافٍ للتفرّد، وليس لأغراض أمنية
-  return 'k' + Date.now().toString(36) + Math.random().toString(36).slice(2, 12);
-}
-
-// شريط تنبيه عند انقطاع الإنترنت. يظهر ويختفي تلقائياً مع حالة الاتصال،
-// فيعرف المستخدم سبب الفشل قبل أن يحاول، لا بعده.
-function updateOfflineBanner() {
-  const bar = document.getElementById('offline-banner');
-  if (!bar) return;
-  const offline = navigator.onLine === false;
-  bar.style.display = offline ? 'flex' : 'none';
-  const label = document.getElementById('offline-banner-text');
-  if (label) label.textContent = t('offline_banner');
-}
-window.addEventListener('offline', updateOfflineBanner);
-window.addEventListener('online', updateOfflineBanner);
-
-// ================= تسجيل البحث المجهَّل =================
-// البحث حي أثناء الكتابة، فمن يكتب "بنادول" ببطء يُطلق "بن" ثم "بناد" ثم "بنادول".
-// لا نسجّل إلا البحث الذي يبقى على الشاشة ثانيتين ونصفاً: أي بحث جديد يلغي المؤقت،
-// فأجزاء الكلمات تُستبدل قبل أن تُسجَّل. ولا نكرر تسجيل البحث نفسه في الجلسة
-// (زر "تحديث النتائج" مثلاً لا يُحتسب طلباً ثانياً).
-const SEARCH_LOG_SETTLE_MS = 2500;
-let searchLogTimer = null;
-let lastLoggedSearchKey = null;
-
-function scheduleSearchLog(q, category, city) {
-  clearTimeout(searchLogTimer);
-  if (!q || q.trim().length < 2) return;
-  // عمليات بحث المدير والصيادلة (تجارب، اختبار الموقع) لا تمثّل طلب المرضى، فلا تدخل التقرير
-  // المعروض على الشركات — بالقاعدة نفسها المطبّقة في عدّاد الزيارات والإعلانات
-  if (storageGet('dj_staff_device')) return;
-  searchLogTimer = setTimeout(() => {
-    // البحث تغيّر أثناء الانتظار: ليس هو ما استقر عليه المستخدم
-    const box = document.getElementById('search');
-    if (!box || box.value.trim() !== q) return;
-    const key = [q.trim().toLowerCase(), category, city || ''].join('|');
-    if (key === lastLoggedSearchKey) return;
-    lastLoggedSearchKey = key;
-    // لا ننتظر الرد ولا نعرض أي خطأ: التسجيل خدمة خلفية لا تمس تجربة المريض
-    fetch(`${API}/medicines/search-log`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ q, category, city: city || null }),
-      keepalive: true
-    }).catch(() => {});
-  }, SEARCH_LOG_SETTLE_MS);
-}
-
-// ================= تقرير الطلب (لوحة الإدارة) =================
-let demandDays = 30;
-let lastDemandReport = null;
-
-function demandListHtml(rows, labelKey, emptyText) {
-  if (!rows || !rows.length) return `<p class="muted" style="margin:6px 0;">${emptyText}</p>`;
-  return rows.map(r => `
-    <div class="demand-row">
-      <span class="demand-name"><bdi>${escapeHtml(r[labelKey] || '')}</bdi></span>
-      <span class="demand-count">${tPlural('demand_times', r.count, `<bdi>${Number(r.count) || 0}</bdi>`)}</span>
-    </div>`).join('');
-}
-
-function renderDemandReport() {
-  const box = document.getElementById('demand-report');
-  if (!box) return;
-  const r = lastDemandReport;
-  if (!r) { box.innerHTML = `<p class="muted">${t('loading_text')}</p>`; return; }
-  const cityRows = (r.byCity || []).map(c => ({ name: c.city ? cityName(c.city) : t('demand_all_cities'), count: c.count }));
-  const since = r.launchedAt
-    ? `<p class="launch-since">✅ ${tFormat('launch_since', { date: formatLaunchDate(r.launchedAt) })}</p>` : '';
-  box.innerHTML = `${since}
-    <div class="demand-total"><bdi>${Number(r.total) || 0}</bdi><span>${t('demand_total')}</span></div>
-    <div class="demand-grid">
-      <div class="demand-block"><h4>${t('demand_top')}</h4>${demandListHtml(r.topMedicines, 'name', t('demand_empty'))}</div>
-      <div class="demand-block"><h4>${t('demand_shortages')}</h4><p class="demand-hint">${t('demand_shortages_hint')}</p>${demandListHtml(r.shortages, 'name', t('demand_empty'))}</div>
-      <div class="demand-block"><h4>${t('demand_not_found')}</h4><p class="demand-hint">${t('demand_not_found_hint')}</p>${demandListHtml(r.notFound, 'query', t('demand_empty'))}</div>
-      <div class="demand-block"><h4>${t('demand_by_city')}</h4>${demandListHtml(cityRows, 'name', t('demand_empty'))}</div>
-    </div>`;
-}
-
-// ================= مساحة الإعلان للزوار =================
-// ثلاثة أماكن يختارها المدير لكل إعلان: "الرئيسية" تحت بطاقات الميزات، و"مستحضرات
-// التجميل" في قسم التجميل، و"بعد نتائج البحث" تحت نتائج البحث عن الأدوية.
-// فشل الإعلانات لا يراه الزائر أبداً: لا إعلان، والصفحة سليمة.
-const adSlotLists = {};     // المكان ← الإعلانات العاملة، تُجلب مرة واحدة في الجلسة
-const adSlotPicked = {};    // المكان ← الإعلان المختار للعرض فيه
-const adSlotLoading = {};   // المكان ← طلب جلب جارٍ، فلا يتكرر الطلب نفسه
-let adSlotGen = 0;          // يزيد عند تحديث الإعلانات من اللوحة، فيُهمَل أي رد قديم وصل متأخراً
-let adSlotCurrent = null;   // الإعلان المعروض الآن
-let adSlotDrawnKey = null;  // ما رُسم في المساحة الآن (المكان والإعلان)، فلا يُعاد رسمه بلا داعٍ
-let adSlotObserver = null;
-
-function currentAdPlacement() { return currentCategory === 'cosmetic' ? 'cosmetic' : 'home'; }
-
-function fetchAdList(placement) {
-  if (adSlotLists[placement]) return Promise.resolve(adSlotLists[placement]);
-  if (!adSlotLoading[placement]) {
-    const gen = adSlotGen;
-    adSlotLoading[placement] = (async () => {
-      let list = [];
-      try {
-        const res = await fetchWithTimeout(`${API}/ads/active?placement=${placement}`, {}, 15000);
-        const data = await readJsonOk(res);
-        if (Array.isArray(data)) list = data;
-      } catch (e) { /* لا إعلانات، والصفحة سليمة */ }
-      if (gen === adSlotGen) { adSlotLists[placement] = list; delete adSlotLoading[placement]; }
-      return list;
-    })();
-  }
-  return adSlotLoading[placement];
-}
-
-// تناوب عشوائي بين الإعلانات العاملة: كلها تأخذ فرصاً متساوية على المدى
-function pickAd(placement) {
-  const list = adSlotLists[placement] || [];
-  adSlotPicked[placement] = list.length ? list[Math.floor(Math.random() * list.length)] : null;
-}
-
-async function loadAdSlot() {
-  placeAdSlot();   // الموضع يتبع القسم فوراً، قبل أن يصل الإعلان من الخادم
-  const placement = currentAdPlacement();
-  await fetchAdList(placement);
-  if (placement !== currentAdPlacement()) return;   // تبدّل القسم أثناء الانتظار
-  pickAd(placement);
-  if (adSlotLists.results) pickAd('results');   // إعلان ما بعد النتائج يتناوب أيضاً مع كل تنقّل
-  renderAdSlot();
-}
-
-// إعلانات "بعد نتائج البحث" لا تُجلب عند فتح الصفحة، بل عند أول بحث يجد نتائج فقط:
-// من لا يبحث لا يدفع ثمن طلب إضافي على إنترنت ضعيف
-function ensureResultsAds() {
-  if (adSlotLists.results || adSlotLoading.results) return;
-  fetchAdList('results').then(() => { pickAd('results'); placeAdSlot(); });
-}
-
-// نص الإعلان بلغة الواجهة: الحقل الإنكليزي (field_en) في الواجهة الإنكليزية إن وُجد، وإلا العربي
-function adLocalText(ad, field) {
-  const pick = v => (typeof v === 'string' ? v.trim() : '');
-  const ar = pick(ad[field]), en = pick(ad[field + '_en']);
-  return currentLang === 'en' && en ? en : ar;
-}
-
-// ===== موضع مساحة الإعلان =====
-// مساحة واحدة فقط في الصفحة دائماً: فلا يرى الزائر إعلانين معاً، ولا يتضاعف عدّ الظهور.
-// تتبدّل محتواها وتنتقل بين ثلاثة مواضع:
-//  - "home": مكانها الأصلي تحت بطاقات الميزات.
-//  - "top": قسم التجميل قبل البحث: تحت مربع البحث مباشرة، فيراها الزائر دون تمرير.
-//  - "after": بعد آخر نتيجة بحث، فلا تدفع النتائج إلى الأسفل ولا تقف بين الزائر وما يبحث عنه.
-//  - "off": مخفية (قسم التجميل أثناء التحميل، أو حين لا توجد نتيجة، أو عند خطأ).
-// قسم الأدوية: إعلان الرئيسية في مكانه دائماً، إلا بعد بحث وجد نتائج وفيه إعلان عامل
-// في مكان "بعد نتائج البحث": حينها يظهر هو بعد النتائج ويغيب إعلان الرئيسية مؤقتاً.
-// وعند "غير متوفر" أو الخطأ لا يظهر إعلان بعد النتائج أبداً: المريض هنا قلق، والرسالة أهم.
-let adSlotHomeAnchor = null;    // علامة غير مرئية في المكان الأصلي، للعودة إليه
-let adSlotResultsWatch = null;  // يراقب تغيّر النتائج أياً كان مصدره
-
-function adSlotTarget(results, onDuty) {
-  const placement = currentAdPlacement();
-  if (onDuty.style.display !== 'none') return { placement, pos: 'home' };
-  const hasCards = !!results.querySelector('.result-card');
-  if (placement === 'cosmetic') {
-    if (!results.firstElementChild) return { placement, pos: 'top' };
-    return { placement, pos: hasCards ? 'after' : 'off' };
-  }
-  if (hasCards) {
-    if (!adSlotLists.results) ensureResultsAds();
-    else if (adSlotPicked.results) return { placement: 'results', pos: 'after' };
-  }
-  return { placement: 'home', pos: 'home' };
-}
-
-function placeAdSlot() {
-  const slot = document.getElementById('ad-slot');
-  const results = document.getElementById('results');
-  const toolbar = document.getElementById('results-toolbar');
-  const onDuty = document.getElementById('on-duty-section');
-  if (!slot || !results || !toolbar || !onDuty) return;
-  if (!adSlotHomeAnchor) {
-    adSlotHomeAnchor = document.createComment(' ad-slot-home ');
-    slot.parentNode.insertBefore(adSlotHomeAnchor, slot);
-  }
-  // كل تغيير في النتائج (بحث، مسح، تحديث، خطأ) يعيد حساب الموضع تلقائياً،
-  // بدل ربط كل مكان في الشيفرة يكتب في النتائج بهذه الدالة
-  if (!adSlotResultsWatch && 'MutationObserver' in window) {
-    adSlotResultsWatch = new MutationObserver(placeAdSlot);
-    adSlotResultsWatch.observe(results, { childList: true });
-  }
-  const { placement, pos } = adSlotTarget(results, onDuty);
-  const ad = adSlotPicked[placement] || null;
-  const key = ad ? `${placement}:${ad.id}` : 'none';
-  if (key !== adSlotDrawnKey) { adSlotCurrent = ad; drawAdSlot(slot); adSlotDrawnKey = key; }
-  if (slot.dataset.pos === pos) return;   // لا نحرّك العنصر بلا داعٍ
-  if (pos === 'top') toolbar.parentNode.insertBefore(slot, toolbar);
-  else if (pos === 'after') results.parentNode.insertBefore(slot, results.nextSibling);
-  else if (pos === 'home') adSlotHomeAnchor.parentNode.insertBefore(slot, adSlotHomeAnchor.nextSibling);
-  slot.dataset.pos = pos;
-}
-
-// إعادة رسم إجبارية (عند تبديل اللغة أو وصول الإعلانات)
-function renderAdSlot() {
-  adSlotDrawnKey = null;
-  placeAdSlot();
-}
-
-function drawAdSlot(slot) {
-  if (adSlotObserver) { adSlotObserver.disconnect(); adSlotObserver = null; }
-  const ad = adSlotCurrent;
-  if (!ad) { slot.style.display = 'none'; slot.innerHTML = ''; return; }
-  const id = Number(ad.id);
-  // الوسم في الشريط تحت الصورة لا فوقها: الزاوية العليا اليمنى في الإعلانات العربية
-  // هي حيث يبدأ نص المعلن الأهم، والوسم فوقها كان يغطيه
-  // الاسم والشرح بلغة الواجهة؛ وإن ترك المعلن الحقل الإنكليزي فارغاً ظهر العربي بدل فراغ.
-  // dir="auto" كي يُكتب النص العربي من اليمين حتى لو ظهر داخل الواجهة الإنكليزية
-  const name = adLocalText(ad, 'advertiser'), desc = adLocalText(ad, 'description');
-  const descHtml = desc ? `<span class="ad-sep" aria-hidden="true">·</span><span class="ad-desc" dir="auto">${escapeHtml(desc)}</span>` : '';
-  const inner = `<img src="${API}/ads/${id}/image" alt="${escapeHtml(name)}" width="1200" height="400" loading="lazy">
-    <span class="ad-foot"><span class="ad-label">${t('ad_label')}</span><span class="ad-text"><span class="ad-name" dir="auto">${escapeHtml(name)}</span>${descHtml}</span></span>`;
-  // الخادم يقبل https وtel فقط، ونتحقق هنا مرة ثانية: لا رابط غيرهما يصبح قابلاً للنقر
-  const link = typeof ad.link === 'string' ? ad.link : '';
-  const isTel = /^tel:\+?\d{6,15}$/.test(link), isWeb = /^https:\/\//i.test(link);
-  slot.innerHTML = (isTel || isWeb)
-    ? `<a class="ad-card" href="${escapeHtml(link)}"${isWeb ? ' target="_blank" rel="noopener noreferrer sponsored"' : ''} onclick="recordAdEvent(${id}, 'click')">${inner}</a>`
-    : `<div class="ad-card">${inner}</div>`;
-  slot.style.display = '';
-  // الظهور يُحسب حين يُرى نصف الإعلان فعلاً على الشاشة، لا لمجرد تحميل الصفحة: فالمعلن
-  // يدفع مقابل من رأى إعلانه، لا مقابل من فتح الصفحة ولم ينزل إليه
-  if ('IntersectionObserver' in window) {
-    adSlotObserver = new IntersectionObserver(entries => {
-      if (!entries.some(e => e.isIntersecting)) return;
-      recordAdEvent(id, 'impression');
-      if (adSlotObserver) { adSlotObserver.disconnect(); adSlotObserver = null; }
-    }, { threshold: 0.5 });
-    adSlotObserver.observe(slot);
-  }
-}
-
-// مرة واحدة لكل إعلان في كل جلسة، لكل نوع (ظهور أو نقرة)، فلا يضخّم زائر واحد الأرقام.
-// وأجهزة من دخل لوحة الإدارة أو الصيدلي لا تُحسب، كما في عدّاد الزيارات.
-function recordAdEvent(id, type) {
-  try {
-    if (storageGet('dj_staff_device')) return;
-    const key = `dj_ad_${type}_${id}`;
-    if (sessionStorage.getItem(key)) return;
-    sessionStorage.setItem(key, '1');
-  } catch (e) { return; }
-  const body = JSON.stringify({ type });
-  try {
-    if (navigator.sendBeacon) navigator.sendBeacon(`${API}/ads/${id}/event`, new Blob([body], { type: 'application/json' }));
-    else fetch(`${API}/ads/${id}/event`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body, keepalive: true }).catch(() => {});
-  } catch (e) { /* العدّ لا يُفشل الصفحة أبداً */ }
-}
-
-// ================= الإعلانات (لوحة الإدارة) =================
-// إعلانات مباشرة يبيعها صاحب المنصة. الصورة تُضغط في المتصفح قبل الرفع (عرض 1200 بكسل
-// كحد أقصى)، فتبقى نحو 100 كيلوبايت ولا تُثقل الموقع على الإنترنت الضعيف.
-let adsAdminCache = [];
-
-// ===== محرر صورة الإعلان =====
-// الصورة تُعرض داخل إطار بنسبة ٣:١، فيسحبها المدير ويكبّرها، وما يراه في الإطار هو بالضبط
-// ما يُحفظ: عند الإضافة تُرسم المنطقة الظاهرة على لوحة 1200×400 وتُرفع هي وحدها. فلا قصّ
-// مفاجئ، وكل الإعلانات بالمقاس نفسه، والصورة صغيرة (نحو 100 كيلوبايت) مهما كان الأصل.
-// الحساب كله بوحدات الصورة النهائية (1200×400)، فيعمل على أي عرض للإطار.
-const AD_OUT_W = 1200, AD_OUT_H = 400;
-let adEditor = null;   // { img, url, iw, ih, s, x, y, sMin, sMax, sCover, sContain }
-
-function adEditorClamp() {
-  const e = adEditor; const w = e.iw * e.s, h = e.ih * e.s;
-  // صورة أكبر من الإطار: لا تُسحب حتى يظهر فراغ. وأصغر منه: تتحرك بحرية داخله دون أن
-  // يخرج منها شيء (مثلاً صورة مربعة على أحد الجانبين)
-  const clamp = (v, size, frame) => Math.min(Math.max(0, frame - size), Math.max(Math.min(0, frame - size), v));
-  e.x = clamp(e.x, w, AD_OUT_W);
-  e.y = clamp(e.y, h, AD_OUT_H);
-}
-
-// أزرار الأسهم: كل ضغطة تحرّك الصورة ٥٪ من الإطار في اتجاه السهم المرسوم على الشاشة
-function adEditorNudge(dx, dy) {
-  const e = adEditor; if (!e) return;
-  e.x += dx * AD_OUT_W * 0.05; e.y += dy * AD_OUT_H * 0.05;
-  adEditorClamp(); adEditorRender();
-}
-
-// "توسيط": الصورة إلى منتصف الإطار دون تغيير التكبير
-function adEditorCenter() {
-  const e = adEditor; if (!e) return;
-  e.x = (AD_OUT_W - e.iw * e.s) / 2; e.y = (AD_OUT_H - e.ih * e.s) / 2;
-  adEditorClamp(); adEditorRender();
-}
-
-// ملء الفراغ حول الصورة: لا أبيض ولا نسخة مموّهة كاملة (فهذه تُظهر "شبحاً" للصورة بجانبها
-// وهالات حول الشعارات)، بل امتداد ناعم لألوان طرف الصورة الملاصق للفراغ: يُؤخذ شريط رفيع
-// من حافة الصورة، وتُدمج ألوانه حتى تصير تدرّجاً ناعماً، ثم يُمدّ على عرض الفراغ ويفتح لونه
-// قليلاً كلما ابتعد عن الصورة. فالشعار على خلفية بيضاء يبقى على أبيض، والصورة الملونة تمتد
-// ألوانها بسلاسة. والدالة نفسها ترسم المعاينة والصورة النهائية، فهما متطابقتان.
-function adEdgeStrip(img, sx, sy, sw, sh, alongY) {
-  const mk = (w, h) => { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; };
-  const a = alongY ? mk(4, 64) : mk(64, 4);
-  let ctx = a.getContext('2d'); ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
-  ctx.drawImage(img, sx, sy, sw, sh, 0, 0, a.width, a.height);
-  const b = alongY ? mk(1, 16) : mk(16, 1);   // ١٦ لوناً فقط على الطول: تدرّج ناعم بلا تفاصيل
-  ctx = b.getContext('2d'); ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
-  ctx.drawImage(a, 0, 0, b.width, b.height);
-  return b;
-}
-
-function drawAdBackdrop(ctx, e) {
-  const W = AD_OUT_W, H = AD_OUT_H, w = e.iw * e.s, h = e.ih * e.s;
-  ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, W, H);
-  ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
-  // الجزء الظاهر من الصورة داخل الإطار، بوحدات الإطار ثم بوحدات الصورة الأصلية
-  const vx0 = Math.max(0, e.x), vx1 = Math.min(W, e.x + w), vy0 = Math.max(0, e.y), vy1 = Math.min(H, e.y + h);
-  if (vx1 <= vx0 || vy1 <= vy0) return;
-  const sx0 = (vx0 - e.x) / e.s, sx1 = (vx1 - e.x) / e.s, sy0 = (vy0 - e.y) / e.s, sy1 = (vy1 - e.y) / e.s;
-  const bandX = Math.max(1, Math.min(sx1 - sx0, e.iw * 0.02)), bandY = Math.max(1, Math.min(sy1 - sy0, e.ih * 0.02));
-  const fade = (x0, y0, x1, y1, rx, ry, rw, rh) => {
-    const g = ctx.createLinearGradient(x0, y0, x1, y1);
-    g.addColorStop(0, 'rgba(255,255,255,0)'); g.addColorStop(1, 'rgba(255,255,255,0.35)');
-    ctx.fillStyle = g; ctx.fillRect(rx, ry, rw, rh);
-  };
-  // كل امتداد يدخل قليلاً تحت الصورة (والصورة تغطيه)، فلا يظهر خط فاتح رفيع عند الحافة
-  const o = 4;
-  if (vx0 > 0) {
-    ctx.drawImage(adEdgeStrip(e.img, sx0, sy0, bandX, sy1 - sy0, true), 0, vy0, vx0 + o, vy1 - vy0);
-    fade(vx0, 0, 0, 0, 0, vy0, vx0, vy1 - vy0);
-  }
-  if (vx1 < W) {
-    ctx.drawImage(adEdgeStrip(e.img, sx1 - bandX, sy0, bandX, sy1 - sy0, true), vx1 - o, vy0, W - vx1 + o, vy1 - vy0);
-    fade(vx1, 0, W, 0, vx1, vy0, W - vx1, vy1 - vy0);
-  }
-  if (vy0 > 0) {
-    ctx.drawImage(adEdgeStrip(e.img, sx0, sy0, sx1 - sx0, bandY, false), vx0, 0, vx1 - vx0, vy0 + o);
-    fade(0, vy0, 0, 0, vx0, 0, vx1 - vx0, vy0);
-  }
-  if (vy1 < H) {
-    ctx.drawImage(adEdgeStrip(e.img, sx0, sy1 - bandY, sx1 - sx0, bandY, false), vx0, vy1 - o, vx1 - vx0, H - vy1 + o);
-    fade(0, vy1, 0, H, vx0, vy1, vx1 - vx0, H - vy1);
-  }
-}
-
-function adEditorRender() {
-  const e = adEditor; if (!e) return;
-  const img = document.querySelector('#ad-preview img');
-  if (!img) return;
-  const bgc = document.querySelector('#ad-preview canvas.ad-bg');
-  if (bgc) drawAdBackdrop(bgc.getContext('2d'), e);
-  img.style.left = (e.x / AD_OUT_W * 100) + '%';
-  img.style.top = (e.y / AD_OUT_H * 100) + '%';
-  img.style.width = (e.iw * e.s / AD_OUT_W * 100) + '%';
-  img.style.height = (e.ih * e.s / AD_OUT_H * 100) + '%';
-  const zoom = document.getElementById('ad-zoom');
-  if (zoom) zoom.value = String(Math.round(Math.log(e.s / e.sMin) / Math.log(e.sMax / e.sMin) * 100));
-}
-
-// تكبير مع إبقاء مركز الإطار ثابتاً، فلا "تقفز" الصورة عند التكبير
-function adEditorSetScale(s) {
-  const e = adEditor; if (!e) return;
-  s = Math.min(e.sMax, Math.max(e.sMin, s));
-  const cx = AD_OUT_W / 2, cy = AD_OUT_H / 2;
-  const px = (cx - e.x) / e.s, py = (cy - e.y) / e.s;
-  e.s = s; e.x = cx - px * s; e.y = cy - py * s;
-  adEditorClamp(); adEditorRender();
-}
-
-function onAdZoomInput(v) {
-  const e = adEditor; if (!e) return;
-  adEditorSetScale(e.sMin * Math.pow(e.sMax / e.sMin, Number(v) / 100));
-}
-
-// "ملء الإطار": تغطي الصورة الإطار كله. "الصورة كاملة": تظهر كلها والفراغ حولها امتداد لألوان أطرافها (للشعارات)
-function adEditorFit(mode) {
-  const e = adEditor; if (!e) return;
-  e.s = mode === 'whole' ? e.sContain : e.sCover;
-  e.x = (AD_OUT_W - e.iw * e.s) / 2; e.y = (AD_OUT_H - e.ih * e.s) / 2;
-  adEditorClamp(); adEditorRender();
-}
-
-function adEditorReset() {
-  if (adEditor && adEditor.url) URL.revokeObjectURL(adEditor.url);
-  adEditor = null;
-  const box = document.getElementById('ad-preview');
-  if (box) { box.classList.remove('editing'); box.removeAttribute('tabindex'); box.innerHTML = `<span class="muted">${t('ads_preview_empty')}</span>`; }
-  const ctl = document.getElementById('ad-editor-controls');
-  if (ctl) ctl.style.display = 'none';
-}
-
-function loadAdEditorImage(file) {
-  return new Promise((resolve, reject) => {
-    const url = URL.createObjectURL(file);
-    const img = new Image();
-    img.onload = () => resolve({ img, url });
-    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('bad image')); };
-    img.src = url;
-  });
-}
-
-async function onAdImageChosen(input) {
-  const file = input.files && input.files[0];
-  input.value = '';   // يسمح باختيار الصورة نفسها مرة أخرى
-  if (!file) return;
-  if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) { await customAlert(t('ads_bad_type'), 'warning'); return; }
-  let loaded;
-  try { loaded = await loadAdEditorImage(file); } catch (e) { await customAlert(t('ads_bad_type'), 'warning'); return; }
-  adEditorReset();
-  const iw = loaded.img.naturalWidth, ih = loaded.img.naturalHeight;
-  const sCover = Math.max(AD_OUT_W / iw, AD_OUT_H / ih), sContain = Math.min(AD_OUT_W / iw, AD_OUT_H / ih);
-  adEditor = { img: loaded.img, url: loaded.url, iw, ih, sCover, sContain, sMin: sContain, sMax: sCover * 3, s: sCover, x: 0, y: 0 };
-  const box = document.getElementById('ad-preview');
-  box.classList.add('editing');
-  box.setAttribute('tabindex', '0');
-  // لوحة الخلفية خلف الصورة تُرسم بالدالة نفسها التي ترسم الصورة النهائية، فالمعاينة مطابقة لما يراه الزائر
-  box.innerHTML = `<canvas class="ad-bg" width="${AD_OUT_W}" height="${AD_OUT_H}" aria-hidden="true"></canvas><img alt="" draggable="false" src="${loaded.url}">`;
-  document.getElementById('ad-editor-controls').style.display = '';
-  adEditorFit('cover');
-}
-
-// السحب بالفأرة أو الإصبع، والأسهم ولوحة المفاتيح لمن يفضّلها
-function setupAdEditorEvents() {
-  const box = document.getElementById('ad-preview');
-  if (!box || box.dataset.wired) return;
-  box.dataset.wired = '1';
-  let drag = null;
-  box.addEventListener('pointerdown', ev => {
-    if (!adEditor) return;
-    drag = { id: ev.pointerId, px: ev.clientX, py: ev.clientY };
-    box.setPointerCapture(ev.pointerId);
-    box.classList.add('dragging');
-    ev.preventDefault();
-  });
-  box.addEventListener('pointermove', ev => {
-    if (!drag || ev.pointerId !== drag.id || !adEditor) return;
-    const k = AD_OUT_W / box.clientWidth;   // من بكسلات الشاشة إلى وحدات الصورة النهائية
-    adEditor.x += (ev.clientX - drag.px) * k; adEditor.y += (ev.clientY - drag.py) * k;
-    drag.px = ev.clientX; drag.py = ev.clientY;
-    adEditorClamp(); adEditorRender();
-  });
-  const end = ev => { if (drag && ev.pointerId === drag.id) { drag = null; box.classList.remove('dragging'); } };
-  box.addEventListener('pointerup', end);
-  box.addEventListener('pointercancel', end);
-  box.addEventListener('keydown', ev => {
-    if (!adEditor) return;
-    // الأسهم تحرّك الصورة في اتجاهها، تماماً كأزرار الأسهم تحت الإطار
-    const moves = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] };
-    if (moves[ev.key]) { adEditorNudge(moves[ev.key][0], moves[ev.key][1]); ev.preventDefault(); }
-    else if (ev.key === '+' || ev.key === '=') { adEditorSetScale(adEditor.s * 1.1); ev.preventDefault(); }
-    else if (ev.key === '-') { adEditorSetScale(adEditor.s / 1.1); ev.preventDefault(); }
-  });
-}
-
-// الصورة النهائية: المنطقة الظاهرة في الإطار بالضبط، على لوحة 1200×400 فوق امتداد ألوان أطرافها
-function renderAdEditorOutput() {
-  return new Promise((resolve, reject) => {
-    const e = adEditor;
-    const c = document.createElement('canvas'); c.width = AD_OUT_W; c.height = AD_OUT_H;
-    const ctx = c.getContext('2d');
-    drawAdBackdrop(ctx, e);
-    ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
-    ctx.drawImage(e.img, e.x, e.y, e.iw * e.s, e.ih * e.s);
-    c.toBlob(b => b ? resolve(b) : reject(new Error('render failed')), 'image/jpeg', 0.85);
-  });
-}
-
-// الإعلانات تتغير من اللوحة، فتُجلب مساحة الإعلان من جديد فوراً بدل انتظار تحديث الصفحة
-function refreshAdSlotNow() {
-  adSlotGen++;
-  for (const obj of [adSlotLists, adSlotPicked, adSlotLoading]) for (const k of Object.keys(obj)) delete obj[k];
-  adSlotDrawnKey = null;
-  loadAdSlot();
-}
-
-// "0933 123 456" ← tel:0933123456، و"www.x.com" ← https://www.x.com، و"wa.me/963..." ← https://wa.me/963...
-function normalizeAdLink(raw) {
-  const v = String(raw || '').trim();
-  if (!v) return '';
-  const digits = v.replace(/[\s()-]/g, '');
-  if (/^\+?\d{6,15}$/.test(digits)) return 'tel:' + digits;
-  if (/^(www\.|wa\.me\/)/i.test(v)) return 'https://' + v;
-  return v;
-}
-
-async function submitAd() {
-  const advertiser = document.getElementById('ad-advertiser').value.trim();
-  if (!advertiser) { await customAlert(t('ads_need_advertiser'), 'warning'); return; }
-  if (!adEditor) { await customAlert(t('ads_need_image'), 'warning'); return; }
-  const starts = document.getElementById('ad-starts').value, ends = document.getElementById('ad-ends').value;
-  if (starts && ends && ends < starts) { await customAlert(t('ads_dates_order'), 'warning'); return; }
-  const placement = (document.querySelector('input[name="ad-placement"]:checked') || {}).value || 'home';
-  const val = id => (document.getElementById(id) || {}).value || '';
-  const qs = new URLSearchParams({ advertiser, advertiser_en: val('ad-advertiser-en').trim(), desc: val('ad-desc').trim(), desc_en: val('ad-desc-en').trim(),
-    link: normalizeAdLink(val('ad-link')), placement, starts, ends });
-  const btn = document.getElementById('ad-submit');
-  if (btn) { btn.disabled = true; btn.textContent = t('ads_uploading'); }
-  try {
-    const blob = await renderAdEditorOutput();
-    const headers = adminHeaders(); headers['Content-Type'] = 'image/jpeg';
-    const res = await fetchWithTimeout(`${API}/ads?${qs}`, { method: 'POST', headers, body: blob }, 60000);
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) {
-      const msg = data.code === 'TOOBIG' ? t('ads_too_big') : data.code === 'BADTYPE' ? t('ads_bad_type') : translateApiError(data.error);
-      await customAlert(msg, 'error');
-      return;
-    }
-    adEditorReset();
-    ['ad-advertiser', 'ad-advertiser-en', 'ad-desc', 'ad-desc-en', 'ad-link', 'ad-starts', 'ad-ends'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
-    await loadAdsAdmin();
-    refreshAdSlotNow();
-    await customAlert(t('ads_added'), 'success');
-  } catch (err) {
-    await customAlert(t('err_network'), 'error');
-  } finally {
-    if (btn) { btn.disabled = false; btn.textContent = t('ads_submit'); }
-  }
-}
-
-function adRangeText(ad) {
-  const a = ad.starts_on ? formatShortDay(ad.starts_on) : '', b = ad.ends_on ? formatShortDay(ad.ends_on) : '';
-  if (a && b) return tFormat('ads_range_both', { a, b });
-  if (a) return tFormat('ads_range_from', { a });
-  if (b) return tFormat('ads_range_to', { b });
-  return t('ads_range_none');
-}
-
-function renderAdsAdmin() {
-  const box = document.getElementById('ads-list');
-  if (!box) return;
-  if (!adsAdminCache.length) { box.innerHTML = `<p class="muted">${t('ads_empty')}</p>`; return; }
-  box.innerHTML = adsAdminCache.map(ad => `
-    <div class="ad-item">
-      <img alt="${escapeHtml(ad.advertiser)}" loading="lazy" src="${API}/ads/${ad.id}/image">
-      <div class="ad-item-body">
-        <div class="ad-item-head">
-          <strong>${escapeHtml(ad.advertiser)}${ad.advertiser_en ? ` <span class="ad-en" dir="ltr">${escapeHtml(ad.advertiser_en)}</span>` : ''}</strong>
-          <span class="ad-status ${escapeHtml(ad.status)}">${t('ads_status_' + (['running', 'paused', 'scheduled', 'ended'].includes(ad.status) ? ad.status : 'paused'))}</span>
-        </div>
-        ${ad.description || ad.description_en ? `<div class="ad-desc-line">${ad.description ? escapeHtml(ad.description) : ''}${ad.description && ad.description_en ? ' · ' : ''}${ad.description_en ? `<bdi dir="ltr">${escapeHtml(ad.description_en)}</bdi>` : ''}</div>` : ''}
-        <div class="ad-meta">${t(ad.placement === 'cosmetic' ? 'ads_in_cosmetic' : ad.placement === 'results' ? 'ads_in_results' : 'ads_in_home')} · ${adRangeText(ad)}</div>
-        <div class="ad-meta">${tFormat('ads_counts', { i: Number(ad.impressions) || 0, c: Number(ad.clicks) || 0 })}</div>
-        ${ad.link ? `<div class="ad-meta" dir="ltr" style="text-align:right;">${escapeHtml(ad.link)}</div>` : ''}
-        <div class="ad-item-actions">
-          <button type="button" class="btn-outline blue small" onclick="setAdActiveAdmin(${ad.id}, ${!ad.active})">${ad.active ? t('ads_pause') : t('ads_resume')}</button>
-          <button type="button" class="btn-outline red small" onclick="deleteAdAdmin(${ad.id})">${t('ads_delete')}</button>
-        </div>
-      </div>
-    </div>`).join('');
-}
-
-async function loadAdsAdmin() {
-  const box = document.getElementById('ads-list');
-  if (!box) return;
-  box.innerHTML = skeletonHtml(1);
-  const session = adminSessionId;
-  try {
-    const res = await fetchWithTimeout(`${API}/ads/admin`, { headers: adminHeaders(), cache: 'no-store' }, 20000);
-    const ads = await readJsonOk(res);
-    if (adminSessionGone(session)) return;
-    adsAdminCache = ads;
-    renderAdsAdmin();
-  } catch (err) {
-    if (adminSessionGone(session)) return;
-    box.innerHTML = `<p class="muted">${t('ads_load_error')}</p>`;
-  }
-}
-
-async function setAdActiveAdmin(id, active) {
-  if (!(await runAction(`${API}/ads/${id}/active`, { method: 'PUT', headers: adminHeaders(), body: JSON.stringify({ active }) }))) return;
-  loadAdsAdmin();
-  refreshAdSlotNow();
-}
-
-async function deleteAdAdmin(id) {
-  const ad = adsAdminCache.find(x => x.id === id);
-  if (!ad) return;
-  if (!(await customConfirm(tFormat('ads_delete_confirm', { name: ad.advertiser }), 'warning', 'danger_delete_ad'))) return;
-  if (!(await runAction(`${API}/ads/${id}`, { method: 'DELETE', headers: adminHeaders() }))) return;
-  await loadAdsAdmin();
-  refreshAdSlotNow();
-  await customAlert(t('ads_deleted'), 'success');
-}
-
-// ================= عدّاد الزيارات =================
-// زيارة واحدة لكل جلسة تصفّح، ولا يُرسل عن الزائر إلا نوع جهازه (هاتف أو حاسوب).
-// أجهزة من دخل لوحة الإدارة أو الصيدلي لا تُحسب، كي لا تتضخم الأرقام بزياراتك أنت.
-// يُرسل بعد تحميل الصفحة وبلا انتظار: فشله لا يراه الزائر ولا يؤخر شيئاً.
-function markStaffDevice() { storageSet('dj_staff_device', '1'); }
-
-function recordVisitOnce() {
-  try {
-    if (sessionStorage.getItem('dj_visit_counted') || storageGet('dj_staff_device')) return;
-    sessionStorage.setItem('dj_visit_counted', '1');
-  } catch (e) { return; }   // التخزين معطّل: لا نعدّ، أفضل من عدّ الزيارة نفسها مرات
-  const body = JSON.stringify({ device: window.innerWidth <= 768 ? 'mobile' : 'desktop' });
-  try {
-    if (navigator.sendBeacon) navigator.sendBeacon(`${API}/stats/visit`, new Blob([body], { type: 'application/json' }));
-    else fetch(`${API}/stats/visit`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body, keepalive: true }).catch(() => {});
-  } catch (e) { /* العدّ لا يُفشل الصفحة أبداً */ }
-}
-
-let visitsDays = 30;
-let lastVisitsReport = null;
-
-function formatShortDay(day) {
-  return new Date(day + 'T00:00:00Z').toLocaleDateString(dateLocale(), { day: 'numeric', month: 'short', timeZone: 'UTC' });
-}
-
-function renderVisitsReport() {
-  const box = document.getElementById('visits-report');
-  if (!box) return;
-  const r = lastVisitsReport;
-  if (!r) { box.innerHTML = skeletonHtml(1); return; }
-  if (!r.total) { box.innerHTML = `<p class="muted">${t('visits_empty')}</p>`; return; }
-  const max = Math.max(1, ...r.series.map(s => s.total));
-  const mobilePct = Math.round(r.mobile / r.total * 100);
-  box.innerHTML = `
-    <div class="visits-stats">
-      <div class="demand-total"><bdi>${r.today}</bdi><span>${t('visits_today')}</span></div>
-      <div class="demand-total"><bdi>${r.total}</bdi><span>${t('visits_period')}</span></div>
-      <div class="demand-total"><bdi>${mobilePct}%</bdi><span>${t('visits_mobile_share')}</span></div>
-    </div>
-    <div class="visits-chart${r.series.length > 45 ? ' dense' : ''}" role="img" aria-label="${t('visits_chart_label')}">
-      ${r.series.map(s => `<div class="visits-bar${s.total ? '' : ' zero'}" title="${formatShortDay(s.day)}: ${s.total}" style="height:${s.total ? Math.max(4, Math.round(s.total / max * 100)) : 2}%"></div>`).join('')}
-    </div>
-    <div class="visits-axis"><span>${formatShortDay(r.series[0].day)}</span><span>${formatShortDay(r.series[r.series.length - 1].day)}</span></div>
-    <p class="demand-hint" style="margin-top:12px;">${t('visits_note')}</p>`;
-}
-
-async function loadVisitsReport(days) {
-  if (days) visitsDays = days;
-  document.querySelectorAll('.visits-period-btn').forEach(b =>
-    b.classList.toggle('active', Number(b.getAttribute('data-days')) === visitsDays));
-  lastVisitsReport = null;
-  renderVisitsReport();
-  const session = adminSessionId;
-  try {
-    const res = await fetchWithTimeout(`${API}/stats/visits?days=${visitsDays}`, { headers: adminHeaders(), cache: 'no-store' }, 20000);
-    const report = await readJsonOk(res, 'object');
-    if (adminSessionGone(session)) return;
-    lastVisitsReport = report;
-    renderVisitsReport();
-  } catch (err) {
-    if (adminSessionGone(session)) return;
-    const box = document.getElementById('visits-report');
-    if (box) box.innerHTML = `<p class="muted">${t('visits_load_error')}</p>`;
-  }
-}
-
-async function loadDemandReport(days) {
-  if (days) demandDays = days;
-  document.querySelectorAll('.demand-period-btn').forEach(b =>
-    b.classList.toggle('active', Number(b.getAttribute('data-days')) === demandDays));
-  lastDemandReport = null;
-  renderDemandReport();
-  const session = adminSessionId;
-  try {
-    const res = await fetchWithTimeout(`${API}/stats/demand?days=${demandDays}`, { headers: adminHeaders(), cache: 'no-store' }, 20000);
-    if (!res.ok) throw new Error('status ' + res.status);
-    const report = await res.json();
-    if (adminSessionGone(session)) return;
-    lastDemandReport = report;
-    renderDemandReport();
-    renderLaunchZone(lastDemandReport.launchedAt || null);
-  } catch (err) {
-    if (adminSessionGone(session)) return;
-    const box = document.getElementById('demand-report');
-    if (box) box.innerHTML = `<p class="muted">${t('demand_load_error')}</p>`;
-  }
-}
-
-// تنزيل التقرير ملف CSV يفتحه إكسل. علامة BOM في أوله ضرورية، وإلا عرض إكسل
-// الحروف العربية رموزاً مشوّهة. وكل خلية بين علامتي تنصيص مع مضاعفة ما بداخلها،
-// فلا تكسر فاصلة في اسم دواء أعمدة الجدول.
-function exportDemandCsv() {
-  const r = lastDemandReport;
-  if (!r) return;
-  // حماية من حقن الصيغ: "بحث بلا نتيجة" نص كتبه زائر مجهول، فلو بدأ بـ = أو + أو - أو @
-  // لنفّذه إكسل صيغةً عند فتح الملف (مثلاً رابط يسرّب البيانات). نسبق هذه الخلايا
-  // بعلامة اقتباس مفردة فيعرضها إكسل نصاً. الأرقام الحقيقية (العدّادات) لا تُمس.
-  const cell = v => {
-    let str = String(v == null ? '' : v);
-    if (typeof v !== 'number' && /^[=+\-@\t\r]/.test(str)) str = "'" + str;
-    return '"' + str.replace(/"/g, '""') + '"';
-  };
-  const lines = [[t('demand_col_section'), t('demand_col_item'), t('demand_col_count')].map(cell).join(',')];
-  const add = (section, rows, key) => (rows || []).forEach(x => lines.push([section, x[key], x.count].map(cell).join(',')));
-  lines.push([t('demand_total'), '', r.total].map(cell).join(','));
-  add(t('demand_top'), r.topMedicines, 'name');
-  add(t('demand_shortages'), r.shortages, 'name');
-  add(t('demand_not_found'), r.notFound, 'query');
-  add(t('demand_by_city'), (r.byCity || []).map(c => ({ name: c.city ? cityName(c.city) : t('demand_all_cities'), count: c.count })), 'name');
-  saveBlobAs(new Blob(['\ufeff' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' }),
-    `dawaai-jahez-demand-${r.days}d-${new Date().toISOString().slice(0, 10)}.csv`);
-}
-
-// ================= بدء الإطلاق الرسمي =================
-// زر يُستخدم مرة واحدة في عمر المنصة: يمسح بيانات التجربة ثم يختفي نهائياً.
-// كان يمكن جعله زر تصفير دائماً، لكن بعد الإطلاق يصير سجل البحث والطلبات أثمن ما في
-// المنصة، وزر دائم يبقى على بُعد لحظة سهو من محوه بلا رجعة. ومن يحتاج تصفيراً
-// لاحقاً فعنده محرر SQL في لوحة Supabase.
+// تصدير كامل للبيانات، للنسخ الاحتياطي اليدوي.
 //
-// الحماية طبقات: كتابة كلمة "حذف"، ثم تأكيد صريح، ثم نسخة احتياطية تُنزَّل أولاً
-// ولا يبدأ المسح إن فشلت، ثم تحقق الخادم من الكلمة نفسها ورفضه أي محاولة ثانية.
-
-let launchZoneState = undefined;   // undefined: لم يُعرف بعد، null: لم يُطلق، نص: تاريخ الإطلاق
-
-function formatLaunchDate(iso) {
-  try {
-    return new Date(iso).toLocaleDateString(dateLocale(),
-      { timeZone: 'Asia/Damascus', year: 'numeric', month: 'long', day: 'numeric' });
-  } catch (e) { return String(iso).slice(0, 10); }
-}
-
-// لا نعيد الرسم إن لم تتغير الحالة، فلا يضيع ما كتبه المدير في حقل التأكيد
-// كلما أُعيد تحميل التقرير. ولا نُظهر زر المسح إلا حين نعرف يقيناً أن الإطلاق لم يتم.
-function renderLaunchZone(launchedAt) {
-  const box = document.getElementById('launch-zone');
-  if (!box) return;
-  if (launchZoneState === launchedAt && box.innerHTML) return;
-  launchZoneState = launchedAt;
-  if (launchedAt) { box.innerHTML = ''; return; }
-  box.innerHTML = `
-    <div class="launch-zone">
-      <h4>${t('launch_title')}</h4>
-      <p>${t('launch_desc')}</p>
-      <p class="launch-warning">${t('launch_warning')}</p>
-      <input type="text" id="launch-confirm-input" autocomplete="off" spellcheck="false"
-             placeholder="${t('launch_confirm_placeholder')}" oninput="onLaunchConfirmInput(this)">
-      <button type="button" class="launch-btn" id="launch-reset-btn" disabled onclick="startOfficialLaunch()">${t('launch_btn')}</button>
-    </div>`;
-}
-
-function onLaunchConfirmInput(el) {
-  const btn = document.getElementById('launch-reset-btn');
-  if (btn) btn.disabled = el.value.trim() !== 'حذف';
-}
-
-async function startOfficialLaunch() {
-  const input = document.getElementById('launch-confirm-input');
-  const btn = document.getElementById('launch-reset-btn');
-  if (!input || input.value.trim() !== 'حذف') return;
-  if (!(await customConfirm(t('launch_final_confirm'), 'warning', 'danger_start_launch'))) return;
-
-  const setBtn = (label, disabled) => { if (btn) { btn.textContent = label; btn.disabled = disabled; } };
-  setBtn(t('launch_backing_up'), true);
-  // ١) النسخة الاحتياطية أولاً. أي فشل هنا يوقف كل شيء قبل أن يُحذف سطر واحد.
-  // م16: نزول الملف لا يعني أنه حُفظ: بعض متصفحات الهاتف تتجاهل التنزيل الذي لا يتبع لمسة
-  // مباشرة، أو تُلغيه إن أُزيل رابطه فوراً. فالرابط يبقى صالحاً دقيقة، ثم يُسأل المدير صراحة
-  // إن كان الملف في جهازه، ويُعاد التنزيل إن قال لا. لا يُحذف شيء قبل "نعم".
-  let blob;
-  try {
-    const bres = await fetchWithTimeout(`${API}/stats/backup`, { headers: adminHeaders(), cache: 'no-store' }, 60000);
-    if (!bres.ok) throw new Error('backup');
-    blob = await bres.blob();
-    if (!blob || blob.size < 50) throw new Error('backup');
-  } catch (err) {
-    setBtn(t('launch_btn'), false);
-    await customAlert(t('launch_backup_failed'), 'error');
-    return;
-  }
-  const saveBackupFile = () => saveBlobAs(blob, `dawaai-jahez-before-launch-${new Date().toISOString().slice(0, 10)}.json`);
-  let saved = false;
-  for (let attempt = 0; attempt < 3 && !saved; attempt++) {
-    saveBackupFile();
-    saved = await showModal({ message: t('launch_saved_check'), type: 'warning', showCancel: true,
-                              okText: t('launch_saved_yes'), cancelText: t('launch_saved_no') });
-  }
-  if (!saved) {
-    setBtn(t('launch_btn'), false);
-    await customAlert(t('launch_not_confirmed'), 'info');
-    return;
-  }
-  writeLastBackup(new Date().toISOString());
-
-  // ٢) المسح وتسجيل تاريخ الإطلاق، في معاملة واحدة على الخادم
-  setBtn(t('launch_resetting'), true);
-  try {
-    const res = await fetchWithTimeout(`${API}/stats/launch-reset`, {
-      method: 'POST', headers: adminHeaders(), body: JSON.stringify({ confirm: 'حذف' })
-    }, 60000);
-    const data = await res.json().catch(() => ({}));
-    if (res.status === 409) {
-      await customAlert(t('launch_already'), 'info');
-    } else if (!res.ok) {
-      setBtn(t('launch_btn'), false);
-      await customAlert(t('launch_failed'), 'error');
-      return;
-    } else {
-      const d = data.deleted || {};
-      await customAlert(tFormat('launch_done', { s: d.searches || 0, o: d.orders || 0, r: d.ratings || 0 }), 'success');
-    }
-    // الإحصاءات والطلبات تغيّرت، فنعيد تحميل اللوحة كلها
-    launchZoneState = undefined;
-    await renderAdminPanel();
-  } catch (err) {
-    setBtn(t('launch_btn'), false);
-    await customAlert(t('launch_failed'), 'error');
-  }
-}
-
-// ================= النسخ الاحتياطي وحالة النظام =================
-// خطة Supabase المجانية بلا نسخ احتياطي تلقائي، وصفر مراقبة تلقائية.
-// هذا القسم يعالج الأمرين من لوحة الإدارة مباشرة.
-
-// آخر نسخة نُزّلت من هذا المتصفح. نحفظها محلياً لا في القاعدة عن قصد:
-// لو ضاعت القاعدة فالمعلومة تضيع معها، بينما المطلوب هو تذكير المدير نفسه.
-const BACKUP_STAMP_KEY = 'dawaai_last_backup';
-const BACKUP_OVERDUE_DAYS = 7;
-
-function readLastBackup() {
-  try { return localStorage.getItem(BACKUP_STAMP_KEY); } catch (e) { return null; }
-}
-function writeLastBackup(iso) {
-  try { localStorage.setItem(BACKUP_STAMP_KEY, iso); } catch (e) { /* وضع خاص أو تخزين ممتلئ */ }
-}
-
-function renderBackupInfo() {
-  const box = document.getElementById('backup-info');
-  if (!box) return;
-  const last = readLastBackup();
-  if (!last) {
-    box.innerHTML = `<span class="backup-overdue">${t('backup_never')}</span>`;
-    return;
-  }
-  const rel = relativeTime(last);
-  const overdue = (Date.now() - new Date(last).getTime()) > BACKUP_OVERDUE_DAYS * 86400000;
-  box.innerHTML = `<span class="muted">${t('backup_last')}</span>
-    <bdi class="backup-date">${escapeHtml(rel || last)}</bdi>
-    ${overdue ? `<span class="backup-overdue">${t('backup_overdue')}</span>` : ''}`;
-}
-
-async function downloadBackup() {
-  const btn = document.getElementById('backup-btn');
-  if (btn) { btn.disabled = true; btn.textContent = t('backup_preparing'); }
-  try {
-    const res = await fetchWithTimeout(`${API}/stats/backup`, { headers: adminHeaders(), cache: 'no-store' }, 60000);
-    if (!res.ok) { await customAlert(t('backup_failed'), 'error'); return; }
-
-    // نحوّل الاستجابة إلى ملف ينزّله المتصفح
-    saveBlobAs(await res.blob(), `dawaai-jahez-backup-${new Date().toISOString().slice(0, 10)}.json`);
-
-    writeLastBackup(new Date().toISOString());
-    renderBackupInfo();
-    await customAlert(t('backup_done'), 'success');
-  } catch (err) {
-    await customAlert(t('backup_failed'), 'error');
-  } finally {
-    const b = document.getElementById('backup-btn');
-    if (b) { b.disabled = false; b.textContent = t('backup_btn'); }
-  }
-}
-
-// فحص حالة النظام عبر /health. الفحص لا يحتاج مصادقة لأن المسار عام،
-// لكن عرضه محصور بلوحة الإدارة إذ لا يعني المريض شيئاً.
-async function checkSystemStatus() {
-  const box = document.getElementById('system-status');
-  if (!box) return;
-  box.innerHTML = `<span class="muted">${t('system_status_checking')}</span>`;
-  try {
-    const res = await fetchWithTimeout('/health', { cache: 'no-store' }, 15000);
-    const data = await res.json().catch(() => null);
-    const okState = res.ok && data && data.db === 'ok';
-    box.innerHTML = okState
-      ? `<span class="status-dot ok"></span><span class="status-ok">${t('system_status_ok')}</span>`
-      : `<span class="status-dot bad"></span><span class="status-bad">${t('system_status_degraded')}</span>`;
-  } catch (err) {
-    box.innerHTML = `<span class="status-dot bad"></span><span class="status-bad">${t('system_status_degraded')}</span>`;
-  }
-}
-
-// ================= عنوان الصيدلية وموقعها (لوحة الإدارة) =================
-// العنوان كان يُكتب عند التسجيل فقط، فبقيت عناوين عامة مثل "سلميه". والموقع على الخريطة
-// كان الصيدلي وحده يضبطه من لوحته. هنا تصحح الإدارة الأمرين عن بُعد.
-// والموقع واحد لكل صيدلية: آخر من يحفظ (الإدارة أو الصيدلي) هو ما يراه المريض.
-
-let adminAddressFilter = '';
-
-function onAdminAddressSearch(el) {
-  const next = el.value.trim().toLowerCase();
-  if (next === adminAddressFilter) return;
-  adminAddressFilter = next;
-  renderAdminAddressList();
-}
-
-// توحيد النص للمقارنة، بالطريقة نفسها التي ينظّف بها الخادم العنوان قبل حفظه
-function normalizeAddressForCompare(v) {
-  return String(v || '').replace(/\s+/g, ' ').trim();
-}
-
-function renderAdminAddressList() {
-  const box = document.getElementById('admin-address-list');
-  if (!box) return;
-  captureRowDrafts(box);
-  const all = adminDataCache.pharmacies || [];
-  const list = all.filter(p => !adminAddressFilter
-    || String(p.name || '').toLowerCase().includes(adminAddressFilter)
-    || String(p.address || '').toLowerCase().includes(adminAddressFilter));
-  if (list.length === 0) {
-    box.innerHTML = `<p class="muted" style="padding:14px 2px;">${t('admin_address_no_match')}</p>`;
-    return;
-  }
-  box.innerHTML = list.map(p => {
-    const has = hasLocation(p.latitude, p.longitude);
-    const link = has ? mapPreviewLink(p.latitude, p.longitude) : null;
-    return `
-    <div class="admin-address-row">
-      <div class="admin-address-head">
-        <span class="admin-address-name"><bdi>${escapeHtml(p.name)}</bdi></span>
-        <span class="admin-address-status ${has ? 'ok' : 'unset'}">${has ? '✅ ' + t('admin_location_set') : '⚠️ ' + t('admin_location_unset')}</span>
-        ${link ? `<a class="admin-address-maplink" href="${escapeHtml(link)}" target="_blank" rel="noopener noreferrer">${t('admin_view_on_map')}</a>` : ''}
-      </div>
-      <label class="admin-address-field">
-        <span>${t('admin_address_label')}</span>
-        <input type="text" id="addr-input-${p.id}" maxlength="200" value="${escapeHtml(p.address || '')}" placeholder="${t('admin_address_placeholder')}">
-      </label>
-      <label class="admin-address-field">
-        <span>${t('admin_coords_label')}</span>
-        <p class="admin-address-hint">${t('admin_coords_hint')}</p>
-        <input type="text" id="coords-input-${p.id}" class="coords-input" autocomplete="off" spellcheck="false" placeholder="${t('admin_coords_placeholder')}">
-      </label>
-      <div class="admin-address-actions">
-        <button type="button" class="primary" id="addr-save-${p.id}" onclick="saveAdminAddress(${p.id})">${t('admin_address_save')}</button>
-        ${has ? `<button type="button" class="btn-outline red" onclick="clearAdminLocation(${p.id})">${t('admin_location_clear')}</button>` : ''}
-      </div>
-    </div>`;
-  }).join('');
-  applyRowDrafts();
-}
-
-async function adminPut(path, body) {
-  const res = await fetchWithTimeout(`${API}/pharmacies/${path}`, { method: 'PUT', headers: adminHeaders(), body: JSON.stringify(body) }, 20000);
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) { const e = new Error('admin put failed'); e.userMessage = translateApiError(data.error); throw e; }
-  return data;
-}
-
-async function saveAdminAddress(id) {
-  const p = (adminDataCache.pharmacies || []).find(x => x.id === id);
-  if (!p) return;
-  const addrInput = document.getElementById(`addr-input-${id}`);
-  const coordsInput = document.getElementById(`coords-input-${id}`);
-  const newAddress = addrInput ? addrInput.value : '';
-  const addressChanged = normalizeAddressForCompare(newAddress) !== normalizeAddressForCompare(p.address);
-  const coordsRaw = coordsInput ? coordsInput.value.trim() : '';
-
-  // الإحداثيات بالمنطق نفسه في لوحة الصيدلي: كل الصيغ، وكشف الأرقام المقلوبة
-  let coords = null;
-  if (coordsRaw) {
-    const parsed = parsePastedCoordinates(coordsRaw);
-    if (!parsed) { await customAlert(t('invalid_location_error'), 'warning'); return; }
-    let { lat, lng } = parsed;
-    if (!isInsideSyria(lat, lng) && isInsideSyria(lng, lat)) {
-      if (await customConfirm(tFormat('location_swap_suggest', { coords: `${lng}, ${lat}` }), 'warning')) { const tmp = lat; lat = lng; lng = tmp; }
-    } else if (!isInsideSyria(lat, lng)) {
-      if (!(await customConfirm(t('location_outside_syria'), 'warning'))) return;
-    }
-    coords = { lat, lng };
-  }
-  if (!addressChanged && !coords) { await customAlert(t('admin_address_nothing'), 'info'); return; }
-
-  const btn = document.getElementById(`addr-save-${id}`);
-  if (btn) btn.disabled = true;
-  try {
-    // كل حقل يُحفظ بمفرده ويُحدَّث في الكاش فور نجاحه، فلو نجح العنوان وفشل الموقع
-    // تبقى الشاشة صادقة: تعرض العنوان الجديد والموقع القديم.
-    if (addressChanged) {
-      const d = await adminPut(`${id}/address`, { address: newAddress });
-      p.address = d.address;
-      forgetRowDrafts([`addr-input-${id}`]);
-    }
-    if (coords) {
-      const d = await adminPut(`${id}/location`, { latitude: coords.lat, longitude: coords.lng });
-      p.latitude = d.latitude; p.longitude = d.longitude;
-      forgetRowDrafts([`coords-input-${id}`]);
-    }
-    renderAdminAddressList();
-    await customAlert(t('admin_address_saved'), 'success');
-  } catch (err) {
-    renderAdminAddressList();
-    await customAlert(err.userMessage || t('server_error_title'), 'error');
-  } finally {
-    const b = document.getElementById(`addr-save-${id}`);
-    if (b) b.disabled = false;
-  }
-}
-
-async function clearAdminLocation(id) {
-  const p = (adminDataCache.pharmacies || []).find(x => x.id === id);
-  if (!p) return;
-  if (!(await customConfirm(tFormat('admin_location_clear_confirm', { name: p.name }), 'warning', 'danger_clear_location'))) return;
-  try {
-    const d = await adminPut(`${id}/location`, { latitude: '', longitude: '' });
-    p.latitude = d.latitude; p.longitude = d.longitude;
-    renderAdminAddressList();
-    await customAlert(t('admin_location_cleared'), 'success');
-  } catch (err) {
-    await customAlert(err.userMessage || t('server_error_title'), 'error');
-  }
-}
-
-// ---------- الهاتف الأرضي (لوحة الصيدلي) ----------
-// يعدّل الرقم الأساسي نفسه الظاهر للمريض بجانب 📞، لا رقماً رابعاً: ثلاثة أرقام وزر
-// واتساب كافية، والرابع يزحم بطاقة الصيدلية على شاشة الهاتف.
-async function saveMainPhone() {
-  const input = document.getElementById('main-phone-input');
-  const btn = document.getElementById('save-main-phone-btn');
-  if (btn) btn.disabled = true;
-  try {
-    const res = await fetchWithTimeout(`${API}/pharmacies/self/phone`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username: currentPharmacy.username, password: currentPharmacy.password, phone: input.value })
-    }, 20000);
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) { await customAlert(translateApiError(data.error), 'error'); return; }
-    currentPharmacy.phone = data.phone;
-    input.value = data.phone || '';   // نعرض ما حفظه الخادم بعد التطبيع
-    await customAlert(t('main_phone_saved'), 'success');
-  } catch (err) {
-    await customAlert(t('server_error_title'), 'error');
-  } finally {
-    if (btn) btn.disabled = false;
-  }
-}
-
-
-// ================= خبرة الممرضين وشهاداتهم (لوحة الإدارة) =================
-// الشهادة خاصة بالإدارة، والمريض يرى بطاقة خبرة وشارة توثيق فقط.
-const openNurseEditors = new Set();
-const CERT_MAX_BYTES = 3 * 1024 * 1024;
-const CERT_OK_TYPES = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp'];
-
-function formatBytes(n) {
-  const v = Number(n) || 0;
-  if (v < 1024 * 1024) return `${Math.max(1, Math.round(v / 1024))} ${t('unit_kb')}`;
-  return `${(v / (1024 * 1024)).toFixed(1)} ${t('unit_mb')}`;
-}
-
-function nurseEditorHtml(n) {
-  const has = n.has_certificate;
-  const date = n.cert_uploaded_at ? new Date(n.cert_uploaded_at).toLocaleDateString(dateLocale(),
-    { timeZone: 'Asia/Damascus', year: 'numeric', month: 'long', day: 'numeric' }) : '';
-  const info = has ? tFormat('cert_uploaded_info', {
-    type: n.cert_mime === 'application/pdf' ? t('cert_type_pdf') : t('cert_type_image'),
-    size: formatBytes(n.cert_size), date }) : t('cert_none');
-  return `
-    ${nursePhoneLineHtml(n)}
-    <div class="nurse-editor-grid">
-      <label class="admin-address-field"><span>${t('nurse_experience_label')}</span>
-        <input type="number" min="0" max="60" inputmode="numeric" id="nurse-exp-${n.id}" value="${Number.isInteger(n.experience_years) ? n.experience_years : ''}">
-      </label>
-      <label class="admin-address-field"><span>${t('nurse_services_label')}</span>
-        <input type="text" maxlength="200" id="nurse-svc-${n.id}" value="${escapeHtml(n.services || '')}" placeholder="${t('services_placeholder')}">
-      </label>
-      ${locationFieldsHtml(k => `nurse-${k}-${n.id}`, n)}
-      <button type="button" class="primary" onclick="saveNurseProfile(${n.id})">${t('nurse_profile_save')}</button>
-    </div>
-    <div class="nurse-cert-box">
-      <h4>📄 ${t('cert_section_title')}</h4>
-      <p class="nurse-cert-info">${info}</p>
-      ${has ? `<p class="nurse-cert-state ${n.cert_verified ? 'ok' : 'pending'}">${n.cert_verified ? t('cert_verified_state') : t('cert_unverified_state')}</p>` : ''}
-      <div class="nurse-cert-actions">
-        <input type="file" id="nurse-cert-file-${n.id}" accept="application/pdf,image/jpeg,image/png,image/webp" style="display:none" onchange="onNurseCertificateChosen(${n.id}, this)">
-        <button type="button" class="btn-outline blue small" id="nurse-cert-upload-${n.id}" onclick="document.getElementById('nurse-cert-file-${n.id}').click()">${has ? t('cert_replace_btn') : t('cert_upload_btn')}</button>
-        ${has ? `
-          <button type="button" class="btn-outline blue small" onclick="viewNurseCertificate(${n.id})">${t('cert_view_btn')}</button>
-          <button type="button" class="${n.cert_verified ? 'btn-outline small' : 'primary small'}" onclick="setNurseCertVerified(${n.id}, ${!n.cert_verified})">${n.cert_verified ? t('cert_unverify_btn') : t('cert_verify_btn')}</button>
-          <button type="button" class="btn-outline red small" onclick="deleteNurseCertificate(${n.id})">${t('cert_delete_btn')}</button>` : ''}
-      </div>
-    </div>`;
-}
-
-function nurseFromCache(id) { return (adminDataCache.nurses || []).find(x => x.id === id); }
-
-function refreshNurseEditor(id) {
-  const n = nurseFromCache(id); const box = document.getElementById(`nurse-editor-${id}`);
-  if (!n || !box) return;
-  captureRowDrafts(box);   // و9: رفع شهادة أو توثيقها لا يمحو الخبرة والخدمات المكتوبة
-  box.innerHTML = nurseEditorHtml(n);
-  applyRowDrafts();
-}
-
-function toggleNurseEditor(id) {
-  const box = document.getElementById(`nurse-editor-${id}`);
-  if (!box) return;
-  const show = box.style.display === 'none';
-  box.style.display = show ? '' : 'none';
-  if (show) openNurseEditors.add(id); else openNurseEditors.delete(id);
-}
-
-async function saveNurseProfile(id) {
-  const n = nurseFromCache(id); if (!n) return;
-  try {
-    const res = await fetchWithTimeout(`${API}/nurses/${id}/profile`, { method: 'PUT', headers: adminHeaders(),
-      body: JSON.stringify({ experience_years: document.getElementById(`nurse-exp-${id}`).value, services: document.getElementById(`nurse-svc-${id}`).value,
-        ...readLocationFields(k => `nurse-${k}-${id}`) }) }, 20000);
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) { await customAlert(translateApiError(data.error), 'error'); return; }
-    Object.assign(n, data);
-    forgetRowDrafts([`nurse-exp-${id}`, `nurse-svc-${id}`, `nurse-city-${id}`, `nurse-area-${id}`, `nurse-street-${id}`]);
-    refreshNurseEditor(id);
-    await customAlert(t('nurse_profile_saved'), 'success');
-  } catch (err) { await customAlert(t('server_error_title'), 'error'); }
-}
-
-// صورة الهاتف تُصغَّر في المتصفح قبل الرفع: 4 ميغابايت تصير نحو 300 كيلوبايت، والنص
-// يبقى مقروءاً عند 1800px للضلع الأطول. هذا الضغط الحقيقي المفيد للمساحة المجانية.
-// ملفات PDF لا تُضغط: مضغوطة من داخلها أصلاً، وضغطها يحتاج أدوات غير متاحة.
-function compressCertImage(file) {
-  return new Promise((resolve) => {
-    const url = URL.createObjectURL(file);
-    const img = new Image();
-    img.onload = () => {
-      const scale = Math.min(1, 1800 / Math.max(img.naturalWidth, img.naturalHeight));
-      const c = document.createElement('canvas');
-      c.width = Math.round(img.naturalWidth * scale); c.height = Math.round(img.naturalHeight * scale);
-      const ctx = c.getContext('2d');
-      ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, c.width, c.height);   // خلفية بيضاء لصور PNG الشفافة
-      ctx.drawImage(img, 0, 0, c.width, c.height);
-      URL.revokeObjectURL(url);
-      c.toBlob(b => resolve(b && b.size < file.size ? b : file), 'image/jpeg', 0.82);
-    };
-    img.onerror = () => { URL.revokeObjectURL(url); resolve(file); };
-    img.src = url;
-  });
-}
-
-async function onNurseCertificateChosen(id, input) {
-  const file = input.files && input.files[0];
-  input.value = '';   // يسمح باختيار الملف نفسه مرة أخرى
-  if (!file) return;
-  if (!CERT_OK_TYPES.includes(file.type)) { await customAlert(t('cert_bad_type'), 'warning'); return; }
-  const btn = document.getElementById(`nurse-cert-upload-${id}`);
-  const label = btn ? btn.textContent : '';
-  const setBtn = (txt, dis) => { if (btn) { btn.textContent = txt; btn.disabled = dis; } };
-  let blob = file;
-  if (file.type !== 'application/pdf') { setBtn(t('cert_preparing'), true); blob = await compressCertImage(file); }
-  if (blob.size > CERT_MAX_BYTES) { setBtn(label, false); await customAlert(t('cert_too_big'), 'warning'); return; }
-  setBtn(t('cert_uploading'), true);
-  try {
-    const headers = adminHeaders(); headers['Content-Type'] = blob.type || file.type;
-    const res = await fetchWithTimeout(`${API}/nurses/${id}/certificate`, { method: 'POST', headers, body: blob }, 60000);
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) {
-      const msg = data.code === 'TOOBIG' ? t('cert_too_big') : data.code === 'BADTYPE' ? t('cert_bad_type')
-        : data.code && translations[currentLang]['storage_' + data.code] ? t('storage_' + data.code) : translateApiError(data.error);
-      setBtn(label, false); await customAlert(msg, 'error'); return;
-    }
-    Object.assign(nurseFromCache(id) || {}, data);
-    refreshNurseEditor(id);
-    loadCertStorageUsage();
-    await customAlert(t('cert_uploaded_ok'), 'success');
-  } catch (err) {
-    setBtn(label, false); await customAlert(t('storage_UNAVAILABLE'), 'error');
-  }
-}
-
-async function viewNurseCertificate(id) {
-  // النافذة تُفتح فوراً بضغطة المدير، ثم نضع فيها الرابط: لو فُتحت بعد انتظار الخادم
-  // لاعتبرها المتصفح نافذة منبثقة غير مطلوبة ومنعها.
-  const win = window.open('', '_blank');
-  try {
-    const res = await fetchWithTimeout(`${API}/nurses/${id}/certificate/link`, { headers: adminHeaders(), cache: 'no-store' }, 20000);
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok || !data.url) { if (win) win.close(); await customAlert(data.code ? t('storage_' + data.code) : translateApiError(data.error), 'error'); return; }
-    if (win) { win.opener = null; win.location.href = data.url; }
-    else await customAlert(t('cert_popup_blocked'), 'warning');
-  } catch (err) { if (win) win.close(); await customAlert(t('storage_UNAVAILABLE'), 'error'); }
-}
-
-async function setNurseCertVerified(id, verified) {
-  try {
-    const res = await fetchWithTimeout(`${API}/nurses/${id}/certificate/verified`, { method: 'PUT', headers: adminHeaders(), body: JSON.stringify({ verified }) }, 20000);
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) { await customAlert(translateApiError(data.error), 'error'); return; }
-    const n = nurseFromCache(id); if (n) n.cert_verified = data.cert_verified;
-    refreshNurseEditor(id);
-  } catch (err) { await customAlert(t('server_error_title'), 'error'); }
-}
-
-async function deleteNurseCertificate(id) {
-  const n = nurseFromCache(id); if (!n) return;
-  if (!(await customConfirm(tFormat('cert_delete_confirm', { name: n.name }), 'warning', 'danger_delete_cert'))) return;
-  try {
-    const res = await fetchWithTimeout(`${API}/nurses/${id}/certificate`, { method: 'DELETE', headers: adminHeaders() }, 20000);
-    if (!res.ok) { const d = await res.json().catch(() => ({})); await customAlert(translateApiError(d.error), 'error'); return; }
-    Object.assign(n, { has_certificate: false, cert_mime: null, cert_size: null, cert_uploaded_at: null, cert_verified: false });
-    refreshNurseEditor(id);
-    loadCertStorageUsage();
-    await customAlert(t('cert_deleted'), 'success');
-  } catch (err) { await customAlert(t('server_error_title'), 'error'); }
-}
-
-async function fetchStorageCheck() {
-  const res = await fetchWithTimeout(`${API}/nurses/storage/check`, { headers: adminHeaders(), cache: 'no-store' }, 20000);
-  return readJsonOk(res, 'object');
-}
-
-async function loadCertStorageUsage() {
-  const el = document.getElementById('cert-storage-usage');
-  if (!el) return;
-  try {
-    const d = await fetchStorageCheck();
-    el.textContent = tFormat('cert_storage_usage', { used: formatBytes(d.usedBytes), count: d.count || 0 });
-  } catch (e) { el.textContent = '—'; }
-}
-
-async function checkCertStorage() {
-  try {
-    const d = await fetchStorageCheck();
-    const el = document.getElementById('cert-storage-usage');
-    if (el) el.textContent = tFormat('cert_storage_usage', { used: formatBytes(d.usedBytes), count: d.count || 0 });
-    await customAlert(d.ok ? t('storage_ok') : t('storage_' + (d.code || 'UNAVAILABLE')), d.ok ? 'success' : (d.code === 'PUBLIC' ? 'warning' : 'error'));
-  } catch (err) { await customAlert(t('storage_UNAVAILABLE'), 'error'); }
-}
-
-// ================= تعديل أسماء المستخدمين =================
-// الحاجة: الحسابات تُنشأ أحياناً بأسماء مؤقتة عند التجربة، فيبقى حساب صيدلية
-// حقيقية باسم لا يدل عليها، ما يربك الإدارة ويصعّب على الصيدلي تذكّر اسم دخوله.
-
-let adminUsernameFilter = '';
-
-function onAdminUsernameSearch(el) {
-  const next = el.value.trim().toLowerCase();
-  if (next === adminUsernameFilter) return;
-  adminUsernameFilter = next;
-  renderAdminUsernameList();
-}
-
-function renderAdminUsernameList() {
-  const box = document.getElementById('admin-username-list');
-  if (!box) return;
-  captureRowDrafts(box);
-  const all = adminDataCache.pharmacies || [];
-  const list = all.filter(p => {
-    if (!adminUsernameFilter) return true;
-    return String(p.name || '').toLowerCase().includes(adminUsernameFilter)
-        || String(p.owner_username || '').toLowerCase().includes(adminUsernameFilter);
-  });
-
-  if (list.length === 0) {
-    box.innerHTML = `<p class="muted" style="padding:14px 2px;">${t('admin_username_no_match')}</p>`;
-    return;
-  }
-
-  box.innerHTML = list.map(p => `
-    <div class="admin-username-row">
-      <div class="admin-username-info">
-        <span class="admin-username-name"><bdi>${escapeHtml(p.name)}</bdi></span>
-        <span class="admin-username-meta">
-          ${t('admin_username_current')} <bdi class="admin-username-value">${escapeHtml(p.owner_username || '')}</bdi>
-        </span>
-      </div>
-      <div class="admin-username-controls">
-        <input type="text" id="uname-input-${p.id}" placeholder="${t('admin_username_new_placeholder')}" autocomplete="off" spellcheck="false">
-        <button class="btn-outline blue" id="uname-save-${p.id}" onclick="saveAdminUsername(${p.id})">${t('admin_username_save')}</button>
-      </div>
-    </div>`).join('');
-  applyRowDrafts();
-}
-
-function saveAdminUsername(id) { return runGuarded('saveAdminUsername:' + id, null, () => saveAdminUsernameNow(id)); }
-async function saveAdminUsernameNow(id) {
-  const input = document.getElementById(`uname-input-${id}`);
-  const btn = document.getElementById(`uname-save-${id}`);
-  const next = (input.value || '').trim();
-  const pharmacy = (adminDataCache.pharmacies || []).find(p => p.id === id);
-  if (!pharmacy) return;
-
-  // تحقق مبكر بالواجهة لإعطاء رسالة فورية، والخلفية تتحقق مرة أخرى
-  // لأن الواجهة قابلة للتجاوز.
-  if (!next) { await customAlert(t('admin_username_required'), 'warning'); return; }
-  if (/\s/.test(next)) { await customAlert(t('admin_username_no_spaces'), 'warning'); return; }
-  if (next.length < 3) { await customAlert(t('admin_username_too_short'), 'warning'); return; }
-  if (next === pharmacy.owner_username) { forgetRowDrafts([`uname-input-${id}`]); return; }
-
-  const confirmed = await customConfirm(
-    tFormat('admin_username_confirm', { name: pharmacy.name, old: pharmacy.owner_username || '', new: next }),
-    'warning'
-  );
-  if (!confirmed) return;
-
-  if (btn) btn.disabled = true;
-  try {
-    const res = await fetchWithTimeout(`${API}/pharmacies/${id}/username`, {
-      method: 'PUT',
-      headers: adminHeaders(),
-      body: JSON.stringify({ username: next })
-    }, 20000);
-    const data = await res.json();
-    if (!res.ok) { await customAlert(translateApiError(data.error), 'error'); return; }
-
-    // تحديث الكاش محلياً بدل إعادة تحميل اللوحة: يحافظ على نص البحث وموضع التمرير
-    pharmacy.owner_username = data.owner_username;
-    forgetRowDrafts([`uname-input-${id}`]);
-    renderAdminUsernameList();
-    await customAlert(t('admin_username_saved'), 'success');
-  } catch (err) {
-    await customAlert(t('server_error_title'), 'error');
-  } finally {
-    const b = document.getElementById(`uname-save-${id}`);
-    if (b) b.disabled = false;
-  }
-}
-
-// ================= جدول المناوبة بلوحة الإدارة =================
-// يوجد ضابطان للمناوبة عن قصد: الصيدلي من لوحته، والإدارة من هنا.
-// السبب أن معظم صيدليات المدينة مُدرجة للمناوبة فقط ولا أحد يدير حسابها.
-// القاعدة: آخر تعديل يفوز بلا أقفال — وتُعرض هوية آخر مُعدِّل ووقته
-// ليرى المدير أن الصيدلي يدير مناوبته بنفسه فلا يدهس تعديله بلا قصد.
-
-let adminDutyFilter = '';
-
-const DUTY_DAYS = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
-const DUTY_SHIFTS = ['طوال اليوم', 'صباحاً', 'مساءً'];
-
-// نستمع لثلاثة أحداث لا واحد: زر الـ✕ المدمج في <input type="search"> لا يُطلق
-// حدث input في كل المتصفحات — بعضها يُطلق حدث search وحده. فبالاكتفاء بـinput
-// كانت الكلمة تُمحى بصرياً بينما يبقى الفلتر محتفظاً بها، فتظل القائمة مفلترة
-// رغم أن الحقل يبدو فارغاً.
+// السبب: خطة Supabase المجانية بلا نسخ احتياطي تلقائي. فحذف عرضي أو خلل أو
+// انتهاء خطة يعني ضياع كل الصيدليات والأدوية والطلبات بلا استرجاع.
 //
-// الحارس على التغيير الفعلي يمنع إعادة رسم عشرات الصفوف ثلاث مرات لحدث واحد
-// حين تُطلق المتصفحات أكثر من حدث معاً.
-function onAdminDutySearch(el) {
-  const next = el.value.trim().toLowerCase();
-  if (next === adminDutyFilter) return;
-  adminDutyFilter = next;
-  renderAdminDutyList();
-}
-
-// من عدّل المناوبة آخر مرة ومتى — نعرضه بنص واضح لا برمز غامض
-function dutyAuditHtml(p) {
-  if (!p.duty_updated_by || !p.duty_updated_at) {
-    return `<span class="duty-audit muted">${t('admin_duty_never')}</span>`;
+// نُصدّر الجداول الستة كاملة بما فيها هاش كلمات المرور: بدونه يتعذّر استرجاع
+// الحسابات ويلزم إعادة تعيين كلمة مرور كل صيدلية. الهاش ليس كلمة مرور، لكن
+// الملف يبقى حساساً ويجب حفظه في مكان آمن.
+async function exportAll() {
+  const tables = ['pharmacies', 'medicines', 'stock', 'orders', 'nurses', 'nurse_ratings', 'nurse_requests', 'search_log', 'app_settings', 'visit_daily', 'ads'];
+  const data = {};
+  for (const table of tables) {
+    // أسماء الجداول ثابتة في المصفوفة أعلاه ولا تأتي من المستخدم إطلاقاً،
+    // فلا مجال لحقن SQL هنا رغم أن الاسم يُدمج نصياً.
+    // صور الإعلانات تُصدَّر نصاً بترميز base64: لو صُدّرت كما هي لصارت في الملف قائمة
+    // أرقام طويلة لا تُقرأ ولا تُسترجع.
+    const sql = table === 'ads'
+      ? `SELECT id, advertiser, advertiser_en, description, description_en, link, placement, starts_on, ends_on, active, image_mime, image_size,
+                impressions, clicks, created_at, encode(image, 'base64') AS image_base64 FROM ads`
+      : `SELECT * FROM ${table}`;
+    const { rows } = await pool.query(sql);
+    data[table] = rows;
   }
-  const who = p.duty_updated_by === 'admin' ? t('admin_duty_by_admin') : t('admin_duty_by_pharmacy');
-  const when = relativeTime(p.duty_updated_at);
-  const isPharmacy = p.duty_updated_by !== 'admin';
-  return `<span class="duty-audit ${isPharmacy ? 'by-pharmacy' : ''}">${escapeHtml(who)}${when ? ' · ' + escapeHtml(when) : ''}</span>`;
-}
-
-function renderAdminDutyList() {
-  const box = document.getElementById('admin-duty-list');
-  if (!box) return;
-  captureRowDrafts(box);
-  const all = adminDataCache.pharmacies || [];
-  // المناوبة أولاً ثم بالاسم: المدير يريد رؤية من هو مناوب الآن في نظرة واحدة
-  const list = all
-    .filter(p => !adminDutyFilter || String(p.name || '').toLowerCase().includes(adminDutyFilter))
-    .slice()
-    .sort((a, b) => (b.on_duty ? 1 : 0) - (a.on_duty ? 1 : 0) || String(a.name).localeCompare(String(b.name), 'ar'));
-
-  if (list.length === 0) {
-    box.innerHTML = `<p class="muted" style="padding:14px 2px;">${t('admin_duty_no_match')}</p>`;
-    return;
-  }
-
-  box.innerHTML = list.map(p => `
-    <div class="admin-duty-row ${p.on_duty ? 'active' : ''}">
-      <div class="admin-duty-info">
-        <span class="admin-duty-name"><bdi>${escapeHtml(p.name)}</bdi></span>
-        <span class="admin-duty-meta">
-          ${p.city ? `<bdi>${escapeHtml(cityName(p.city))}</bdi><span class="admin-ph-sep">•</span>` : ''}
-          ${dutyAuditHtml(p)}
-        </span>
-      </div>
-      <div class="admin-duty-controls">
-        <label class="admin-duty-toggle">
-          <input type="checkbox" id="duty-on-${p.id}" ${p.on_duty ? 'checked' : ''} onchange="onAdminDutyToggle(${p.id}, this)">
-          <span>${p.on_duty ? t('admin_duty_on') : t('admin_duty_off')}</span>
-        </label>
-        <select id="duty-day-${p.id}" aria-label="${t('a11y_duty_day')}: ${escapeHtml(p.name)}" ${p.on_duty ? '' : 'disabled'}>
-          ${DUTY_DAYS.map(d => `<option value="${d}" ${p.on_duty_day === d ? 'selected' : ''}>${translateDutyDay(d)}</option>`).join('')}
-        </select>
-        <select id="duty-shift-${p.id}" aria-label="${t('a11y_duty_shift')}: ${escapeHtml(p.name)}" ${p.on_duty ? '' : 'disabled'}>
-          ${DUTY_SHIFTS.map(sh => `<option value="${sh}" ${p.on_duty_shift === sh ? 'selected' : ''}>${translateDutyShift(sh)}</option>`).join('')}
-        </select>
-        <button class="btn-outline blue" onclick="saveAdminDuty(${p.id})" id="duty-save-${p.id}">${t('admin_duty_save')}</button>
-      </div>
-    </div>`).join('');
-  applyRowDrafts();
-
-  const counter = document.getElementById('admin-duty-count');
-  if (counter) counter.textContent = tFormat('admin_duty_active_count', { n: all.filter(p => p.on_duty).length });
-}
-
-// تفعيل/تعطيل الحقول فوراً عند تبديل المربع، قبل الحفظ — تغذية راجعة لحظية
-function onAdminDutyToggle(id, el) {
-  const on = el.checked;
-  const day = document.getElementById(`duty-day-${id}`);
-  const shift = document.getElementById(`duty-shift-${id}`);
-  if (day) day.disabled = !on;
-  if (shift) shift.disabled = !on;
-  const label = el.parentElement && el.parentElement.querySelector('span');
-  if (label) label.textContent = on ? t('admin_duty_on') : t('admin_duty_off');
-}
-
-function saveAdminDuty(id) { return runGuarded('saveAdminDuty:' + id, null, () => saveAdminDutyNow(id)); }
-async function saveAdminDutyNow(id) {
-  const btn = document.getElementById(`duty-save-${id}`);
-  const on = document.getElementById(`duty-on-${id}`).checked;
-  const day = document.getElementById(`duty-day-${id}`).value;
-  const shift = document.getElementById(`duty-shift-${id}`).value;
-  if (btn) btn.disabled = true;
-  try {
-    const res = await fetchWithTimeout(`${API}/pharmacies/${id}/duty`, {
-      method: 'PUT',
-      headers: adminHeaders(),
-      body: JSON.stringify({ on_duty: on, on_duty_day: day, on_duty_shift: shift })
-    }, 20000);
-    const data = await res.json();
-    if (!res.ok) { await customAlert(translateApiError(data.error), 'error'); return; }
-
-    // نحدّث الكاش محلياً بدل إعادة تحميل اللوحة كلها: أسرع، ويحافظ على
-    // موضع التمرير ونص البحث اللذين يضيعان مع إعادة الرسم الكاملة.
-    const cached = (adminDataCache.pharmacies || []).find(p => p.id === id);
-    if (cached) {
-      cached.on_duty = data.on_duty;
-      cached.on_duty_day = data.on_duty_day;
-      cached.on_duty_shift = data.on_duty_shift;
-      cached.duty_updated_by = data.duty_updated_by;
-      cached.duty_updated_at = data.duty_updated_at;
-    }
-    forgetRowDrafts([`duty-on-${id}`, `duty-day-${id}`, `duty-shift-${id}`]);
-    renderAdminDutyList();
-    await customAlert(t('admin_duty_saved'), 'success');
-  } catch (err) {
-    await customAlert(t('server_error_title'), 'error');
-  } finally {
-    const b = document.getElementById(`duty-save-${id}`);
-    if (b) b.disabled = false;
-  }
-}
-
-function clearAllDuty() { return runGuarded('clearAllDuty', null, clearAllDutyNow); }
-async function clearAllDutyNow() {
-  const active = (adminDataCache.pharmacies || []).filter(p => p.on_duty).length;
-  if (active === 0) { await customAlert(t('admin_duty_none_active'), 'info'); return; }
-  const confirmed = await customConfirm(tFormat('admin_duty_clear_confirm', { n: active }), 'warning', 'danger_clear_duty');
-  if (!confirmed) return;
-  try {
-    const res = await fetchWithTimeout(`${API}/pharmacies/duty/clear-all`, { method: 'POST', headers: adminHeaders() }, 20000);
-    const data = await res.json();
-    if (!res.ok) { await customAlert(translateApiError(data.error), 'error'); return; }
-    // و9: «إلغاء كل المناوبات» يعلو على أي تعديل مناوبة لم يُحفظ بعد
-    forgetRowDrafts(Object.keys(adminRowDrafts).filter(k => /^duty-(on|day|shift)-/.test(k)));
-    await customAlert(tFormat('admin_duty_cleared', { n: data.cleared }), 'success');
-    renderAdminPanel();
-  } catch (err) {
-    await customAlert(t('server_error_title'), 'error');
-  }
-}
-
-function togglePharmacyManagesStock(id, newValue) { return runGuarded('togglePharmacyManagesStock:' + id, null, () => togglePharmacyManagesStockNow(id, newValue)); }
-async function togglePharmacyManagesStockNow(id, newValue) {
-  const pharmacy = (adminDataCache.pharmacies || []).find(p => p.id === id);
-  const name = pharmacy ? pharmacy.name : '';
-  const msg = tFormat(newValue ? 'manages_stock_confirm_on' : 'manages_stock_confirm_off', { name });
-  const confirmed = await customConfirm(msg, 'warning');
-  if (!confirmed) return;
-
-  try {
-    const res = await fetchWithTimeout(`${API}/pharmacies/${id}/manages-stock`, {
-      method: 'PUT',
-      headers: adminHeaders(),
-      body: JSON.stringify({ manages_stock: newValue })
-    }, 20000);
-    const data = await res.json();
-    if (!res.ok) { await customAlert(translateApiError(data.error), 'error'); return; }
-    await customAlert(t('manages_stock_updated'), 'success');
-    renderAdminPanel();
-  } catch (err) {
-    await customAlert(t('server_error_title'), 'error');
-  }
-}
-
-function savePharmacyName(id) { return runGuarded('savePharmacyName:' + id, null, () => savePharmacyNameNow(id)); }
-async function savePharmacyNameNow(id) {
-  const input = document.getElementById(`edit-ph-name-${id}`);
-  if (!input) return;
-  const name = input.value.trim();
-  if (!name) { await customAlert(t('pharmacy_name_required'), 'warning'); return; }
-
-  const current = adminDataCache.pharmacies.find(p => p.id === id);
-  // صفر تغيير فعلي → نغلق وضع التعديل بهدوء بدون أي طلب للسيرفر
-  if (current && current.name === name) { cancelEditPharmacyName(); return; }
-
-  // تحذير الاسم المكرر: نعرض الصيدلية المطابقة بالاسم واسم المستخدم ليكون القرار واعياً.
-  // مقصود إنه تحذير وليس منعاً — صيدليتان بمحافظتين مختلفتين قد تحملان نفس الاسم بشكل مشروع.
-  const duplicate = adminDataCache.pharmacies.find(p => p.id !== id && p.name.trim() === name);
-  if (duplicate) {
-    const proceed = await customConfirm(
-      tFormat('duplicate_pharmacy_name_confirm', { name: duplicate.name, username: duplicate.owner_username }),
-      'warning'
-    );
-    if (!proceed) return;
-  }
-
-  try {
-    const res = await fetchWithTimeout(`${API}/pharmacies/${id}/name`, {
-      method: 'PUT', headers: adminHeaders(), body: JSON.stringify({ name })
-    }, 20000);
-    const data = await res.json();
-    if (!res.ok) {
-      await customAlert(translateApiError(data.error) || t('pharmacy_name_update_error'), 'error');
-      return;
-    }
-    editingPharmacyId = null;
-    editingPharmacyNameDraft = '';
-    await renderAdminPanel();
-    await customAlert(tFormat('pharmacy_name_updated', { name: data.name }), 'success');
-  } catch (err) {
-    await customAlert(t('pharmacy_name_update_error'), 'error');
-  }
-}
-
-function deletePharmacyAdmin(id) { return runGuarded('deletePharmacyAdmin:' + id, null, () => deletePharmacyAdminNow(id)); }
-async function deletePharmacyAdminNow(id) {
-  const pharmacy = adminDataCache.pharmacies.find(p => p.id === id);
-  const name = pharmacy ? pharmacy.name : '';
-  const confirmed = await customConfirm(tFormat('delete_pharmacy_confirm', { name }), 'warning', 'danger_delete_pharmacy');
-  if (!confirmed) return;
-  if (!(await runAction(`${API}/pharmacies/${id}`, { method: 'DELETE', headers: adminHeaders() }))) return;
-  renderAdminPanel();
-}
-
-function addMedicineAdmin() { return runGuarded('addMedicineAdmin', 'add-medicine-admin-btn', addMedicineAdminNow); }
-async function addMedicineAdminNow() {
-  const alt_names = document.getElementById('med-alt').value.split(',').map(s => s.trim()).filter(Boolean);
-  const body = {
-    name: document.getElementById('med-name').value,
-    generic_name: document.getElementById('med-generic').value,
-    alt_names,
-    category: document.getElementById('med-category').value
-  };
-  let data;
-  try {
-    const res = await fetchWithTimeout(`${API}/medicines`, {
-      method: 'POST', headers: adminHeaders(), body: JSON.stringify(body)
-    }, 20000);
-    data = await res.json().catch(() => ({}));
-    if (!res.ok) { await customAlert(translateApiError(data.error), 'error'); return; }
-  } catch (err) {
-    await customAlert(t('server_error_title'), 'error');
-    return;
-  }
-  clearAdminFields(['med-name', 'med-generic', 'med-alt', 'med-category']);
-  customAlert(tFormat('item_added_success', { name: data.name }), 'success');
-  renderAdminPanel();
-}
-
-function deleteMedicineAdmin(id) { return runGuarded('deleteMedicineAdmin:' + id, null, () => deleteMedicineAdminNow(id)); }
-async function deleteMedicineAdminNow(id) {
-  const medicine = adminDataCache.medicines.find(m => m.id === id);
-  const name = medicine ? medicine.name : '';
-  const confirmed = await customConfirm(tFormat('delete_medicine_confirm', { name }), 'warning', 'danger_delete_medicine');
-  if (!confirmed) return;
-  if (!(await runAction(`${API}/medicines/${id}`, { method: 'DELETE', headers: adminHeaders() }))) return;
-  renderAdminPanel();
-}
-
-function togglePassword(inputId, btn) {
-  const input = document.getElementById(inputId);
-  if (input.type === 'password') {
-    input.type = 'text';
-    btn.textContent = '🙈';
-    btn.setAttribute('aria-label', t('hide_password_aria'));
-  } else {
-    input.type = 'password';
-    btn.textContent = '👁';
-    btn.setAttribute('aria-label', t('show_password_aria'));
-  }
-}
-
-// ===================== التمريض: طلب زيارة، ومدير التمريض (أكتوبر 2026) =====================
-// رقم الممرض لم يعد يظهر للمرضى: يطلب المريض زيارة، فيصل الطلب إلى مدير التمريض فيتصل به
-// وبالممرض. ومدير التمريض يدخل من صفحة الإدارة نفسها ببطاقة ثانية وكلمة مرور خاصة به،
-// فلا يرى إلا التمريض. الخادم هو الحارس الحقيقي: كلمة مروره لا تفتح أي مسار آخر.
-
-// رقم سوري لرابط واتساب: 09… يصير 9639…، و00963… يصير 963…. غير ذلك (رقم أرضي، أو أجنبي
-// ناقص) يعيد null فيُخفى زر واتساب ويبقى زر الاتصال. القاعدة نفسها التي يطبّقها الخادم على
-// رقم واتساب الصيدلية.
-function syWaNumber(phone) {
-  let d = String(phone || '').replace(/[٠-٩]/g, c => String('٠١٢٣٤٥٦٧٨٩'.indexOf(c))).replace(/\D/g, '');
-  if (d.startsWith('00963')) d = d.slice(2);
-  else if (d.startsWith('963')) { /* جاهز */ }
-  else if (d.startsWith('0')) d = '963' + d.slice(1);
-  else if (d.length === 9 && d.startsWith('9')) d = '963' + d;
-  return d.length === 12 && d.startsWith('9639') ? d : null;
-}
-
-// زر واتساب رابطاً (a) لا زراً: يعمل حتى لو أوقف المتصفح النوافذ المنبثقة، وتنسيقه في
-// index.html مكتوب للروابط في بطاقة الانضمام
-function waAnchorHtml(phone, message) {
-  const url = waLink(syWaNumber(phone), message);
-  if (!url) return '';
-  return `<a class="wa-result-btn" href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer" onclick="this.blur()"><span class="wa-icon">💬</span> ${t('wa_result_btn')}</a>`;
-}
-
-// المدينة والحي كما يراهما المريض (الشارع لا يصل إليه أصلاً من الخادم)
-function nurseLocationText(n) {
-  if (!n) return '';
-  return [n.city ? cityName(n.city) : '', (n.area || '').trim()].filter(Boolean).join(currentLang === 'ar' ? '، ' : ', ');
-}
-
-// حقول مكان العمل: المدينة والحي والشارع. idFor يبني معرّف كل حقل، فتُستعمل في نموذج
-// الإضافة وفي تعديل كل ممرض، في الإدارة وفي لوحة مدير التمريض.
-function locationFieldsHtml(idFor, n) {
-  const v = n || {};
-  return `
-    <div class="loc-fields">
-      <select id="${idFor('city')}" aria-label="${t('loc_city_placeholder')}">
-        <option value="">${t('loc_city_placeholder')}</option>
-        ${cityOptionsHtml(v.city || '')}
-      </select>
-      <input id="${idFor('area')}" maxlength="80" placeholder="${t('loc_area_placeholder')}" aria-label="${t('loc_area_placeholder')}" value="${escapeHtml(v.area || '')}">
-      <input class="loc-street" id="${idFor('street')}" maxlength="120" placeholder="${t('loc_street_placeholder')}" aria-label="${t('loc_street_placeholder')}" value="${escapeHtml(v.street || '')}">
-    </div>
-    <p class="loc-hint">${t('loc_hint')}</p>`;
-}
-
-function readLocationFields(idFor) {
-  const v = k => { const el = document.getElementById(idFor(k)); return el ? el.value : ''; };
-  return { city: v('city') || null, area: v('area').trim() || null, street: v('street').trim() || null };
-}
-
-// ---------- صفحة التمريض: بطاقة «هل أنت ممرض أو ممرضة؟» ----------
-
-let nursingContactPhone = null;
-
-async function loadNursingContact() {
-  try {
-    const res = await fetchWithTimeout(`${API}/nurses/contact`, {}, 15000);
-    const data = await readJsonOk(res, 'object');
-    nursingContactPhone = data.phone || null;
-  } catch (err) { /* تبقى آخر قيمة معروفة: البطاقة ثانوية، وفشلها لا يستحق رسالة */ }
-  renderNursingJoin();
-}
-
-function renderNursingJoin() {
-  const box = document.getElementById('nursing-join');
-  if (!box) return;
-  if (!nursingContactPhone) { box.style.display = 'none'; box.innerHTML = ''; return; }
-  box.innerHTML = `
-    <div class="nursing-join-text">
-      <h3>${t('nursing_join_title')}</h3>
-      <p>${t('nursing_join_text')}</p>
-    </div>
-    <div class="nursing-join-actions">
-      ${waAnchorHtml(nursingContactPhone, t('nursing_join_wa_msg'))}
-      ${callBtnHtml(nursingContactPhone)}
-    </div>`;
-  box.style.display = 'flex';
-}
-
-// ---------- صفحة التمريض: نافذة طلب الزيارة ----------
-// الاسم والهاتف والمنطقة تبقى في الذاكرة بعد الإغلاق أو الإرسال (لا في التخزين الدائم)،
-// فمن أغلق النافذة بالخطأ أو طلب ممرضاً آخر لا يكتبها من جديد.
-
-let nreqState = null;          // { nurseId, nurseName, sent }
-const nreqDraft = { name: '', phone: '', area: '', notes: '' };
-let nreqKeyHandler = null;
-let nreqViewportHandler = null;
-
-function saveNreqDraft() {
-  for (const k of ['name', 'phone', 'area', 'notes']) {
-    const el = document.getElementById(`nreq-${k}`);
-    if (el) nreqDraft[k] = el.value;
-  }
-}
-
-function renderNurseRequestSheet() {
-  const overlay = document.getElementById('nreq-overlay');
-  if (!overlay || !nreqState) return;
-  if (nreqState.sent) {
-    overlay.innerHTML = `
-      <div class="nreq-sheet" tabindex="-1">
-        <div class="nreq-success" role="status">
-          <div class="nreq-success-icon" aria-hidden="true">✓</div>
-          <p id="nreq-title">${t('nreq_success')}</p>
-          <button type="button" class="btn-outline blue" id="nreq-ok" onclick="closeNurseRequest()">${t('modal_ok')}</button>
-        </div>
-      </div>`;
-    return;
-  }
-  overlay.innerHTML = `
-    <div class="nreq-sheet" tabindex="-1">
-      <div class="nreq-sheet-head">
-        <h3 id="nreq-title">🩺 ${escapeHtml(tFormat('nreq_title', { name: nreqState.nurseName }))}</h3>
-        <button type="button" class="nreq-sheet-close" onclick="closeNurseRequest()" aria-label="${t('close_aria')}">✕</button>
-      </div>
-      <p class="nreq-sheet-sub">${t('nreq_sub')}</p>
-      <label class="nreq-field"><span>${t('nreq_name_label')}</span>
-        <input id="nreq-name" maxlength="60" autocomplete="name" value="${escapeHtml(nreqDraft.name)}"></label>
-      <label class="nreq-field"><span>${t('nreq_phone_label')}</span>
-        <input id="nreq-phone" type="tel" inputmode="tel" maxlength="20" autocomplete="tel" value="${escapeHtml(nreqDraft.phone)}"></label>
-      <label class="nreq-field"><span>${t('nreq_area_label')}</span>
-        <input id="nreq-area" maxlength="120" value="${escapeHtml(nreqDraft.area)}"></label>
-      <label class="nreq-field"><span>${t('nreq_notes_label')} <small>${t('nreq_optional')}</small></span>
-        <textarea id="nreq-notes" maxlength="300" rows="3" placeholder="${t('nreq_notes_placeholder')}">${escapeHtml(nreqDraft.notes)}</textarea></label>
-      <button type="button" class="primary" id="nreq-submit" onclick="submitNurseRequest()">${t('nreq_submit')}</button>
-      <p class="nreq-privacy">${t('nreq_privacy')}</p>
-    </div>`;
-}
-
-// لوحة مفاتيح الهاتف تغطي أسفل الشاشة دون أن يتغير حجم الصفحة. نضع النافذة في الجزء الظاهر
-// فوقها فقط، وتمرّر داخلها، ويبقى الحقل الذي يكتب فيه المريض ظاهراً.
-function syncNreqViewport() {
-  const overlay = document.getElementById('nreq-overlay');
-  const vv = window.visualViewport;
-  if (!overlay || !vv) return;
-  overlay.style.setProperty('--vv-h', `${Math.round(vv.height)}px`);
-  overlay.style.setProperty('--vv-top', `${Math.round(vv.offsetTop)}px`);
-  const active = document.activeElement;
-  if (active && overlay.contains(active) && /^(INPUT|TEXTAREA)$/.test(active.tagName)) {
-    active.scrollIntoView({ block: 'nearest' });
-  }
-}
-
-function openNurseRequest(nurseId) {
-  const nurse = nursesCache.find(n => n.id === nurseId);
-  const overlay = document.getElementById('nreq-overlay');
-  if (!nurse || !overlay) return;
-  nreqState = { nurseId, nurseName: nurse.name, sent: false };
-  renderNurseRequestSheet();
-  overlay.style.display = 'flex';
-  document.body.classList.add('nreq-lock');
-  overlay.onclick = (e) => { if (e.target === overlay) closeNurseRequest(); };
-  if (nreqKeyHandler) document.removeEventListener('keydown', nreqKeyHandler);
-  nreqKeyHandler = (e) => {
-    // نافذة تنبيه فوقها (خطأ في الحقول مثلاً) تُغلق هي أولاً
-    if (e.key === 'Escape' && document.getElementById('custom-modal-overlay').style.display === 'none') closeNurseRequest();
-  };
-  document.addEventListener('keydown', nreqKeyHandler);
-  if (window.visualViewport && !nreqViewportHandler) {
-    nreqViewportHandler = () => syncNreqViewport();
-    window.visualViewport.addEventListener('resize', nreqViewportHandler);
-    window.visualViewport.addEventListener('scroll', nreqViewportHandler);
-  }
-  syncNreqViewport();
-  // التركيز على النافذة نفسها لا على أول حقل: كي لا تقفز لوحة المفاتيح فوراً فتغطي الشرح
-  dialogOpened(overlay, overlay.querySelector('.nreq-sheet'));
-}
-
-function closeNurseRequest() {
-  const overlay = document.getElementById('nreq-overlay');
-  if (!overlay || overlay.style.display === 'none') return;
-  if (nreqState && !nreqState.sent) saveNreqDraft();
-  overlay.style.display = 'none';
-  overlay.innerHTML = '';
-  overlay.onclick = null;
-  document.body.classList.remove('nreq-lock');
-  if (nreqKeyHandler) { document.removeEventListener('keydown', nreqKeyHandler); nreqKeyHandler = null; }
-  if (nreqViewportHandler && window.visualViewport) {
-    window.visualViewport.removeEventListener('resize', nreqViewportHandler);
-    window.visualViewport.removeEventListener('scroll', nreqViewportHandler);
-  }
-  nreqViewportHandler = null;
-  nreqState = null;
-  dialogClosed(overlay);
-}
-
-function submitNurseRequest() { return runGuarded('submitNurseRequest', 'nreq-submit', submitNurseRequestNow); }
-async function submitNurseRequestNow() {
-  if (!nreqState || nreqState.sent) return;
-  saveNreqDraft();
-  const name = nreqDraft.name.trim();
-  const phone = nreqDraft.phone.replace(/[٠-٩]/g, d => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d))).replace(/[\s\-()]/g, '');
-  const area = nreqDraft.area.trim();
-  const notes = nreqDraft.notes.trim();
-  const problem = !name ? ['nreq_name_required', 'nreq-name']
-    : !/^[0-9]{7,15}$/.test(phone) ? ['nreq_phone_invalid', 'nreq-phone']
-    : !area ? ['nreq_area_required', 'nreq-area'] : null;
-  if (problem) {
-    await customAlert(t(problem[0]), 'warning');
-    const el = document.getElementById(problem[1]);
-    if (el) el.focus();
-    return;
-  }
-  const nurseId = nreqState.nurseId;
-  try {
-    const res = await fetchWithTimeout(`${API}/nurses/${nurseId}/requests`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ patient_name: name, patient_phone: phone, patient_area: area, notes: notes || null })
-    }, 20000);
-    const data = await res.json().catch(() => ({}));
-    if (res.status === 429) { await customAlert(t('rate_limited_error'), 'warning'); return; }
-    if (!res.ok) {
-      await customAlert(translateApiError(data.error), 'error');
-      // صار الممرض غير متاح أو حُذف أثناء الكتابة: نحدّث القائمة كي يرى المريض حاله الآن
-      if (res.status === 404 || res.status === 409) { closeNurseRequest(); pollNurses(); }
-      return;
-    }
-  } catch (err) {
-    const kind = classifyFetchError(err);
-    await customAlert(t(kind === 'offline' ? 'err_offline' : kind === 'timeout' ? 'err_timeout_search' : 'err_network'), 'error');
-    return;
-  }
-  if (!nreqState || nreqState.nurseId !== nurseId) return;
-  // بعد النجاح لا يبقى اسم المريض ورقمه في النافذة: هاتف العائلة قد يستعمله غيره بعده
-  nreqDraft.name = ''; nreqDraft.phone = ''; nreqDraft.area = ''; nreqDraft.notes = '';
-  nreqState.sent = true;
-  renderNurseRequestSheet();
-  const ok = document.getElementById('nreq-ok');
-  if (ok) ok.focus({ preventScroll: true });
-}
-
-// ---------- مدير التمريض: الدخول والخروج ----------
-
-function managerHeaders() {
-  return { 'Content-Type': 'application/json', 'x-nursing-password': encodeURIComponent(managerPassword || '') };
-}
-
-// بطاقة الدخول الثانية تحت بطاقة الإدارة. زرها بإطار لا ممتلئ، فيبقى دخول الإدارة الأبرز.
-function managerLoginCardHtml() {
-  return `
-    <div class="auth-box mgr-login">
-      <h3>${t('mgr_login_title')}</h3>
-      <p class="muted">${t('mgr_login_sub')}</p>
-      <div class="password-field">
-        <input id="mgr-password-input" type="password" autocomplete="current-password" placeholder="${t('mgr_password_placeholder')}" aria-label="${t('mgr_password_placeholder')}" onkeydown="if(event.key==='Enter') checkManagerPassword()">
-        <button type="button" class="toggle-password" onclick="togglePassword('mgr-password-input', this)" aria-label="${t('show_password_aria')}">👁</button>
-      </div>
-      <button type="button" class="btn-secondary-wide" id="mgr-login-btn" onclick="checkManagerPassword()">${t('mgr_login_btn')}</button>
-    </div>`;
-}
-
-function checkManagerPassword() { return runGuarded('checkManagerPassword', 'mgr-login-btn', checkManagerPasswordNow); }
-async function checkManagerPasswordNow() {
-  const input = document.getElementById('mgr-password-input');
-  const password = input ? input.value : '';
-  if (!password) { await customAlert(t('mgr_wrong_password'), 'error'); return; }
-  let requests;
-  try {
-    const res = await fetchWithTimeout(`${API}/nurses/requests`,
-      { headers: { 'x-nursing-password': encodeURIComponent(password) }, cache: 'no-store' }, 20000);
-    if (res.status === 401) { await customAlert(t('mgr_wrong_password'), 'error'); return; }
-    if (res.status === 429) { await customAlert(t('rate_limited_error'), 'warning'); return; }
-    requests = await readJsonOk(res);
-  } catch (err) {
-    await customAlert(t('server_error_title'), 'error');
-    return;
-  }
-  managerPassword = password;
-  managerSessionId++;
-  managerLoadedOnce = false;
-  managerTab = 'requests';
-  managerCache = { nurses: [], requests, pendingRatings: [] };
-  markStaffDevice();
-  document.getElementById('admin-auth-section').innerHTML = '';
-  document.getElementById('manager-panel').style.display = 'block';
-  updateStaffBanner();
-  pushState.manager = null;
-  loadManagerPanel().then(() => checkPushState('manager'));
-  startManagerPolling();
-}
-
-function logoutManager() {
-  managerPassword = null;
-  pushState.manager = null;
-  managerSessionId++;          // أي رد يصل بعد الخروج يُهمل
-  managerLoadedOnce = false;
-  managerCache = { nurses: [], requests: [], pendingRatings: [] };
-  managerDrafts = {};
-  openManagerEditors.clear();
-  stopManagerPolling();
-  const panel = document.getElementById('manager-panel');
-  panel.style.display = 'none';
-  panel.innerHTML = '';
-  updateStaffBanner();
-  renderAdminAuthForm();
-}
-
-// تغيّرت كلمة المرور أو أوقفتها الإدارة واللوحة مفتوحة: نخرج فوراً بدل إرسال محاولات خاطئة
-// متكررة يحتسبها الخادم فيحظر الشبكة كلها مؤقتاً
-let managerSessionEnding = false;
-async function managerSessionExpired() {
-  if (managerSessionEnding || !managerPassword) return;
-  managerSessionEnding = true;
-  logoutManager();
-  await customAlert(t('mgr_session_expired'), 'warning');
-  managerSessionEnding = false;
-}
-
-// ---------- مدير التمريض: اللوحة ----------
-
-let managerPanelSeq = 0, managerPanelShownSeq = 0;
-
-function managerList(url) {
-  return fetchWithTimeout(url, { headers: managerHeaders(), cache: 'no-store' }, 20000).then(r => {
-    if (r.status === 401) { const e = new Error('nursing session expired'); e.sessionExpired = true; throw e; }
-    return readJsonOk(r);
-  });
-}
-
-async function loadManagerPanel() {
-  const session = managerSessionId;
-  const seq = ++managerPanelSeq;
-  const panel = document.getElementById('manager-panel');
-  if (!managerLoadedOnce) panel.innerHTML = skeletonHtml(3);
-  try {
-    const [nurses, requests, pendingRatings] = await Promise.all([
-      managerList(`${API}/nurses/admin/all`),
-      managerList(`${API}/nurses/requests`),
-      managerList(`${API}/nurses/ratings/pending`)
-    ]);
-    if (session !== managerSessionId || !managerPassword || seq < managerPanelShownSeq) return;
-    managerPanelShownSeq = seq;
-    managerCache = { nurses, requests, pendingRatings };
-    renderManagerPanelUI();
-    managerLoadedOnce = true;
-  } catch (err) {
-    if (session !== managerSessionId || seq < managerPanelShownSeq) return;
-    if (err && err.sessionExpired) { managerSessionExpired(); return; }
-    if (!managerLoadedOnce) panel.innerHTML = `<p class="muted" style="padding:20px;">${t('server_error_title')}</p>`;
-  }
-}
-
-function managerCounts() {
-  const { nurses, requests, pendingRatings } = managerCache;
   return {
-    fresh: requests.filter(r => r.status !== 'contacted').length,
-    available: nurses.filter(n => n.available).length,
-    pending: pendingRatings.length
+    exported_at: new Date().toISOString(),
+    schema_version: 1,
+    counts: Object.fromEntries(tables.map(t => [t, data[t].length])),
+    data
   };
 }
 
-function managerStatsHtml() {
-  const c = managerCounts();
-  return `
-    <div class="stat-card"><div class="stat-value">${c.fresh}</div><div class="stat-label">${t('mgr_stat_new')}</div></div>
-    <div class="stat-card"><div class="stat-value stat-green">${c.available}</div><div class="stat-label">${t('mgr_stat_available')}</div></div>
-    <div class="stat-card"><div class="stat-value">${c.pending}</div><div class="stat-label">${t('mgr_stat_pending')}</div></div>`;
+// تطبيع نص البحث: حروف صغيرة، مسافة واحدة، وطول أقصى. يجمع "Panadol" و"panadol "
+// في سطر واحد عند التجميع.
+function normalizeQuery(q) {
+  return String(q || '').toLowerCase().replace(/\s+/g, ' ').trim().slice(0, 80);
 }
 
-const MANAGER_TABS = ['requests', 'nurses', 'ratings'];
-function managerTabCount(key) {
-  const c = managerCounts();
-  const n = key === 'requests' ? c.fresh : key === 'ratings' ? c.pending : 0;
-  return n > 0 ? String(n) : '';
+// حماية إضافية للخصوصية: لو كتب أحدهم رقم هاتف أو بريداً في مربع البحث بالخطأ،
+// لا يُسجَّل إطلاقاً. ستة أرقام متتالية أو أكثر (لاتينية أو عربية) أو علامة @.
+function looksPersonal(q) {
+  const digits = q.replace(/[٠-٩]/g, d => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d)));
+  return /\d{6,}/.test(digits.replace(/[\s-]/g, '')) || q.includes('@');
 }
 
-function renderManagerPanelUI() {
-  const panel = document.getElementById('manager-panel');
-  if (!panel || !managerPassword) return;
-  captureManagerDrafts();
-  const { requests } = managerCache;
-  panel.innerHTML = `
-    <div class="mgr-head">
-      <h2 class="dash-title">${t('mgr_panel_title')}</h2>
-      <button type="button" class="action-pill-btn blue" onclick="logoutManager()">${t('logout_btn')}</button>
-    </div>
-    <div id="push-card-manager"></div>
-    <div class="stats-grid mgr-stats" id="mgr-stats">${managerStatsHtml()}</div>
-    <div class="mgr-tabs" role="tablist" aria-label="${t('mgr_tabs_aria')}" onkeydown="onManagerTabsKey(event)">
-      ${MANAGER_TABS.map(k => `
-        <button type="button" class="mgr-tab" role="tab" id="mgr-tab-${k}" aria-controls="mgr-pane-${k}"
-          aria-selected="${managerTab === k}" tabindex="${managerTab === k ? 0 : -1}" onclick="setManagerTab('${k}')">${t('mgr_tab_' + k)}<span class="mgr-count" id="mgr-count-${k}">${managerTabCount(k)}</span></button>`).join('')}
-    </div>
-    <div id="mgr-pane-requests" role="tabpanel" aria-labelledby="mgr-tab-requests"${managerTab === 'requests' ? '' : ' hidden'}>
-      <p class="muted" style="margin:0 0 12px; font-size:13.5px; line-height:1.6;">${t('nreq_auto_delete_note')}</p>
-      <div class="nreq-list" id="mgr-requests-list">${nurseRequestCardsHtml(requests, 'mgr')}</div>
-    </div>
-    <div id="mgr-pane-nurses" role="tabpanel" aria-labelledby="mgr-tab-nurses"${managerTab === 'nurses' ? '' : ' hidden'}>${managerNursesHtml()}</div>
-    <div id="mgr-pane-ratings" role="tabpanel" aria-labelledby="mgr-tab-ratings"${managerTab === 'ratings' ? '' : ' hidden'}>
-      <div id="mgr-ratings-list">${managerRatingsHtml()}</div>
-    </div>`;
-  applyManagerDrafts();
-  renderPushCard('manager');
+// أفضل تطابق: الاسم أو الاسم البديل المطابق تماماً أولاً، ثم أقصر اسم يحوي النص.
+// searchMedicines لا ترتّب نتائجها، فبدون هذا يُنسب البحث إلى دواء عشوائي من المطابقات.
+function pickTopMatch(medicines, q) {
+  if (!medicines.length) return null;
+  const exact = medicines.find(m =>
+    String(m.name || '').toLowerCase() === q ||
+    (Array.isArray(m.alt_names) && m.alt_names.some(a => String(a).toLowerCase() === q)));
+  if (exact) return exact;
+  return [...medicines].sort((a, b) => String(a.name).length - String(b.name).length)[0];
 }
 
-function setManagerTab(key) {
-  if (!MANAGER_TABS.includes(key)) return;
-  managerTab = key;
-  for (const k of MANAGER_TABS) {
-    const tab = document.getElementById(`mgr-tab-${k}`);
-    const pane = document.getElementById(`mgr-pane-${k}`);
-    if (!tab || !pane) continue;
-    tab.setAttribute('aria-selected', String(k === key));
-    tab.tabIndex = k === key ? 0 : -1;
-    pane.hidden = k !== key;
+// تسجيل بحث واحد. يُرجع true إن سُجِّل، وfalse إن رُفض لأسباب الخصوصية.
+async function logSearch({ query, category, city }) {
+  const q = normalizeQuery(query);
+  if (q.length < 2 || looksPersonal(q)) return false;
+  const medicines = await searchMedicines(q, category);
+  const top = pickTopMatch(medicines, q);
+  let anyTracked = false, anyAvailable = false;
+  if (top) {
+    // "النقص" لا يُحتسب إلا حيث توجد صيدلية تُحدِّث مخزونها: صيدلية المناوبة فقط لا
+    // تعرف ما لديها، فعدم التوفر عندها ليس معلومة بل غياب معلومة.
+    const avail = await getAvailability(top.id, city || null);
+    anyTracked = avail.some(r => r.manages_stock);
+    anyAvailable = avail.some(r => r.manages_stock && r.available);
   }
-  // التبويبات ثابتة أعلى الشاشة أثناء التمرير: إن كان المدير نزل كثيراً، نعيده إلى بداية
-  // القسم الجديد تحتها مباشرة، لا إلى منتصفه
-  const tabs = document.querySelector('.mgr-tabs');
-  const pane = document.getElementById(`mgr-pane-${key}`);
-  if (tabs && pane) {
-    const under = tabs.getBoundingClientRect().bottom + 8;
-    const top = pane.getBoundingClientRect().top;
-    if (top < under) window.scrollBy({ top: top - under });
-  }
+  await pool.query(
+    `INSERT INTO search_log (query_norm, category, city, matched_count, top_medicine_id, any_tracked, any_available)
+     VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+    [q, category, city || null, medicines.length, top ? top.id : null, anyTracked, anyAvailable]
+  );
+  return true;
 }
 
-// الأسهم تنقل بين التبويبات (والاتجاه يتبع اللغة)، وHome وEnd إلى الطرفين
-function onManagerTabsKey(e) {
-  const i = MANAGER_TABS.indexOf(managerTab);
-  const rtl = document.documentElement.dir === 'rtl';
-  let next = null;
-  if (e.key === 'ArrowLeft') next = rtl ? i + 1 : i - 1;
-  else if (e.key === 'ArrowRight') next = rtl ? i - 1 : i + 1;
-  else if (e.key === 'Home') next = 0;
-  else if (e.key === 'End') next = MANAGER_TABS.length - 1;
-  if (next === null) return;
-  e.preventDefault();
-  const key = MANAGER_TABS[(next + MANAGER_TABS.length) % MANAGER_TABS.length];
-  setManagerTab(key);
-  const tab = document.getElementById(`mgr-tab-${key}`);
-  if (tab) tab.focus();
-}
-
-// ما يكتبه المدير في نموذج الإضافة أو في تعديل ممرض لا يُمحى حين تُعاد رسم اللوحة
-// (إجراء آخر، أو تبديل اللغة). نحفظ الحقول التي تختلف عن قيمتها المرسومة، ونعيدها بعد الرسم.
-let managerDrafts = {};
-let managerDraftFocus = null;
-function captureManagerDrafts() {
-  const root = document.getElementById('mgr-pane-nurses');
-  if (!root) return;
-  root.querySelectorAll('input[id], select[id], textarea[id]').forEach(el => {
-    if (rowFieldChanged(el)) managerDrafts[el.id] = el.value;
-    else delete managerDrafts[el.id];
-  });
-  const a = document.activeElement;
-  managerDraftFocus = a && root.contains(a) && a.id ? a.id : null;
-}
-function applyManagerDrafts() {
-  for (const [id, v] of Object.entries(managerDrafts)) {
-    const el = document.getElementById(id);
-    if (el) el.value = v;
-  }
-  if (managerDraftFocus) {
-    const el = document.getElementById(managerDraftFocus);
-    if (el) el.focus({ preventScroll: true });
-    managerDraftFocus = null;
-  }
-}
-function forgetManagerDrafts(ids) { for (const id of ids) delete managerDrafts[id]; }
-
-// تحديث دوري للطلبات والتقييمات كل 15 ثانية والصفحة ظاهرة. يرسم القائمتين والأرقام فقط
-// حين يتغير شيء، ولا يلمس قسم الممرضين، فلا يضيع ما يكتبه المدير فيه.
-let managerPollTimer = null;
-const POLL_MANAGER_MS = 15000;   // كان 30 ثانية: الطلب الجديد يظهر أسرع واللوحة مفتوحة
-function startManagerPolling() {
-  stopManagerPolling();
-  managerPollTimer = setInterval(whenVisible(pollManager), POLL_MANAGER_MS);
-}
-function stopManagerPolling() {
-  if (managerPollTimer) { clearInterval(managerPollTimer); managerPollTimer = null; }
-}
-async function pollManager() {
-  if (!managerPassword) { stopManagerPolling(); return; }
-  if (document.getElementById('view-admin').style.display === 'none') return;
-  const session = managerSessionId;
-  try {
-    const [requests, pendingRatings] = await Promise.all([
-      managerList(`${API}/nurses/requests`), managerList(`${API}/nurses/ratings/pending`)
-    ]);
-    if (session !== managerSessionId || !managerLoadedOnce) return;
-    const reqChanged = JSON.stringify(requests) !== JSON.stringify(managerCache.requests);
-    const ratChanged = JSON.stringify(pendingRatings) !== JSON.stringify(managerCache.pendingRatings);
-    if (!reqChanged && !ratChanged) return;
-    managerCache.requests = requests;
-    managerCache.pendingRatings = pendingRatings;
-    refreshManagerLists(reqChanged, ratChanged);
-  } catch (err) {
-    if (err && err.sessionExpired && session === managerSessionId) managerSessionExpired();
-  }
-}
-function refreshManagerLists(requestsToo = true, ratingsToo = true) {
-  const stats = document.getElementById('mgr-stats');
-  if (stats) stats.innerHTML = managerStatsHtml();
-  for (const k of MANAGER_TABS) {
-    const c = document.getElementById(`mgr-count-${k}`);
-    if (c) c.textContent = managerTabCount(k);
-  }
-  const rl = document.getElementById('mgr-requests-list');
-  if (rl && requestsToo) rl.innerHTML = nurseRequestCardsHtml(managerCache.requests, 'mgr');
-  const pl = document.getElementById('mgr-ratings-list');
-  if (pl && ratingsToo) pl.innerHTML = managerRatingsHtml();
-}
-
-// ---------- بطاقات طلبات الزيارات (مدير التمريض والإدارة) ----------
-// role: 'mgr' أو 'admin'، يحدد كلمة المرور التي تُرسل مع الإجراء وما يُحدَّث بعده
-
-function nurseRequestCardsHtml(list, role) {
-  if (!list || list.length === 0) {
-    return `
-      <div class="empty-state">
-        <div class="empty-icon">🩺</div>
-        <p class="empty-title">${t('nreq_empty_title')}</p>
-        <p class="empty-subtitle">${t('nreq_empty_sub')}</p>
-      </div>`;
-  }
-  // الجديد أولاً ثم ما تم التواصل فيه، والأحدث أولاً في كلٍّ منهما (ترتيب الخادم)
-  const sorted = [...list.filter(r => r.status !== 'contacted'), ...list.filter(r => r.status === 'contacted')];
-  return sorted.map(r => {
-    const done = r.status === 'contacted';
-    const rel = relativeTime(r.created_at);
-    return `
-      <div class="nreq-card${done ? ' done' : ''}">
-        <div class="nreq-top">
-          <p class="nreq-who">👤 <bdi>${escapeHtml(r.patient_name)}</bdi></p>
-          <span class="nreq-badge ${done ? 'done' : 'new'}">${done ? t('nreq_done_badge') : t('nreq_new_badge')}</span>
-        </div>
-        <p class="nreq-row">📞 <bdi dir="ltr">${escapeHtml(r.patient_phone)}</bdi></p>
-        ${r.patient_area ? `<p class="nreq-row">📍 ${escapeHtml(r.patient_area)}</p>` : ''}
-        <p class="nreq-row">🩺 ${t('nreq_nurse_label')}: <bdi>${escapeHtml(r.nurse_name || '')}</bdi>${r.nurse_id === null ? ` <span class="muted" style="font-size:13px;">${t('nreq_nurse_deleted')}</span>` : ''}</p>
-        ${r.notes ? `<p class="nreq-notes">${escapeHtml(r.notes)}</p>` : ''}
-        <p class="nreq-time">🕐 <bdi>${formatOrderTime(r.created_at)}</bdi>${rel ? ` · ${escapeHtml(rel)}` : ''}</p>
-        <div class="nreq-actions">
-          ${callBtnHtml(r.patient_phone)}
-          ${waAnchorHtml(r.patient_phone, tFormat('nreq_wa_msg', { name: r.patient_name }))}
-          ${done ? '' : `<button type="button" class="nreq-done-btn" onclick="markNurseRequestDone(${r.id}, '${role}')">${t('nreq_mark_done')}</button>`}
-          <button type="button" class="nreq-del-btn" onclick="deleteNurseRequest(${r.id}, '${role}')">${t('nreq_delete_btn')}</button>
-        </div>
-      </div>`;
-  }).join('');
-}
-
-function nursingHeadersFor(role) { return role === 'admin' ? adminHeaders() : managerHeaders(); }
-function afterNursingAction(role) { if (role === 'admin') refreshAdminRequests(); else loadManagerPanel(); }
-
-function markNurseRequestDone(id, role) {
-  return runGuarded('nreqDone:' + id, null, async () => {
-    if (!(await runAction(`${API}/nurses/requests/${id}/contacted`, { method: 'PUT', headers: nursingHeadersFor(role) }))) return;
-    afterNursingAction(role);
-  });
-}
-
-function deleteNurseRequest(id, role) {
-  return runGuarded('nreqDelete:' + id, null, async () => {
-    const list = role === 'admin' ? (adminDataCache.nurseRequests || []) : managerCache.requests;
-    const r = list.find(x => x.id === id);
-    const confirmed = await customConfirm(tFormat('nreq_delete_confirm', { name: r ? r.patient_name : '' }), 'warning', 'danger_delete_order');
-    if (!confirmed) return;
-    if (!(await runAction(`${API}/nurses/requests/${id}`, { method: 'DELETE', headers: nursingHeadersFor(role) }))) return;
-    afterNursingAction(role);
-  });
-}
-
-// ---------- مدير التمريض: الممرضون ----------
-
-const openManagerEditors = new Set();
-const MGR_ADD_FIELDS = ['mgr-nurse-name', 'mgr-nurse-specialty', 'mgr-nurse-university', 'mgr-nurse-grad-year',
-  'mgr-nurse-phone', 'mgr-nurse-exp-years', 'mgr-nurse-services', 'mgr-nurse-city', 'mgr-nurse-area', 'mgr-nurse-street'];
-
-function managerNursesHtml() {
-  const nurses = managerCache.nurses;
-  return `
-    <div class="box" style="margin:0 0 20px;">
-      <h3 style="margin-top:0;">${t('add_nurse_title')}</h3>
-      <input id="mgr-nurse-name" placeholder="${t('nurse_name_placeholder')}" aria-label="${t('nurse_name_placeholder')}">
-      <input id="mgr-nurse-specialty" placeholder="${t('specialty_placeholder')}" aria-label="${t('specialty_placeholder')}">
-      <input id="mgr-nurse-university" placeholder="${t('university_placeholder')}" aria-label="${t('university_placeholder')}">
-      <input id="mgr-nurse-grad-year" placeholder="${t('grad_year_placeholder')}" aria-label="${t('grad_year_placeholder')}">
-      <input id="mgr-nurse-phone" type="tel" inputmode="tel" placeholder="${t('phone_placeholder')}" aria-label="${t('phone_placeholder')}">
-      <input id="mgr-nurse-exp-years" type="number" min="0" max="60" inputmode="numeric" placeholder="${t('exp_years_placeholder')}" aria-label="${t('exp_years_placeholder')}">
-      <input id="mgr-nurse-services" maxlength="200" placeholder="${t('services_placeholder')}" aria-label="${t('services_placeholder')}">
-      ${locationFieldsHtml(k => `mgr-nurse-${k}`, null)}
-      <button type="button" class="primary" id="mgr-add-nurse-btn" onclick="addNurseManager()">${t('add_nurse_btn')}</button>
-    </div>
-
-    <h3>${t('registered_nurses_title')} (${nurses.length})</h3>
-    <p class="muted" style="margin:-6px 0 12px; font-size:13.5px; line-height:1.6;">${t('mgr_no_delete_hint')}</p>
-    <div class="stock-table-wrap" style="margin-bottom:20px;">
-      <div class="stock-scroll">
-        ${nurses.length === 0
-          ? `<p class="muted" style="padding:16px 18px; margin:0;">${t('no_nurses_yet')}</p>`
-          : `<div class="stock-table-header"><span>${t('nurses_table_header')}</span><span class="col-action">${t('actions_header_plural')}</span></div>
-             ${nurses.map(n => {
-               const loc = nurseLocationText(n);
-               return `
-               <div class="row">
-                 <span>
-                   <bdi>${escapeHtml(n.name)}</bdi> <span class="muted" style="font-size:12px;">${escapeHtml(n.specialty || '')}</span>
-                   <span style="display:flex; flex-wrap:wrap; align-items:center; gap:4px 8px; margin-top:4px;">
-                     <span class="cert-pill ${n.cert_verified ? 'yes' : 'no'}">${n.cert_verified ? t('cert_pill_yes') : t('cert_pill_no')}</span>
-                     ${loc ? `<span class="muted" style="font-size:12.5px;">📍 ${escapeHtml(loc)}</span>` : ''}
-                   </span>
-                 </span>
-                 <div style="display:flex; gap:8px 6px; align-items:center; flex-wrap:wrap; justify-content:flex-end;">
-                   <button type="button" class="btn-outline blue small table-action-btn" onclick="toggleManagerEditor(${n.id})" aria-expanded="${openManagerEditors.has(n.id)}">${t('mgr_edit_btn')}</button>
-                   <button type="button" class="toggle-btn ${n.available ? 'yes' : 'no'}" onclick="toggleNurseAvailabilityManager(${n.id}, ${!n.available})">${n.available ? t('nurse_available_short') : t('nurse_unavailable_short')}</button>
-                 </div>
-               </div>
-               <div class="nurse-editor" id="mgr-nurse-editor-${n.id}" style="${openManagerEditors.has(n.id) ? '' : 'display:none;'}">${managerNurseEditorHtml(n)}</div>`;
-             }).join('')}`
-        }
-      </div>
-    </div>`;
-}
-
-// تعديل ممرض من لوحة المدير: الخبرة والخدمات والمكان، وهاتفه للاتصال به. لا شهادات هنا.
-function managerNurseEditorHtml(n) {
-  return `
-    ${nursePhoneLineHtml(n)}
-    <div class="nurse-editor-grid">
-      <label class="admin-address-field"><span>${t('nurse_experience_label')}</span>
-        <input type="number" min="0" max="60" inputmode="numeric" id="mgr-nurse-exp-${n.id}" value="${Number.isInteger(n.experience_years) ? n.experience_years : ''}">
-      </label>
-      <label class="admin-address-field"><span>${t('nurse_services_label')}</span>
-        <input type="text" maxlength="200" id="mgr-nurse-svc-${n.id}" value="${escapeHtml(n.services || '')}" placeholder="${t('services_placeholder')}">
-      </label>
-    </div>
-    <div style="margin-top:12px;">${locationFieldsHtml(k => `mgr-nurse-${k}-${n.id}`, n)}</div>
-    <button type="button" class="primary" id="mgr-nurse-save-${n.id}" style="width:auto; padding:12px 28px; margin:0;" onclick="saveNurseProfileManager(${n.id})">${t('nurse_profile_save')}</button>`;
-}
-
-// هاتف الممرض داخل التعديل (للإدارة ولمدير التمريض): رابط اتصال مباشر
-function nursePhoneLineHtml(n) {
-  const digits = String(n.phone || '').replace(/[^\d+]/g, '');
-  if (!digits) return '';
-  return `<p style="margin:0 0 12px; font-size:15px;">📞 ${t('nurse_phone_label')}: <a href="tel:${digits}" dir="ltr" style="color:#185fa5; font-weight:700;" onclick="this.blur()">${escapeHtml(n.phone)}</a></p>`;
-}
-
-function toggleManagerEditor(id) {
-  const box = document.getElementById(`mgr-nurse-editor-${id}`);
-  if (!box) return;
-  const show = box.style.display === 'none';
-  box.style.display = show ? '' : 'none';
-  if (show) openManagerEditors.add(id); else openManagerEditors.delete(id);
-  const btn = document.querySelector(`[onclick="toggleManagerEditor(${id})"]`);
-  if (btn) btn.setAttribute('aria-expanded', String(show));
-}
-
-function addNurseManager() { return runGuarded('addNurseManager', 'mgr-add-nurse-btn', addNurseManagerNow); }
-async function addNurseManagerNow() {
-  const v = id => document.getElementById(id).value;
-  const body = {
-    name: v('mgr-nurse-name'), specialty: v('mgr-nurse-specialty'), university: v('mgr-nurse-university'),
-    graduation_year: v('mgr-nurse-grad-year'), phone: v('mgr-nurse-phone'),
-    experience_years: v('mgr-nurse-exp-years'), services: v('mgr-nurse-services'),
-    ...readLocationFields(k => `mgr-nurse-${k}`)
+// تقرير الطلب المجمَّع لفترة (بالأيام). لا يحوي إلا أعداداً مجمّعة.
+async function getDemandReport(days) {
+  const since = `NOW() - ($1::int * INTERVAL '1 day')`;
+  const total = await pool.query(`SELECT COUNT(*)::int AS n FROM search_log WHERE created_hour >= ${since}`, [days]);
+  const topMeds = await pool.query(
+    `SELECT m.name, m.category, COUNT(*)::int AS count
+       FROM search_log l JOIN medicines m ON m.id = l.top_medicine_id
+      WHERE l.created_hour >= ${since}
+      GROUP BY m.id, m.name, m.category ORDER BY count DESC, m.name LIMIT 15`, [days]);
+  // بحث بلا أي تطابق: دواء لا تعرفه المنصة أصلاً — فرصة لإضافته إلى القائمة
+  const notFound = await pool.query(
+    `SELECT query_norm AS query, COUNT(*)::int AS count
+       FROM search_log WHERE created_hour >= ${since} AND matched_count = 0
+      GROUP BY query_norm ORDER BY count DESC, query_norm LIMIT 15`, [days]);
+  // إشارة النقص: الدواء معروف، وتوجد صيدليات تُحدِّث مخزونها، ولا واحدة لديها
+  const shortages = await pool.query(
+    `SELECT m.name, COUNT(*)::int AS count
+       FROM search_log l JOIN medicines m ON m.id = l.top_medicine_id
+      WHERE l.created_hour >= ${since} AND l.any_tracked = true AND l.any_available = false
+      GROUP BY m.id, m.name ORDER BY count DESC, m.name LIMIT 15`, [days]);
+  const byCity = await pool.query(
+    `SELECT COALESCE(city, '') AS city, COUNT(*)::int AS count
+       FROM search_log WHERE created_hour >= ${since}
+      GROUP BY city ORDER BY count DESC`, [days]);
+  return {
+    days,
+    total: total.rows[0].n,
+    topMedicines: topMeds.rows,
+    notFound: notFound.rows,
+    shortages: shortages.rows,
+    byCity: byCity.rows
   };
-  let data;
-  try {
-    const res = await fetchWithTimeout(`${API}/nurses`, { method: 'POST', headers: managerHeaders(), body: JSON.stringify(body) }, 20000);
-    data = await res.json().catch(() => ({}));
-    if (res.status === 401) { managerSessionExpired(); return; }
-    if (!res.ok) { await customAlert(translateApiError(data.error), 'error'); return; }
-  } catch (err) {
-    await customAlert(t('server_error_title'), 'error');
+}
+
+async function getSetting(key) {
+  const { rows } = await pool.query('SELECT value FROM app_settings WHERE key = $1', [key]);
+  return rows.length ? rows[0].value : null;
+}
+
+// حفظ إعداد أو حذفه (value = null يحذف المفتاح)
+// يحفظ القيمة إن لم يكن للمفتاح قيمة بعد، ويعيد القيمة المحفوظة فعلاً (الجديدة أو السابقة).
+// لمفاتيح الإشعارات: طلبان متزامنان أول مرة لا يحفظان مفتاحين مختلفين.
+async function setSettingIfMissing(key, value) {
+  await pool.query(
+    `INSERT INTO app_settings (key, value, updated_at) VALUES ($1, $2, NOW()) ON CONFLICT (key) DO NOTHING`,
+    [key, String(value)]
+  );
+  return getSetting(key);
+}
+
+async function setSetting(key, value) {
+  if (value === null || value === undefined) {
+    await pool.query('DELETE FROM app_settings WHERE key = $1', [key]);
     return;
   }
-  clearAdminFields(MGR_ADD_FIELDS);
-  forgetManagerDrafts(MGR_ADD_FIELDS);
-  customAlert(tFormat('item_added_success', { name: data.name }), 'success');
-  loadManagerPanel();
+  await pool.query(
+    `INSERT INTO app_settings (key, value, updated_at) VALUES ($1, $2, NOW())
+     ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()`,
+    [key, String(value)]
+  );
 }
 
-function toggleNurseAvailabilityManager(id, available) {
-  return runGuarded('mgrAvail:' + id, null, async () => {
-    if (!(await runAction(`${API}/nurses/${id}/availability`, {
-      method: 'PUT', headers: managerHeaders(), body: JSON.stringify({ available })
-    }))) return;
-    loadManagerPanel();
-  });
-}
-
-function saveNurseProfileManager(id) { return runGuarded('mgrProfile:' + id, `mgr-nurse-save-${id}`, () => saveNurseProfileManagerNow(id)); }
-async function saveNurseProfileManagerNow(id) {
-  const n = managerCache.nurses.find(x => x.id === id);
-  if (!n) return;
-  const idFor = k => `mgr-nurse-${k}-${id}`;
-  const ids = [`mgr-nurse-exp-${id}`, `mgr-nurse-svc-${id}`, idFor('city'), idFor('area'), idFor('street')];
-  try {
-    const res = await fetchWithTimeout(`${API}/nurses/${id}/profile`, { method: 'PUT', headers: managerHeaders(),
-      body: JSON.stringify({
-        experience_years: document.getElementById(`mgr-nurse-exp-${id}`).value,
-        services: document.getElementById(`mgr-nurse-svc-${id}`).value,
-        ...readLocationFields(idFor)
-      }) }, 20000);
-    const data = await res.json().catch(() => ({}));
-    if (res.status === 401) { managerSessionExpired(); return; }
-    if (!res.ok) { await customAlert(translateApiError(data.error), 'error'); return; }
-    Object.assign(n, data);
-  } catch (err) {
-    await customAlert(t('server_error_title'), 'error');
-    return;
-  }
-  forgetManagerDrafts(ids);
-  // الحقول التي حُفظت تُرسم من جديد بقيمها من الخادم، وما سواها يبقى كما كتبه المدير
-  for (const fid of ids) { const el = document.getElementById(fid); if (el) el.defaultValue = el.value; }
-  renderManagerPanelUI();
-  await customAlert(t('nurse_profile_saved'), 'success');
-}
-
-// ---------- مدير التمريض: التقييمات ----------
-
-function managerRatingsHtml() {
-  const ratings = managerCache.pendingRatings;
-  if (!ratings.length) return `<p class="muted" style="padding:8px 2px;">${t('mgr_no_pending_ratings')}</p>`;
-  return `<div class="orders-wrap"><h3 style="margin-top:0;">${t('pending_ratings_title')} (${ratings.length})</h3>` +
-    ratings.map(r => `
-    <div class="order-card is-new">
-      <div class="order-card-top">
-        <span class="order-patient-name">👤 ${escapeHtml(r.patient_name)} ← ${escapeHtml(r.nurse_name)}</span>
-        <span class="order-new-badge">${'★'.repeat(r.stars)}${'☆'.repeat(5 - r.stars)}</span>
-      </div>
-      ${r.comment ? `<div class="order-items-list"><div class="order-item-line">💬 ${escapeHtml(r.comment)}</div></div>` : ''}
-      <div class="order-actions-row">
-        <button type="button" class="btn-outline green small" onclick="approveRatingManager(${r.id})">${t('approve_btn')}</button>
-        <button type="button" class="btn-outline red small" onclick="rejectRatingManager(${r.id})">${t('reject_btn')}</button>
-      </div>
-    </div>`).join('') + '</div>';
-}
-
-function approveRatingManager(id) {
-  return runGuarded('mgrApprove:' + id, null, async () => {
-    if (!(await runAction(`${API}/nurses/ratings/${id}/approve`, { method: 'PUT', headers: managerHeaders() }))) return;
-    loadManagerPanel();
-  });
-}
-
-function rejectRatingManager(id) {
-  return runGuarded('mgrReject:' + id, null, async () => {
-    const confirmed = await customConfirm(t('reject_rating_confirm'), 'warning', 'danger_reject_rating');
-    if (!confirmed) return;
-    if (!(await runAction(`${API}/nurses/ratings/${id}`, { method: 'DELETE', headers: managerHeaders() }))) return;
-    loadManagerPanel();
-  });
-}
-
-// ---------- لوحة الإدارة: بطاقة «مدير التمريض» وطلبات الزيارات ----------
-
-function managerSettingsCardHtml(s) {
-  if (!s) return '';   // فشل جلب الإعدادات: نخفي البطاقة بدل عرض حالة قد تكون خاطئة
-  return `
-    <div class="box" style="margin-bottom:20px;" id="mgr-settings-card">
-      <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap;">
-        <h3 style="margin:0;">${t('mgr_settings_title')}</h3>
-        <span class="mgr-status ${s.enabled ? 'on' : 'off'}">${s.enabled ? t('mgr_status_on') : t('mgr_status_off')}</span>
-      </div>
-      <p class="muted" style="font-size:13.5px; line-height:1.7; margin:10px 0 0;">${t('mgr_settings_desc')}</p>
-      <div class="mgr-settings-block">
-        <label for="mgr-pw-new">${s.enabled ? t('mgr_pw_change_label') : t('mgr_pw_label')}</label>
-        <div class="mgr-settings-row">
-          <div class="password-field">
-            <input id="mgr-pw-new" type="password" autocomplete="new-password" maxlength="100" placeholder="${t('mgr_pw_placeholder')}">
-            <button type="button" class="toggle-password" onclick="togglePassword('mgr-pw-new', this)" aria-label="${t('show_password_aria')}">👁</button>
-          </div>
-          <button type="button" class="btn-outline blue" id="mgr-pw-save-btn" onclick="saveManagerPassword()">${t('mgr_pw_save')}</button>
-        </div>
-        <p class="mgr-settings-hint">${t('mgr_pw_hint')}</p>
-        ${s.enabled ? `<button type="button" class="btn-outline red" id="mgr-disable-btn" style="margin-top:12px; min-height:48px;" onclick="disableManagerLogin()">${t('mgr_disable_btn')}</button>` : ''}
-      </div>
-      <div class="mgr-settings-block">
-        <label for="mgr-contact-phone">${t('mgr_contact_label')}</label>
-        <div class="mgr-settings-row">
-          <input id="mgr-contact-phone" type="tel" inputmode="tel" maxlength="20" dir="ltr" placeholder="09xxxxxxxx" value="${escapeHtml(s.phone || '')}">
-          <button type="button" class="btn-outline blue" id="mgr-contact-save-btn" onclick="saveManagerContact()">${t('mgr_contact_save')}</button>
-        </div>
-        <p class="mgr-settings-hint">${t('mgr_contact_hint')}</p>
-      </div>
-    </div>`;
-}
-
-function adminRequestsSectionHtml(requests) {
-  if (!requests) return '';
-  return `<div id="admin-requests-wrap">${adminRequestsInnerHtml(requests)}</div>`;
-}
-function adminRequestsInnerHtml(requests) {
-  return `
-    <h3>${t('admin_requests_title')} (${requests.length})</h3>
-    <p class="muted" style="margin:-6px 0 12px; font-size:13.5px; line-height:1.6;">${t('nreq_auto_delete_note')}</p>
-    <div class="nreq-list" style="margin-bottom:20px;">${nurseRequestCardsHtml(requests, 'admin')}</div>`;
-}
-
-// تحديث قسم طلبات الزيارات وحده في الإدارة: بعد «تم التواصل» أو الحذف، ومع الفحص الدوري كل
-// 15 ثانية. كانت اللوحة كلها تُعاد رسمها، فتقصر الصفحة لحظة وتقفز ثم تعود.
-async function refreshAdminRequests() {
-  if (!adminPassword) return;
-  const session = adminSessionId;
-  try {
-    const res = await fetchWithTimeout(`${API}/nurses/requests`, { headers: adminHeaders(), cache: 'no-store' }, 20000);
-    if (adminSessionGone(session)) return;
-    if (res.status === 401) { adminSessionExpired(); return; }
-    const list = await readJsonOk(res);
-    if (adminSessionGone(session)) return;
-    if (JSON.stringify(list) === JSON.stringify(adminDataCache.nurseRequests)) return;
-    adminDataCache.nurseRequests = list;
-    const wrap = document.getElementById('admin-requests-wrap');
-    if (wrap) wrap.innerHTML = adminRequestsInnerHtml(list);
-  } catch (err) { /* يعاد في الفحص التالي */ }
-}
-
-// رد إداري برمز 401: كلمة مرور الإدارة لم تعد صحيحة
-async function adminNursingCall(url, options) {
-  try {
-    const res = await fetchWithTimeout(url, options, 20000);
-    const data = await res.json().catch(() => ({}));
-    if (res.status === 401) { adminSessionExpired(); return null; }
-    if (!res.ok) { await customAlert(translateApiError(data.error), 'error'); return null; }
-    return data;
-  } catch (err) {
-    await customAlert(t('server_error_title'), 'error');
-    return null;
-  }
-}
-
-function saveManagerPassword() { return runGuarded('saveManagerPassword', 'mgr-pw-save-btn', saveManagerPasswordNow); }
-async function saveManagerPasswordNow() {
-  const input = document.getElementById('mgr-pw-new');
-  const pw = input ? input.value : '';
-  if (pw.length < 8) { await customAlert(t('mgr_pw_too_short'), 'warning'); return; }
-  if (pw === adminPassword) { await customAlert(t('mgr_pw_same_as_admin'), 'warning'); return; }
-  const data = await adminNursingCall(`${API}/nurses/manager/password`,
-    { method: 'PUT', headers: adminHeaders(), body: JSON.stringify({ password: pw }) });
-  if (!data) return;
-  clearAdminFields(['mgr-pw-new']);
-  customAlert(t('mgr_pw_saved'), 'success');
-  renderAdminPanel();
-}
-
-function disableManagerLogin() { return runGuarded('disableManagerLogin', 'mgr-disable-btn', disableManagerLoginNow); }
-async function disableManagerLoginNow() {
-  const confirmed = await customConfirm(t('mgr_disable_confirm'), 'warning', 'danger_disable_manager');
-  if (!confirmed) return;
-  const data = await adminNursingCall(`${API}/nurses/manager/password`, { method: 'DELETE', headers: adminHeaders() });
-  if (!data) return;
-  customAlert(t('mgr_disabled_done'), 'success');
-  renderAdminPanel();
-}
-
-function saveManagerContact() { return runGuarded('saveManagerContact', 'mgr-contact-save-btn', saveManagerContactNow); }
-async function saveManagerContactNow() {
-  const input = document.getElementById('mgr-contact-phone');
-  const phone = input ? input.value.trim() : '';
-  const data = await adminNursingCall(`${API}/nurses/manager/contact`,
-    { method: 'PUT', headers: adminHeaders(), body: JSON.stringify({ phone }) });
-  if (!data) return;
-  nursingContactPhone = data.phone || null;
-  if (input) { input.value = data.phone || ''; input.defaultValue = input.value; }
-  customAlert(t(data.phone ? 'mgr_contact_saved' : 'mgr_contact_cleared'), 'success');
-  renderAdminPanel();
-}
-
-// ===================== إشعارات الهاتف (أكتوبر 2026) =====================
-// بطاقة «🔔 إشعارات الهاتف» في لوحة الصيدلي ولوحة مدير التمريض (لا في الإدارة: قرار ميار).
-// التفعيل يطلب إذن المتصفح، ثم يشترك عند خدمة الإشعارات بمفتاح الموقع العام، ويرسل الاشتراك
-// إلى الخادم مع كلمة مرور اللوحة نفسها، فيعرف الخادم لمن يرسل. service-worker.js يعرض الإشعار.
+// بدء الإطلاق الرسمي: يمسح بيانات الاستخدام التجريبية ويسجّل تاريخ الإطلاق، مرة واحدة فقط.
 //
-// الأدوار: 'pharmacy' (لوحة الصيدلي) و'manager' (لوحة مدير التمريض). الجهاز الواحد قد يشترك
-// بالدورين، والاشتراك في المتصفح واحد، فإيقاف دور لا يلغي اشتراك المتصفح، بل سجلّه عند الخادم.
-
-const PUSH_ROLES = ['pharmacy', 'manager'];
-const pushState = { pharmacy: null, manager: null };   // null | unsupported | ios | denied | off | on
-
-function pushSupported() {
-  return 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
-}
-function isIOSDevice() {
-  return /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-}
-function isStandaloneApp() {
-  return (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true;
-}
-
-function pushHeadersFor(role) {
-  if (role === 'pharmacy') return { 'Content-Type': 'application/json', ...pharmacyHeaders() };
-  return managerHeaders();
-}
-function pushRoleActive(role) { return role === 'pharmacy' ? !!currentPharmacy : !!managerPassword; }
-
-function base64UrlToBytes(s) {
-  const b64 = s.replace(/-/g, '+').replace(/_/g, '/') + '='.repeat((4 - s.length % 4) % 4);
-  const raw = atob(b64);
-  return Uint8Array.from(raw, c => c.charCodeAt(0));
-}
-function sameBytes(a, b) {
-  if (!a || !b) return false;
-  const x = new Uint8Array(a), y = new Uint8Array(b);
-  return x.length === y.length && x.every((v, i) => v === y[i]);
-}
-
-// انتظار تسجيل service-worker.js، بمهلة: إن تعذّر (متصفح يمنعه) نعرض أن الإشعارات غير مدعومة
-function serviceWorkerReady(ms = 10000) {
-  return Promise.race([
-    navigator.serviceWorker.ready,
-    new Promise((_, reject) => setTimeout(() => reject(new Error('sw timeout')), ms))
-  ]);
-}
-
-// اشتراك المتصفح الحالي، أو null. اشتراك بمفتاح غير مفتاح الموقع الحالي لا يُحسب.
-async function currentBrowserSubscription(publicKey) {
-  const reg = await serviceWorkerReady();
-  const sub = await reg.pushManager.getSubscription();
-  if (sub && publicKey && sub.options && sub.options.applicationServerKey &&
-      !sameBytes(sub.options.applicationServerKey, base64UrlToBytes(publicKey))) {
-    await sub.unsubscribe().catch(() => {});
-    return null;
-  }
-  return sub;
-}
-
-// الحالة الحقيقية لهذا الجهاز ولهذا الدور، من المتصفح ثم من الخادم
-async function checkPushState(role) {
-  if (!pushRoleActive(role)) return;
-  let state;
-  if (!pushSupported()) state = isIOSDevice() && !isStandaloneApp() ? 'ios' : 'unsupported';
-  else if (Notification.permission === 'denied') state = 'denied';
-  else if (Notification.permission !== 'granted') state = 'off';
-  else {
-    try {
-      const sub = await currentBrowserSubscription(null);
-      if (!sub) state = 'off';
-      else {
-        const res = await fetchWithTimeout(`${API}/push/status`, { method: 'POST', headers: pushHeadersFor(role),
-          body: JSON.stringify({ role, endpoint: sub.endpoint }) }, 15000);
-        const data = await res.json().catch(() => ({}));
-        state = res.ok && data.subscribed ? 'on' : 'off';
-      }
-    } catch (err) { state = 'off'; }
-  }
-  if (!pushRoleActive(role)) return;   // خرج أثناء الفحص
-  pushState[role] = state;
-  renderPushCard(role);
-}
-
-// مكان البطاقة: تحت اسم الصيدلية في لوحة الصيدلي، وتحت العنوان في لوحة مدير التمريض
-function pushCardHost(role) {
-  if (role === 'pharmacy') {
-    let host = document.getElementById('push-card-pharmacy');
-    const label = document.getElementById('pharmacy-label');
-    if (!host && label) {
-      label.insertAdjacentHTML('afterend', '<div id="push-card-pharmacy"></div>');
-      host = document.getElementById('push-card-pharmacy');
+// ما يُمسح: سجل البحث، والطلبات، وتقييمات الممرضين — أي ما ينتج عن الاستخدام.
+// ما لا يُمس: الصيدليات، والأدوية، والمخزون، والممرضون — أي بنية المنصة نفسها.
+//
+// كله في معاملة واحدة: إما يُمسح كل شيء ويُسجَّل التاريخ، أو لا يتغير شيء إطلاقاً.
+// ونبدأ بتسجيل التاريخ عمداً: المفتاح الأساسي يمنع تسجيله مرتين، فلو ضُغط الزر من
+// جهازين في اللحظة ذاتها ينتظر الثاني الأول ثم يجد الإطلاق قد تم فيتراجع دون أي حذف.
+async function launchReset() {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const launchedAt = new Date().toISOString();
+    const claimed = await client.query(
+      `INSERT INTO app_settings (key, value) VALUES ('launched_at', $1)
+       ON CONFLICT (key) DO NOTHING RETURNING value`, [launchedAt]);
+    if (claimed.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return { alreadyLaunched: true, launchedAt: await getSetting('launched_at') };
     }
-    return host;
+    const searches = await client.query('DELETE FROM search_log');
+    const orders = await client.query('DELETE FROM orders');
+    const ratings = await client.query('DELETE FROM nurse_ratings');
+    // طلبات الزيارات التمريضية أثناء التجربة ليست طلبات مرضى حقيقيين
+    await client.query('DELETE FROM nurse_requests');
+    // زيارات التجربة قبل الإطلاق (زياراتك أنت والاختبارات) لا تُعرض على المعلنين أرقاماً حقيقية
+    const visits = await client.query('DELETE FROM visit_daily');
+    await client.query('COMMIT');
+    return {
+      alreadyLaunched: false,
+      launchedAt,
+      deleted: { searches: searches.rowCount, orders: orders.rowCount, ratings: ratings.rowCount, visitDays: visits.rowCount }
+    };
+  } catch (err) {
+    await client.query('ROLLBACK').catch(() => {});
+    throw err;
+  } finally {
+    client.release();
   }
-  return document.getElementById('push-card-manager');
 }
 
-function renderPushCard(role) {
-  const host = pushCardHost(role);
-  if (!host) return;
-  if (!pushRoleActive(role)) { host.innerHTML = ''; return; }
-  const state = pushState[role];
-  if (!state) { host.innerHTML = ''; return; }   // الفحص لم ينته بعد: لا نعرض حالة قد تكون خاطئة
-  const box = 'background:#fff; border:1px solid #cfe0ef; border-radius:16px; padding:14px 16px; margin:0 0 16px;';
-  if (state === 'on') {
-    host.innerHTML = `
-      <div style="${box} display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:10px;">
-        <span class="mgr-status on">${t('push_on_status')}</span>
-        <span style="display:flex; flex-wrap:wrap; align-items:center; gap:6px 10px;">
-          <button type="button" class="btn-outline blue small" id="push-test-${role}" onclick="testPush('${role}')">${t('push_test_btn')}</button>
-          <button type="button" id="push-off-${role}" onclick="disablePush('${role}')" style="min-height:44px; padding:0 8px; border:0; background:none; color:#5b6b79; font:inherit; font-size:14.5px; font-weight:600; cursor:pointer;">${t('push_off_btn')}</button>
-        </span>
-      </div>`;
-    return;
-  }
-  const notes = {
-    off: `<p class="muted" style="margin:0 0 12px; font-size:14.5px; line-height:1.7;">${t(role === 'pharmacy' ? 'push_desc_pharmacy' : 'push_desc_manager')}</p>
-          <button type="button" class="primary" id="push-on-${role}" style="min-height:48px; margin:0;" onclick="enablePush('${role}')">${t('push_enable_btn')}</button>`,
-    denied: `<p style="margin:0; font-size:14.5px; line-height:1.8; color:#7a5a00;">${t('push_denied_help')}</p>`,
-    ios: `<p style="margin:0; font-size:14.5px; line-height:1.8; color:#2c3e50;">${t('push_ios_help')}</p>`,
-    unsupported: `<p class="muted" style="margin:0; font-size:14.5px; line-height:1.7;">${t('push_unsupported')}</p>`
+async function getAdminStats() {
+  const totalsQ = pool.query(`
+    SELECT
+      (SELECT COUNT(*) FROM pharmacies)::int AS pharmacies,
+      (SELECT COUNT(*) FROM pharmacies WHERE on_duty = true)::int AS pharmacies_on_duty,
+      (SELECT COUNT(*) FROM medicines WHERE category = 'medicine')::int AS medicines,
+      (SELECT COUNT(*) FROM medicines WHERE category = 'cosmetic')::int AS cosmetics,
+      (SELECT COUNT(*) FROM nurses)::int AS nurses,
+      (SELECT COUNT(*) FROM stock WHERE available = true)::int AS available_stock,
+      (SELECT COUNT(*) FROM orders)::int AS orders_total,
+      (SELECT COUNT(*) FROM orders WHERE created_at >= NOW() - INTERVAL '24 hours')::int AS orders_24h,
+      (SELECT COUNT(*) FROM orders WHERE created_at >= NOW() - INTERVAL '7 days')::int AS orders_7d,
+      (SELECT COUNT(*) FROM orders WHERE created_at >= NOW() - INTERVAL '30 days')::int AS orders_30d
+  `);
+
+  // أكثر الأدوية طلباً: تُستخرج من مصفوفة items بكل طلب (JSONB).
+  // COALESCE يحمي من صف قديم قيمته NULL قبل أن يصبح للعمود قيمة افتراضية.
+  const topMedicinesQ = pool.query(`
+    SELECT item->>'medicineName' AS name, COUNT(*)::int AS count
+    FROM orders, jsonb_array_elements(COALESCE(items, '[]'::jsonb)) AS item
+    WHERE item->>'medicineName' IS NOT NULL AND item->>'medicineName' <> ''
+    GROUP BY 1 ORDER BY count DESC, name ASC LIMIT 5
+  `);
+
+  // أنشط الصيدليات. LEFT JOIN مقصود: صيدلية بصفر طلبات تظهر بصفر، لا تختفي.
+  const topPharmaciesQ = pool.query(`
+    SELECT p.id, p.name, p.city, COUNT(o.id)::int AS orders_count
+    FROM pharmacies p LEFT JOIN orders o ON o.pharmacy_id = p.id
+    GROUP BY p.id, p.name, p.city
+    ORDER BY orders_count DESC, p.name ASC LIMIT 5
+  `);
+
+  const byCityQ = pool.query(`
+    SELECT city, COUNT(*)::int AS count
+    FROM pharmacies WHERE city IS NOT NULL
+    GROUP BY city ORDER BY count DESC, city ASC
+  `);
+
+  const [totals, topMedicines, topPharmacies, byCity] =
+    await Promise.all([totalsQ, topMedicinesQ, topPharmaciesQ, byCityQ]);
+
+  return {
+    totals: totals.rows[0],
+    topMedicines: topMedicines.rows,
+    topPharmacies: topPharmacies.rows,
+    byCity: byCity.rows
   };
-  host.innerHTML = `
-    <div style="${box}">
-      <h3 style="margin:0 0 6px; font-size:17px; color:#0f2a47;">${t('push_card_title')}</h3>
-      ${notes[state] || notes.off}
-    </div>`;
 }
 
-function enablePush(role) { return runGuarded('enablePush:' + role, `push-on-${role}`, () => enablePushNow(role)); }
-async function enablePushNow(role) {
-  if (!pushSupported()) { pushState[role] = isIOSDevice() ? 'ios' : 'unsupported'; renderPushCard(role); return; }
-  let permission = Notification.permission;
-  if (permission !== 'granted') {
-    try { permission = await Notification.requestPermission(); } catch (e) { permission = 'denied'; }
+async function getOnDutyPharmacies(city) {
+  const { rows } = await pool.query(
+    `SELECT id, name, address, phone, assistant_phone, city, whatsapp_phone, latitude, longitude,
+            COALESCE(verified, false) AS verified, COALESCE(manages_stock, false) AS manages_stock,
+            opens_at, closes_at, closed_override_date,
+            on_duty, on_duty_day, on_duty_shift, on_duty_start_time, on_duty_end_time
+     FROM pharmacies WHERE on_duty = true AND ($1::text IS NULL OR city = $1) ORDER BY on_duty_shift, id`,
+    [city || null]
+  );
+  return rows;
+}
+
+// ---------- المخزون ----------
+
+// city اختياري: لو مُرِّر، تُعاد صيدليات تلك المدينة فقط. لو كان null أو غير مُمرَّر،
+// يبقى السلوك كما كان تماماً (كل الصيدليات) — صفر تأثير على أي استدعاء قديم.
+// م12: توفر عدة أدوية باستعلام واحد (بدل استعلام لكل دواء). الأعمدة والترتيب داخل كل دواء
+// مطابقان تماماً لـ getAvailability أدناه، والنتيجة خريطة: معرّف الدواء ← قائمة صيدلياته.
+async function getAvailabilityForMedicines(medicineIds, city) {
+  const out = new Map();
+  if (!medicineIds.length) return out;
+  const { rows } = await pool.query(
+    `SELECT m.id AS medicine_id,
+            p.id AS pharmacy_id, p.name AS pharmacy_name, p.address, p.phone, p.assistant_phone, p.city,
+            COALESCE(p.verified, false) AS verified, p.whatsapp_phone,
+            p.latitude, p.longitude,
+            COALESCE(p.manages_stock, false) AS manages_stock,
+            p.opens_at, p.closes_at, p.closed_override_date,
+            COALESCE(p.on_duty, false) AS on_duty,
+            COALESCE(s.available, false) AS available,
+            s.updated_at AS stock_updated_at
+     FROM unnest($1::int[]) WITH ORDINALITY AS m(id, ord)
+     CROSS JOIN pharmacies p
+     LEFT JOIN stock s ON s.pharmacy_id = p.id AND s.medicine_id = m.id
+     WHERE ($2::text IS NULL OR p.city = $2)
+     ORDER BY m.ord,
+              COALESCE(s.available, false) DESC,
+              COALESCE(p.manages_stock, false) DESC,
+              p.name`,
+    [medicineIds, city || null]
+  );
+  for (const { medicine_id, ...row } of rows) {
+    if (!out.has(medicine_id)) out.set(medicine_id, []);
+    out.get(medicine_id).push(row);
   }
-  if (permission !== 'granted') {
-    pushState[role] = permission === 'denied' ? 'denied' : 'off';
-    renderPushCard(role);
-    return;
+  return out;
+}
+
+async function getAvailability(medicineId, city) {
+  const { rows } = await pool.query(
+    `SELECT p.id AS pharmacy_id, p.name AS pharmacy_name, p.address, p.phone, p.assistant_phone, p.city,
+            COALESCE(p.verified, false) AS verified, p.whatsapp_phone,
+            p.latitude, p.longitude,
+            COALESCE(p.manages_stock, false) AS manages_stock,
+            p.opens_at, p.closes_at, p.closed_override_date,
+            -- حالة المناوبة: الواجهة تعدّ الصيدلية المناوبة "مفتوحة الآن" أياً كانت ساعات
+            -- دوامها. بدون هذا الحقل كانت المناوبة تظهر "مغلقة" في نتائج البحث ليلاً
+            COALESCE(p.on_duty, false) AS on_duty,
+            COALESCE(s.available, false) AS available,
+            s.updated_at AS stock_updated_at
+     FROM pharmacies p
+     LEFT JOIN stock s ON s.pharmacy_id = p.id AND s.medicine_id = $1
+     WHERE ($2::text IS NULL OR p.city = $2)
+     -- الترتيب بالأولوية: المتوفر أولاً، ثم من تُحدّث مخزونها ولا تملكه،
+     -- ثم من لا تُحدّث مخزونها. فأنفع المعلومات تظهر قبل أضعفها دائماً.
+     ORDER BY COALESCE(s.available, false) DESC,
+              COALESCE(p.manages_stock, false) DESC,
+              p.name`,
+    [medicineId, city || null]
+  );
+  return rows;
+}
+
+async function getStockForPharmacy(pharmacyId) {
+  const { rows } = await pool.query(
+    `SELECT m.id AS medicine_id, m.name, m.generic_name, m.category,
+            COALESCE(s.available, false) AS available,
+            s.manufacture_date, s.expiry_date, s.updated_at
+     FROM medicines m
+     LEFT JOIN stock s ON s.medicine_id = m.id AND s.pharmacy_id = $1
+     ORDER BY m.name`,
+    [pharmacyId]
+  );
+  return rows;
+}
+
+async function setStock(pharmacyId, medicineId, available, manufactureDate, expiryDate) {
+  const mfgProvided = manufactureDate !== undefined;
+  const expProvided = expiryDate !== undefined;
+  await pool.query(
+    `INSERT INTO stock (pharmacy_id, medicine_id, available, manufacture_date, expiry_date, updated_at)
+     VALUES ($1, $2, $3, $4, $5, NOW())
+     ON CONFLICT (pharmacy_id, medicine_id) DO UPDATE SET
+       available = $3,
+       updated_at = NOW(),
+       manufacture_date = CASE WHEN $6 THEN $4 ELSE stock.manufacture_date END,
+       expiry_date = CASE WHEN $7 THEN $5 ELSE stock.expiry_date END`,
+    [pharmacyId, medicineId, !!available, manufactureDate || null, expiryDate || null, mfgProvided, expProvided]
+  );
+}
+
+// ---------- الطلبات ----------
+
+// إنشاء طلب. requestKey اختياري: إن وُجد وسبق استخدامه لهذه الصيدلية، يُعاد
+// الطلب الموجود بدل إنشاء نسخة. ولغيابه (عميل قديم) يعمل كالسابق تماماً.
+//
+// ON CONFLICT ... DO NOTHING لا يرجّع صفاً عند التصادم، فنقرأ الموجود بعدها.
+// والضمان هنا في القاعدة لا في التطبيق: طلبان متزامنان بالمفتاح نفسه ينتجان
+// طلباً واحداً، ويرجع كلاهما المعرّف نفسه.
+// طلب أُنشئ الآن (لا طلب قديم أُعيد بمفتاح التفرّد نفسه): وحده يستحق إشعاراً. الخاصية
+// غير قابلة للعدّ، فلا تظهر في رد JSON.
+function markFresh(row) {
+  if (row) Object.defineProperty(row, 'isFresh', { value: true, enumerable: false });
+  return row;
+}
+
+async function createOrder(pharmacyId, patientName, patientPhone, items, notes, requestKey, q = pool) {
+  if (!requestKey) {
+    const { rows } = await q.query(
+      `INSERT INTO orders (pharmacy_id, patient_name, patient_phone, items, notes)
+       VALUES ($1, $2, $3, $4, $5) RETURNING *`,
+      [pharmacyId, patientName, patientPhone, JSON.stringify(items), notes || null]
+    );
+    return markFresh(rows[0]);
   }
-  let sub;
+  const inserted = await q.query(
+    `INSERT INTO orders (pharmacy_id, patient_name, patient_phone, items, notes, request_key)
+     VALUES ($1, $2, $3, $4, $5, $6)
+     ON CONFLICT (request_key, pharmacy_id) WHERE request_key IS NOT NULL DO NOTHING
+     RETURNING *`,
+    [pharmacyId, patientName, patientPhone, JSON.stringify(items), notes || null, requestKey]
+  );
+  if (inserted.rows.length) return markFresh(inserted.rows[0]);
+  const existing = await q.query(
+    `SELECT * FROM orders WHERE request_key = $1 AND pharmacy_id = $2`,
+    [requestKey, pharmacyId]
+  );
+  return existing.rows[0];
+}
+
+// م13: سلة فيها أكثر من صيدلية تُحفظ دفعة واحدة: كل طلباتها أو لا شيء منها. كان كل طلب يُحفظ
+// وحده، فإن فشل الثاني (صيدلية حُذفت مثلاً) يرى المريض "فشل" بينما الأول وصل فعلاً.
+// groups: [{ pharmacyId, items }]
+async function createOrdersAtomic(groups, patientName, patientPhone, notes, requestKey) {
+  const client = await pool.connect();
   try {
-    const keyRes = await fetchWithTimeout(`${API}/push/key`, {}, 15000);
-    const { publicKey } = await readJsonOk(keyRes, 'object');
-    sub = await currentBrowserSubscription(publicKey);
-    if (!sub) {
-      const reg = await serviceWorkerReady();
-      // حين تكون خدمة Google محجوبة لا يرد المتصفح أبداً، فيبقى الزر معطّلاً بلا تفسير. بعد 20
-      // ثانية نعتبرها فشلت ونشرح السبب
-      sub = await Promise.race([
-        reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: base64UrlToBytes(publicKey) }),
-        new Promise((_, reject) => setTimeout(() => reject(new Error('push subscribe timeout')), 20000))
-      ]);
+    await client.query('BEGIN');
+    const orders = [];
+    for (const g of groups) {
+      orders.push(await createOrder(g.pharmacyId, patientName, patientPhone, g.items, notes, requestKey, client));
     }
+    await client.query('COMMIT');
+    return orders;
   } catch (err) {
-    // أكثر سبب متوقع هنا في سوريا: خدمة إشعارات Google لا تستجيب من هذه الشبكة
-    await customAlert(t('push_subscribe_failed'), 'error');
-    return;
-  }
-  if (!pushRoleActive(role)) return;
-  try {
-    const res = await fetchWithTimeout(`${API}/push/subscribe`, { method: 'POST', headers: pushHeadersFor(role),
-      body: JSON.stringify({ role, lang: currentLang, subscription: sub.toJSON() }) }, 20000);
-    const data = await res.json().catch(() => ({}));
-    if (res.status === 401) { if (role === 'manager') managerSessionExpired(); else await customAlert(translateApiError(data.error), 'error'); return; }
-    if (!res.ok) { await customAlert(translateApiError(data.error), 'error'); return; }
-  } catch (err) {
-    await customAlert(t('server_error_title'), 'error');
-    return;
-  }
-  pushState[role] = 'on';
-  renderPushCard(role);
-  await customAlert(t('push_enabled_done'), 'success');
-}
-
-function testPush(role) { return runGuarded('testPush:' + role, `push-test-${role}`, () => testPushNow(role)); }
-async function testPushNow(role) {
-  let sub = null;
-  try { sub = await currentBrowserSubscription(null); } catch (e) { sub = null; }
-  if (!sub) { pushState[role] = 'off'; renderPushCard(role); await customAlert(t('push_gone'), 'warning'); return; }
-  try {
-    const res = await fetchWithTimeout(`${API}/push/test`, { method: 'POST', headers: pushHeadersFor(role),
-      body: JSON.stringify({ role, endpoint: sub.endpoint }) }, 20000);
-    const data = await res.json().catch(() => ({}));
-    if (res.status === 404 || data.result === 'gone') { pushState[role] = 'off'; renderPushCard(role); await customAlert(t('push_gone'), 'warning'); return; }
-    if (res.status === 429) { await customAlert(t('rate_limited_error'), 'warning'); return; }
-    if (!res.ok || data.result !== 'sent') { await customAlert(t('push_test_failed'), 'error'); return; }
-    await customAlert(t('push_test_sent'), 'success');
-  } catch (err) {
-    await customAlert(t('server_error_title'), 'error');
+    await client.query('ROLLBACK').catch(() => {});
+    throw err;
+  } finally {
+    client.release();
   }
 }
 
-function disablePush(role) { return runGuarded('disablePush:' + role, `push-off-${role}`, () => disablePushNow(role)); }
-async function disablePushNow(role) {
-  let sub = null;
-  try { sub = await currentBrowserSubscription(null); } catch (e) { sub = null; }
-  if (sub) {
-    const ok = await runAction(`${API}/push/unsubscribe`, { method: 'POST', headers: pushHeadersFor(role),
-      body: JSON.stringify({ role, endpoint: sub.endpoint }) });
-    if (!ok) return;
-  }
-  pushState[role] = 'off';
-  renderPushCard(role);
+async function getOrdersForPharmacy(pharmacyId) {
+  const { rows } = await pool.query(
+    `SELECT * FROM orders WHERE pharmacy_id = $1 AND deleted_at IS NULL ORDER BY created_at DESC`,
+    [pharmacyId]
+  );
+  return rows;
 }
 
-// تبديل اللغة: البطاقة تُرسم باللغة الجديدة، والاشتراك المفعّل يُحدَّث كي تصل الإشعارات بها أيضاً
-function refreshPushAfterLanguage() {
-  for (const role of PUSH_ROLES) {
-    renderPushCard(role);
-    if (pushState[role] !== 'on' || !pushRoleActive(role)) continue;
-    currentBrowserSubscription(null).then(sub => {
-      if (!sub || !pushRoleActive(role)) return;
-      return fetchWithTimeout(`${API}/push/subscribe`, { method: 'POST', headers: pushHeadersFor(role),
-        body: JSON.stringify({ role, lang: currentLang, subscription: sub.toJSON() }) }, 20000);
-    }).catch(() => {});
-  }
+// جلب طلب واحد — يُستخدم للتحقق من ملكيته قبل السماح بأي تعديل عليه.
+// نُرجع pharmacy_id فقط (لا بيانات المريض) لأن هذا كل ما يحتاجه فحص الصلاحية،
+// فلا تمر بيانات شخصية في مسار لا يحتاجها.
+async function getOrderOwner(orderId) {
+  const { rows } = await pool.query(
+    `SELECT id, pharmacy_id FROM orders WHERE id = $1 AND deleted_at IS NULL`,
+    [orderId]
+  );
+  return rows[0] || null;
 }
 
-// ---------- فتح اللوحة من الإشعار ----------
-// الرابط "/?open=pharmacist" أو "/?open=admin". يأتي إما عند فتح الموقع من إشعار (والموقع
-// مغلق)، أو رسالة من service-worker.js والموقع مفتوح، فننتقل دون إعادة تحميل ولا تسجيل دخول.
-function openFromNotificationUrl(url) {
-  let target = null;
-  try { target = new URL(url, location.origin).searchParams.get('open'); } catch (e) { target = null; }
-  if (target === 'pharmacist') {
-    headerGoPharmacist(document.getElementById('nav-pharmacist'));
-    if (currentPharmacy) loadOrders();
-  } else if (target === 'admin') {
-    headerGoAdmin(document.getElementById('nav-admin'));
-    if (managerPassword) { setManagerTab('requests'); pollManager(); }
-    else if (adminPassword) refreshAdminRequests();
-  }
+async function markOrderSeen(orderId) {
+  await pool.query(`UPDATE orders SET seen = true WHERE id = $1 AND deleted_at IS NULL`, [orderId]);
 }
 
-function handleOpenParamOnLoad() {
-  if (!/[?&]open=/.test(location.search)) return;
-  openFromNotificationUrl(location.href);
-  // نزيل ?open= من شريط العنوان، كي لا يعيد تحديث الصفحة فتح اللوحة نفسها
-  try { history.replaceState(null, '', location.pathname + location.hash); } catch (e) { /* لا شيء */ }
+// حذف ناعم: الصف يبقى للإحصاءات، وهوية المريض تُمحى فعلياً.
+// ما يبقى (اسم الدواء، التاريخ، الصيدلية) لا يدل على شخص بعينه، فالنتيجة خصوصية
+// أفضل من السابق: قبل هذا التغيير كان اسم المريض ورقمه يبقيان مخزَّنين ما دام
+// الصيدلي لم يحذف الطلب — أي شهوراً أحياناً.
+// patient_name عمود NOT NULL، فيُستبدل بنص ثابت بدل NULL حفاظاً على القيد.
+async function deleteOrder(orderId) {
+  await pool.query(
+    `UPDATE orders
+     SET deleted_at = NOW(), patient_name = '[محذوف]', patient_phone = '', notes = NULL
+     WHERE id = $1 AND deleted_at IS NULL`,
+    [orderId]
+  );
 }
 
-if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.addEventListener('message', (event) => {
-    const d = event.data;
-    if (d && d.type === 'dj-open' && typeof d.url === 'string') openFromNotificationUrl(d.url);
-  });
+async function confirmOrder(orderId) {
+  await pool.query(`UPDATE orders SET status = 'confirmed' WHERE id = $1 AND deleted_at IS NULL`, [orderId]);
 }
 
-// ---------- إدارة خدمات التمريض (لوحة الإدارة) ----------
-
-function addNurseAdmin() { return runGuarded('addNurseAdmin', 'add-nurse-btn', addNurseAdminNow); }
-async function addNurseAdminNow() {
-  const body = {
-    name: document.getElementById('nurse-name').value,
-    specialty: document.getElementById('nurse-specialty').value,
-    university: document.getElementById('nurse-university').value,
-    graduation_year: document.getElementById('nurse-grad-year').value,
-    phone: document.getElementById('nurse-phone').value,
-    experience_years: document.getElementById('nurse-exp-years').value,
-    services: document.getElementById('nurse-services').value,
-    ...readLocationFields(k => `nurse-${k}`),
-  };
-  let data;
-  try {
-    const res = await fetchWithTimeout(`${API}/nurses`, {
-      method: 'POST', headers: adminHeaders(), body: JSON.stringify(body)
-    }, 20000);
-    data = await res.json().catch(() => ({}));
-    if (!res.ok) { await customAlert(translateApiError(data.error), 'error'); return; }
-  } catch (err) {
-    await customAlert(t('server_error_title'), 'error');
-    return;
-  }
-  clearAdminFields(['nurse-name', 'nurse-specialty', 'nurse-university', 'nurse-grad-year', 'nurse-phone', 'nurse-exp-years', 'nurse-services',
-    'nurse-city', 'nurse-area', 'nurse-street']);
-  customAlert(tFormat('item_added_success', { name: data.name }), 'success');
-  renderAdminPanel();
+// حالة طلبات المريض. الطلب الذي حذفه الصيدلي يبقى في الرد بحالته الحقيقية:
+// إن كان مؤكداً قبل حذفه فقد سُلّم (confirmed)، وإن حُذف دون تأكيد فالصيدلية لم تجهّزه
+// (declined). كان الطلب المحذوف يُستبعد، فتعدّه الواجهة "مؤكداً" ويذهب المريض ظاناً
+// أن دواءه محجوز. لا يُرسَل أي شيء من بيانات المريض هنا.
+async function getOrdersStatus(ids) {
+  const { rows } = await pool.query(
+    `SELECT o.id,
+            CASE WHEN o.deleted_at IS NOT NULL AND o.status <> 'confirmed' THEN 'declined'
+                 ELSE o.status END AS status,
+            p.name AS pharmacy_name
+     FROM orders o JOIN pharmacies p ON o.pharmacy_id = p.id
+     WHERE o.id = ANY($1::int[])`,
+    [ids]
+  );
+  return rows;
 }
 
-function deleteNurseAdmin(id) { return runGuarded('deleteNurseAdmin:' + id, null, () => deleteNurseAdminNow(id)); }
-async function deleteNurseAdminNow(id) {
-  const nurse = adminDataCache.nurses.find(n => n.id === id);
-  const name = nurse ? nurse.name : '';
-  const confirmed = await customConfirm(tFormat('delete_nurse_confirm', { name }), 'warning', 'danger_delete_nurse');
-  if (!confirmed) return;
-  if (!(await runAction(`${API}/nurses/${id}`, { method: 'DELETE', headers: adminHeaders() }))) return;
-  renderAdminPanel();
+// ---------- خدمات التمريض ----------
+
+async function getNursesWithRatings() {
+  const { rows } = await pool.query(`
+    SELECT n.*,
+           COALESCE(AVG(r.stars) FILTER (WHERE r.status = 'approved'), 0)::float AS avg_rating,
+           COUNT(r.id) FILTER (WHERE r.status = 'approved')::int AS rating_count
+    FROM nurses n
+    LEFT JOIN nurse_ratings r ON r.nurse_id = n.id
+    GROUP BY n.id
+    ORDER BY n.id
+  `);
+  return rows;
 }
 
-function toggleNurseAvailabilityAdmin(id, newAvailable) { return runGuarded('toggleNurseAvailabilityAdmin:' + id, null, () => toggleNurseAvailabilityAdminNow(id, newAvailable)); }
-async function toggleNurseAvailabilityAdminNow(id, newAvailable) {
-  if (!(await runAction(`${API}/nurses/${id}/availability`, {
-    method: 'PUT', headers: adminHeaders(), body: JSON.stringify({ available: newAvailable })
-  }))) return;
-  renderAdminPanel();
+async function addNurse({ name, specialty, university, graduation_year, phone, experience_years = null, services = null,
+  city = null, area = null, street = null }) {
+  const { rows } = await pool.query(
+    `INSERT INTO nurses (name, specialty, university, graduation_year, phone, experience_years, services, city, area, street)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *`,
+    [cleanText(name), cleanText(specialty), cleanText(university), cleanText(graduation_year), cleanText(phone),
+     experience_years, cleanText(services), city || null, cleanText(area), cleanText(street)]
+  );
+  return rows[0];
 }
 
-function approveRatingAdmin(id) { return runGuarded('approveRatingAdmin:' + id, null, () => approveRatingAdminNow(id)); }
-async function approveRatingAdminNow(id) {
-  if (!(await runAction(`${API}/nurses/ratings/${id}/approve`, { method: 'PUT', headers: adminHeaders() }))) return;
-  renderAdminPanel();
+// مكان عمل الممرض. undefined = لا تغيير لذلك الحقل، و null أو '' = مسحه
+async function setNurseLocation(id, { city, area, street }) {
+  const { rows } = await pool.query(
+    `UPDATE nurses SET
+       city   = CASE WHEN $2::boolean THEN $3 ELSE city END,
+       area   = CASE WHEN $4::boolean THEN $5 ELSE area END,
+       street = CASE WHEN $6::boolean THEN $7 ELSE street END
+     WHERE id = $1 RETURNING id, city, area, street`,
+    [id, city !== undefined, city || null, area !== undefined, cleanText(area) || null, street !== undefined, cleanText(street) || null]
+  );
+  return rows[0] || null;
 }
 
-function rejectRatingAdmin(id) { return runGuarded('rejectRatingAdmin:' + id, null, () => rejectRatingAdminNow(id)); }
-async function rejectRatingAdminNow(id) {
-  const confirmed = await customConfirm(t('reject_rating_confirm'), 'warning', 'danger_reject_rating');
-  if (!confirmed) return;
-  if (!(await runAction(`${API}/nurses/ratings/${id}`, { method: 'DELETE', headers: adminHeaders() }))) return;
-  renderAdminPanel();
+// ---------- طلبات الزيارات التمريضية ----------
+
+async function createNurseRequest({ nurse_id, nurse_name, patient_name, patient_phone, patient_area, notes }) {
+  const { rows } = await pool.query(
+    `INSERT INTO nurse_requests (nurse_id, nurse_name, patient_name, patient_phone, patient_area, notes)
+     VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, created_at`,
+    [nurse_id, cleanText(nurse_name), cleanText(patient_name), patient_phone, cleanText(patient_area), cleanText(notes)]
+  );
+  return rows[0];
 }
 
-// ---------- تحديث دوري سريع لتقييمات قيد المراجعة (بدون إعادة رسم اللوحة كلها) ----------
-
-function renderPendingRatingsCards(ratings) {
-  return ratings.map(r => `
-    <div class="order-card is-new">
-      <div class="order-card-top">
-        <span class="order-patient-name">👤 ${escapeHtml(r.patient_name)} ← ${escapeHtml(r.nurse_name)}</span>
-        <span class="order-new-badge">${'★'.repeat(r.stars)}${'☆'.repeat(5 - r.stars)}</span>
-      </div>
-      <div class="order-row"><span>📞</span> ${escapeHtml(r.patient_phone)}</div>
-      ${r.comment ? `<div class="order-items-list"><div class="order-item-line">💬 ${escapeHtml(r.comment)}</div></div>` : ''}
-      <div class="order-actions-row">
-        <button class="btn-outline green small" onclick="approveRatingAdmin(${r.id})">${t('approve_btn')}</button>
-        <button class="btn-outline red small" onclick="rejectRatingAdmin(${r.id})">${t('reject_btn')}</button>
-      </div>
-    </div>
-  `).join('');
+// أرقام هواتف المرضى لا تبقى أكثر من 30 يوماً. يُستدعى قبل كل قراءة للقائمة، فلا يحتاج مؤقتاً.
+async function deleteOldNurseRequests() {
+  await pool.query(`DELETE FROM nurse_requests WHERE created_at < NOW() - INTERVAL '30 days'`);
 }
 
-let adminRatingsPollInterval = null;
-let lastPendingRatingsSnapshot = null;
-
-function startAdminRatingsPolling() {
-  stopAdminRatingsPolling();
-  adminRatingsPollInterval = setInterval(whenVisible(loadPendingRatingsForAdmin), POLL_ADMIN_RATINGS_MS);
+async function getNurseRequests() {
+  await deleteOldNurseRequests();
+  const { rows } = await pool.query(
+    `SELECT id, nurse_id, nurse_name, patient_name, patient_phone, patient_area, notes, status, created_at, contacted_at, nurse_contacted_at
+     FROM nurse_requests ORDER BY created_at DESC, id DESC LIMIT 300`
+  );
+  return rows;
 }
 
-function stopAdminRatingsPolling() {
-  if (adminRatingsPollInterval) {
-    clearInterval(adminRatingsPollInterval);
-    adminRatingsPollInterval = null;
-  }
+async function markNurseRequestContacted(id) {
+  const { rows } = await pool.query(
+    `UPDATE nurse_requests SET status = 'contacted', contacted_at = COALESCE(contacted_at, NOW())
+     WHERE id = $1 RETURNING id, status, contacted_at`, [id]);
+  return rows[0] || null;
 }
 
-async function loadPendingRatingsForAdmin() {
-  if (!adminPassword) { stopAdminRatingsPolling(); return; }
-  refreshAdminRequests();
-  const session = adminSessionId;
-  try {
-    const res = await fetchWithTimeout(`${API}/nurses/ratings/pending`, { headers: adminHeaders() }, 20000);
-    if (adminSessionGone(session)) return;
-    if (res.status === 401) { adminSessionExpired(); return; }
-    const ratings = await readJsonOk(res);
-    if (adminSessionGone(session)) return;
-    const snapshot = JSON.stringify(ratings);
-    if (snapshot === lastPendingRatingsSnapshot) return; // ما تغيّر شي، صفر إعادة رسم
-    lastPendingRatingsSnapshot = snapshot;
-
-    const wrap = document.getElementById('pending-ratings-wrap');
-    const list = document.getElementById('pending-ratings-list');
-    const countEl = document.getElementById('pending-ratings-count');
-    if (!wrap || !list) return;
-    wrap.style.display = ratings.length === 0 ? 'none' : 'block';
-    list.innerHTML = renderPendingRatingsCards(ratings);
-    if (countEl) countEl.textContent = ratings.length;
-  } catch (err) { /* تجاهل بصمت، رح يعيد المحاولة بالجولة الجاية */ }
+async function deleteNurseRequest(id) {
+  const { rowCount } = await pool.query('DELETE FROM nurse_requests WHERE id = $1', [id]);
+  return rowCount > 0;
 }
 
-// ---------- التقييمات المنشورة (حذف تعليق مسيء حتى بعد نشره) ----------
+// ---------- اشتراكات إشعارات الهاتف ----------
 
-let approvedRatingsLoaded = false;
-
-async function toggleApprovedRatingsAdmin() {
-  const container = document.getElementById('approved-ratings-list');
-  const btn = document.getElementById('toggle-approved-ratings-btn');
-  if (container.style.display === 'none') {
-    container.style.display = 'block';
-    btn.textContent = t('hide_ratings_btn');
-    if (!approvedRatingsLoaded) await loadApprovedRatingsAdmin();
-  } else {
-    container.style.display = 'none';
-    btn.textContent = t('show_ratings_btn');
-  }
+async function savePushSubscription({ endpoint, p256dh, auth, role, pharmacyId, nurseId, lang }) {
+  await pool.query(
+    `INSERT INTO push_subscriptions (endpoint, p256dh, auth, role, pharmacy_id, nurse_id, lang)
+     VALUES ($1, $2, $3, $4, $5, $6, $7)
+     ON CONFLICT (endpoint, role) DO UPDATE SET p256dh = EXCLUDED.p256dh, auth = EXCLUDED.auth,
+       pharmacy_id = EXCLUDED.pharmacy_id, nurse_id = EXCLUDED.nurse_id, lang = EXCLUDED.lang, fail_count = 0`,
+    [endpoint, p256dh, auth, role, pharmacyId || null, nurseId || null, lang === 'en' ? 'en' : 'ar']
+  );
 }
 
-async function loadApprovedRatingsAdmin() {
-  const container = document.getElementById('approved-ratings-list');
-  container.innerHTML = skeletonHtml(3);
-  const session = adminSessionId;
-  try {
-    const res = await fetchWithTimeout(`${API}/nurses/ratings/approved`, { headers: adminHeaders() }, 20000);
-    const ratings = await readJsonOk(res);
-    if (adminSessionGone(session)) return;
-    approvedRatingsLoaded = true;
-    if (ratings.length === 0) {
-      container.innerHTML = `<p class="muted" style="margin:0;">${t('no_published_ratings')}</p>`;
-      return;
-    }
-    container.innerHTML = ratings.map(r => `
-      <div class="order-card">
-        <div class="order-card-top">
-          <span class="order-patient-name">👤 ${escapeHtml(r.patient_name)} ← ${escapeHtml(r.nurse_name)}</span>
-          <span class="order-new-badge">${'★'.repeat(r.stars)}${'☆'.repeat(5 - r.stars)}</span>
-        </div>
-        ${r.comment ? `<div class="order-items-list"><div class="order-item-line">💬 ${escapeHtml(r.comment)}</div></div>` : ''}
-        <div class="order-actions-row">
-          <button class="btn-outline red small" onclick="deleteApprovedRatingAdmin(${r.id})">${t('delete_final_btn')}</button>
-        </div>
-      </div>
-    `).join('');
-  } catch (err) {
-    if (adminSessionGone(session)) return;
-    container.innerHTML = `<p class="muted" style="margin:0;">${t('failed_load_ratings')}</p>`;
-  }
+async function findPushSubscription(endpoint, role) {
+  const { rows } = await pool.query('SELECT * FROM push_subscriptions WHERE endpoint = $1 AND role = $2', [endpoint, role]);
+  return rows[0] || null;
 }
 
-async function deleteApprovedRatingAdmin(id) {
-  const confirmed = await customConfirm(t('delete_rating_final_confirm'), 'warning', 'danger_delete_rating');
-  if (!confirmed) return;
-  if (!(await runAction(`${API}/nurses/ratings/${id}`, { method: 'DELETE', headers: adminHeaders() }))) return;
-  approvedRatingsLoaded = false;
-  await loadApprovedRatingsAdmin();
+// المستلمون: كل أصحاب الأدوار المذكورة، وصيدليات بعينها
+async function getPushSubscriptionsFor({ roles = [], pharmacyIds = [], nurseIds = [] }) {
+  const { rows } = await pool.query(
+    `SELECT * FROM push_subscriptions
+     WHERE (role NOT IN ('pharmacy', 'nurse') AND role = ANY($1::text[]))
+        OR (role = 'pharmacy' AND pharmacy_id = ANY($2::int[]))
+        OR (role = 'nurse' AND nurse_id = ANY($3::int[]))`,
+    [roles, pharmacyIds.map(Number), nurseIds.map(Number)]
+  );
+  return rows;
 }
 
-document.addEventListener('click', (e) => {
-  const box = document.getElementById('suggestions');
-  const input = document.getElementById('search');
-  if (box && !box.contains(e.target) && e.target !== input) {
-    box.classList.remove('show');
-    suggestionIndex = -1;
-  }
-  const bellPanel = document.getElementById('bell-panel');
-  const bellBtn = document.getElementById('bell-btn');
-  if (bellPanel && bellPanel.style.display !== 'none' && !bellPanel.contains(e.target) && bellBtn && !bellBtn.contains(e.target)) {
-    bellPanel.style.display = 'none';
-  }
-});
+// الممرضون الذين فعّلوا الإشعارات على جهاز واحد على الأقل (شارة 🔔 في لوحة المدير)
+async function getNurseIdsWithPush() {
+  const { rows } = await pool.query(`SELECT DISTINCT nurse_id FROM push_subscriptions WHERE role = 'nurse' AND nurse_id IS NOT NULL`);
+  return new Set(rows.map(r => r.nurse_id));
+}
+async function deleteNursePushSubscriptions(nurseId) {
+  await pool.query(`DELETE FROM push_subscriptions WHERE role = 'nurse' AND nurse_id = $1`, [nurseId]);
+}
 
-showView('patient');
-applyLanguage();
-setupScrollReveal();
-recordVisitOnce();
-loadAdSlot();
-// applyLanguage أعلاه يجلب قائمة المناوبة وينفّذ البحث إن كان في الخانة نص (ومنه ما كتبه
-// الزائر قبل اكتمال تحميل هذا الملف)، فلا نكرر الطلبين هنا: كان كل زائر يرسلهما مرتين أو ثلاثاً
-updateCartCount();
-setInterval(whenVisible(loadOnDuty), POLL_ON_DUTY_MS);
-updateBellBadge();
-if (myOrders.length > 0) startMyOrdersPolling();
+// ---------- رابط الممرض الخاص ----------
 
-// المستخدم قد يكون بدأ الكتابة بالبحث قبل تحميل هذا الملف (حارس التحميل المبكر بالـHTML
-// يسجّل ذلك في __pendingSearch). بحثه نُفّذ فعلاً داخل applyLanguage، فنكتفي بمسح العلامة.
-window.__pendingSearch = false;
+async function getNurseByToken(token) {
+  const { rows } = await pool.query('SELECT * FROM nurses WHERE notify_token = $1', [token]);
+  return rows[0] || null;
+}
+// يعيد رمز الممرض، وينشئه إن لم يكن له رمز بعد (طلبان متزامنان لا ينشئان رمزين)
+async function ensureNurseToken(nurseId, newToken) {
+  const { rows } = await pool.query(
+    `UPDATE nurses SET notify_token = COALESCE(notify_token, $2) WHERE id = $1 RETURNING notify_token`,
+    [nurseId, newToken]
+  );
+  return rows[0] ? rows[0].notify_token : null;
+}
+async function replaceNurseToken(nurseId, newToken) {
+  const { rows } = await pool.query(`UPDATE nurses SET notify_token = $2 WHERE id = $1 RETURNING notify_token`, [nurseId, newToken]);
+  return rows[0] ? rows[0].notify_token : null;
+}
 
-// لو فُتح الموقع والاتصال مقطوع أصلاً، فحدث offline لن يُطلق — نفحص مرة عند البدء
-updateOfflineBanner();
+// طلبات ممرض بعينه (صفحته)، الأحدث أولاً، وبعد حذف ما مضى عليه 30 يوماً
+async function getNurseRequestsForNurse(nurseId) {
+  await deleteOldNurseRequests();
+  const { rows } = await pool.query(
+    `SELECT id, patient_name, patient_phone, patient_area, notes, status, created_at, nurse_contacted_at
+     FROM nurse_requests WHERE nurse_id = $1 ORDER BY created_at DESC, id DESC LIMIT 100`,
+    [nurseId]
+  );
+  return rows;
+}
+// الممرض يقول إنه تواصل مع المريض: الطلب صار بيده، فيُحسب «تم التواصل» عند المدير أيضاً
+async function markNurseRequestContactedByNurse(requestId, nurseId) {
+  const { rows } = await pool.query(
+    `UPDATE nurse_requests SET nurse_contacted_at = COALESCE(nurse_contacted_at, NOW()),
+       status = 'contacted', contacted_at = COALESCE(contacted_at, NOW())
+     WHERE id = $1 AND nurse_id = $2 RETURNING id, status, nurse_contacted_at`,
+    [requestId, nurseId]
+  );
+  return rows[0] || null;
+}
+async function getNurseRequestById(id) {
+  const { rows } = await pool.query('SELECT * FROM nurse_requests WHERE id = $1', [id]);
+  return rows[0] || null;
+}
+// هل وصل إلى الممرض إشعار بطلب من الرقم نفسه خلال الساعتين الماضيتين؟ (لا نزعجه مرتين)
+async function nurseRecentlyNotified(nurseId, patientPhone, exceptId) {
+  const { rows } = await pool.query(
+    `SELECT 1 FROM nurse_requests WHERE nurse_id = $1 AND patient_phone = $2 AND id <> $3
+       AND nurse_notified AND created_at > NOW() - INTERVAL '2 hours' LIMIT 1`,
+    [nurseId, patientPhone, exceptId]
+  );
+  return rows.length > 0;
+}
+async function markNurseNotified(requestId) {
+  await pool.query('UPDATE nurse_requests SET nurse_notified = true WHERE id = $1', [requestId]);
+}
 
-// فُتح الموقع من إشعار (والموقع مغلق): نذهب إلى اللوحة المطلوبة
-handleOpenParamOnLoad();
+async function deletePushSubscription(id) {
+  await pool.query('DELETE FROM push_subscriptions WHERE id = $1', [id]);
+}
+async function deletePushSubscriptionByEndpoint(endpoint, role) {
+  await pool.query('DELETE FROM push_subscriptions WHERE endpoint = $1 AND role = $2', [endpoint, role]);
+}
+// تغيير كلمة مرور مدير التمريض أو إيقافها: لا تبقى إشعارات التمريض تصل إلى جهازه القديم
+async function deletePushSubscriptionsByRole(role) {
+  await pool.query('DELETE FROM push_subscriptions WHERE role = $1', [role]);
+}
+async function markPushOk(id) {
+  await pool.query('UPDATE push_subscriptions SET last_ok_at = NOW(), fail_count = 0 WHERE id = $1', [id]);
+}
+// رفض متكرر من خدمة الإشعارات (لا 404 ولا 410): بعد 20 مرة متتالية يُحذف الاشتراك
+async function markPushFailed(id) {
+  await pool.query('UPDATE push_subscriptions SET fail_count = fail_count + 1 WHERE id = $1', [id]);
+  await pool.query('DELETE FROM push_subscriptions WHERE id = $1 AND fail_count >= 20', [id]);
+}
+
+// أسماء الصيدليات المنضمة ومدنها فقط، لبطاقة "انضم إلينا". هذه الأسماء ظاهرة للمرضى
+// أصلاً في نتائج البحث والمناوبة، فلا تُكشف معلومة جديدة. لا أرقام ولا حسابات.
+async function getJoinedPharmacies() {
+  const { rows } = await pool.query('SELECT name, city FROM pharmacies ORDER BY name');
+  return rows;
+}
+
+// زيارة واحدة تُضاف إلى عدّاد يومها (بتوقيت دمشق) ونوع جهازها. عملية واحدة ذرّية،
+// فزيارتان في اللحظة نفسها لا تضيع إحداهما.
+async function recordVisit(device) {
+  await pool.query(
+    `INSERT INTO visit_daily (day, device, visits)
+     VALUES ((NOW() AT TIME ZONE 'Asia/Damascus')::date, $1, 1)
+     ON CONFLICT (day, device) DO UPDATE SET visits = visit_daily.visits + 1`, [device]);
+}
+
+async function getVisitRows(days) {
+  const { rows } = await pool.query(
+    `SELECT to_char(day, 'YYYY-MM-DD') AS day, device, visits FROM visit_daily
+      WHERE day > (NOW() AT TIME ZONE 'Asia/Damascus')::date - $1::int
+      ORDER BY day`, [days]);
+  return rows;
+}
+
+// ===== الإعلانات =====
+// الحالة تُحسب بتوقيت دمشق: إعلان ينتهي "اليوم" يبقى ظاهراً حتى نهاية يوم دمشق لا UTC.
+const AD_FIELDS = `id, advertiser, advertiser_en, description, description_en, link, placement, to_char(starts_on, 'YYYY-MM-DD') AS starts_on,
+  to_char(ends_on, 'YYYY-MM-DD') AS ends_on, active, image_mime, image_size, impressions, clicks, created_at,
+  CASE WHEN NOT active THEN 'paused'
+       WHEN starts_on IS NOT NULL AND starts_on > (NOW() AT TIME ZONE 'Asia/Damascus')::date THEN 'scheduled'
+       WHEN ends_on IS NOT NULL AND ends_on < (NOW() AT TIME ZONE 'Asia/Damascus')::date THEN 'ended'
+       ELSE 'running' END AS status`;
+
+async function createAd({ advertiser, advertiserEn, description, descriptionEn, link, placement, startsOn, endsOn, image, mime }) {
+  const { rows } = await pool.query(
+    `INSERT INTO ads (advertiser, advertiser_en, description, description_en, link, placement, starts_on, ends_on, image, image_mime, image_size)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING ${AD_FIELDS}`,
+    [cleanText(advertiser), cleanText(advertiserEn) || null, cleanText(description) || null, cleanText(descriptionEn) || null,
+     link || null, placement, startsOn || null, endsOn || null, image, mime, image.length]);
+  return rows[0];
+}
+
+async function listAdsAdmin() {
+  const { rows } = await pool.query(`SELECT ${AD_FIELDS} FROM ads ORDER BY created_at DESC, id DESC`);
+  return rows;
+}
+
+async function getAdImage(id) {
+  const { rows } = await pool.query('SELECT image, image_mime FROM ads WHERE id = $1', [id]);
+  return rows[0] || null;
+}
+
+async function setAdActive(id, active) {
+  const { rows } = await pool.query(`UPDATE ads SET active = $2 WHERE id = $1 RETURNING ${AD_FIELDS}`, [id, active === true]);
+  return rows[0] || null;
+}
+
+// الإعلانات التي يراها الزوار الآن: مفعّلة وضمن مدتها بتوقيت دمشق. الاسم والرابط فقط،
+// لا الأرقام ولا شيء آخر.
+async function getRunningAds(placement) {
+  const { rows } = await pool.query(
+    `SELECT id, advertiser, advertiser_en, description, description_en, link FROM ads
+      WHERE placement = $1 AND active AND (starts_on IS NULL OR starts_on <= (NOW() AT TIME ZONE 'Asia/Damascus')::date)
+         AND (ends_on IS NULL OR ends_on >= (NOW() AT TIME ZONE 'Asia/Damascus')::date)
+      ORDER BY id`, [placement]);
+  return rows;
+}
+
+// ظهور أو نقرة. لا تُحسب إلا لإعلان يعمل الآن: إعلان انتهى أو أُوقف لا تتضخم أرقامه بعد
+// ذلك من صفحة مفتوحة قديمة. عملية واحدة ذرّية، فلا يضيع حدث مع حدث متزامن.
+async function recordAdEvent(id, type) {
+  const col = type === 'click' ? 'clicks' : 'impressions';
+  await pool.query(`UPDATE ads SET ${col} = ${col} + 1 WHERE id = $1 AND active AND (starts_on IS NULL OR starts_on <= (NOW() AT TIME ZONE 'Asia/Damascus')::date)
+         AND (ends_on IS NULL OR ends_on >= (NOW() AT TIME ZONE 'Asia/Damascus')::date)`, [id]);
+}
+
+async function deleteAd(id) {
+  const { rowCount } = await pool.query('DELETE FROM ads WHERE id = $1', [id]);
+  return rowCount > 0;
+}
+
+async function getNurseById(id) {
+  const { rows } = await pool.query('SELECT * FROM nurses WHERE id = $1', [id]);
+  return rows[0] || null;
+}
+
+async function setNurseProfile(id, experienceYears, services) {
+  const { rows } = await pool.query(
+    `UPDATE nurses SET experience_years = $2, services = $3 WHERE id = $1
+     RETURNING id, experience_years, services`,
+    [id, experienceYears, cleanText(services)]
+  );
+  return rows[0] || null;
+}
+
+// رفع شهادة جديدة يلغي التوثيق: المدير يراجع الملف الجديد قبل أن يظهر للمرضى أنه موثَّق.
+//
+// تُرجع المسار القديم (old_path) من العملية نفسها التي تستبدله، لا من قراءة سابقة: لو
+// رُفعت شهادتان في اللحظة ذاتها وقرأت كل منهما "القديمة" قبل الأخرى، لضاع ملف منهما
+// يتيماً في التخزين. FOR UPDATE يجعل الثانية تنتظر الأولى ثم ترى مسارها الجديد.
+async function setNurseCertificate(id, { path, mime, size }) {
+  const { rows } = await pool.query(
+    `WITH prev AS (SELECT id, cert_path AS old_path FROM nurses WHERE id = $1 FOR UPDATE)
+     UPDATE nurses n SET cert_path = $2, cert_mime = $3, cert_size = $4,
+            cert_uploaded_at = NOW(), cert_verified = false
+       FROM prev WHERE n.id = prev.id
+     RETURNING prev.old_path, n.id, n.cert_mime, n.cert_size, n.cert_uploaded_at, n.cert_verified`,
+    [id, path, mime, size]
+  );
+  return rows[0] || null;
+}
+
+// يمسح بيانات الشهادة ويُرجع مسار ملفها ليُحذف من التخزين بعد نجاح هذا، لا قبله:
+// لو حُذف الملف أولاً ثم فشل هذا، لأشار السجل إلى ملف لم يعد موجوداً.
+async function clearNurseCertificate(id) {
+  const { rows } = await pool.query(
+    `WITH prev AS (SELECT id, cert_path AS old_path FROM nurses WHERE id = $1 FOR UPDATE)
+     UPDATE nurses n SET cert_path = NULL, cert_mime = NULL, cert_size = NULL,
+            cert_uploaded_at = NULL, cert_verified = false
+       FROM prev WHERE n.id = prev.id
+     RETURNING prev.old_path`, [id]);
+  return rows.length ? { found: true, oldPath: rows[0].old_path } : { found: false, oldPath: null };
+}
+
+// التوثيق لا يُسجَّل إلا لممرض له شهادة فعلاً
+async function setNurseCertVerified(id, verified) {
+  const { rows } = await pool.query(
+    `UPDATE nurses SET cert_verified = $2 WHERE id = $1 AND cert_path IS NOT NULL
+     RETURNING id, cert_verified`, [id, verified === true]);
+  return rows[0] || null;
+}
+
+async function getCertStorageUsage() {
+  const { rows } = await pool.query(
+    `SELECT COALESCE(SUM(cert_size), 0)::bigint AS bytes, COUNT(cert_path)::int AS count FROM nurses`);
+  return { bytes: Number(rows[0].bytes), count: rows[0].count };
+}
+
+async function deleteNurse(nurseId) {
+  await pool.query('DELETE FROM nurses WHERE id = $1', [nurseId]);
+}
+
+async function setNurseAvailability(nurseId, available) {
+  const { rows } = await pool.query(
+    'UPDATE nurses SET available = $1 WHERE id = $2 RETURNING *',
+    [!!available, nurseId]
+  );
+  return rows[0];
+}
+
+// التقييمات الموافق عليها بس لممرض معين (تظهر للعموم بالتفاصيل)
+// ملاحظة: patient_name مقصود حذفه من هون تحديداً — الواجهة الأمامية العامة ما بتستخدمه إطلاقاً
+// (بتعرض بس النجوم والتعليق)، فما في داعي يترجع أصلاً بنقطة API عامة بلا مصادقة (تقليل البيانات
+// المُصدَّرة للحد الأدنى). لوحة الإدارة (getPendingRatings/getApprovedRatings) غير متأثرة إطلاقاً
+// وتضل ترجع كل الأعمدة (بما فيها patient_name وpatient_phone) لأنها محمية بـadminAuth ومحتاجتهم فعلياً
+async function getApprovedRatingsForNurse(nurseId) {
+  const { rows } = await pool.query(
+    `SELECT id, stars, comment, created_at
+     FROM nurse_ratings
+     WHERE nurse_id = $1 AND status = 'approved'
+     ORDER BY created_at DESC`,
+    [nurseId]
+  );
+  return rows;
+}
+
+async function addNurseRating({ nurse_id, patient_name, patient_phone, stars, comment }) {
+  const { rows } = await pool.query(
+    `INSERT INTO nurse_ratings (nurse_id, patient_name, patient_phone, stars, comment)
+     VALUES ($1, $2, $3, $4, $5) RETURNING *`,
+    [nurse_id, patient_name, patient_phone, stars, comment || null]
+  );
+  return rows[0];
+}
+
+async function getPendingRatings() {
+  const { rows } = await pool.query(
+    `SELECT r.*, n.name AS nurse_name
+     FROM nurse_ratings r JOIN nurses n ON n.id = r.nurse_id
+     WHERE r.status = 'pending'
+     ORDER BY r.created_at ASC`
+  );
+  return rows;
+}
+
+async function getApprovedRatings() {
+  const { rows } = await pool.query(
+    `SELECT r.*, n.name AS nurse_name
+     FROM nurse_ratings r JOIN nurses n ON n.id = r.nurse_id
+     WHERE r.status = 'approved'
+     ORDER BY r.created_at DESC`
+  );
+  return rows;
+}
+
+async function approveRating(ratingId) {
+  await pool.query(`UPDATE nurse_ratings SET status = 'approved' WHERE id = $1`, [ratingId]);
+}
+
+async function rejectRating(ratingId) {
+  await pool.query('DELETE FROM nurse_ratings WHERE id = $1', [ratingId]);
+}
+
+module.exports = {
+  pool,
+  initDb,
+  searchMedicines,
+  addMedicine,
+  findMedicineByExactName,
+  getAllMedicines,
+  suggestMedicines,
+  deleteMedicine,
+  getAllPharmacies,
+  findPharmacyByUsername,
+  getPharmacyById,
+  addPharmacy,
+  deletePharmacy,
+  setDutyStatus,
+  clearAllDuty,
+  setAssistantPhone,
+  setWhatsappPhone,
+  setPharmacyLocation,
+  setPharmacyHours,
+  setClosedOverride,
+  setManagesStock,
+  getWhatsappPharmacies,
+  setPharmacyName,
+  setPharmacyUsername,
+  setPharmacyAddress,
+  setPharmacyPhone,
+  setPharmacyPassword,
+  ping,
+  exportAll,
+  logSearch,
+  getDemandReport,
+  getSetting,
+  setSetting,
+  setNurseLocation,
+  createNurseRequest,
+  getNurseRequests,
+  markNurseRequestContacted,
+  deleteNurseRequest,
+  setSettingIfMissing,
+  savePushSubscription,
+  findPushSubscription,
+  getPushSubscriptionsFor,
+  deletePushSubscription,
+  deletePushSubscriptionByEndpoint,
+  deletePushSubscriptionsByRole,
+  markPushOk,
+  markPushFailed,
+  getNurseIdsWithPush,
+  deleteNursePushSubscriptions,
+  getNurseByToken,
+  ensureNurseToken,
+  replaceNurseToken,
+  getNurseRequestsForNurse,
+  markNurseRequestContactedByNurse,
+  getNurseRequestById,
+  nurseRecentlyNotified,
+  markNurseNotified,
+  launchReset,
+  getAdminStats,
+  getOnDutyPharmacies,
+  getAvailability,
+  getStockForPharmacy,
+  setStock,
+  createOrder,
+  createOrdersAtomic,
+  getAvailabilityForMedicines,
+  getOrdersForPharmacy,
+  getOrderOwner,
+  markOrderSeen,
+  deleteOrder,
+  confirmOrder,
+  getOrdersStatus,
+  getNursesWithRatings,
+  addNurse,
+  getNurseById,
+  createAd,
+  listAdsAdmin,
+  getAdImage,
+  setAdActive,
+  deleteAd,
+  getRunningAds,
+  recordAdEvent,
+  recordVisit,
+  getVisitRows,
+  getJoinedPharmacies,
+  setNurseProfile,
+  setNurseCertificate,
+  clearNurseCertificate,
+  setNurseCertVerified,
+  getCertStorageUsage,
+  deleteNurse,
+  setNurseAvailability,
+  getApprovedRatingsForNurse,
+  addNurseRating,
+  getPendingRatings,
+  getApprovedRatings,
+  approveRating,
+  rejectRating
+};
