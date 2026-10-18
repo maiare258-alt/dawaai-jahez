@@ -1650,16 +1650,20 @@
      ويُخفى العنوان المكرر داخل اللوحة لأن الشريط يحمله. المتصفحات التي لا تعرف :has
      تُبقي الشريط كما كان، بلا أي خلل. */
   body.staff-view[data-view="pharmacist"]:has(#pharmacist-auth-section:empty) .staff-banner,
-  body.staff-view[data-view="admin"]:has(#admin-auth-section:empty) .staff-banner {
+  body.staff-view[data-view="admin"]:has(#admin-auth-section:empty) .staff-banner,
+  body.staff-view[data-view="nurse"] .staff-banner {
     padding: calc(var(--hdr, 0px) + 46px) 18px 96px;
   }
   body.staff-view[data-view="pharmacist"]:has(#pharmacist-auth-section:empty) :is(.staff-banner-content p, .staff-banner-art),
-  body.staff-view[data-view="admin"]:has(#admin-auth-section:empty) :is(.staff-banner-content p, .staff-banner-art) { display: none; }
+  body.staff-view[data-view="admin"]:has(#admin-auth-section:empty) :is(.staff-banner-content p, .staff-banner-art),
+  body.staff-view[data-view="nurse"] :is(.staff-banner-content p, .staff-banner-art) { display: none; }
   body.staff-view[data-view="pharmacist"]:has(#pharmacist-auth-section:empty) .staff-banner-content h2,
-  body.staff-view[data-view="admin"]:has(#admin-auth-section:empty) .staff-banner-content h2 { margin: 0; font-size: clamp(24px, 2.6vw, 34px); }
+  body.staff-view[data-view="admin"]:has(#admin-auth-section:empty) .staff-banner-content h2,
+  body.staff-view[data-view="nurse"] .staff-banner-content h2 { margin: 0; font-size: clamp(24px, 2.6vw, 34px); }
   @media (max-width: 700px) {
     body.staff-view[data-view="pharmacist"]:has(#pharmacist-auth-section:empty) .staff-banner,
-    body.staff-view[data-view="admin"]:has(#admin-auth-section:empty) .staff-banner {
+    body.staff-view[data-view="admin"]:has(#admin-auth-section:empty) .staff-banner,
+    body.staff-view[data-view="nurse"] .staff-banner {
       padding: calc(var(--hdr, 0px) + 34px) 18px 70px;
     }
   }
@@ -2363,6 +2367,45 @@
   .mgr-settings-row > .password-field, .mgr-settings-row > input { flex: 1 1 220px; margin: 0; min-height: 48px; }
   .mgr-settings-row > button { flex: 0 0 auto; min-height: 48px; margin: 0; }
   .mgr-settings-hint { margin: 8px 0 0; font-size: 12.5px; line-height: 1.6; color: #616e7a; }
+
+  /* ======================= إشعارات الممرض وصفحته (أكتوبر 2026) ======================= */
+  /* شارة 🔔 بجانب اسم الممرض في لوحة المدير: فعّل الإشعارات على هاتفه */
+  .notify-pill { display: inline-flex; align-items: center; gap: 4px; border-radius: var(--r-pill); padding: 2px 9px;
+    font-size: 12.5px; font-weight: 700; white-space: nowrap; background: #e9f2fb; color: var(--c-blue); }
+  .notify-pill.off { background: #f1f4f7; color: var(--c-muted); }
+
+  /* قسم «🔔 إشعارات الممرض» داخل «تعديل»: الرابط الخاص وأزراره */
+  .nurse-link-box { margin: 14px 0 0; padding: 14px 0 0; border-top: 1px dashed #d6e2ee; }
+  .nurse-link-box h4 { margin: 0 0 4px; font-size: 15.5px; color: var(--c-ink); }
+  .nurse-link-box p { margin: 0 0 10px; font-size: 13.5px; line-height: 1.7; color: var(--c-muted); }
+  .nurse-link-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .nurse-link-actions > button, .nurse-link-actions > a {
+    min-height: 48px; margin: 0; border-radius: var(--r-m); font-family: inherit; font-size: var(--fs-s); font-weight: 700;
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 8px 10px; text-align: center;
+    text-decoration: none; cursor: pointer; -webkit-tap-highlight-color: transparent;
+  }
+  .nurse-link-actions .nurse-link-copy { background: #fff; border: 1.5px solid var(--c-line); color: var(--c-blue); }
+  .nurse-link-actions .nurse-link-copy:hover { background: #f3f8fc; }
+  .nurse-link-actions .nurse-link-reset {
+    grid-column: 1 / -1; min-height: 44px; border: 0; background: none; color: var(--c-no); font-size: 14px;
+  }
+  .nurse-link-actions .nurse-link-reset:hover { background: var(--c-no-bg); }
+  @media (max-width: 380px) { .nurse-link-actions { grid-template-columns: 1fr; } }
+
+  /* بطاقة الطلب: الممرض تواصل مع المريض بنفسه */
+  .nreq-badge.nurse { background: #e9f2fb; color: var(--c-blue); }
+
+  /* صفحة الممرض */
+  .nurse-page-head { display: flex; align-items: center; justify-content: space-between; gap: 8px 12px; flex-wrap: wrap; margin: 0 0 14px; }
+  .nurse-page-head .dash-title { margin: 0; }
+  .nurse-page-note { margin: 0 0 16px; padding: 12px 14px; border-radius: var(--r-m); background: #fff; border: 1px solid var(--c-line);
+    font-size: 14.5px; line-height: 1.7; color: var(--c-text); }
+  .nurse-page-note.off { background: var(--c-wait-bg); border-color: #f0e2bb; color: var(--c-wait); }
+  .nurse-page-section { margin: 4px 0 12px; font-size: var(--fs-m); color: var(--c-ink); }
+  .nurse-page-invalid { text-align: center; padding: 32px 18px; background: #fff; border: 1px solid var(--c-line); border-radius: var(--r-l); }
+  .nurse-page-invalid .empty-icon { font-size: 40px; }
+  .nurse-page-invalid p { margin: 8px 0 0; font-size: var(--fs-s); line-height: 1.7; color: var(--c-muted); }
+  .nurse-page-invalid .empty-title { color: var(--c-ink); font-weight: 700; font-size: var(--fs-m); }
 </style>
 </head>
 <body class="has-hero">
@@ -2835,6 +2878,9 @@
     <div id="nursing-join" class="nursing-join" style="display:none;"></div>
     <div id="nurses-list"></div>
   </div>
+
+  <!-- صفحة الممرض: لا رابط لها في الشريط العلوي. تُفتح من رابطه الخاص أو من إشعار، ويملؤها app.js -->
+  <div id="view-nurse" style="display:none;"></div>
 </div>
 </div>
 
