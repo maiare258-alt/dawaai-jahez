@@ -142,7 +142,7 @@ async function sendOne(sub, message) {
   return { result: 'failed', status: res.status };
 }
 
-// targets: { roles: ['manager'], pharmacyIds: [..] }
+// targets: { roles: ['manager'], pharmacyIds: [..], nurseIds: [..] }
 async function notify(targets, message) {
   try {
     const subs = await db.getPushSubscriptionsFor(targets);
@@ -154,7 +154,7 @@ async function notify(targets, message) {
 
 // ---------- الرسائل ----------
 // بلا أي بيانات مريض: تظهر على شاشة القفل، وقد يراها غير صاحب الهاتف.
-// المستلمون: الصيدلية صاحبة الطلب، ومدير التمريض. الإدارة لا تصلها إشعارات (قرار ميار:
+// المستلمون: الصيدلية صاحبة الطلب، ومدير التمريض، والممرض المطلوب. الإدارة لا تصلها إشعارات (قرار ميار:
 // كثرتها مزعجة، والمدير لا يتصرف في كل طلب بنفسه)، فتتابع من لوحتها حين تشاء.
 
 async function notifyNewOrders(orders) {
@@ -167,11 +167,41 @@ async function notifyNewOrders(orders) {
   });
 }
 
-async function notifyNurseRequest(nurseName) {
+// المكان كما كتبه المريض، مختصراً لسطر الإشعار
+function shortArea(area) {
+  const a = String(area || '').replace(/\s+/g, ' ').trim();
+  return a.length > 70 ? a.slice(0, 69) + '…' : a;
+}
+
+// طلب زيارة جديد: يصل في اللحظة نفسها إلى مدير التمريض وإلى الممرض المطلوب (قرار ميار: كي لا
+// يصير المدير عنق زجاجة حين يكثر الممرضون). الممرض يرى المكان فقط على شاشة القفل، والضغط
+// يفتح صفحته فيرى اسم المريض ورقمه والخدمة. طلب ثانٍ من الرقم نفسه للممرض نفسه خلال ساعتين
+// يصل إلى المدير وحده، فلا يُزعج الممرض مرتين.
+async function notifyNurseRequest(nurse, request) {
   await notify({ roles: ['manager'] }, {
-    ar: { title: '🩺 طلب زيارة تمريضية جديد', body: `طلب زيارة للممرض/ة ${nurseName}. افتح اللوحة لترى بيانات المريض.` },
-    en: { title: '🩺 New nursing visit request', body: `A visit request for ${nurseName}. Open the panel to see the patient's details.` },
+    ar: { title: '🩺 طلب زيارة تمريضية جديد', body: `طلب زيارة للممرض/ة ${nurse.name}. افتح اللوحة لترى بيانات المريض.` },
+    en: { title: '🩺 New nursing visit request', body: `A visit request for ${nurse.name}. Open the panel to see the patient's details.` },
     url: '/?open=admin', tag: 'dj-nurse-request'
+  });
+  if (!request || await db.nurseRecentlyNotified(nurse.id, request.patient_phone, request.id)) return;
+  await db.markNurseNotified(request.id);
+  const area = shortArea(request.patient_area);
+  await notify({ nurseIds: [nurse.id] }, {
+    ar: { title: `🩺 طلب زيارة جديد في: ${area}`, body: 'اضغط لترى بيانات المريض وتتصل به.' },
+    en: { title: `🩺 New visit request in: ${area}`, body: "Tap to see the patient's details and call them." },
+    url: '/?open=nurse', tag: `dj-visit-${request.id}`
+  });
+}
+
+// حذف المدير طلباً وصل إشعاره إلى الممرض (طلب وهمي مثلاً): نخبر الممرض كي لا يذهب. الوسم نفسه
+// يستبدل إشعار الطلب إن كان ما زال ظاهراً على هاتفه.
+async function notifyNurseRequestCancelled(request) {
+  if (!request || !request.nurse_notified || !request.nurse_id) return;
+  const area = shortArea(request.patient_area);
+  await notify({ nurseIds: [request.nurse_id] }, {
+    ar: { title: `❌ أُلغي طلب الزيارة في: ${area}`, body: 'ألغى مدير التمريض هذا الطلب، فلا داعي للذهاب.' },
+    en: { title: `❌ Visit request cancelled in: ${area}`, body: 'The nursing manager cancelled this request, so there is no need to go.' },
+    url: '/?open=nurse', tag: `dj-visit-${request.id}`
   });
 }
 
@@ -182,7 +212,7 @@ const TEST_MESSAGE = {
 };
 
 module.exports = {
-  getVapidKeys, validEndpoint, validKeys, sendOne, notify, notifyNewOrders, notifyNurseRequest, TEST_MESSAGE,
+  getVapidKeys, validEndpoint, validKeys, sendOne, notify, notifyNewOrders, notifyNurseRequest, notifyNurseRequestCancelled, TEST_MESSAGE,
   // للاختبار فقط
   _encryptPayload: encryptPayload, _vapidAuthorization: vapidAuthorization
 };

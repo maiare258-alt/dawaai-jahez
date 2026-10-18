@@ -252,6 +252,15 @@ async function initDb() {
     );
   `);
   await pool.query(`CREATE INDEX IF NOT EXISTS nurse_requests_created ON nurse_requests (created_at);`);
+  // إشعارات الممرض نفسه (أكتوبر 2026): هل أُرسل له إشعار بالطلب (لمنع تكراره ولإشعار الإلغاء)،
+  // ومتى قال إنه تواصل مع المريض.
+  for (const col of ['nurse_notified BOOLEAN NOT NULL DEFAULT false', 'nurse_contacted_at TIMESTAMP']) {
+    await pool.query(`ALTER TABLE nurse_requests ADD COLUMN IF NOT EXISTS ${col};`);
+  }
+  // رابط الممرض الخاص: رمز عشوائي طويل يفتح صفحته (طلباته وإشعاراته) دون كلمة مرور.
+  // ينشئه مدير التمريض أو الإدارة، وإعادة إنشائه تُبطل القديم فوراً.
+  await pool.query(`ALTER TABLE nurses ADD COLUMN IF NOT EXISTS notify_token TEXT;`);
+  await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS nurses_notify_token ON nurses (notify_token) WHERE notify_token IS NOT NULL;`);
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS nurse_ratings (
@@ -358,6 +367,8 @@ async function initDb() {
       UNIQUE (endpoint, role)
     );
   `);
+  // اشتراك الممرض مربوط بالممرض نفسه: حذفه يحذف اشتراكاته
+  await pool.query(`ALTER TABLE push_subscriptions ADD COLUMN IF NOT EXISTS nurse_id INTEGER REFERENCES nurses(id) ON DELETE CASCADE;`);
 
   for (const table of ['search_log', 'app_settings', 'visit_daily', 'ads', 'nurse_requests', 'push_subscriptions']) {
     try {
@@ -1329,7 +1340,7 @@ async function deleteOldNurseRequests() {
 async function getNurseRequests() {
   await deleteOldNurseRequests();
   const { rows } = await pool.query(
-    `SELECT id, nurse_id, nurse_name, patient_name, patient_phone, patient_area, notes, status, created_at, contacted_at
+    `SELECT id, nurse_id, nurse_name, patient_name, patient_phone, patient_area, notes, status, created_at, contacted_at, nurse_contacted_at
      FROM nurse_requests ORDER BY created_at DESC, id DESC LIMIT 300`
   );
   return rows;
@@ -1349,13 +1360,13 @@ async function deleteNurseRequest(id) {
 
 // ---------- اشتراكات إشعارات الهاتف ----------
 
-async function savePushSubscription({ endpoint, p256dh, auth, role, pharmacyId, lang }) {
+async function savePushSubscription({ endpoint, p256dh, auth, role, pharmacyId, nurseId, lang }) {
   await pool.query(
-    `INSERT INTO push_subscriptions (endpoint, p256dh, auth, role, pharmacy_id, lang)
-     VALUES ($1, $2, $3, $4, $5, $6)
+    `INSERT INTO push_subscriptions (endpoint, p256dh, auth, role, pharmacy_id, nurse_id, lang)
+     VALUES ($1, $2, $3, $4, $5, $6, $7)
      ON CONFLICT (endpoint, role) DO UPDATE SET p256dh = EXCLUDED.p256dh, auth = EXCLUDED.auth,
-       pharmacy_id = EXCLUDED.pharmacy_id, lang = EXCLUDED.lang, fail_count = 0`,
-    [endpoint, p256dh, auth, role, pharmacyId || null, lang === 'en' ? 'en' : 'ar']
+       pharmacy_id = EXCLUDED.pharmacy_id, nurse_id = EXCLUDED.nurse_id, lang = EXCLUDED.lang, fail_count = 0`,
+    [endpoint, p256dh, auth, role, pharmacyId || null, nurseId || null, lang === 'en' ? 'en' : 'ar']
   );
 }
 
@@ -1365,14 +1376,80 @@ async function findPushSubscription(endpoint, role) {
 }
 
 // المستلمون: كل أصحاب الأدوار المذكورة، وصيدليات بعينها
-async function getPushSubscriptionsFor({ roles = [], pharmacyIds = [] }) {
+async function getPushSubscriptionsFor({ roles = [], pharmacyIds = [], nurseIds = [] }) {
   const { rows } = await pool.query(
     `SELECT * FROM push_subscriptions
-     WHERE (role <> 'pharmacy' AND role = ANY($1::text[]))
-        OR (role = 'pharmacy' AND pharmacy_id = ANY($2::int[]))`,
-    [roles, pharmacyIds.map(Number)]
+     WHERE (role NOT IN ('pharmacy', 'nurse') AND role = ANY($1::text[]))
+        OR (role = 'pharmacy' AND pharmacy_id = ANY($2::int[]))
+        OR (role = 'nurse' AND nurse_id = ANY($3::int[]))`,
+    [roles, pharmacyIds.map(Number), nurseIds.map(Number)]
   );
   return rows;
+}
+
+// الممرضون الذين فعّلوا الإشعارات على جهاز واحد على الأقل (شارة 🔔 في لوحة المدير)
+async function getNurseIdsWithPush() {
+  const { rows } = await pool.query(`SELECT DISTINCT nurse_id FROM push_subscriptions WHERE role = 'nurse' AND nurse_id IS NOT NULL`);
+  return new Set(rows.map(r => r.nurse_id));
+}
+async function deleteNursePushSubscriptions(nurseId) {
+  await pool.query(`DELETE FROM push_subscriptions WHERE role = 'nurse' AND nurse_id = $1`, [nurseId]);
+}
+
+// ---------- رابط الممرض الخاص ----------
+
+async function getNurseByToken(token) {
+  const { rows } = await pool.query('SELECT * FROM nurses WHERE notify_token = $1', [token]);
+  return rows[0] || null;
+}
+// يعيد رمز الممرض، وينشئه إن لم يكن له رمز بعد (طلبان متزامنان لا ينشئان رمزين)
+async function ensureNurseToken(nurseId, newToken) {
+  const { rows } = await pool.query(
+    `UPDATE nurses SET notify_token = COALESCE(notify_token, $2) WHERE id = $1 RETURNING notify_token`,
+    [nurseId, newToken]
+  );
+  return rows[0] ? rows[0].notify_token : null;
+}
+async function replaceNurseToken(nurseId, newToken) {
+  const { rows } = await pool.query(`UPDATE nurses SET notify_token = $2 WHERE id = $1 RETURNING notify_token`, [nurseId, newToken]);
+  return rows[0] ? rows[0].notify_token : null;
+}
+
+// طلبات ممرض بعينه (صفحته)، الأحدث أولاً، وبعد حذف ما مضى عليه 30 يوماً
+async function getNurseRequestsForNurse(nurseId) {
+  await deleteOldNurseRequests();
+  const { rows } = await pool.query(
+    `SELECT id, patient_name, patient_phone, patient_area, notes, status, created_at, nurse_contacted_at
+     FROM nurse_requests WHERE nurse_id = $1 ORDER BY created_at DESC, id DESC LIMIT 100`,
+    [nurseId]
+  );
+  return rows;
+}
+// الممرض يقول إنه تواصل مع المريض: الطلب صار بيده، فيُحسب «تم التواصل» عند المدير أيضاً
+async function markNurseRequestContactedByNurse(requestId, nurseId) {
+  const { rows } = await pool.query(
+    `UPDATE nurse_requests SET nurse_contacted_at = COALESCE(nurse_contacted_at, NOW()),
+       status = 'contacted', contacted_at = COALESCE(contacted_at, NOW())
+     WHERE id = $1 AND nurse_id = $2 RETURNING id, status, nurse_contacted_at`,
+    [requestId, nurseId]
+  );
+  return rows[0] || null;
+}
+async function getNurseRequestById(id) {
+  const { rows } = await pool.query('SELECT * FROM nurse_requests WHERE id = $1', [id]);
+  return rows[0] || null;
+}
+// هل وصل إلى الممرض إشعار بطلب من الرقم نفسه خلال الساعتين الماضيتين؟ (لا نزعجه مرتين)
+async function nurseRecentlyNotified(nurseId, patientPhone, exceptId) {
+  const { rows } = await pool.query(
+    `SELECT 1 FROM nurse_requests WHERE nurse_id = $1 AND patient_phone = $2 AND id <> $3
+       AND nurse_notified AND created_at > NOW() - INTERVAL '2 hours' LIMIT 1`,
+    [nurseId, patientPhone, exceptId]
+  );
+  return rows.length > 0;
+}
+async function markNurseNotified(requestId) {
+  await pool.query('UPDATE nurse_requests SET nurse_notified = true WHERE id = $1', [requestId]);
 }
 
 async function deletePushSubscription(id) {
@@ -1645,6 +1722,16 @@ module.exports = {
   deletePushSubscriptionsByRole,
   markPushOk,
   markPushFailed,
+  getNurseIdsWithPush,
+  deleteNursePushSubscriptions,
+  getNurseByToken,
+  ensureNurseToken,
+  replaceNurseToken,
+  getNurseRequestsForNurse,
+  markNurseRequestContactedByNurse,
+  getNurseRequestById,
+  nurseRecentlyNotified,
+  markNurseNotified,
   launchReset,
   getAdminStats,
   getOnDutyPharmacies,
