@@ -167,20 +167,23 @@ async function notifyNewOrders(orders) {
   });
 }
 
-// المكان كما كتبه المريض، مختصراً لسطر الإشعار
-function shortArea(area) {
-  const a = String(area || '').replace(/\s+/g, ' ').trim();
-  return a.length > 70 ? a.slice(0, 69) + '…' : a;
+// نص قصير لسطر الإشعار: المكان كما كتبه المريض، واسم الممرض. الرسالة كلها يجب أن تبقى أصغر من
+// حد خدمة الإشعارات (4 كيلوبايت)، وإلا رُفضت، وبعد 20 رفضاً يُحذف اشتراك المستلم.
+function shortText(text, max) {
+  const a = String(text || '').replace(/\s+/g, ' ').trim();
+  return a.length > max ? a.slice(0, max - 1) + '…' : a;
 }
+const shortArea = (area) => shortText(area, 70);
 
 // طلب زيارة جديد: يصل في اللحظة نفسها إلى مدير التمريض وإلى الممرض المطلوب (قرار ميار: كي لا
 // يصير المدير عنق زجاجة حين يكثر الممرضون). الممرض يرى المكان فقط على شاشة القفل، والضغط
 // يفتح صفحته فيرى اسم المريض ورقمه والخدمة. طلب ثانٍ من الرقم نفسه للممرض نفسه خلال ساعتين
 // يصل إلى المدير وحده، فلا يُزعج الممرض مرتين.
 async function notifyNurseRequest(nurse, request) {
+  const name = shortText(nurse.name, 80);
   await notify({ roles: ['manager'] }, {
-    ar: { title: '🩺 طلب زيارة تمريضية جديد', body: `طلب زيارة للممرض/ة ${nurse.name}. افتح اللوحة لترى بيانات المريض.` },
-    en: { title: '🩺 New nursing visit request', body: `A visit request for ${nurse.name}. Open the panel to see the patient's details.` },
+    ar: { title: '🩺 طلب زيارة تمريضية جديد', body: `طلب زيارة للممرض/ة ${name}. افتح اللوحة لترى بيانات المريض.` },
+    en: { title: '🩺 New nursing visit request', body: `A visit request for ${name}. Open the panel to see the patient's details.` },
     url: '/?open=admin', tag: 'dj-nurse-request'
   });
   if (!request || await db.nurseRecentlyNotified(nurse.id, request.patient_phone, request.id)) return;

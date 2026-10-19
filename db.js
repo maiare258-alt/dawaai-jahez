@@ -857,6 +857,11 @@ async function exportAll() {
     const { rows } = await pool.query(sql);
     data[table] = rows;
   }
+  // ف1: مفاتيح حيّة لا مكان لها في ملف قد يُنسخ أو يُرسل: رمز رابط كل ممرض (يفتح صفحته وفيها
+  // أسماء المرضى وأرقامهم) والمفتاح الخاص للإشعارات (يرسل باسم الموقع). الاسترجاع لا يحتاجهما:
+  // الرابط يُنشأ من جديد من «تعديل» الممرض، ومفتاح الإشعارات يُنشأ تلقائياً فيعيد كل جهاز تفعيلها.
+  for (const n of data.nurses) delete n.notify_token;
+  data.app_settings = data.app_settings.filter(s => s.key !== 'vapid_keys');
   return {
     exported_at: new Date().toISOString(),
     schema_version: 1,
@@ -1392,6 +1397,11 @@ async function getNurseIdsWithPush() {
   const { rows } = await pool.query(`SELECT DISTINCT nurse_id FROM push_subscriptions WHERE role = 'nurse' AND nurse_id IS NOT NULL`);
   return new Set(rows.map(r => r.nurse_id));
 }
+// ف1: إعادة تعيين كلمة مرور صيدلية: أجهزتها القديمة (هاتف موظف ترك العمل مثلاً) لا تصلها إشعارات بعد الآن
+async function deletePharmacyPushSubscriptions(pharmacyId) {
+  await pool.query(`DELETE FROM push_subscriptions WHERE role = 'pharmacy' AND pharmacy_id = $1`, [pharmacyId]);
+}
+
 async function deleteNursePushSubscriptions(nurseId) {
   await pool.query(`DELETE FROM push_subscriptions WHERE role = 'nurse' AND nurse_id = $1`, [nurseId]);
 }
@@ -1724,6 +1734,7 @@ module.exports = {
   markPushFailed,
   getNurseIdsWithPush,
   deleteNursePushSubscriptions,
+  deletePharmacyPushSubscriptions,
   getNurseByToken,
   ensureNurseToken,
   replaceNurseToken,
