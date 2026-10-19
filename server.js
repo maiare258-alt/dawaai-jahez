@@ -42,6 +42,8 @@ const pushRoutes = require('./routes/notifications');
 const { clientIp } = require('./middleware/rateLimit');
 
 const app = express();
+// لا نكشف اسم إطار العمل وإصداره للمهاجم (ترويسة X-Powered-By: Express)
+app.disable('x-powered-by');
 const PORT = process.env.PORT || 3000;
 
 // ضغط الاستجابات. app.js وindex.html وحدهما 366 كيلوبايت، والضغط يجعلها نحو 91.
