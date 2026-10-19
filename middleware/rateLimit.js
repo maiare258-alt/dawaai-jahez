@@ -69,5 +69,32 @@ function rateLimit(max = 10, windowMs = 15 * 60 * 1000) {
   };
 }
 
+// حدّ مشترك لكل عنوان (IP) عبر عدة مسارات. يختلف عن rateLimit أعلاه في أن المفتاح هو
+// «السلة» الثابتة لا نمط المسار، فتتشارك مساراتٌ كثيرة عدّاداً واحداً لكل عنوان.
+//
+// الغرض: مسارات الصيدلي التي تتحقق من كلمة المرور بـbcrypt في كل طلب. العملية تستهلك
+// معالج الخادم (الوحيد)، فبلا حدّ يستطيع من يملك حساب صيدلية صحيحاً أن يُغرقها بآلاف
+// الطلبات فيبطّئ الموقع على الجميع. حدّ واحد سخيّ لكل عنوان يكفي الصيدلي في أكثف عمله،
+// ويقطع الإغراق. (bcrypt هنا غير متزامن أصلاً فلا يُجمّد الحلقة، وهذا دفاع إضافي.)
+function sharedIpLimit(max, windowMs, bucket) {
+  return function (req, res, next) {
+    const ip = clientIp(req).ip || 'unknown';
+    const key = `${bucket}:${ip}`;
+    const now = Date.now();
+    let entry = attempts.get(key);
+    if (!entry || now > entry.resetAt) {
+      entry = { count: 0, resetAt: now + windowMs };
+      attempts.set(key, entry);
+    }
+    entry.count++;
+    if (entry.count > max) {
+      res.set('Retry-After', String(Math.ceil((entry.resetAt - now) / 1000)));
+      return res.status(429).json({ error: 'محاولات كثيرة جداً. حاول بعد قليل.' });
+    }
+    next();
+  };
+}
+
 module.exports = rateLimit;
 module.exports.clientIp = clientIp;
+module.exports.sharedIpLimit = sharedIpLimit;
