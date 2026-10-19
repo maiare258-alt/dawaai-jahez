@@ -9,6 +9,8 @@ const bcrypt = require('bcryptjs');
 const db = require('../db');
 const adminAuth = require('../middleware/adminAuth');
 const rateLimit = require('../middleware/rateLimit');
+// حدّ مشترك لمساري الصيدلي اللذين يتحققان من كلمة المرور (نفس سلة بقية الملفات)
+const phAuthLimit = rateLimit.sharedIpLimit(400, 15 * 60 * 1000, 'ph-auth');
 
 // التصنيفات المسموحة حصراً عند إنشاء دواء/مستحضر جديد
 const ALLOWED_CATEGORIES = ['medicine', 'cosmetic'];
@@ -136,7 +138,7 @@ router.post('/', adminAuth, async (req, res) => {
 
 // إضافة دواء أو مستحضر جديد من قبل الصيدلي نفسه (يتطلب تأكيد اسم المستخدم وكلمة المرور، بدون كلمة مرور الإدارة)
 // POST /api/medicines/self  { username, password, name, generic_name, alt_names, category }
-router.post('/self', async (req, res) => {
+router.post('/self', phAuthLimit, async (req, res) => {
   const { username, password, generic_name, alt_names, category } = req.body;
   const name = typeof req.body.name === 'string' ? req.body.name.trim() : '';
   if (!username || !password) {
@@ -169,7 +171,7 @@ router.post('/self', async (req, res) => {
 // استيراد دفعة أدوية دفعة وحدة من ملف (نفس صلاحية الإضافة الذاتية - اسم مستخدم وكلمة مرور الصيدلية، بدون كلمة مرور الإدارة)
 // كل دواء إما موجود أصلاً بالقائمة العامة (بيُربط بمخزون الصيدلية فقط) أو جديد بالكامل (بيُنشأ ثم يُربط)
 // POST /api/medicines/bulk-import  { username, password, items: [{name, generic_name, alt_names, category}, ...] }
-router.post('/bulk-import', async (req, res) => {
+router.post('/bulk-import', phAuthLimit, async (req, res) => {
   const { username, password, items } = req.body;
   if (!username || !password) {
     return res.status(400).json({ error: 'بيانات الدخول مطلوبة' });

@@ -9,6 +9,8 @@ const bcrypt = require('bcryptjs');
 
 const db = require('../db');
 const rateLimit = require('../middleware/rateLimit');
+// حدّ مشترك لمسارات الصيدلي التي تتحقق من كلمة المرور (نفس سلة بقية الملفات)
+const phAuthLimit = rateLimit.sharedIpLimit(400, 15 * 60 * 1000, 'ph-auth');
 const push = require('../push');
 
 // وسيط مصادقة الصيدلي عبر الترويسات، مع فحص ملكية الطلب.
@@ -198,7 +200,7 @@ router.get('/:pharmacyId', rateLimit(240, 15 * 60 * 1000), async (req, res) => {
 
 // تعليم طلب كمُطّلع عليه
 // PUT /api/orders/:id/seen
-router.put('/:id/seen', pharmacyOwnsOrder, async (req, res) => {
+router.put('/:id/seen', phAuthLimit, pharmacyOwnsOrder, async (req, res) => {
   try {
     await db.markOrderSeen(req.params.id);
     res.json({ success: true });
@@ -210,7 +212,7 @@ router.put('/:id/seen', pharmacyOwnsOrder, async (req, res) => {
 
 // تأكيد إنه الصيدلية استجابت للطلب وحجزت الدواء
 // PUT /api/orders/:id/confirm
-router.put('/:id/confirm', pharmacyOwnsOrder, async (req, res) => {
+router.put('/:id/confirm', phAuthLimit, pharmacyOwnsOrder, async (req, res) => {
   try {
     await db.confirmOrder(req.params.id);
     res.json({ success: true });
@@ -222,7 +224,7 @@ router.put('/:id/confirm', pharmacyOwnsOrder, async (req, res) => {
 
 // حذف طلب نهائياً (بعد ما يتعامل الصيدلي معه)
 // DELETE /api/orders/:id
-router.delete('/:id', pharmacyOwnsOrder, async (req, res) => {
+router.delete('/:id', phAuthLimit, pharmacyOwnsOrder, async (req, res) => {
   try {
     await db.deleteOrder(req.params.id);
     res.json({ success: true });

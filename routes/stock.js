@@ -8,6 +8,12 @@ router.param('medicineId', validIdParam);
 const bcrypt = require('bcryptjs');
 
 const db = require('../db');
+const rateLimit = require('../middleware/rateLimit');
+
+// حدّ مشترك لمسارات الصيدلي التي تتحقق من كلمة المرور في كل طلب (سلة واحدة عبر كل الملفات).
+// 400 طلب كل ربع ساعة لكل عنوان: أكثر من كافٍ لأكثف جلسة صيدلي (تحديث مخزون كبير +
+// معالجة طلبات)، ويقطع الإغراق المتعمّد.
+const phAuthLimit = rateLimit.sharedIpLimit(400, 15 * 60 * 1000, 'ph-auth');
 
 // تاريخ حقيقي بصيغة YYYY-MM-DD (لا 2027-02-31 ولا 2027-13-01 ولا نص عشوائي)
 function isRealDate(v) {
@@ -20,7 +26,7 @@ function isRealDate(v) {
 // GET /api/stock/:pharmacyId  Headers: { x-pharmacy-username, x-pharmacy-password } (مشفّرة بـ encodeURIComponent)
 // م4: كان المسار مفتوحاً لأي أحد، فيكشف تواريخ الصنع والانتهاء لكل صيدلية، وهي أداة داخلية للصيدلي.
 // المريض لا يحتاجه: توفر الأدوية يصله من مسار البحث، وهو لا يتضمن هذه التواريخ.
-router.get('/:pharmacyId', async (req, res) => {
+router.get('/:pharmacyId', phAuthLimit, async (req, res) => {
   const rawUsername = req.headers['x-pharmacy-username'];
   const rawPassword = req.headers['x-pharmacy-password'];
   if (!rawUsername || !rawPassword) return res.status(401).json({ error: 'بيانات الدخول مطلوبة' });
@@ -50,7 +56,7 @@ router.get('/:pharmacyId', async (req, res) => {
 // يتطلب تأكيد اسم المستخدم وكلمة مرور الصيدلية صاحبة المخزون
 // pharmacyId بالرابط غير موثوق إطلاقاً — الصيدلية الحقيقية تُستخرج حصراً من بيانات الدخول، بنفس نمط bulk-import
 // PUT /api/stock/:pharmacyId/:medicineId  { available: true|false, username, password, manufactureDate?, expiryDate? }
-router.put('/:pharmacyId/:medicineId', async (req, res) => {
+router.put('/:pharmacyId/:medicineId', phAuthLimit, async (req, res) => {
   const { medicineId } = req.params;
   const { available, username, password, manufactureDate, expiryDate } = req.body;
   if (!username || !password) {

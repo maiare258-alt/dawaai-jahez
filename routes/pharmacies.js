@@ -10,6 +10,9 @@ const crypto = require('crypto');
 const db = require('../db');
 const adminAuth = require('../middleware/adminAuth');
 const rateLimit = require('../middleware/rateLimit');
+// حدّ مشترك لمسارات الصيدلي الخاصة التي تتحقق من كلمة المرور (نفس سلة بقية الملفات).
+// مسارا الدخول وتغيير كلمة المرور لهما حدّهما الأضيق الخاص، فلا يحتاجانه.
+const phAuthLimit = rateLimit.sharedIpLimit(400, 15 * 60 * 1000, 'ph-auth');
 
 // المدن المسموحة — مراكز المحافظات السورية الأربع عشرة + سلمية (نقطة الانطلاق).
 // تُخزَّن بقاعدة البيانات كمفاتيح إنكليزية ثابتة، وتُترجم للعرض بالواجهة.
@@ -295,7 +298,7 @@ router.post('/login', rateLimit(10, 15 * 60 * 1000), async (req, res) => {
 
 // حذف الصيدلي لحسابه الخاص فقط
 // DELETE /api/pharmacies/self  { username, password }
-router.delete('/self', async (req, res) => {
+router.delete('/self', phAuthLimit, async (req, res) => {
   const { username, password } = req.body;
   if (!username || !password) {
     return res.status(400).json({ error: 'بيانات الدخول مطلوبة لتأكيد الحذف' });
@@ -317,7 +320,7 @@ router.delete('/self', async (req, res) => {
 
 // تحديث حالة المناوبة (الصيدلي لحسابه هو فقط)
 // PUT /api/pharmacies/self/duty  { username, password, on_duty, on_duty_day, on_duty_shift, on_duty_start_time, on_duty_end_time }
-router.put('/self/duty', async (req, res) => {
+router.put('/self/duty', phAuthLimit, async (req, res) => {
   const { username, password, on_duty, on_duty_day, on_duty_shift, on_duty_start_time, on_duty_end_time } = req.body;
   if (!username || !password) {
     return res.status(400).json({ error: 'بيانات الدخول مطلوبة' });
@@ -365,7 +368,7 @@ function normalizeMainPhone(raw) {
 }
 
 // الصيدلي يعدّل رقمه الأساسي — PUT /api/pharmacies/self/phone { username, password, phone }
-router.put('/self/phone', async (req, res) => {
+router.put('/self/phone', phAuthLimit, async (req, res) => {
   const { username, password, phone } = req.body;
   if (!username || !password) {
     return res.status(400).json({ error: 'بيانات الدخول مطلوبة' });
@@ -385,7 +388,7 @@ router.put('/self/phone', async (req, res) => {
   }
 });
 
-router.put('/self/assistant-phone', async (req, res) => {
+router.put('/self/assistant-phone', phAuthLimit, async (req, res) => {
   const { username, password, assistant_phone } = req.body;
   if (!username || !password) {
     return res.status(400).json({ error: 'بيانات الدخول مطلوبة' });
@@ -486,7 +489,7 @@ router.post('/:id/reset-password', adminAuth, async (req, res) => {
 //
 // الصيدلي يملك رقمه ويعرف أيّه يعمل على واتساب، فهو الجهة الصحيحة لإدخاله.
 // إرسال قيمة فارغة يمسح الرقم — إجراء مشروع لمن أوقف واتساب عمله.
-router.put('/self/whatsapp', async (req, res) => {
+router.put('/self/whatsapp', phAuthLimit, async (req, res) => {
   const { username, password, whatsapp_phone } = req.body;
   if (!username || !password) {
     return res.status(400).json({ error: 'بيانات الدخول مطلوبة' });
@@ -514,7 +517,7 @@ router.put('/self/whatsapp', async (req, res) => {
 // الصيدلي هو الجهة الصحيحة: يضغط "تحديد موقعي" وهو داخل صيدليته فيُقرأ موقعه
 // من GPS جهازه بدقة أمتار — صفر كتابة وصفر خطأ بشري.
 // إرسال قيمتين فارغتين يمسح الموقع.
-router.put('/self/location', async (req, res) => {
+router.put('/self/location', phAuthLimit, async (req, res) => {
   const { username, password, latitude, longitude } = req.body;
   if (!username || !password) {
     return res.status(400).json({ error: 'بيانات الدخول مطلوبة' });
@@ -666,7 +669,7 @@ router.put('/:id/manages-stock', adminAuth, async (req, res) => {
 //
 // إرسال قيمتين فارغتين يمسح الجدول فتتوقف المنصة عن عرض أي حالة. نطلب الاثنين
 // معاً أو لا شيء: ساعة فتح بلا ساعة إغلاق لا تكفي لحساب الحالة.
-router.put('/self/hours', async (req, res) => {
+router.put('/self/hours', phAuthLimit, async (req, res) => {
   const { username, password, opens_at, closes_at } = req.body;
   if (!username || !password) {
     return res.status(400).json({ error: 'بيانات الدخول مطلوبة' });
@@ -701,7 +704,7 @@ router.put('/self/hours', async (req, res) => {
 //
 // يخدم الظرف الطارئ والعطلة. التاريخ يُحسب هنا بتوقيت دمشق لا بتوقيت الخادم،
 // ويسقط أثره تلقائياً في اليوم التالي دون أي إجراء من الصيدلي.
-router.put('/self/closed-today', async (req, res) => {
+router.put('/self/closed-today', phAuthLimit, async (req, res) => {
   const { username, password, closed } = req.body;
   if (!username || !password) {
     return res.status(400).json({ error: 'بيانات الدخول مطلوبة' });
