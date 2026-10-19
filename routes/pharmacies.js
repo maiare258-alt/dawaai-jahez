@@ -470,6 +470,9 @@ router.post('/:id/reset-password', adminAuth, async (req, res) => {
     const newPassword = generatePassword(12);
     const hash = await bcrypt.hash(newPassword, 10);
     await db.setPharmacyPassword(pharmacy.id, hash);
+    // ف1: كلمة جديدة تعني أن من كان يعرف القديمة لم يعد مخولاً، فتتوقف إشعارات أجهزته أيضاً.
+    // الصيدلي يعيد تفعيلها من لوحته بعد الدخول بالكلمة الجديدة.
+    await db.deletePharmacyPushSubscriptions(pharmacy.id);
 
     res.json({ success: true, name: pharmacy.name, username: pharmacy.owner_username, new_password: newPassword });
   } catch (err) {

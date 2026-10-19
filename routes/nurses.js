@@ -125,6 +125,32 @@ function parseExperience(v) {
   if (!Number.isInteger(n) || n < 0 || n > 60) return { error: 'سنوات الخبرة يجب أن تكون رقماً بين 0 و60' };
   return { value: n };
 }
+// ف1: بيانات الممرض الأساسية عند الإضافة. كانت تُحفظ بلا أي فحص، فقُبل اسم من 50 ألف حرف،
+// وقيمة ليست نصاً حُفظت «[object Object]». يضيف الممرضين الآن شخصان (الإدارة ومدير التمريض)،
+// والاسم يدخل في نص الإشعار، فالحدود هنا ضرورية.
+const MAX_NURSE_NAME = 80;
+const MAX_NURSE_FIELD = 100;
+function parseNurseBasics(body) {
+  const { name, specialty, university, graduation_year, phone } = body;
+  if (typeof name !== 'string' || !name.trim()) return { error: 'اسم الممرض مطلوب' };
+  if (name.trim().length > MAX_NURSE_NAME) return { error: 'الاسم طويل جداً' };
+  const out = { name };
+  for (const [key, v] of [['specialty', specialty], ['university', university], ['graduation_year', graduation_year]]) {
+    if (v === undefined || v === null || v === '') { out[key] = null; continue; }
+    const s = typeof v === 'number' && Number.isFinite(v) ? String(v) : v;
+    if (typeof s !== 'string' || s.trim().length > MAX_NURSE_FIELD) return { error: 'قيمة غير صالحة' };
+    out[key] = s;
+  }
+  if (phone === undefined || phone === null || phone === '') out.phone = null;
+  else {
+    if (typeof phone !== 'string') return { error: 'رقم الهاتف غير صالح' };
+    const digits = phone.replace(/[٠-٩]/g, d => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d))).replace(/[\s\-()]/g, '');
+    if (!/^\+?\d{7,15}$/.test(digits)) return { error: 'رقم الهاتف غير صالح' };
+    out.phone = digits;
+  }
+  return { value: out };
+}
+
 function parseServices(v) {
   if (v === undefined || v === null) return { value: null };
   if (typeof v !== 'string') return { error: 'الخدمات غير صالحة' };
@@ -210,8 +236,9 @@ router.post('/:id/ratings', rateLimit(5, 15 * 60 * 1000), async (req, res) => {
 // POST /api/nurses  { name, specialty, university, graduation_year, phone }
 // يضيفه المدير أو مدير التمريض
 router.post('/', nursingAuth, async (req, res) => {
-  const { name, specialty, university, graduation_year, phone } = req.body;
-  if (!name) return res.status(400).json({ error: 'اسم الممرض مطلوب' });
+  const basics = parseNurseBasics(req.body || {});
+  if (basics.error) return res.status(400).json({ error: basics.error });
+  const { name, specialty, university, graduation_year, phone } = basics.value;
   const exp = parseExperience(req.body.experience_years);
   if (exp.error) return res.status(400).json({ error: exp.error });
   const svc = parseServices(req.body.services);
@@ -675,7 +702,10 @@ async function nurseTokenAuth(req, res, next) {
 }
 
 // صفحة الممرض: اسمه وحالته، وطلباته في آخر 30 يوماً ببيانات المرضى (قرار ميار: الممرض يتصل بالمريض)
-router.get('/me/page', rateLimit(120, 15 * 60 * 1000), nurseTokenAuth, async (req, res) => {
+// ف1: 300 لا 120: شركات الهاتف تضع كثيراً من المشتركين خلف عنوان واحد، والصفحة تتحدث كل 30 ثانية،
+// فأربعة ممرضين على الشبكة نفسها كانوا يبلغون الحد. تخمين الرمز مستحيل أصلاً (256 بت).
+const NURSE_PAGE_LIMIT = rateLimit(300, 15 * 60 * 1000);
+router.get('/me/page', NURSE_PAGE_LIMIT, nurseTokenAuth, async (req, res) => {
   try {
     res.set('Cache-Control', 'no-store');
     const n = req.nurse;
@@ -690,7 +720,7 @@ router.get('/me/page', rateLimit(120, 15 * 60 * 1000), nurseTokenAuth, async (re
 });
 
 // الممرض: «تواصلت مع المريض»
-router.put('/me/requests/:id/contacted', rateLimit(120, 15 * 60 * 1000), nurseTokenAuth, async (req, res) => {
+router.put('/me/requests/:id/contacted', rateLimit(300, 15 * 60 * 1000), nurseTokenAuth, async (req, res) => {
   try {
     const r = await db.markNurseRequestContactedByNurse(req.params.id, req.nurse.id);
     if (!r) return res.status(404).json({ error: 'الطلب غير موجود' });
