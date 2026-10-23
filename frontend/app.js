@@ -191,6 +191,7 @@ const translations = {
     order_success_msg: 'أُرسل طلبك بنجاح. ستتواصل معك الصيدلية قريباً على الرقم الذي أدخلته.',
     modal_ok: 'حسناً', modal_cancel: 'إلغاء', modal_yes: 'نعم',
     onduty_title: '🟢 الصيدليات المناوبة اليوم', onduty_now_badge: '🟢 مناوبة الآن',
+    onduty_starts_tonight: '🕗 تبدأ الليلة {time}', onduty_starts_today: '🕗 تبدأ اليوم {time}', onduty_starts_tomorrow: '🕗 تبدأ غداً {time}',
     onduty_empty_title: 'لا توجد صيدليات مناوبة حالياً',
     onduty_empty_subtitle: 'يمكنك المحاولة لاحقاً، أو التواصل مباشرة مع الصيدلية التي تفضّلها.',
     bell_empty: 'لا توجد إشعارات حالياً', bell_aria_label: 'إشعارات الطلبات', bell_dismiss_aria: 'إخفاء', bell_clear_all: '🗑️ مسح الكل',
@@ -910,6 +911,7 @@ const translations = {
     order_success_msg: 'Your order has been sent successfully! The pharmacy will contact you soon on the number you entered.',
     modal_ok: 'OK', modal_cancel: 'Cancel', modal_yes: 'Yes',
     onduty_title: '🟢 Pharmacies on duty today', onduty_now_badge: '🟢 On duty now',
+    onduty_starts_tonight: '🕗 Starts tonight {time}', onduty_starts_today: '🕗 Starts today {time}', onduty_starts_tomorrow: '🕗 Starts tomorrow {time}',
     onduty_empty_title: 'No pharmacies on duty right now',
     onduty_empty_subtitle: 'Check back later, or contact your usual pharmacy directly.',
     bell_empty: 'No notifications yet', bell_aria_label: 'Order notifications', bell_dismiss_aria: 'Dismiss', bell_clear_all: '🗑️ Clear all',
@@ -2838,18 +2840,72 @@ function formatTime(hhmm) {
   return typeof hhmm === 'string' ? hhmm : '';
 }
 
+// ---------- مؤقت المناوبة في صفحة المرضى ----------
+// المناوبة تظهر للمرضى من لحظة حفظها (قرار ميار)، لكنها لا تُعدّ «جارية» قبل ساعة بدايتها.
+// المناوبات بلا ساعة بداية (القديمة، وما تضعه الإدارة) جارية دائماً كما كانت.
+function dutyStartMs(p) {
+  const ms = p && p.on_duty_starts_at ? Date.parse(p.on_duty_starts_at) : NaN;
+  return isNaN(ms) ? null : ms;
+}
+function dutyStarted(p) {
+  if (!p || p.on_duty !== true) return false;
+  const start = dutyStartMs(p);
+  return start === null || start <= Date.now();
+}
+function dutyUpcoming(p) {
+  return !!p && p.on_duty === true && !dutyStarted(p);
+}
+
+// «تبدأ الليلة 8:00 م» / «تبدأ اليوم 9:00 ص» / «تبدأ غداً 8:00 ص» بتوقيت سوريا.
+// ما يبدأ بعد منتصف الليل القادم (قبل السادسة صباحاً) هو جزء من «الليلة» في كلام الناس.
+function dutyStartsLabel(p) {
+  const start = dutyStartMs(p);
+  if (start === null) return '';
+  const parts = {};
+  new Intl.DateTimeFormat('en-CA', {
+    timeZone: DAMASCUS_TZ, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23'
+  }).formatToParts(new Date(start)).forEach(x => { parts[x.type] = x.value; });
+  const startDate = `${parts.year}-${parts.month}-${parts.day}`;
+  const hour = Number(parts.hour);
+  const time = formatTime12(`${parts.hour}:${parts.minute}`);
+  const today = damascusTodayDate();
+  let key;
+  if (startDate <= today) key = hour >= 17 ? 'onduty_starts_tonight' : 'onduty_starts_today';
+  else key = hour < 6 ? 'onduty_starts_tonight' : 'onduty_starts_tomorrow';
+  return tFormat(key, { time });
+}
+
 // حالة الصيدلية الآن.
 // تُرجع null حين لا نعرف: صيدلية بلا ساعات محفوظة لا تُعرض لها أي حالة، فلا
 // ندّعي ما لا نعرف — نفس مبدأ زر واتساب وزر الاتجاهات.
 //
 // ترتيب الأولويات مقصود:
 //   1) المناوبة تتجاوز كل شيء: صيدلية مناوبة الليلة مفتوحة وإن قال جدولها غير ذلك.
+//      لكن بعد أن تبدأ فقط: مناوبة محفوظة لليلة لا تجعل الصيدلية «مفتوحة» عصراً.
 //   2) الإغلاق الاستثنائي لليوم يتجاوز الجدول المعتاد.
 //   3) الجدول المعتاد.
 function pharmacyOpenState(p) {
+  return withUpcomingDuty(p, pharmacyOpenStateBase(p));
+}
+
+// مناوبة محفوظة لم تبدأ بعد، والصيدلية مغلقة الآن: أقرب موعد فتح قد يكون بداية المناوبة
+// لا دوام الغد. فصيدلية دوامها 9–2 ومناوبتها الليلة تظهر عصراً «مغلقة، وتفتح الساعة 20:00».
+function withUpcomingDuty(p, st) {
+  if (!st || st.open || !dutyUpcoming(p)) return st;
+  const start = dutyStartMs(p);
+  const startHm = new Intl.DateTimeFormat('en-GB', {
+    timeZone: DAMASCUS_TZ, hour: '2-digit', minute: '2-digit', hourCycle: 'h23'
+  }).format(new Date(start));
+  const minsToDuty = (start - Date.now()) / 60000;
+  const opens = timeToMinutes(st.opensAt);
+  const minsToOpen = st.reason === 'today' || opens === null ? Infinity : (opens - damascusNowMinutes() + 1440) % 1440;
+  return minsToDuty <= minsToOpen ? { open: false, reason: 'schedule', opensAt: startHm } : st;
+}
+
+function pharmacyOpenStateBase(p) {
   if (!p) return null;
 
-  if (p.on_duty === true) {
+  if (dutyStarted(p)) {
     return { open: true, reason: 'duty', opensAt: p.opens_at || null };
   }
 
@@ -3045,7 +3101,7 @@ async function loadWhatsappPharmacies() {
             <span class="wa-pharmacy-meta">
               ${p.city ? `<span>📍 <bdi>${escapeHtml(cityName(p.city))}</bdi></span>` : ''}
               ${p.address ? `<span class="admin-ph-sep">•</span><span><bdi>${escapeHtml(p.address)}</bdi></span>` : ''}
-              ${p.on_duty ? `<span class="badge yes">${t('wa_onduty_now')}</span>` : ''}
+              ${dutyStarted(p) ? `<span class="badge yes">${t('wa_onduty_now')}</span>` : ''}
             </span>
           </div>
           <button type="button" class="wa-chat-btn" data-wa-phone="${escapeHtml(p.whatsapp_phone)}"
@@ -3184,19 +3240,42 @@ let lastOnDutySnapshot = null;
 // كان يُعرض فوق قائمة المدينة الجديدة؛ الآن يُهمل كل رد ليس لآخر طلب
 let onDutySeq = 0;
 
+let onDutyFlipTimer = null;
+function scheduleOnDutyFlip(list) {
+  if (onDutyFlipTimer) { clearTimeout(onDutyFlipTimer); onDutyFlipTimer = null; }
+  const next = list.filter(dutyUpcoming).map(dutyStartMs).sort((a, b) => a - b)[0];
+  if (!next) return;
+  // المؤقت في المتصفح محدود بنحو 24 يوماً، والمناوبة تُحفظ قبل موعدها بيوم على الأكثر
+  onDutyFlipTimer = setTimeout(() => { onDutyFlipTimer = null; loadOnDuty(); },
+    Math.min(Math.max(next - Date.now(), 0) + 1000, 2 * 86400000));
+}
+
 async function loadOnDuty() {
   const container = document.getElementById('on-duty-section');
   const seq = ++onDutySeq;
   try {
     const cityParam = currentCity ? `?city=${encodeURIComponent(currentCity)}` : '';
     const res = await fetchWithTimeout(`${API}/pharmacies/on-duty${cityParam}`, {}, 15000);
-    const data = await readJsonOk(res);
+    let data = await readJsonOk(res);
     if (seq !== onDutySeq) return;
     heroDutyCount = data.length;
     renderHeroRowSubs();
 
-    // ما تغيّر شي بالبيانات؟ خلص، ما في داعي نعيد رسم الشاشة ونسبب وميض
-    const snapshot = JSON.stringify(data);
+    // الجارية الآن أولاً (بترتيب الخادم)، ثم التي لم تبدأ بعد حسب الأقرب موعداً
+    data = data.map((p, i) => ({ p, i }))
+      .sort((x, y) => {
+        const ux = dutyUpcoming(x.p), uy = dutyUpcoming(y.p);
+        if (ux !== uy) return ux ? 1 : -1;
+        if (ux) return dutyStartMs(x.p) - dutyStartMs(y.p) || x.i - y.i;
+        return x.i - y.i;
+      })
+      .map(x => x.p);
+    // عند بداية أقرب مناوبة: نعيد الطلب فتتحول شارتها إلى «مناوبة الآن» دون تحديث الصفحة
+    scheduleOnDutyFlip(data);
+
+    // ما تغيّر شي بالبيانات؟ خلص، ما في داعي نعيد رسم الشاشة ونسبب وميض.
+    // حالة كل مناوبة (بدأت أم لا) جزء من اللقطة: تتغير مع الوقت والبيانات نفسها
+    const snapshot = JSON.stringify(data) + '|' + data.map(p => dutyStarted(p) ? 1 : 0).join('');
     if (snapshot === lastOnDutySnapshot) return;
     lastOnDutySnapshot = snapshot;
 
@@ -3228,7 +3307,9 @@ async function loadOnDuty() {
                 <div class="duty-card-top">
                   <span class="duty-card-name"><bdi>${escapeHtml(p.name)}</bdi>${verifiedBadgeHtml(p.verified)}${openStateBadgeHtml(p)}${p.city ? ` <span class="muted" style="font-size:13px;">- <bdi>${escapeHtml(cityName(p.city))}</bdi></span>` : ''}</span>
                   ${hasLocation(p.latitude, p.longitude) ? `<div class="duty-card-actions">${directionsBtnHtml(p.latitude, p.longitude)}</div>` : ''}
-                  <span class="duty-status-badge">${t('onduty_now_badge')}</span>
+                  ${dutyUpcoming(p)
+                    ? `<span class="duty-status-badge upcoming">${escapeHtml(dutyStartsLabel(p))}</span>`
+                    : `<span class="duty-status-badge">${t('onduty_now_badge')}</span>`}
                 </div>
                 ${p.address ? `<div class="duty-card-row"><span class="duty-icon">📍</span> ${escapeHtml(p.address)}</div>` : ''}
                 ${p.phone ? `<div class="duty-card-row"><span class="duty-icon">📞</span> ${escapeHtml(p.phone)}</div>` : ''}
