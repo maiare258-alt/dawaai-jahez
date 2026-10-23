@@ -726,7 +726,7 @@ async function clearAllDuty() {
 async function getWhatsappPharmacies(city) {
   const { rows } = await pool.query(
     `SELECT id, name, address, city, whatsapp_phone, COALESCE(verified, false) AS verified,
-            COALESCE(on_duty, false) AS on_duty
+            COALESCE(on_duty, false) AS on_duty, on_duty_starts_at
      FROM pharmacies
      WHERE whatsapp_phone IS NOT NULL AND whatsapp_phone <> ''
        AND ($1::text IS NULL OR city = $1)
@@ -1125,7 +1125,9 @@ async function getOnDutyPharmacies(city) {
     `SELECT id, name, address, phone, assistant_phone, city, whatsapp_phone, latitude, longitude,
             COALESCE(verified, false) AS verified, COALESCE(manages_stock, false) AS manages_stock,
             opens_at, closes_at, closed_override_date,
-            on_duty, on_duty_day, on_duty_shift, on_duty_start_time, on_duty_end_time
+            on_duty, on_duty_day, on_duty_shift, on_duty_start_time, on_duty_end_time,
+            -- مؤقت المناوبة: الواجهة تُظهر «تبدأ الليلة…» حتى لحظة البداية، ثم «مناوبة الآن»
+            on_duty_starts_at, on_duty_ends_at
      FROM pharmacies WHERE on_duty = true AND ($1::text IS NULL OR city = $1) ORDER BY on_duty_shift, id`,
     [city || null]
   );
@@ -1149,6 +1151,8 @@ async function getAvailabilityForMedicines(medicineIds, city) {
             COALESCE(p.manages_stock, false) AS manages_stock,
             p.opens_at, p.closes_at, p.closed_override_date,
             COALESCE(p.on_duty, false) AS on_duty,
+            -- لحظة بداية المناوبة: قبلها تتبع شارة «مفتوحة/مغلقة» الدوام العادي لا المناوبة
+            p.on_duty_starts_at,
             COALESCE(s.available, false) AS available,
             s.updated_at AS stock_updated_at
      FROM unnest($1::int[]) WITH ORDINALITY AS m(id, ord)
@@ -1178,6 +1182,8 @@ async function getAvailability(medicineId, city) {
             -- حالة المناوبة: الواجهة تعدّ الصيدلية المناوبة "مفتوحة الآن" أياً كانت ساعات
             -- دوامها. بدون هذا الحقل كانت المناوبة تظهر "مغلقة" في نتائج البحث ليلاً
             COALESCE(p.on_duty, false) AS on_duty,
+            -- لحظة بداية المناوبة: قبلها تتبع شارة «مفتوحة/مغلقة» الدوام العادي لا المناوبة
+            p.on_duty_starts_at,
             COALESCE(s.available, false) AS available,
             s.updated_at AS stock_updated_at
      FROM pharmacies p
