@@ -165,6 +165,19 @@ app.use(express.static(path.join(__dirname, 'frontend'), {
   }
 }));
 
+// مؤقت المناوبة: قبل أي طلب API نُطفئ المناوبات التي انتهت ساعاتها، فلا يرى أحد مناوبة
+// منتهية حتى لو نام الخادم ساعة النهاية. لا يلمس القاعدة إلا حين يحين موعد (db.expireEndedDuties).
+// فشله لا يوقف الطلب: الحالة تُصحَّح مع الطلب التالي.
+app.use('/api', (req, res, next) => {
+  db.expireEndedDuties()
+    .catch(err => console.error('تعذّر إطفاء المناوبات المنتهية:', err.message))
+    .then(() => next());
+});
+// ودورياً كل دقيقة والخادم مستيقظ، حتى بلا زوار
+setInterval(() => {
+  db.expireEndedDuties().catch(err => console.error('تعذّر إطفاء المناوبات المنتهية:', err.message));
+}, 60 * 1000).unref();
+
 // مسارات API
 app.use('/api/medicines', medicinesRoutes);
 app.use('/api/pharmacies', pharmaciesRoutes);

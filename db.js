@@ -142,6 +142,11 @@ async function initDb() {
   await pool.query(`ALTER TABLE pharmacies ADD COLUMN IF NOT EXISTS on_duty_shift TEXT;`);
   await pool.query(`ALTER TABLE pharmacies ADD COLUMN IF NOT EXISTS on_duty_start_time TEXT;`);
   await pool.query(`ALTER TABLE pharmacies ADD COLUMN IF NOT EXISTS on_duty_end_time TEXT;`);
+  // مؤقت المناوبة: لحظتا البداية والنهاية الفعليتان (بتوقيت عالمي) تُحسبان عند حفظ الصيدلي
+  // مناوبته (dutyTime.js). عند on_duty_ends_at تنطفئ المناوبة وحدها. NULL = مناوبة يدوية بلا مؤقت
+  // (ما تضبطه الإدارة، والسجلات القديمة)، فتبقى كما كانت حتى يطفئها أحد.
+  await pool.query(`ALTER TABLE pharmacies ADD COLUMN IF NOT EXISTS on_duty_starts_at TIMESTAMPTZ;`);
+  await pool.query(`ALTER TABLE pharmacies ADD COLUMN IF NOT EXISTS on_duty_ends_at TIMESTAMPTZ;`);
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS stock (
@@ -632,11 +637,13 @@ async function deletePharmacy(pharmacyId) {
 
 // updatedBy: 'pharmacy' أو 'admin' — يُمرَّر من طبقة المسارات حيث تُعرف الهوية
 // بيقين من المصادقة نفسها، لا من جسم الطلب الذي يمكن تزويره.
-async function setDutyStatus(pharmacyId, onDuty, day, shift, startTime, endTime, updatedBy) {
+// timer: { startsAt, endsAt } من dutyTime.computeDutyWindow، أو null لمناوبة يدوية بلا مؤقت.
+async function setDutyStatus(pharmacyId, onDuty, day, shift, startTime, endTime, updatedBy, timer = null) {
   const { rows } = await pool.query(
     `UPDATE pharmacies
      SET on_duty = $1, on_duty_day = $2, on_duty_shift = $3, on_duty_start_time = $4, on_duty_end_time = $5,
-         duty_updated_by = $6, duty_updated_at = NOW()
+         duty_updated_by = $6, duty_updated_at = NOW(),
+         on_duty_starts_at = $8, on_duty_ends_at = $9
      WHERE id = $7 RETURNING *`,
     [
       !!onDuty,
@@ -645,10 +652,53 @@ async function setDutyStatus(pharmacyId, onDuty, day, shift, startTime, endTime,
       onDuty ? (startTime || null) : null,
       onDuty ? (endTime || null) : null,
       updatedBy === 'admin' ? 'admin' : 'pharmacy',
-      pharmacyId
+      pharmacyId,
+      onDuty && timer ? timer.startsAt : null,
+      onDuty && timer ? timer.endsAt : null
     ]
   );
+  dutyNextExpiry = undefined; // تغيّرت المواعيد: يُعاد حساب أقرب نهاية مع الطلب التالي
   return rows[0];
+}
+
+// ---------- مؤقت المناوبة: الإطفاء التلقائي ----------
+//
+// نُبقي في الذاكرة أقرب لحظة نهاية بين المناوبات المفعّلة، فلا نلمس القاعدة إطلاقاً ما دام
+// لم يحن موعد. عند حلوله (أو عند تشغيل الخادم بعد نوم، أو بعد أي تعديل للمناوبة) نُطفئ
+// كل مناوبة انتهت ثم نعيد حساب الموعد القادم. يُستدعى قبل كل طلب API (server.js) فيرى
+// المريض والصيدلي والإدارة الحالة الصحيحة فوراً، ودورياً كل دقيقة والخادم مستيقظ.
+//
+// الإطفاء يمس on_duty وحده: يبقى اليوم والساعات محفوظين فيجدهما الصيدلي جاهزين لمناوبته
+// التالية، وتبقى on_duty_ends_at شاهداً على أن المناوبة انتهت تلقائياً (لوحة الصيدلي تعرض ذلك).
+// ولا نغيّر duty_updated_by: آخر من عدّل المناوبة فعلاً ما زال هو نفسه.
+let dutyNextExpiry;          // undefined = غير معروف بعد، null = لا مؤقت فعّال، رقم = أقرب نهاية
+let dutyExpiryRun = null;    // عملية جارية، كي لا تتكرر مع الطلبات المتزامنة
+function expireEndedDuties() {
+  if (dutyNextExpiry === null) return Promise.resolve(0);
+  if (typeof dutyNextExpiry === 'number' && Date.now() < dutyNextExpiry) return Promise.resolve(0);
+  if (!dutyExpiryRun) {
+    dutyExpiryRun = (async () => {
+      try {
+        const { rowCount } = await pool.query(
+          `UPDATE pharmacies SET on_duty = false
+           WHERE on_duty = true AND on_duty_ends_at IS NOT NULL AND on_duty_ends_at <= $1`,
+          [new Date()]
+        );
+        const { rows } = await pool.query(
+          `SELECT MIN(on_duty_ends_at) AS next FROM pharmacies
+           WHERE on_duty = true AND on_duty_ends_at IS NOT NULL`
+        );
+        dutyNextExpiry = rows[0] && rows[0].next ? new Date(rows[0].next).getTime() : null;
+        return rowCount;
+      } catch (err) {
+        dutyNextExpiry = undefined; // نحاول مجدداً مع الطلب التالي
+        throw err;
+      } finally {
+        dutyExpiryRun = null;
+      }
+    })();
+  }
+  return dutyExpiryRun;
 }
 
 // إيقاف كل المناوبات دفعة واحدة — لبدء أسبوع جديد بنقرة بدل عشرات النقرات.
@@ -660,9 +710,11 @@ async function clearAllDuty() {
     `UPDATE pharmacies
      SET on_duty = false, on_duty_day = NULL, on_duty_shift = NULL,
          on_duty_start_time = NULL, on_duty_end_time = NULL,
+         on_duty_starts_at = NULL, on_duty_ends_at = NULL,
          duty_updated_by = 'admin', duty_updated_at = NOW()
      WHERE on_duty = true`
   );
+  dutyNextExpiry = undefined;
   return rowCount;
 }
 
@@ -1699,6 +1751,7 @@ module.exports = {
   addPharmacy,
   deletePharmacy,
   setDutyStatus,
+  expireEndedDuties,
   clearAllDuty,
   setAssistantPhone,
   setWhatsappPhone,
