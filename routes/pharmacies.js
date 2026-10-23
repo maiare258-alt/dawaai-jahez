@@ -8,6 +8,7 @@ const bcrypt = require('bcryptjs');
 
 const crypto = require('crypto');
 const db = require('../db');
+const { computeDutyWindow, MAX_LEAD_MS } = require('../dutyTime');
 const adminAuth = require('../middleware/adminAuth');
 const rateLimit = require('../middleware/rateLimit');
 // حدّ مشترك لمسارات الصيدلي الخاصة التي تتحقق من كلمة المرور (نفس سلة بقية الملفات).
@@ -288,7 +289,9 @@ router.post('/login', rateLimit(10, 15 * 60 * 1000), async (req, res) => {
       on_duty_day: pharmacy.on_duty_day || null,
       on_duty_shift: pharmacy.on_duty_shift || null,
       on_duty_start_time: pharmacy.on_duty_start_time || null,
-      on_duty_end_time: pharmacy.on_duty_end_time || null
+      on_duty_end_time: pharmacy.on_duty_end_time || null,
+      on_duty_starts_at: pharmacy.on_duty_starts_at || null,
+      on_duty_ends_at: pharmacy.on_duty_ends_at || null
     });
   } catch (err) {
     console.error(err);
@@ -333,6 +336,24 @@ router.put('/self/duty', phAuthLimit, async (req, res) => {
     return res.status(400).json({ error: 'قيمة غير صالحة' });
   }
   const onDutyValue = on_duty === true || on_duty === 'true';
+
+  // مؤقت المناوبة: تفعيل المناوبة يتطلب اليوم والساعتين، ومنها تُحسب لحظة انطفائها التلقائي.
+  // الإيقاف لا يحتاج شيئاً.
+  let timer = null;
+  if (onDutyValue) {
+    if (blank(on_duty_day)) return res.status(400).json({ error: 'اختر يوم المناوبة' });
+    if (blank(on_duty_start_time) || blank(on_duty_end_time)) {
+      return res.status(400).json({ error: 'حدّد ساعة بداية المناوبة وساعة نهايتها' });
+    }
+    timer = computeDutyWindow(on_duty_day, on_duty_start_time, on_duty_end_time);
+    if (!timer) return res.status(400).json({ error: 'وقت المناوبة غير صالح' });
+    // المناوبة تظهر للمرضى من لحظة حفظها، فلا نسمح بحفظها قبل موعدها بأكثر من يوم.
+    // هذا يمنع أيضاً خطأً شائعاً: اختيار اليوم الحالي لمناوبة انتهت ساعاتها، فتُفهم الأسبوع القادم.
+    if (timer.startsAt.getTime() - Date.now() > MAX_LEAD_MS) {
+      return res.status(400).json({ error: 'لا يمكن تفعيل المناوبة قبل موعدها بأكثر من يوم' });
+    }
+  }
+
   try {
     const pharmacy = await db.findPharmacyByUsername(username);
     if (!pharmacy) { await bcrypt.compare(String(password || ''), DUMMY_PASSWORD_HASH); return res.status(401).json({ error: 'بيانات الدخول غير صحيحة' }); }
@@ -340,13 +361,15 @@ router.put('/self/duty', phAuthLimit, async (req, res) => {
     const valid = await bcrypt.compare(password, pharmacy.owner_password_hash);
     if (!valid) return res.status(401).json({ error: 'بيانات الدخول غير صحيحة' });
 
-    const updated = await db.setDutyStatus(pharmacy.id, onDutyValue, on_duty_day, on_duty_shift, on_duty_start_time, on_duty_end_time, 'pharmacy');
+    const updated = await db.setDutyStatus(pharmacy.id, onDutyValue, on_duty_day, on_duty_shift, on_duty_start_time, on_duty_end_time, 'pharmacy', timer);
     res.json({
       on_duty: updated.on_duty,
       on_duty_day: updated.on_duty_day,
       on_duty_shift: updated.on_duty_shift,
       on_duty_start_time: updated.on_duty_start_time,
-      on_duty_end_time: updated.on_duty_end_time
+      on_duty_end_time: updated.on_duty_end_time,
+      on_duty_starts_at: updated.on_duty_starts_at || null,
+      on_duty_ends_at: updated.on_duty_ends_at || null
     });
   } catch (err) {
     console.error(err);
@@ -601,11 +624,16 @@ router.put('/:id/duty', adminAuth, async (req, res) => {
     // نموذج الإدارة لا يحوي خانتي الساعات، فلا يرسلهما. حينها نُبقي الساعات التي أدخلها
     // الصيدلي بدل محوها (كان حفظ المدير للمناوبة يمسحها). إيقاف المناوبة يمسحها كالعادة.
     const keepTimes = on_duty_start_time === undefined && on_duty_end_time === undefined;
+    // مؤقت المناوبة: مناوبة الإدارة يدوية بلا مؤقت. لكن إن عدّل المدير فترة مناوبة مؤقَّتة
+    // ضبطها الصيدلي (اليوم نفسه، والساعات نفسها) نُبقي مؤقتها كي لا تفقد انطفاءها التلقائي.
+    const keepTimer = value && keepTimes && existing.on_duty && existing.on_duty_ends_at &&
+      existing.on_duty_day === on_duty_day;
     const updated = await db.setDutyStatus(
       req.params.id, value, on_duty_day, on_duty_shift,
       keepTimes ? existing.on_duty_start_time : on_duty_start_time,
       keepTimes ? existing.on_duty_end_time : on_duty_end_time,
-      'admin'
+      'admin',
+      keepTimer ? { startsAt: existing.on_duty_starts_at, endsAt: existing.on_duty_ends_at } : null
     );
     res.json({
       id: updated.id,
