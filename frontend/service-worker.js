@@ -12,7 +12,7 @@
 //
 // ⚠️ عند تعديل offline.html غيّر رقم الإصدار هنا، كي تُحمَّل النسخة الجديدة على الأجهزة.
 
-const OFFLINE_CACHE = 'dj-offline-v1';
+const OFFLINE_CACHE = 'dj-offline-v2';   // v2: أرقام الطوارئ في صفحة عدم الاتصال (أكتوبر 2026)
 const OFFLINE_URL = '/offline.html';
 
 self.addEventListener('install', (event) => {
