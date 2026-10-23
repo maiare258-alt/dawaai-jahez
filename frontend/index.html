@@ -1451,6 +1451,13 @@
   #duty-checkbox { width: 22px; height: 22px; margin: 0; padding: 0; flex: 0 0 auto; accent-color: #185fa5; cursor: pointer; }
   .duty-hours-block { margin: 6px 0 4px; padding-top: 14px; border-top: 1px dashed #cfe0ef; }
   .duty-hours-heading { margin: 0 0 4px; font-size: 15px; color: #163a5c; }
+  /* مؤقت المناوبة: سطر معلومة هادئ بألوان «ساعات الدوام» نفسها، والرمادي لمناوبة انتهت */
+  .duty-timer-note {
+    margin: 12px 0 0; padding: 10px 14px; border-radius: 12px; font-size: 14px; line-height: 1.7;
+    background: #f4f8fc; border: 1px solid #e3ebf3; color: #163a5c; font-weight: 600;
+  }
+  .duty-timer-note.ended { background: #f6f6f5; border-color: #e4e4e1; color: #5f5e5a; font-weight: 500; }
+  .duty-timer-note bdi { white-space: nowrap; }
   /* تنبيه توقف تحديث الطلبات: كهرماني هادئ، تحذير لا إنذار */
   .orders-sync-note {
     margin: 0 0 14px; padding: 10px 14px; border-radius: 12px;
@@ -2728,8 +2735,8 @@
         <!-- م15: الساعات داخل بطاقة المناوبة نفسها وقبل زر الحفظ. كانت في بطاقة منفصلة بلا زر،
              وزر الحفظ في البطاقة السابقة، فمن يملأ الساعات بعد الحفظ تضيع منه. -->
         <div class="duty-hours-block">
-          <h4 class="duty-hours-heading" id="duty-hours-title">⏱️ تحديد ساعات المناوبة (اختياري)</h4>
-          <p class="muted" style="margin:0 0 10px;" id="duty-hours-desc">حدِّد التوقيت ليظهر إلى جانب يوم المناوبة.</p>
+          <h4 class="duty-hours-heading" id="duty-hours-title">⏱️ ساعات المناوبة</h4>
+          <p class="muted" style="margin:0 0 10px;" id="duty-hours-desc">حدِّد ساعة البداية والنهاية. تنتهي المناوبة وحدها عند ساعة النهاية، فلا حاجة لإيقافها يدوياً.</p>
           <div style="display:flex; gap:12px;">
             <div style="flex:1;">
               <label class="muted" style="font-size:14px; display:block; margin-bottom:4px;" id="duty-start-label" for="duty-start-time">من الساعة</label>
@@ -2742,6 +2749,8 @@
           </div>
         </div>
         <button class="primary" onclick="saveDuty()" id="save-duty-btn">حفظ حالة المناوبة</button>
+        <!-- مؤقت المناوبة: متى تنتهي المناوبة الحالية تلقائياً، أو أن آخر مناوبة انتهت تلقائياً -->
+        <p class="duty-timer-note" id="duty-timer-note" role="status" hidden></p>
       </div>
       <div class="box" style="margin-bottom:20px;">
         <h3 style="margin-top:0;" id="main-phone-title">☎️ الهاتف الأرضي للصيدلية</h3>

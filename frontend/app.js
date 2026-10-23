@@ -302,8 +302,13 @@ const translations = {
     new_orders_title: '🛎️ طلبات جديدة من المرضى',
     duty_status_title: '🕐 حالة المناوبة', duty_checkbox_label: 'صيدليتي مناوبة اليوم',
     save_duty_btn: 'حفظ حالة المناوبة',
-    duty_hours_title: '⏱️ تحديد ساعات المناوبة (اختياري)',
-    duty_hours_desc: 'حدِّد التوقيت ليظهر إلى جانب يوم المناوبة.',
+    duty_hours_title: '⏱️ ساعات المناوبة',
+    duty_hours_desc: 'حدِّد ساعة البداية والنهاية. تنتهي المناوبة وحدها عند ساعة النهاية، فلا حاجة لإيقافها يدوياً.',
+    duty_timer_ends: '⏰ تنتهي مناوبتك تلقائياً: {when}',
+    duty_timer_ended: 'انتهت مناوبتك الأخيرة تلقائياً ({when}). لمناوبة جديدة: ضع العلامة، واختر اليوم، ثم احفظ.',
+    duty_hours_required_error: 'حدّد ساعة بداية المناوبة وساعة نهايتها.',
+    duty_day_required_error: 'اختر يوم المناوبة.',
+    duty_too_early_error: 'لا يمكن تفعيل المناوبة قبل موعدها بأكثر من يوم. تأكد من اليوم المختار.',
     duty_start_label: 'من الساعة', duty_end_label: 'إلى الساعة',
     add_med_title: '💊 إضافة دواء غير موجود بالقائمة',
     add_med_desc: 'إن كان لديك دواء في مخزون صيدليتك ولا يظهر ضمن القائمة، فيمكنك إضافته عبر الحقول أدناه.',
@@ -1016,8 +1021,13 @@ const translations = {
     new_orders_title: '🛎️ New patient orders',
     duty_status_title: '🕐 Duty status', duty_checkbox_label: 'My pharmacy is on duty today',
     save_duty_btn: 'Save duty status',
-    duty_hours_title: '⏱️ Set duty hours (optional)',
-    duty_hours_desc: 'Set a custom time to show alongside the duty day.',
+    duty_hours_title: '⏱️ Duty hours',
+    duty_hours_desc: 'Set the start and end time. Duty ends by itself at the end time, so there is no need to turn it off manually.',
+    duty_timer_ends: '⏰ Your duty ends automatically: {when}',
+    duty_timer_ended: 'Your last duty ended automatically ({when}). For a new duty: tick the box, pick the day, then save.',
+    duty_hours_required_error: 'Set the duty start and end time.',
+    duty_day_required_error: 'Pick the duty day.',
+    duty_too_early_error: 'Duty cannot be turned on more than a day before it starts. Check the selected day.',
     duty_start_label: 'From', duty_end_label: 'To',
     add_med_title: '💊 Add a medicine not in the list',
     add_med_desc: 'If you have a medicine in stock that is not listed, you can add it in the fields below.',
@@ -1666,6 +1676,9 @@ const BACKEND_ERROR_MAP = {
   'يوم المناوبة غير صالح': 'duty_day_invalid_error',
   'فترة المناوبة غير صالحة': 'duty_shift_invalid_error',
   'وقت المناوبة غير صالح': 'duty_time_invalid_error',
+  'حدّد ساعة بداية المناوبة وساعة نهايتها': 'duty_hours_required_error',
+  'اختر يوم المناوبة': 'duty_day_required_error',
+  'لا يمكن تفعيل المناوبة قبل موعدها بأكثر من يوم': 'duty_too_early_error',
   'اسم الدواء طويل جداً (الحد 120 حرفاً)': 'med_name_too_long_error',
   'غير مصرح بالوصول لهذه البيانات': 'forbidden_error'
 };
@@ -1924,6 +1937,7 @@ function applyLanguage() {
   document.getElementById('save-duty-btn').textContent = t('save_duty_btn');
   document.getElementById('duty-hours-title').textContent = t('duty_hours_title');
   document.getElementById('duty-hours-desc').textContent = t('duty_hours_desc');
+  if (currentPharmacy) renderDutyTimer();
   document.getElementById('duty-start-label').textContent = t('duty_start_label');
   document.getElementById('duty-end-label').textContent = t('duty_end_label');
   document.getElementById('main-phone-title').textContent = t('main_phone_title');
@@ -4094,6 +4108,7 @@ function loadDashboard() {
   if (dutyShift.selectedIndex < 0) dutyShift.selectedIndex = 0;
   document.getElementById('duty-start-time').value = currentPharmacy.on_duty_start_time || '';
   document.getElementById('duty-end-time').value = currentPharmacy.on_duty_end_time || '';
+  renderDutyTimer();
   refreshStock();
   loadOrders();
   startOrdersPolling();
@@ -4114,6 +4129,12 @@ async function saveDutyNow() {
   const on_duty_shift = document.getElementById('duty-shift').value;
   const on_duty_start_time = document.getElementById('duty-start-time').value;
   const on_duty_end_time = document.getElementById('duty-end-time').value;
+  // مؤقت المناوبة: لا مناوبة بلا ساعة نهاية. ننبّه قبل الإرسال ونضع المؤشر في الخانة الفارغة
+  if (on_duty && (!on_duty_start_time || !on_duty_end_time)) {
+    customAlert(t('duty_hours_required_error'), 'error');
+    try { document.getElementById(on_duty_start_time ? 'duty-end-time' : 'duty-start-time').focus(); } catch (e) {}
+    return;
+  }
   try {
     const res = await fetchWithTimeout(`${API}/pharmacies/self/duty`, {
       method: 'PUT',
@@ -4135,11 +4156,74 @@ async function saveDutyNow() {
     currentPharmacy.on_duty_shift = data.on_duty_shift;
     currentPharmacy.on_duty_start_time = data.on_duty_start_time;
     currentPharmacy.on_duty_end_time = data.on_duty_end_time;
+    currentPharmacy.on_duty_starts_at = data.on_duty_starts_at || null;
+    currentPharmacy.on_duty_ends_at = data.on_duty_ends_at || null;
+    renderDutyTimer();
+    renderPharmacyHours();
     refreshStock();
     customAlert(t('duty_saved_success'), 'success');
   } catch (err) {
     customAlert(t('server_error_title'), 'error');
   }
+}
+
+// ---------- مؤقت المناوبة (لوحة الصيدلي) ----------
+//
+// الخادم يحسب لحظة انتهاء المناوبة ويُطفئها عندها (dutyTime.js). هنا نعرض للصيدلي متى تنتهي،
+// ونُطفئ الخانة في لوحته المفتوحة عند الموعد نفسه دون انتظار تسجيل دخول جديد.
+// الساعات تبقى في خاناتها بعد الانتهاء، فتكون جاهزة لمناوبته التالية.
+const DUTY_WEEKDAYS = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
+let dutyTimerHandle = null;
+
+// لحظة (نص ISO) إلى «اليوم الساعة» بتوقيت سوريا، مثل «الاثنين 3:00 ص»
+function formatDutyMoment(iso) {
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return '';
+  const parts = {};
+  new Intl.DateTimeFormat('en-US', {
+    timeZone: DAMASCUS_TZ, weekday: 'short', hour: '2-digit', minute: '2-digit', hourCycle: 'h23'
+  }).formatToParts(d).forEach(p => { parts[p.type] = p.value; });
+  const idx = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].indexOf(parts.weekday);
+  const day = idx >= 0 ? translateDutyDay(DUTY_WEEKDAYS[idx]) : '';
+  return `${day} ${formatTime12(`${parts.hour}:${parts.minute}`)}`.trim();
+}
+
+function renderDutyTimer() {
+  const note = document.getElementById('duty-timer-note');
+  if (dutyTimerHandle) { clearTimeout(dutyTimerHandle); dutyTimerHandle = null; }
+  if (!note) return;
+  const p = currentPharmacy;
+  const endsMs = p && p.on_duty_ends_at ? Date.parse(p.on_duty_ends_at) : NaN;
+  if (!p || isNaN(endsMs)) { note.hidden = true; note.textContent = ''; return; }
+
+  // اللوحة حُمّلت ومناوبتها انتهت للتو (قبل أن يُطفئها الخادم): نُطفئها هنا أولاً
+  if (p.on_duty && endsMs <= Date.now()) { checkDutyExpiredLocally(); return; }
+  const whenHtml = `<bdi>${escapeHtml(formatDutyMoment(p.on_duty_ends_at))}</bdi>`;
+  if (p.on_duty) {
+    note.classList.remove('ended');
+    note.innerHTML = escapeHtml(t('duty_timer_ends')).split('{when}').join(whenHtml);
+    // المؤقت في المتصفح محدود بنحو 24 يوماً، والمناوبة لا تتجاوز يومين، فلا قيد عملياً
+    dutyTimerHandle = setTimeout(checkDutyExpiredLocally, Math.min(endsMs - Date.now() + 1000, 2 * 86400000));
+  } else {
+    note.classList.add('ended');
+    note.innerHTML = escapeHtml(t('duty_timer_ended')).split('{when}').join(whenHtml);
+  }
+  note.hidden = false;
+}
+
+// حان موعد النهاية واللوحة مفتوحة: نعكس ما فعله الخادم دون طلب جديد
+function checkDutyExpiredLocally() {
+  const p = currentPharmacy;
+  if (!p || !p.on_duty || !p.on_duty_ends_at) return;
+  if (Date.parse(p.on_duty_ends_at) > Date.now()) { renderDutyTimer(); return; }
+  p.on_duty = false;
+  const box = document.getElementById('duty-checkbox');
+  if (box) box.checked = false;
+  onDutyToggle();
+  renderDutyTimer();
+  renderPharmacyHours();
+  // خانة «المناوبة اليوم» في الإحصاءات أعلى اللوحة
+  if (Array.isArray(pharmacistStockCache) && pharmacistStockCache.length) renderDashboardStats(pharmacistStockCache);
 }
 
 // ---------- ساعات الدوام (لوحة الصيدلي) ----------
@@ -4468,6 +4552,7 @@ async function saveAssistantPhoneNow() {
 
 function logout() {
   currentPharmacy = null;
+  renderDutyTimer();
   pushState.pharmacy = null;
   renderPushCard('pharmacy');
   stopOrdersPolling();
@@ -6007,6 +6092,7 @@ function whenVisible(fn) {
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) return;
   try { loadOnDuty(); } catch (e) {}
+  try { checkDutyExpiredLocally(); } catch (e) {}
   if (myOrdersPollInterval) try { checkMyOrdersStatus(); } catch (e) {}
   if (ordersPollInterval) try { loadOrders(); } catch (e) {}
   if (nursingPollInterval) try { pollNurses(); } catch (e) {}
