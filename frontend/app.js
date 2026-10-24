@@ -23,6 +23,11 @@ let managerPassword = null;
 let managerSessionId = 0;
 let managerLoadedOnce = false;
 let managerTab = 'requests';
+// تبويبات لوحة الإدارة. آخر تبويب مختار يُحفظ على الجهاز (اسمه فقط، لا شيء حساس)،
+// فتعود اللوحة إليه بعد إعادة التحميل أو الدخول من جديد.
+const ADMIN_TABS = ['overview', 'pharmacies', 'medicines', 'nursing', 'settings'];
+const ADMIN_TAB_ICONS = { overview: '📊', pharmacies: '🏥', medicines: '💊', nursing: '🩺', settings: '⚙️' };
+let adminTab = ADMIN_TABS.includes(storageGet('dj_admin_tab')) ? storageGet('dj_admin_tab') : 'overview';
 let managerCache = { nurses: [], requests: [], pendingRatings: [] };
 let cart = readJsonArray('cart');
 // التصنيف الحالي لصفحة البحث: 'medicine' (الرئيسية) أو 'cosmetic' (مستحضرات تجميل)
@@ -269,6 +274,10 @@ const translations = {
     mgr_panel_title: 'لوحة مدير التمريض 🩺', mgr_tabs_aria: 'أقسام لوحة مدير التمريض',
     mgr_stat_new: 'طلبات جديدة', mgr_stat_available: 'ممرضون متاحون', mgr_stat_pending: 'تقييمات تنتظر',
     mgr_tab_requests: 'الطلبات', mgr_tab_nurses: 'الممرضون', mgr_tab_ratings: 'التقييمات',
+    admin_tabs_aria: 'أقسام لوحة الإدارة',
+    admin_tab_overview: 'عامة', admin_tab_pharmacies: 'الصيدليات', admin_tab_medicines: 'الأدوية', admin_tab_nursing: 'التمريض', admin_tab_settings: 'الإعدادات',
+    admin_tab_full_overview: 'نظرة عامة',
+    admin_tab_pending_aria: '{n} بانتظار المراجعة',
     nreq_empty_title: 'لا طلبات بعد', nreq_empty_sub: 'حين يطلب مريض زيارة تمريضية يظهر طلبه هنا.',
     nreq_new_badge: 'جديد', nreq_done_badge: '✓ تم التواصل', nreq_mark_done: '✓ تم التواصل',
     nreq_nurse_label: 'الممرض المطلوب', nreq_nurse_deleted: '(حُذف من القائمة)',
@@ -989,6 +998,10 @@ const translations = {
     mgr_panel_title: 'Nursing manager panel 🩺', mgr_tabs_aria: 'Nursing manager panel sections',
     mgr_stat_new: 'New requests', mgr_stat_available: 'Available nurses', mgr_stat_pending: 'Reviews waiting',
     mgr_tab_requests: 'Requests', mgr_tab_nurses: 'Nurses', mgr_tab_ratings: 'Reviews',
+    admin_tabs_aria: 'Admin panel sections',
+    admin_tab_overview: 'Overview', admin_tab_pharmacies: 'Pharmacies', admin_tab_medicines: 'Medicines', admin_tab_nursing: 'Nursing', admin_tab_settings: 'Settings',
+    admin_tab_full_overview: 'Overview',
+    admin_tab_pending_aria: '{n} awaiting review',
     nreq_empty_title: 'No requests yet', nreq_empty_sub: 'When a patient requests a nursing visit, it appears here.',
     nreq_new_badge: 'New', nreq_done_badge: '✓ Contacted', nreq_mark_done: '✓ Contacted',
     nreq_nurse_label: 'Requested nurse', nreq_nurse_deleted: '(removed from the list)',
@@ -5312,6 +5325,8 @@ async function checkAdminPasswordNow() {
     adminPassword = password;
     adminSessionId++;
     markStaffDevice();
+    // آخر تبويب اختير على هذا الجهاز (قد يكون تغيّر في تبويب آخر منذ فتح الصفحة)
+    { const saved = storageGet('dj_admin_tab'); if (ADMIN_TABS.includes(saved)) adminTab = saved; }
     document.getElementById('admin-auth-section').innerHTML = '';
     document.getElementById('admin-panel').style.display = 'block';
     renderAdminPanel();
@@ -5656,6 +5671,82 @@ function renderStatsSection(stats) {
   `;
 }
 
+// ---------- تبويبات لوحة الإدارة ----------
+// كانت اللوحة صفحة واحدة بطول نحو 16 شاشة هاتف. الأقسام الآن في خمسة تبويبات، والأقسام غير
+// الظاهرة تبقى في الصفحة مخفية لا محذوفة: ما كُتب فيها يبقى، والمزامنة تستمر في الخلفية.
+
+// رقم التنبيه: التقييمات التي تنتظر قرار الإدارة، وهي وحدها في اللوحة ما ينتظر قراراً
+function adminTabCount(key) {
+  if (key !== 'nursing') return 0;
+  return (adminDataCache.pendingRatings || []).length;
+}
+
+function adminTabsHtml() {
+  return `
+    <div class="admin-tabs" role="tablist" aria-label="${t('admin_tabs_aria')}" onkeydown="onAdminTabsKey(event)">
+      ${ADMIN_TABS.map(k => {
+        const n = adminTabCount(k);
+        return `
+        <button type="button" class="admin-tab" role="tab" id="admin-tab-${k}" aria-controls="admin-pane-${k}"
+          aria-selected="${adminTab === k}" tabindex="${adminTab === k ? 0 : -1}" onclick="setAdminTab('${k}')">
+          <span class="admin-tab-ico" aria-hidden="true">${ADMIN_TAB_ICONS[k]}</span>
+          <span class="admin-tab-label">${t('admin_tab_' + k)}</span><span class="admin-tab-label-full">${t(k === 'overview' ? 'admin_tab_full_overview' : 'admin_tab_' + k)}</span>
+          <span class="admin-tab-count" id="admin-tab-count-${k}"${n ? ` aria-label="${tFormat('admin_tab_pending_aria', { n })}"` : ''}>${n || ''}</span>
+        </button>`;
+      }).join('')}
+    </div>`;
+}
+
+function updateAdminTabCounts() {
+  for (const k of ADMIN_TABS) {
+    const el = document.getElementById(`admin-tab-count-${k}`);
+    if (!el) continue;
+    const n = adminTabCount(k);
+    el.textContent = n || '';
+    if (n) el.setAttribute('aria-label', tFormat('admin_tab_pending_aria', { n }));
+    else el.removeAttribute('aria-label');
+  }
+}
+
+function setAdminTab(key) {
+  if (!ADMIN_TABS.includes(key)) return;
+  adminTab = key;
+  storageSet('dj_admin_tab', key);
+  for (const k of ADMIN_TABS) {
+    const tab = document.getElementById(`admin-tab-${k}`);
+    const pane = document.getElementById(`admin-pane-${k}`);
+    if (!tab || !pane) continue;
+    tab.setAttribute('aria-selected', String(k === key));
+    tab.tabIndex = k === key ? 0 : -1;
+    pane.hidden = k !== key;
+  }
+  // الشريط ثابت أعلى الشاشة أثناء التمرير: نعيد المدير إلى بداية القسم الجديد تحته مباشرة
+  const tabs = document.querySelector('.admin-tabs');
+  const pane = document.getElementById(`admin-pane-${key}`);
+  if (tabs && pane) {
+    const under = tabs.getBoundingClientRect().bottom + 8;
+    const top = pane.getBoundingClientRect().top;
+    if (top < under) window.scrollBy({ top: top - under });
+  }
+}
+
+// الأسهم تنقل بين التبويبات (والاتجاه يتبع اللغة)، وHome وEnd إلى الطرفين
+function onAdminTabsKey(e) {
+  const i = ADMIN_TABS.indexOf(adminTab);
+  const rtl = document.documentElement.dir === 'rtl';
+  let next = null;
+  if (e.key === 'ArrowLeft') next = rtl ? i + 1 : i - 1;
+  else if (e.key === 'ArrowRight') next = rtl ? i - 1 : i + 1;
+  else if (e.key === 'Home') next = 0;
+  else if (e.key === 'End') next = ADMIN_TABS.length - 1;
+  if (next === null) return;
+  e.preventDefault();
+  const key = ADMIN_TABS[(next + ADMIN_TABS.length) % ADMIN_TABS.length];
+  setAdminTab(key);
+  const tab = document.getElementById(`admin-tab-${key}`);
+  if (tab) tab.focus();
+}
+
 // إعادة رسم اللوحة من آخر بيانات محفوظة بدون أي طلب شبكة جديد (تبديل اللغة، أو بعد أي إجراء إداري)
 // أقسام في اللوحة تُملأ بعد رسمها بجزء من الثانية (الإحصاءات، والإعلانات، وحالة النظام). كانت
 // الصفحة تقصر في تلك اللحظة فتقفز إلى الأعلى ثم تعود، فتتحرك الزخارف خلفها. نُبقي ارتفاع اللوحة
@@ -5682,6 +5773,9 @@ function renderAdminPanelUI({ refresh = true } = {}) {
       <h2 class="dash-title" style="margin-bottom:0;">${t('admin_dashboard_title')}</h2>
       <button class="action-pill-btn blue" onclick="logoutAdmin()">${t('logout_btn')}</button>
     </div>
+    ${adminTabsHtml()}
+
+    <div class="admin-pane" id="admin-pane-overview" role="tabpanel" aria-labelledby="admin-tab-overview"${adminTab === 'overview' ? '' : ' hidden'}>
     <div class="stats-grid stats-grid-3">
       <div class="stat-card">
         <div class="stat-value">${pharmacies.length}</div>
@@ -5699,6 +5793,33 @@ function renderAdminPanelUI({ refresh = true } = {}) {
 
     ${renderStatsSection(stats)}
 
+    <div class="box" style="margin-bottom:20px;">
+      <h3 style="margin-top:0;">${t('visits_title')}</h3>
+      <p class="muted" style="margin-top:6px;">${t('visits_desc')}</p>
+      <div class="demand-toolbar">
+        <span class="muted">${t('demand_period')}</span>
+        <button type="button" class="visits-period-btn" data-days="7" onclick="loadVisitsReport(7)">${t('demand_days_7')}</button>
+        <button type="button" class="visits-period-btn" data-days="30" onclick="loadVisitsReport(30)">${t('demand_days_30')}</button>
+        <button type="button" class="visits-period-btn" data-days="90" onclick="loadVisitsReport(90)">${t('demand_days_90')}</button>
+      </div>
+      <div id="visits-report" class="demand-report"></div>
+    </div>
+
+    <div class="box" style="margin-bottom:20px;">
+      <h3 style="margin-top:0;">${t('demand_title')}</h3>
+      <p class="muted" style="margin-top:6px;">${t('demand_desc')}</p>
+      <div class="demand-toolbar">
+        <span class="muted">${t('demand_period')}</span>
+        <button type="button" class="demand-period-btn" data-days="7" onclick="loadDemandReport(7)">${t('demand_days_7')}</button>
+        <button type="button" class="demand-period-btn" data-days="30" onclick="loadDemandReport(30)">${t('demand_days_30')}</button>
+        <button type="button" class="demand-period-btn" data-days="90" onclick="loadDemandReport(90)">${t('demand_days_90')}</button>
+        <button type="button" class="btn-outline blue demand-export-btn" onclick="exportDemandCsv()">${t('demand_export')}</button>
+      </div>
+      <div id="demand-report" class="demand-report"></div>
+    </div>
+    </div>
+
+    <div class="admin-pane" id="admin-pane-pharmacies" role="tabpanel" aria-labelledby="admin-tab-pharmacies"${adminTab === 'pharmacies' ? '' : ' hidden'}>
     <div class="box" style="margin-bottom:20px;">
       <h3 style="margin-top:0;">${t('add_pharmacy_title')}</h3>
       <input id="ph-name" placeholder="${t('pharmacy_name_placeholder')}">
@@ -5780,31 +5901,113 @@ function renderAdminPanelUI({ refresh = true } = {}) {
     </div>
 
     <div class="box" style="margin-bottom:20px;">
-      <h3 style="margin-top:0;">${t('visits_title')}</h3>
-      <p class="muted" style="margin-top:6px;">${t('visits_desc')}</p>
-      <div class="demand-toolbar">
-        <span class="muted">${t('demand_period')}</span>
-        <button type="button" class="visits-period-btn" data-days="7" onclick="loadVisitsReport(7)">${t('demand_days_7')}</button>
-        <button type="button" class="visits-period-btn" data-days="30" onclick="loadVisitsReport(30)">${t('demand_days_30')}</button>
-        <button type="button" class="visits-period-btn" data-days="90" onclick="loadVisitsReport(90)">${t('demand_days_90')}</button>
-      </div>
-      <div id="visits-report" class="demand-report"></div>
+      <h3 style="margin-top:0;">${t('admin_username_title')}</h3>
+      <p class="muted" style="margin-top:6px;">${t('admin_username_desc')}</p>
+      <input type="search" id="admin-username-search" class="admin-username-search"
+             placeholder="${t('admin_username_search')}"
+             oninput="onAdminUsernameSearch(this)" onsearch="onAdminUsernameSearch(this)"
+             onchange="onAdminUsernameSearch(this)" value="${escapeHtml(adminUsernameFilter)}">
+      <div id="admin-username-list" class="admin-username-list"></div>
     </div>
 
     <div class="box" style="margin-bottom:20px;">
-      <h3 style="margin-top:0;">${t('demand_title')}</h3>
-      <p class="muted" style="margin-top:6px;">${t('demand_desc')}</p>
-      <div class="demand-toolbar">
-        <span class="muted">${t('demand_period')}</span>
-        <button type="button" class="demand-period-btn" data-days="7" onclick="loadDemandReport(7)">${t('demand_days_7')}</button>
-        <button type="button" class="demand-period-btn" data-days="30" onclick="loadDemandReport(30)">${t('demand_days_30')}</button>
-        <button type="button" class="demand-period-btn" data-days="90" onclick="loadDemandReport(90)">${t('demand_days_90')}</button>
-        <button type="button" class="btn-outline blue demand-export-btn" onclick="exportDemandCsv()">${t('demand_export')}</button>
-      </div>
-      <div id="demand-report" class="demand-report"></div>
-      <div id="launch-zone"></div>
+      <h3 style="margin-top:0;">${t('admin_address_title')}</h3>
+      <p class="muted" style="margin-top:6px;">${t('admin_address_desc')}</p>
+      <input type="search" id="admin-address-search" class="admin-username-search"
+             placeholder="${t('admin_address_search')}"
+             oninput="onAdminAddressSearch(this)" onsearch="onAdminAddressSearch(this)"
+             onchange="onAdminAddressSearch(this)" value="${escapeHtml(adminAddressFilter)}">
+      <div id="admin-address-list" class="admin-address-list"></div>
     </div>
 
+    <div class="box" style="margin-bottom:20px;">
+      <div class="admin-duty-head">
+        <h3 style="margin:0;">${t('admin_duty_title')}</h3>
+        <span class="muted" id="admin-duty-count"></span>
+      </div>
+      <p class="muted" style="margin-top:6px;">${t('admin_duty_desc')}</p>
+      <div class="admin-duty-tools">
+        <input type="search" id="admin-duty-search" placeholder="${t('admin_duty_search')}"
+               oninput="onAdminDutySearch(this)" onsearch="onAdminDutySearch(this)"
+               onchange="onAdminDutySearch(this)" value="${escapeHtml(adminDutyFilter)}">
+        <button class="btn-outline red" onclick="clearAllDuty()">${t('admin_duty_clear_all')}</button>
+      </div>
+      <div id="admin-duty-list" class="admin-duty-list"></div>
+    </div>
+    </div>
+
+    <div class="admin-pane" id="admin-pane-medicines" role="tabpanel" aria-labelledby="admin-tab-medicines"${adminTab === 'medicines' ? '' : ' hidden'}>
+    <div class="box" style="margin-bottom:20px;">
+      <h3 style="margin-top:0;">${t('add_medicine_title_admin')}</h3>
+      <input id="med-name" maxlength="120" placeholder="${t('med_name_placeholder')}">
+      <input id="med-generic" placeholder="${t('generic_name_placeholder')}">
+      <input id="med-alt" placeholder="${t('alt_names_placeholder')}">
+      <select id="med-category" aria-label="${t('a11y_med_category')}" onchange="updateMedNamePlaceholder('med-category', 'med-name')">
+        <option value="medicine">${t('cat_medicine')}</option>
+        <option value="cosmetic">${t('cat_cosmetic')}</option>
+      </select>
+      <button class="primary" id="add-medicine-admin-btn" onclick="addMedicineAdmin()">${t('add_med_btn')}</button>
+    </div>
+
+    <h3>${t('registered_medicines_title')} (${medicines.length})</h3>
+    <div class="stock-table-wrap" style="margin-bottom:20px;">
+      <div class="stock-scroll">
+        <div class="stock-table-header"><span>${t('stock_table_medicine')}</span><span class="col-action">${t('action_col_header')}</span></div>
+        ${medicines.map(m => `
+          <div class="row">
+            <span>${escapeHtml(m.name)} <span class="muted" style="font-size:12px;">${m.category === 'cosmetic' ? '💄 ' + t('cat_cosmetic') : '💊 ' + t('cat_medicine')}</span></span>
+            <button class="btn-outline red small table-action-btn" onclick="deleteMedicineAdmin(${m.id})">${t('delete_btn')}</button>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+    </div>
+
+    <div class="admin-pane" id="admin-pane-nursing" role="tabpanel" aria-labelledby="admin-tab-nursing"${adminTab === 'nursing' ? '' : ' hidden'}>
+    <div class="box" style="margin-bottom:20px;">
+      <h3 style="margin-top:0;">${t('add_nurse_title')}</h3>
+      <input id="nurse-name" placeholder="${t('nurse_name_placeholder')}">
+      <input id="nurse-specialty" placeholder="${t('specialty_placeholder')}">
+      <input id="nurse-university" placeholder="${t('university_placeholder')}">
+      <input id="nurse-grad-year" placeholder="${t('grad_year_placeholder')}">
+      <input id="nurse-phone" placeholder="${t('phone_placeholder')}">
+      <input id="nurse-exp-years" type="number" min="0" max="60" inputmode="numeric" placeholder="${t('exp_years_placeholder')}">
+      <input id="nurse-services" maxlength="200" placeholder="${t('services_placeholder')}">
+      ${locationFieldsHtml(k => `nurse-${k}`, null)}
+      <p class="muted" style="margin:-2px 0 10px; font-size:13px;">${t('nurse_cert_after_add_hint')}</p>
+      <button class="primary" id="add-nurse-btn" onclick="addNurseAdmin()">${t('add_nurse_btn')}</button>
+    </div>
+
+    <h3 id="admin-nurses-title">${t('registered_nurses_title')} (${nurses.length})</h3>
+    <div class="cert-storage-bar">
+      <span class="muted">${t('cert_storage_label')}</span>
+      <span id="cert-storage-usage">…</span>
+      <button type="button" class="btn-outline blue small" onclick="checkCertStorage()">${t('cert_storage_check_btn')}</button>
+    </div>
+    <div class="stock-table-wrap" style="margin-bottom:20px;">
+      <div class="stock-scroll" id="admin-nurses-list">${adminNursesListHtml(nurses)}</div>
+    </div>
+
+    ${managerSettingsCardHtml(managerSettings)}
+    ${adminRequestsSectionHtml(nurseRequests)}
+
+    <div id="pending-ratings-wrap" style="${pendingRatings.length === 0 ? 'display:none;' : ''}">
+      <div class="orders-wrap">
+        <h3 style="margin-top:0;">${t('pending_ratings_title')} (<span id="pending-ratings-count">${pendingRatings.length}</span>)</h3>
+        <div id="pending-ratings-list">${renderPendingRatingsCards(pendingRatings)}</div>
+      </div>
+    </div>
+
+    <div class="box" style="margin-bottom:20px;">
+      <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px;">
+        <h3 style="margin:0;">${t('published_ratings_title')}</h3>
+        <button class="btn-outline blue small" onclick="toggleApprovedRatingsAdmin()" id="toggle-approved-ratings-btn">${t('show_ratings_btn')}</button>
+      </div>
+      <div id="approved-ratings-list" style="display:none; margin-top:14px;"></div>
+    </div>
+    </div>
+
+    <div class="admin-pane" id="admin-pane-settings" role="tabpanel" aria-labelledby="admin-tab-settings"${adminTab === 'settings' ? '' : ' hidden'}>
     <div class="box" style="margin-bottom:20px;">
       <h3 style="margin-top:0;">${t('ads_title')}</h3>
       <p class="muted" style="margin-top:6px;">${t('ads_desc')}</p>
@@ -5870,106 +6073,8 @@ function renderAdminPanelUI({ refresh = true } = {}) {
       <button class="primary" id="backup-btn" onclick="downloadBackup()">${t('backup_btn')}</button>
     </div>
 
-    <div class="box" style="margin-bottom:20px;">
-      <h3 style="margin-top:0;">${t('admin_username_title')}</h3>
-      <p class="muted" style="margin-top:6px;">${t('admin_username_desc')}</p>
-      <input type="search" id="admin-username-search" class="admin-username-search"
-             placeholder="${t('admin_username_search')}"
-             oninput="onAdminUsernameSearch(this)" onsearch="onAdminUsernameSearch(this)"
-             onchange="onAdminUsernameSearch(this)" value="${escapeHtml(adminUsernameFilter)}">
-      <div id="admin-username-list" class="admin-username-list"></div>
-    </div>
-
-    <div class="box" style="margin-bottom:20px;">
-      <h3 style="margin-top:0;">${t('admin_address_title')}</h3>
-      <p class="muted" style="margin-top:6px;">${t('admin_address_desc')}</p>
-      <input type="search" id="admin-address-search" class="admin-username-search"
-             placeholder="${t('admin_address_search')}"
-             oninput="onAdminAddressSearch(this)" onsearch="onAdminAddressSearch(this)"
-             onchange="onAdminAddressSearch(this)" value="${escapeHtml(adminAddressFilter)}">
-      <div id="admin-address-list" class="admin-address-list"></div>
-    </div>
-
-    <div class="box" style="margin-bottom:20px;">
-      <div class="admin-duty-head">
-        <h3 style="margin:0;">${t('admin_duty_title')}</h3>
-        <span class="muted" id="admin-duty-count"></span>
-      </div>
-      <p class="muted" style="margin-top:6px;">${t('admin_duty_desc')}</p>
-      <div class="admin-duty-tools">
-        <input type="search" id="admin-duty-search" placeholder="${t('admin_duty_search')}"
-               oninput="onAdminDutySearch(this)" onsearch="onAdminDutySearch(this)"
-               onchange="onAdminDutySearch(this)" value="${escapeHtml(adminDutyFilter)}">
-        <button class="btn-outline red" onclick="clearAllDuty()">${t('admin_duty_clear_all')}</button>
-      </div>
-      <div id="admin-duty-list" class="admin-duty-list"></div>
-    </div>
-
-    <div class="box" style="margin-bottom:20px;">
-      <h3 style="margin-top:0;">${t('add_medicine_title_admin')}</h3>
-      <input id="med-name" maxlength="120" placeholder="${t('med_name_placeholder')}">
-      <input id="med-generic" placeholder="${t('generic_name_placeholder')}">
-      <input id="med-alt" placeholder="${t('alt_names_placeholder')}">
-      <select id="med-category" aria-label="${t('a11y_med_category')}" onchange="updateMedNamePlaceholder('med-category', 'med-name')">
-        <option value="medicine">${t('cat_medicine')}</option>
-        <option value="cosmetic">${t('cat_cosmetic')}</option>
-      </select>
-      <button class="primary" id="add-medicine-admin-btn" onclick="addMedicineAdmin()">${t('add_med_btn')}</button>
-    </div>
-
-    <h3>${t('registered_medicines_title')} (${medicines.length})</h3>
-    <div class="stock-table-wrap" style="margin-bottom:20px;">
-      <div class="stock-scroll">
-        <div class="stock-table-header"><span>${t('stock_table_medicine')}</span><span class="col-action">${t('action_col_header')}</span></div>
-        ${medicines.map(m => `
-          <div class="row">
-            <span>${escapeHtml(m.name)} <span class="muted" style="font-size:12px;">${m.category === 'cosmetic' ? '💄 ' + t('cat_cosmetic') : '💊 ' + t('cat_medicine')}</span></span>
-            <button class="btn-outline red small table-action-btn" onclick="deleteMedicineAdmin(${m.id})">${t('delete_btn')}</button>
-          </div>
-        `).join('')}
-      </div>
-    </div>
-
-    <div class="box" style="margin-bottom:20px;">
-      <h3 style="margin-top:0;">${t('add_nurse_title')}</h3>
-      <input id="nurse-name" placeholder="${t('nurse_name_placeholder')}">
-      <input id="nurse-specialty" placeholder="${t('specialty_placeholder')}">
-      <input id="nurse-university" placeholder="${t('university_placeholder')}">
-      <input id="nurse-grad-year" placeholder="${t('grad_year_placeholder')}">
-      <input id="nurse-phone" placeholder="${t('phone_placeholder')}">
-      <input id="nurse-exp-years" type="number" min="0" max="60" inputmode="numeric" placeholder="${t('exp_years_placeholder')}">
-      <input id="nurse-services" maxlength="200" placeholder="${t('services_placeholder')}">
-      ${locationFieldsHtml(k => `nurse-${k}`, null)}
-      <p class="muted" style="margin:-2px 0 10px; font-size:13px;">${t('nurse_cert_after_add_hint')}</p>
-      <button class="primary" id="add-nurse-btn" onclick="addNurseAdmin()">${t('add_nurse_btn')}</button>
-    </div>
-
-    <h3 id="admin-nurses-title">${t('registered_nurses_title')} (${nurses.length})</h3>
-    <div class="cert-storage-bar">
-      <span class="muted">${t('cert_storage_label')}</span>
-      <span id="cert-storage-usage">…</span>
-      <button type="button" class="btn-outline blue small" onclick="checkCertStorage()">${t('cert_storage_check_btn')}</button>
-    </div>
-    <div class="stock-table-wrap" style="margin-bottom:20px;">
-      <div class="stock-scroll" id="admin-nurses-list">${adminNursesListHtml(nurses)}</div>
-    </div>
-
-    ${managerSettingsCardHtml(managerSettings)}
-    ${adminRequestsSectionHtml(nurseRequests)}
-
-    <div id="pending-ratings-wrap" style="${pendingRatings.length === 0 ? 'display:none;' : ''}">
-      <div class="orders-wrap">
-        <h3 style="margin-top:0;">${t('pending_ratings_title')} (<span id="pending-ratings-count">${pendingRatings.length}</span>)</h3>
-        <div id="pending-ratings-list">${renderPendingRatingsCards(pendingRatings)}</div>
-      </div>
-    </div>
-
-    <div class="box" style="margin-bottom:20px;">
-      <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px;">
-        <h3 style="margin:0;">${t('published_ratings_title')}</h3>
-        <button class="btn-outline blue small" onclick="toggleApprovedRatingsAdmin()" id="toggle-approved-ratings-btn">${t('show_ratings_btn')}</button>
-      </div>
-      <div id="approved-ratings-list" style="display:none; margin-top:14px;"></div>
+    <!-- الإطلاق الرسمي: في تبويب الإعدادات (كان داخل بطاقة تحليل الطلب) -->
+    <div id="launch-zone"></div>
     </div>
   `;
 
@@ -9577,6 +9682,8 @@ async function loadPendingRatingsForAdmin() {
     wrap.style.display = ratings.length === 0 ? 'none' : 'block';
     list.innerHTML = renderPendingRatingsCards(ratings);
     if (countEl) countEl.textContent = ratings.length;
+    adminDataCache.pendingRatings = ratings;
+    updateAdminTabCounts();   // رقم التنبيه على تبويب التمريض
   } catch (err) { /* تجاهل بصمت، رح يعيد المحاولة بالجولة الجاية */ }
 }
 
